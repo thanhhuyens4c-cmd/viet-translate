@@ -65,10 +65,10 @@
                 <button class="tab-btn active shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold" onclick="switchTab('basic')">{{ t('account_profile_page.tab_basic') }}</button>
                 {% if user.role == 'translator' %}
                 <button class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('translator')">{{ t('account_profile_page.tab_translator') }}</button>
-                <button class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('preferences')">{{ 'Cài đặt nhận việc' if current_lang == 'vi' else 'Job Preferences' }}</button>
+                <button class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('preferences')">{{ t('auto.cài_đặt_nhận_việc') }}</button>
                 {% endif %}
                 {% if user.role == 'hirer' %}
-                <button class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('hirer')">{{ 'Hồ sơ Công ty' if current_lang == 'vi' else 'Company Profile' }}</button>
+                <button class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('hirer')">{{ t('auto.hồ_sơ_công_ty') }}</button>
                 {% endif %}
                 <button class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('security')">{{ t('account_profile_page.tab_security') }}</button>
             </div>
@@ -275,36 +275,36 @@
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
                     <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                        {{ 'Hồ sơ Công ty / Tổ chức' if current_lang == 'vi' else 'Company / Organization Profile' }}
+                        {{ t('auto.hồ_sơ_công_ty__tổ_ch') }}
                     </h2>
                     
                     <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-5">
                         <input type="hidden" name="action" value="hirer_profile">
                         
                         <div class="space-y-1.5">
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{ 'Chức vụ' if current_lang == 'vi' else 'Title' }}</label>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{ t('auto.chức_vụ') }}</label>
                             <input type="text" name="title" value="{{ user.hirer_profile.title if user.hirer_profile else '' }}" 
                                 class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                placeholder="{{ 'Ví dụ: Trưởng phòng Nhân sự, CEO...' if current_lang == 'vi' else 'e.g., HR Manager, CEO...' }}">
+                                placeholder="{{ t('auto.ví_dụ_trưởng_phòng_n') }}">
                         </div>
                         
                         <div class="space-y-1.5">
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{ 'Công ty' if current_lang == 'vi' else 'Company' }}</label>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{ t('auto.công_ty') }}</label>
                             <input type="text" name="company" value="{{ user.hirer_profile.company if user.hirer_profile else '' }}" 
                                 class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                placeholder="{{ 'Tên công ty hoặc tổ chức' if current_lang == 'vi' else 'Company or Organization Name' }}">
+                                placeholder="{{ t('auto.tên_công_ty_hoặc_tổ') }}">
                         </div>
 
                         <div class="space-y-1.5">
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{ 'Khu vực' if current_lang == 'vi' else 'Location' }}</label>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{ t('auto.khu_vực') }}</label>
                             <input type="text" name="location" value="{{ user.hirer_profile.location if user.hirer_profile else '' }}" 
                                 class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                placeholder="{{ 'Ví dụ: Hà Nội, TP. Hồ Chí Minh...' if current_lang == 'vi' else 'e.g., Hanoi, HCMC...' }}">
+                                placeholder="{{ t('auto.ví_dụ_hà_nội_tp_hồ_c') }}">
                         </div>
 
                         <div class="pt-2">
                             <button type="submit" class="w-full sm:w-auto px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-sm transition">
-                                {{ 'Lưu Thay Đổi' if current_lang == 'vi' else 'Save Changes' }}
+                                {{ t('auto.lưu_thay_đổi') }}
                             </button>
                         </div>
                     </form>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ 'Hồ sơ Khách hàng' if current_lang == 'vi' else 'Hirer Profile' }} - {{ user.name }}{% endblock %}
+{% block title %}{{ t('auto.hồ_sơ_khách_hàng') }} - {{ user.name }}{% endblock %}
 
 {% block content %}
 <div class="mesh-hero-bg border-b border-slate-200/70 py-12 md:py-16">
@@ -22,7 +22,7 @@
     <div class="flex flex-wrap items-center justify-center gap-3 mt-4 text-xs font-semibold text-slate-500">
       <span class="bg-white/80 border border-slate-200/60 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
         <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-        {{ 'Tham gia từ:' if current_lang == 'vi' else 'Joined:' }} {{ user.created_at.strftime('%m/%Y') }}
+        {{ t('auto.tham_gia_từ') }} {{ user.created_at.strftime('%m/%Y') }}
       </span>
       {% if profile and profile.location %}
       <span class="bg-white/80 border border-slate-200/60 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
@@ -42,7 +42,7 @@
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
       </div>
       <div class="text-3xl font-extrabold text-slate-900 mb-1">{{ total_jobs }}</div>
-      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ 'Job đã đăng' if current_lang == 'vi' else 'Jobs Posted' }}</div>
+      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ t('auto.job_đã_đăng') }}</div>
     </div>
     
     <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-soft text-center">
@@ -50,7 +50,7 @@
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       </div>
       <div class="text-3xl font-extrabold text-slate-900 mb-1">{{ completed_contracts }}</div>
-      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ 'Contract hoàn thành' if current_lang == 'vi' else 'Contracts Completed' }}</div>
+      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ t('auto.contract_hoàn_thành') }}</div>
     </div>
 
     <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-soft text-center">
@@ -64,7 +64,7 @@
           --
         {% endif %}
       </div>
-      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ 'Đánh giá' if current_lang == 'vi' else 'Rating' }}</div>
+      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ t('auto.đánh_giá_1') }}</div>
     </div>
 
   </div>

@@ -16,7 +16,7 @@
                     </div>
                     <h2 class="font-bold text-slate-900 text-sm sm:text-base">{{ current_user.name }}</h2>
                     <p class="text-xs text-slate-400 mt-0.5">
-                        {{ current_user.role == 'hirer' and ('Khách Hàng' if current_lang == 'vi' else 'Client') or ('Phiên Dịch Viên' if current_lang == 'vi' else 'Translator') }}
+                        {{ current_user.role == 'hirer' and t('auto.khách_hàng') or t('auto.phiên_dịch_viên') }}
                     </p>
                 </div>
                 <nav class="p-3 space-y-1">
@@ -62,17 +62,17 @@
                                 </td>
                                 <td class="py-4">
                                     {% if contract.status == 'escrow_pending' %}
-                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200/70">{{ 'Chờ Escrow' if current_lang == 'vi' else 'Escrow Pending' }}</span>
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200/70">{{ t('auto.chờ_escrow') }}</span>
                                     {% elif contract.status == 'in_progress' %}
-                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-brand-50 text-brand-800 border border-brand-200/70">{{ 'Đang thực hiện' if current_lang == 'vi' else 'In Progress' }}</span>
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-brand-50 text-brand-800 border border-brand-200/70">{{ t('auto.đang_thực_hiện') }}</span>
                                     {% elif contract.status == 'completed' %}
-                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/70">{{ 'Hoàn tất' if current_lang == 'vi' else 'Completed' }}</span>
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/70">{{ t('auto.hoàn_tất') }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="py-4 text-slate-400 text-xs">{{ contract.created_at.strftime('%d/%m/%Y') }}</td>
                                 <td class="py-4 text-right">
                                     <a href="{{ url_for('transaction_detail', contract_id=contract.id) }}" class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50/60 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition border border-brand-200/50">
-                                        {{ 'Phòng làm việc →' if current_lang == 'vi' else 'Workspace →' }}
+                                        {{ t('auto.phòng_làm_việc_→') }}
                                     </a>
                                 </td>
                             </tr>
@@ -90,16 +90,16 @@
                 {% if current_user.role == 'hirer' %}
                 <h2 class="text-base font-bold mt-10 mb-5 text-slate-900 flex items-center gap-2 pt-6 border-t border-slate-100">
                     <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
-                    {{ 'Yêu cầu tuyển dụng đang mở' if current_lang == 'vi' else 'Open Job Postings' }}
+                    {{ t('auto.yêu_cầu_tuyển_dụng_đ') }}
                 </h2>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                <th class="pb-3.5 font-bold">{{ 'Tiêu đề công việc' if current_lang == 'vi' else 'Job Title' }}</th>
-                                <th class="pb-3.5 font-bold">{{ 'Đề xuất nhận được' if current_lang == 'vi' else 'Proposals Received' }}</th>
-                                <th class="pb-3.5 font-bold">{{ 'Trạng thái' if current_lang == 'vi' else 'Status' }}</th>
-                                <th class="pb-3.5 font-bold text-right">{{ 'Thao tác' if current_lang == 'vi' else 'Actions' }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('auto.tiêu_đề_công_việc') }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('auto.đề_xuất_nhận_được') }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('auto.trạng_thái') }}</th>
+                                <th class="pb-3.5 font-bold text-right">{{ t('auto.thao_tác') }}</th>
                             </tr>
                         </thead>
                         <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
@@ -111,21 +111,21 @@
                                         {% set cnt = job.applicant_count %}
                                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold {% if cnt > 0 %}bg-indigo-50 text-indigo-800 border border-indigo-200/60{% else %}bg-slate-50 text-slate-500 border border-slate-200/60{% endif %}">
                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                            {{ cnt }} {{ 'ứng viên' if current_lang == 'vi' else 'applicants' }}
+                                            {{ cnt }} {{ t('auto.ứng_viên') }}
                                         </span>
                                     </td>
                                     <td class="py-4">
-                                        <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">{{ 'Đang tuyển' if current_lang == 'vi' else 'Open' }}</span>
+                                        <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">{{ t('auto.đang_tuyển') }}</span>
                                     </td>
                                     <td class="py-4 text-right">
                                         <a href="{{ url_for('job_detail', job_id=job.id) }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline">
-                                            {{ 'Xem chi tiết →' if current_lang == 'vi' else 'View details →' }}
+                                            {{ t('auto.xem_chi_tiết_→') }}
                                         </a>
                                     </td>
                                 </tr>
                             {% else %}
                             <tr>
-                                <td colspan="4" class="py-8 text-center text-slate-400 text-xs sm:text-sm">{{ 'Chưa có bài tuyển dụng đang mở nào.' if current_lang == 'vi' else 'No open job postings yet.' }}</td>
+                                <td colspan="4" class="py-8 text-center text-slate-400 text-xs sm:text-sm">{{ t('auto.chưa_có_bài_tuyển_dụ') }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -134,17 +134,17 @@
                 {% elif current_user.role == 'translator' %}
                 <h2 class="text-base font-bold mt-10 mb-5 text-slate-900 flex items-center gap-2 pt-6 border-t border-slate-100">
                     <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                    {{ 'Đề xuất & Báo giá đã nộp' if current_lang == 'vi' else 'Submitted Proposals & Quotes' }}
+                    {{ t('auto.đề_xuất__báo_giá_đã') }}
                 </h2>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                <th class="pb-3.5 font-bold">{{ 'Dự án' if current_lang == 'vi' else 'Project' }}</th>
-                                <th class="pb-3.5 font-bold">{{ 'Giá báo' if current_lang == 'vi' else 'Quote' }}</th>
-                                <th class="pb-3.5 font-bold">{{ 'Thời gian ước tính' if current_lang == 'vi' else 'Estimated Time' }}</th>
-                                <th class="pb-3.5 font-bold">{{ 'Trạng thái' if current_lang == 'vi' else 'Status' }}</th>
-                                <th class="pb-3.5 font-bold text-right">{{ 'Thao tác' if current_lang == 'vi' else 'Actions' }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('auto.dự_án') }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('auto.giá_báo') }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('auto.thời_gian_ước_tính') }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('auto.trạng_thái') }}</th>
+                                <th class="pb-3.5 font-bold text-right">{{ t('auto.thao_tác') }}</th>
                             </tr>
                         </thead>
                         <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
@@ -155,22 +155,22 @@
                                     <td class="py-4 text-slate-500">{{ prop.time_estimate or '—' }}</td>
                                     <td class="py-4">
                                         {% if prop.status == 'accepted' %}
-                                        <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">{{ 'Đã chọn' if current_lang == 'vi' else 'Accepted' }}</span>
+                                        <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">{{ t('auto.đã_chọn') }}</span>
                                         {% elif prop.status == 'rejected' %}
-                                        <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-rose-50 text-rose-800 border border-rose-200/60">{{ 'Từ chối' if current_lang == 'vi' else 'Declined' }}</span>
+                                        <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-rose-50 text-rose-800 border border-rose-200/60">{{ t('auto.từ_chối') }}</span>
                                         {% else %}
-                                        <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200/60">{{ 'Chờ duyệt' if current_lang == 'vi' else 'Pending' }}</span>
+                                        <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200/60">{{ t('auto.chờ_duyệt') }}</span>
                                         {% endif %}
                                     </td>
                                     <td class="py-4 text-right">
                                         <a href="{{ url_for('job_detail', job_id=prop.job_id) }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline">
-                                            {{ 'Xem dự án →' if current_lang == 'vi' else 'View project →' }}
+                                            {{ t('auto.xem_dự_án_→') }}
                                         </a>
                                     </td>
                                 </tr>
                             {% else %}
                             <tr>
-                                <td colspan="5" class="py-8 text-center text-slate-400 text-xs sm:text-sm">{{ 'Bạn chưa gửi đề xuất báo giá nào.' if current_lang == 'vi' else 'No submitted proposals yet.' }}</td>
+                                <td colspan="5" class="py-8 text-center text-slate-400 text-xs sm:text-sm">{{ t('auto.bạn_chưa_gửi_đề_xuất') }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>

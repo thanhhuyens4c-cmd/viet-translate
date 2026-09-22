@@ -60,10 +60,10 @@
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ 'Nhóm dịch vụ' if current_lang == 'vi' else 'Service Category' }} <span class="text-red-500">*</span></label>
+                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auto.nhóm_dịch_vụ') }} <span class="text-red-500">*</span></label>
                             <select id="category_group" name="category_group" class="w-full px-3.5 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50 mb-3" onchange="updateServiceTypes()">
-                                <option value="translation">{{ 'Dịch thuật' if current_lang == 'vi' else 'Translation' }}</option>
-                                <option value="interpretation_other">{{ 'Phiên dịch & Dịch vụ khác' if current_lang == 'vi' else 'Interpretation & Other' }}</option>
+                                <option value="translation">{{ t('auto.dịch_thuật') }}</option>
+                                <option value="interpretation_other">{{ t('auto.phiên_dịch__dịch_vụ') }}</option>
                             </select>
                             
                             <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Loại dịch vụ <span class="text-red-500">*</span></label>

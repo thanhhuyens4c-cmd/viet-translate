@@ -10,6 +10,16 @@ import re
 from translations import t as t_lookup, get_localized_languages
 from sqlalchemy.pool import StaticPool
 
+def get_locale():
+    from flask import session, request
+    lang = session.get('lang')
+    if not lang and request:
+        lang = request.cookies.get('lang')
+    return lang if lang in ('vi', 'en') else 'vi'
+
+def _t(key, **kwargs):
+    return t_lookup(key, lang=get_locale(), **kwargs)
+
 # ─── MONGODB (dùng khi deploy trên Vercel) ────────────────────────────────────
 MONGO_URI = os.getenv("MONGO_URI")
 _mongo_users = None  # lazy-init collection
@@ -619,7 +629,7 @@ def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'user_id' not in session:
-            flash('Vui lòng đăng nhập để tiếp tục.', 'warning')
+            flash(_t('flash.login_required'), 'warning')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated
@@ -633,7 +643,7 @@ def admin_required(f):
         # MongoDB users: check is_admin từ session (đã lưu khi login)
         if isinstance(uid, str) and uid.startswith('mongo:'):
             if not session.get('is_admin', False):
-                flash('Bạn không có quyền truy cập trang này.', 'error')
+                flash(_t('flash.unauthorized'), 'error')
                 return redirect(url_for('index'))
             return f(*args, **kwargs)
         # SQLite users
@@ -642,7 +652,7 @@ def admin_required(f):
         except SQLAlchemyError:
             user = None
         if not user or not user.is_admin:
-            flash('Bạn không có quyền truy cập trang này.', 'error')
+            flash(_t('flash.unauthorized'), 'error')
             return redirect(url_for('index'))
         return f(*args, **kwargs)
     return decorated
@@ -733,17 +743,20 @@ def inject_globals():
 
 @app.route('/set-language/<lang>')
 def set_language(lang):
+    referer = request.referrer
     if lang in ('vi', 'en'):
         session['lang'] = lang
         session.modified = True
-    referer = request.referrer
+
     # Prevent open redirect vulnerabilities
     if referer and request.host in referer:
         resp = redirect(referer)
     else:
         resp = redirect(url_for('index'))
+        
     if lang in ('vi', 'en'):
-        resp.set_cookie('lang', lang, max_age=365*24*3600, samesite='Lax')
+        # Ensure setting the lang cookie doesn't interfere with session
+        resp.set_cookie('lang', lang, max_age=365*24*3600, samesite='Lax', secure=True, httponly=False)
     return resp
 
 # ─── PUBLIC ROUTES ─────────────────────────────────────────────────────────────
@@ -779,7 +792,7 @@ def login():
                 mongo_user = mongo_find_user_by_email(email)
                 if mongo_user:
                     if not mongo_user.get('is_active', True):
-                        flash('Tài khoản đã bị khoá.', 'error')
+                        flash(_t('flash.account_locked'), 'error')
                         return render_template('login.html', email=email)
                     if check_password_hash(mongo_user['password_hash'], password):
                         # Lưu mongo _id dạng string vào session với prefix để phân biệt
@@ -789,12 +802,12 @@ def login():
                         session['user_name'] = mongo_user.get('name', '')
                         session['user_role'] = mongo_user.get('role', '')
                         session['is_admin'] = mongo_user.get('is_admin', False)
-                        flash('Đăng nhập thành công!', 'success')
+                        flash(_t('flash.login_success'), 'success')
                         if mongo_user.get('is_admin'):
                             return redirect(url_for('admin_dashboard'))
                         return redirect(url_for('index'))
                     else:
-                        flash('Mật khẩu không đúng.', 'error')
+                        flash(_t('flash.invalid_password'), 'error')
                         return render_template('login.html', email=email)
                 # Nếu không tìm thấy trong MongoDB thì fallback xuống SQLite bên dưới
     
@@ -802,29 +815,29 @@ def login():
             user = User.query.filter_by(email=email).first()
             if user:
                 if not user.is_active:
-                    flash('Tài khoản đã bị khoá.', 'error')
+                    flash(_t('flash.account_locked'), 'error')
                     return render_template('login.html', email=email)
                 if check_password_hash(user.password_hash, password):
                     session.clear()
                     session.permanent = True
                     session['user_id'] = user.id
-                    flash('Đăng nhập thành công!', 'success')
+                    flash(_t('flash.login_success'), 'success')
                     if user.is_admin:
                         return redirect(url_for('admin_dashboard'))
                     return redirect(url_for('index'))
                 else:
-                    flash('Mật khẩu không đúng.', 'error')
+                    flash(_t('flash.invalid_password'), 'error')
                     return render_template('login.html', email=email)
             else:
-                flash('Tài khoản không tồn tại hoặc email không đúng.', 'error')
+                flash(_t('flash.account_not_found'), 'error')
                 return render_template('login.html', email=email)
         except SQLAlchemyError as e:
             print(f"[AUTH SQL ERROR] {e}")
-            flash('Hệ thống đang quá tải hoặc cơ sở dữ liệu bị khoá. Vui lòng thử lại sau.', 'error')
+            flash(_t('flash.system_overload'), 'error')
             return render_template('login.html', email=email)
         except Exception as e:
             print(f"[AUTH ERROR] {e}")
-            flash('Lỗi kết nối cơ sở dữ liệu. Vui lòng thử lại sau.', 'error')
+            flash(_t('flash.db_error'), 'error')
             return render_template('login.html', email=email)
 
     return render_template('login.html')
@@ -839,12 +852,12 @@ def register():
         role = request.form.get('role')
 
         if role not in ('hirer', 'translator'):
-            flash('Vai trò không hợp lệ.', 'error')
+            flash(_t('flash.invalid_role'), 'error')
             return redirect(url_for('register'))
 
         import re
         if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            flash('Email không hợp lệ. Vui lòng nhập đúng định dạng.', 'error')
+            flash(_t('flash.invalid_email'), 'error')
             return redirect(url_for('register'))
 
         hashed_pw = generate_password_hash(password)
@@ -859,7 +872,7 @@ def register():
                 role=role,
             )
             if success:
-                flash('Đăng ký thành công! Vui lòng đăng nhập.', 'success')
+                flash(_t('flash.register_success'), 'success')
                 return redirect(url_for('login'))
             else:
                 flash(message, 'error')
@@ -867,7 +880,7 @@ def register():
 
         # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
         if User.query.filter_by(email=email).first():
-            flash('Tài khoản với email này đã tồn tại. Vui lòng đăng nhập.', 'error')
+            flash(_t('flash.email_exists'), 'error')
             return redirect(url_for('register'))
 
         new_user = User(name=name, email=email,
@@ -881,14 +894,14 @@ def register():
             db.session.add(profile)
             db.session.commit()
 
-        flash('Đăng ký thành công! Vui lòng đăng nhập.', 'success')
+        flash(_t('flash.register_success'), 'success')
         return redirect(url_for('login'))
     return render_template('register.html')
 
 @app.route('/logout')
 def logout():
     session.clear()
-    flash('Đã đăng xuất.', 'success')
+    flash(_t('flash.logout_success'), 'success')
     return redirect(url_for('index'))
 
 # ─── ACCOUNT ───────────────────────────────────────────────────────────────────
@@ -903,7 +916,7 @@ def account_profile():
         mongo_id = uid[len('mongo:'):]
         mongo_data = mongo_find_user_by_id(mongo_id)
         if not mongo_data:
-            flash('Không tìm thấy tài khoản.', 'error')
+            flash(_t('flash.account_not_found'), 'error')
             return redirect(url_for('index'))
         user = SimpleMongoUser(mongo_data)
 
@@ -911,7 +924,7 @@ def account_profile():
             action = request.form.get('action', 'basic')
             col = get_mongo_users()
             if col is None:
-                flash('MongoDB chưa được cấu hình.', 'error')
+                flash(_t('flash.mongo_error'), 'error')
                 return redirect(url_for('account_profile'))
 
             from bson import ObjectId
@@ -924,24 +937,24 @@ def account_profile():
                     }}
                 )
                 session['user_name'] = request.form.get('name', user.name).strip()
-                flash('Đã cập nhật thông tin cơ bản!', 'success')
+                flash(_t('flash.profile_updated'), 'success')
 
             elif action == 'change_password':
                 old_pw = request.form.get('old_password', '')
                 new_pw = request.form.get('new_password', '')
                 confirm_pw = request.form.get('confirm_password', '')
                 if not check_password_hash(mongo_data['password_hash'], old_pw):
-                    flash('Mật khẩu hiện tại không đúng.', 'error')
+                    flash(_t('flash.old_password_incorrect'), 'error')
                 elif new_pw != confirm_pw:
-                    flash('Mật khẩu mới không khớp.', 'error')
+                    flash(_t('flash.new_password_mismatch'), 'error')
                 elif len(new_pw) < 6:
-                    flash('Mật khẩu mới phải ít nhất 6 ký tự.', 'error')
+                    flash(_t('flash.password_too_short'), 'error')
                 else:
                     col.update_one(
                         {"_id": ObjectId(mongo_id)},
                         {"$set": {"password_hash": generate_password_hash(new_pw)}}
                     )
-                    flash('Đã đổi mật khẩu thành công!', 'success')
+                    flash(_t('flash.password_changed'), 'success')
 
             return redirect(url_for('account_profile'))
         return render_template('account_profile.html', user=user)
@@ -949,7 +962,7 @@ def account_profile():
     # SQLite user
     user = User.query.get(uid)
     if not user:
-        flash('Không tìm thấy tài khoản.', 'error')
+        flash(_t('flash.account_not_found'), 'error')
         return redirect(url_for('index'))
 
     if request.method == 'POST':
@@ -959,7 +972,7 @@ def account_profile():
             user.name = request.form.get('name', user.name).strip()
             user.phone = request.form.get('phone', user.phone or '').strip()
             db.session.commit()
-            flash('Đã cập nhật thông tin cơ bản!', 'success')
+            flash(_t('flash.profile_updated'), 'success')
 
         elif action == 'translator_profile' and user.role == 'translator':
             profile = user.profile
@@ -972,7 +985,7 @@ def account_profile():
             profile.badges = request.form.get('badges', '').strip()
             profile.response_time = request.form.get('response_time', '< 1 giờ').strip()
             db.session.commit()
-            flash('Đã cập nhật hồ sơ phiên dịch viên!', 'success')
+            flash(_t('flash.translator_profile_updated'), 'success')
 
         elif action == 'translator_preference' and user.role == 'translator':
             pref = user.preference
@@ -987,7 +1000,7 @@ def account_profile():
             pref.notify_contracts = 'notify_contracts' in request.form
             pref.notify_reviews = 'notify_reviews' in request.form
             db.session.commit()
-            flash('Đã lưu tùy chọn phiên dịch!', 'success')
+            flash(_t('flash.preferences_saved'), 'success')
 
         elif action == 'hirer_profile' and user.role == 'hirer':
             profile = user.hirer_profile
@@ -998,22 +1011,22 @@ def account_profile():
             profile.company = request.form.get('company', '').strip()
             profile.location = request.form.get('location', '').strip()
             db.session.commit()
-            flash('Đã cập nhật hồ sơ khách thuê!', 'success')
+            flash(_t('flash.hirer_profile_updated'), 'success')
 
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')
             new_pw = request.form.get('new_password', '')
             confirm_pw = request.form.get('confirm_password', '')
             if not check_password_hash(user.password_hash, old_pw):
-                flash('Mật khẩu hiện tại không đúng.', 'error')
+                flash(_t('flash.old_password_incorrect'), 'error')
             elif new_pw != confirm_pw:
-                flash('Mật khẩu mới không khớp.', 'error')
+                flash(_t('flash.new_password_mismatch'), 'error')
             elif len(new_pw) < 6:
-                flash('Mật khẩu mới phải ít nhất 6 ký tự.', 'error')
+                flash(_t('flash.password_too_short'), 'error')
             else:
                 user.password_hash = generate_password_hash(new_pw)
                 db.session.commit()
-                flash('Đã đổi mật khẩu thành công!', 'success')
+                flash(_t('flash.password_changed'), 'success')
 
         return redirect(url_for('account_profile'))
     return render_template('account_profile.html', user=user, LANGUAGES=LANGUAGES)
@@ -1074,7 +1087,7 @@ def get_job_applicant_count(job_id):
 def account_history():
     user = get_current_user()
     if not user:
-        flash('Không tìm thấy tài khoản.', 'error')
+        flash(_t('flash.account_not_found'), 'error')
         return redirect(url_for('index'))
     if user.role == 'hirer':
         contracts = Contract.query.filter_by(hirer_id=user.id).order_by(Contract.created_at.desc()).all()
@@ -1400,16 +1413,16 @@ def book_service(service_id):
 
     current_user = get_current_user()
     if not current_user:
-        flash('Vui lòng đăng nhập để tiếp tục.', 'warning')
+        flash(_t('flash.login_required'), 'warning')
         return redirect(url_for('login'))
     translator = service.profile.user if service.profile else None
 
     if not translator or getattr(translator, 'role', '') != 'translator' or not getattr(translator, 'is_active', True):
-        flash('Phiên dịch viên này hiện không hoạt động.', 'error')
+        flash(_t('flash.translator_inactive'), 'error')
         return redirect(url_for('translators'))
 
     if current_user.id == translator.id:
-        flash('Bạn không thể tự thuê chính mình.', 'error')
+        flash(_t('flash.cannot_hire_self'), 'error')
         return redirect(url_for('service_detail', service_id=service.id))
 
     if request.method == 'POST':
@@ -1431,7 +1444,7 @@ def book_service(service_id):
                 location=request.form.get('location', ''),
                 service_id=service.id
             )
-            flash('Đặt dịch vụ thành công! Vui lòng thanh toán Escrow để bắt đầu.', 'success')
+            flash(_t('flash.service_booked'), 'success')
             return redirect(url_for('payment_mockup', contract_id=contract.id))
             
         except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
@@ -1441,7 +1454,7 @@ def book_service(service_id):
         except Exception as e:
             import logging
             logging.exception('Error in book_service: %s', e)
-            flash('Đã xảy ra lỗi hệ thống, vui lòng thử lại sau.', 'error')
+            flash(_t('flash.system_error'), 'error')
             return redirect(url_for('book_service', service_id=service.id, tier=tier))
 
     # Extract fixed_days from delivery string
@@ -1465,7 +1478,7 @@ def book_service(service_id):
 def post_job():
     user = get_current_user()
     if not user or user.role != 'hirer':
-        flash('Chỉ Khách hàng mới có thể đăng công việc.', 'error')
+        flash(_t('flash.hirer_only_post'), 'error')
         return redirect(url_for('index'))
 
     if request.method == 'POST':
@@ -1497,7 +1510,7 @@ def post_job():
         from services.matching import notify_matching_translators_for_new_job
         notify_matching_translators_for_new_job(job)
 
-        flash('Đã đăng yêu cầu thành công!', 'success')
+        flash(_t('flash.job_posted'), 'success')
         return redirect(url_for('job_detail', job_id=job.id))
     return render_template('post_job.html', LANGUAGES=LANGUAGES)
 
@@ -1530,18 +1543,18 @@ def job_detail(job_id):
         # ── 1. Login & Role guard ─────────────────────────────────────────────
         user = get_current_user()
         if not user:
-            flash('Vui lòng đăng nhập để gửi đề xuất.', 'warning')
+            flash(_t('flash.login_required'), 'warning')
             return redirect(url_for('login'))
         if user.role != 'translator':
-            flash('Chỉ Phiên dịch viên mới có thể ứng tuyển.', 'error')
+            flash(_t('flash.translator_only_apply'), 'error')
             return redirect(url_for('job_detail', job_id=job.id))
             
         if job.status != 'open':
-            flash('Công việc đã đóng, không thể ứng tuyển.', 'error')
+            flash(_t('flash.job_closed'), 'error')
             return redirect(url_for('job_detail', job_id=job.id))
             
         if user.id == job.hirer_id:
-            flash('Bạn không thể ứng tuyển công việc của chính mình.', 'error')
+            flash(_t('flash.cannot_apply_own_job'), 'error')
             return redirect(url_for('job_detail', job_id=job.id))
 
         # ── 2. Duplicate proposal guard ───────────────────────────────────────
@@ -1549,7 +1562,7 @@ def job_detail(job_id):
             job_id=job.id, translator_id=session['user_id']
         ).first()
         if existing_proposal:
-            flash('Bạn đã gửi đề xuất cho công việc này rồi.', 'warning')
+            flash(_t('flash.already_applied'), 'warning')
             return redirect(url_for('job_detail', job_id=job.id))
 
         # ── 3. Schedule conflict check ────────────────────────────────────────
@@ -1735,7 +1748,7 @@ def accept_proposal(proposal_id):
             raise
         import logging
         logging.error("Exception in accept_proposal for proposal %s: %s", proposal_id, e)
-        flash('Đã xảy ra lỗi hệ thống, vui lòng thử lại sau.', 'error')
+        flash(_t('flash.system_error'), 'error')
         return redirect(url_for('index'))
 
 @app.route('/payment-mockup/<int:contract_id>', methods=['GET', 'POST'])

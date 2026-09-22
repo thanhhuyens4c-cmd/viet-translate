@@ -43,7 +43,7 @@
                                     </span>
                                     {% endif %}
                                 </h1>
-                                <p class="text-sm font-medium text-slate-600 mt-1">{{ profile.title or ('Phiên dịch viên chuyên nghiệp' if current_lang == 'vi' else 'Professional Interpreter') }}</p>
+                                <p class="text-sm font-medium text-slate-600 mt-1">{{ profile.title or t('auto.phiên_dịch_viên_chuy') }}</p>
                             </div>
                             
                             <div class="flex items-center gap-2 shrink-0">
@@ -104,7 +104,7 @@
                         {{ t('profile_page.reviews_heading') }} ({{ reviews|length }})
                     </span>
                     <span class="text-xs font-normal text-slate-400">
-                        {{ 'Đánh giá thực tế qua hệ thống Escrow' if current_lang == 'vi' else 'Verified feedback via Escrow' }}
+                        {{ t('auto.đánh_giá_thực_tế_qua') }}
                     </span>
                 </h2>
 
@@ -130,7 +130,7 @@
                             <p class="text-xs sm:text-sm text-slate-600 pl-11 leading-relaxed">{{ r.comment }}</p>
                             {% if r.contract.job %}
                             <p class="text-[11px] text-slate-400 pl-11 mt-1.5">
-                                {{ 'Dự án:' if current_lang == 'vi' else 'Project:' }} <span class="text-slate-600 font-medium">{{ r.contract.job.title }}</span>
+                                {{ t('auto.dự_án_1') }} <span class="text-slate-600 font-medium">{{ r.contract.job.title }}</span>
                             </p>
                             {% endif %}
                         </div>
@@ -156,13 +156,13 @@
                     <!-- Tabs -->
                     <div class="flex border-b border-slate-200/80 bg-slate-50 text-xs font-semibold">
                         <button @click="tab = 'basic'" :class="{'bg-white border-t-2 border-t-brand-600 text-brand-600 font-bold': tab === 'basic', 'text-slate-500 hover:text-slate-800 hover:bg-slate-100': tab !== 'basic'}" class="flex-1 py-3 text-center transition-colors">
-                            {{ 'Cơ bản' if current_lang == 'vi' else 'Basic' }}
+                            {{ t('auto.cơ_bản') }}
                         </button>
                         <button @click="tab = 'standard'" :class="{'bg-white border-t-2 border-t-brand-600 text-brand-600 font-bold': tab === 'standard', 'text-slate-500 hover:text-slate-800 hover:bg-slate-100': tab !== 'standard'}" class="flex-1 py-3 text-center transition-colors">
-                            {{ 'Tiêu chuẩn' if current_lang == 'vi' else 'Standard' }}
+                            {{ t('auto.tiêu_chuẩn') }}
                         </button>
                         <button @click="tab = 'premium'" :class="{'bg-white border-t-2 border-t-brand-600 text-brand-600 font-bold': tab === 'premium', 'text-slate-500 hover:text-slate-800 hover:bg-slate-100': tab !== 'premium'}" class="flex-1 py-3 text-center transition-colors">
-                            {{ 'Cao cấp' if current_lang == 'vi' else 'Premium' }}
+                            {{ t('auto.cao_cấp') }}
                         </button>
                     </div>
                     
@@ -178,12 +178,12 @@
                         <div x-show="tab === 'basic'">
                             <div class="text-2xl font-extrabold text-slate-900 mb-4">{{ "{:,.0f}".format(service.basic_price) }}₫</div>
                             <ul class="text-xs space-y-2.5 mb-6 text-slate-600">
-                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ 'Thời gian:' if current_lang == 'vi' else 'Delivery:' }} {{ service.basic_delivery }}</li>
-                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ 'Cam kết chất lượng chuẩn xác' if current_lang == 'vi' else 'High accuracy guarantee' }}</li>
-                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ 'Bảo vệ Escrow an toàn 100%' if current_lang == 'vi' else '100% Escrow security' }}</li>
+                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.thời_gian') }} {{ service.basic_delivery }}</li>
+                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.cam_kết_chất_lượng_c') }}</li>
+                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.bảo_vệ_escrow_an_toà') }}</li>
                             </ul>
                             <a href="{{ url_for('book_service', service_id=service.id, tier='basic') }}" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-sm">
-                                {{ 'Đặt gói Cơ bản' if current_lang == 'vi' else 'Book Basic Tier' }}
+                                {{ t('auto.đặt_gói_cơ_bản') }}
                             </a>
                         </div>
 
@@ -193,12 +193,12 @@
                                 {{ "{:,.0f}".format(service.standard_price or service.basic_price * 1.5) }}₫
                             </div>
                             <ul class="text-xs space-y-2.5 mb-6 text-slate-600">
-                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ 'Thời gian:' if current_lang == 'vi' else 'Delivery:' }} {{ service.standard_delivery }}</li>
-                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ 'Ưu tiên lịch trình & hỗ trợ mở rộng' if current_lang == 'vi' else 'Priority scheduling & extended support' }}</li>
-                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ 'Bảo vệ Escrow an toàn 100%' if current_lang == 'vi' else '100% Escrow security' }}</li>
+                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.thời_gian') }} {{ service.standard_delivery }}</li>
+                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.ưu_tiên_lịch_trình') }}</li>
+                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.bảo_vệ_escrow_an_toà') }}</li>
                             </ul>
                             <a href="{{ url_for('book_service', service_id=service.id, tier='standard') }}" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-sm">
-                                {{ 'Đặt gói Tiêu chuẩn' if current_lang == 'vi' else 'Book Standard Tier' }}
+                                {{ t('auto.đặt_gói_tiêu_chuẩn') }}
                             </a>
                         </div>
 
@@ -208,21 +208,21 @@
                                 {{ "{:,.0f}".format(service.premium_price or service.basic_price * 2.2) }}₫
                             </div>
                             <ul class="text-xs space-y-2.5 mb-6 text-slate-600">
-                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ 'Thời gian:' if current_lang == 'vi' else 'Delivery:' }} {{ service.premium_delivery }}</li>
-                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ 'Hỗ trợ chuyên sâu 24/7 & sửa đổi linh hoạt' if current_lang == 'vi' else '24/7 dedicated support & flexible revisions' }}</li>
-                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ 'Bảo vệ Escrow an toàn 100%' if current_lang == 'vi' else '100% Escrow security' }}</li>
+                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.thời_gian') }} {{ service.premium_delivery }}</li>
+                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.hỗ_trợ_chuyên_sâu_24') }}</li>
+                                <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.bảo_vệ_escrow_an_toà') }}</li>
                             </ul>
                             <a href="{{ url_for('book_service', service_id=service.id, tier='premium') }}" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-sm">
-                                {{ 'Đặt gói Cao cấp' if current_lang == 'vi' else 'Book Premium Tier' }}
+                                {{ t('auto.đặt_gói_cao_cấp') }}
                             </a>
                         </div>
                     </div>
                 </div>
                 {% else %}
                 <div class="bg-white rounded-2xl border border-slate-200/90 p-6 text-center shadow-soft">
-                    <p class="text-xs sm:text-sm text-slate-500 mb-4">{{ 'Phiên dịch viên chưa niêm yết gói cố định.' if current_lang == 'vi' else 'No fixed packages listed yet.' }}</p>
+                    <p class="text-xs sm:text-sm text-slate-500 mb-4">{{ t('auto.phiên_dịch_viên_chưa') }}</p>
                     <a href="{{ url_for('direct_chat', translator_user_id=profile.user_id) }}" class="block w-full text-center border border-brand-600 text-brand-600 font-bold text-xs py-2.5 rounded-xl hover:bg-brand-50 transition">
-                        {{ 'Nhắn tin trao đổi trực tiếp' if current_lang == 'vi' else 'Message Directly' }}
+                        {{ t('auto.nhắn_tin_trao_đổi_tr') }}
                     </a>
                 </div>
                 {% endfor %}

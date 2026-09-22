@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ 'Hợp đồng & Phòng làm việc' if current_lang == 'vi' else 'Contract & Workspace' }} | VietTranslate{% endblock %}
+{% block title %}{{ t('auto.hợp_đồng__phòng_làm') }} | VietTranslate{% endblock %}
 
 {% block head %}
 <style>
@@ -40,16 +40,16 @@
                 <nav class="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-2">
                     <a href="{{ url_for('account_history') }}" class="hover:text-brand-600">{{ t('account_history_page.nav_history') }}</a>
                     <span>/</span>
-                    <span class="text-slate-700">{{ 'Chi tiết hợp đồng #' if current_lang == 'vi' else 'Contract Details #' }}{{ contract.id }}</span>
+                    <span class="text-slate-700">{{ t('auto.chi_tiết_hợp_đồng') }}{{ contract.id }}</span>
                 </nav>
 
                 <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                     {% if contract.job %}
                         {{ contract.job.title }}
                     {% elif contract.service %}
-                        {{ 'Dịch vụ' if current_lang == 'vi' else 'Service' }}: {{ contract.service.name }}
+                        {{ t('auto.dịch_vụ_1') }}: {{ contract.service.name }}
                     {% else %}
-                        {{ 'Hợp đồng dịch thuật #' if current_lang == 'vi' else 'Contract #' }}{{ contract.id }}
+                        {{ t('auto.hợp_đồng_dịch_thuật') }}{{ contract.id }}
                     {% endif %}
                 </h1>
                 
@@ -57,7 +57,7 @@
                 <div class="mt-3 flex flex-wrap gap-3 text-xs bg-brand-50/80 text-brand-900 px-3.5 py-2 rounded-xl border border-brand-200/60 inline-flex items-center">
                     <div class="flex items-center gap-1.5 font-bold">
                         <span>📅</span>
-                        <span>{{ 'Ngày hẹn:' if current_lang == 'vi' else 'Date:' }} {{ contract.scheduled_date | format_date_vn }}</span>
+                        <span>{{ t('auto.ngày_hẹn') }} {{ contract.scheduled_date | format_date_vn }}</span>
                     </div>
                     {% if contract.scheduled_time_start %}
                     <div class="flex items-center gap-1.5 font-medium">
@@ -78,15 +78,15 @@
             <div class="shrink-0">
                 {% if contract.status == 'escrow_pending' %}
                     <span class="bg-amber-50 text-amber-800 border border-amber-200/80 font-bold px-4 py-1.5 rounded-full text-xs inline-block">
-                        {{ '⏳ Chờ thanh toán Escrow' if current_lang == 'vi' else '⏳ Escrow Deposit Pending' }}
+                        {{ t('auto.⏳_chờ_thanh_toán_esc') }}
                     </span>
                 {% elif contract.status == 'in_progress' %}
                     <span class="bg-brand-50 text-brand-800 border border-brand-200/80 font-bold px-4 py-1.5 rounded-full text-xs inline-block">
-                        {{ '⚡ Đang thực hiện' if current_lang == 'vi' else '⚡ In Progress' }}
+                        {{ t('auto.⚡_đang_thực_hiện') }}
                     </span>
                 {% elif contract.status == 'completed' %}
                     <span class="bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold px-4 py-1.5 rounded-full text-xs inline-block">
-                        {{ '✓ Đã nghiệm thu & Giải ngân' if current_lang == 'vi' else '✓ Completed & Disbursed' }}
+                        {{ t('auto.✓_đã_nghiệm_thu__giả') }}
                     </span>
                 {% endif %}
             </div>
@@ -99,7 +99,7 @@
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
                     <h2 class="text-base font-bold mb-6 text-slate-900 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                        {{ 'Tiến trình Hợp đồng Escrow' if current_lang == 'vi' else 'Escrow Contract Milestones' }}
+                        {{ t('auto.tiến_trình_hợp_đồng') }}
                     </h2>
                     
                     <div class="relative">
@@ -111,30 +111,30 @@
                                 <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-sm">
                                     <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                                 </div>
-                                <h3 class="font-bold text-slate-900 text-sm">{{ 'Thương lượng & Chốt thỏa thuận' if current_lang == 'vi' else 'Negotiation & Agreement' }}</h3>
-                                <p class="text-xs text-slate-500 mt-0.5">{{ 'Giá thống nhất:' if current_lang == 'vi' else 'Agreed budget:' }} <strong class="text-brand-700 font-extrabold">{{ "{:,.0f}".format(contract.agreed_price) }}đ</strong></p>
+                                <h3 class="font-bold text-slate-900 text-sm">{{ t('auto.thương_lượng__chốt_t') }}</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">{{ t('auto.giá_thống_nhất') }} <strong class="text-brand-700 font-extrabold">{{ "{:,.0f}".format(contract.agreed_price) }}đ</strong></p>
                             </div>
                             
                             <!-- Step 2: Escrow -->
                             <div class="relative pl-11">
                                 {% if contract.status == 'escrow_pending' %}
                                     <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-brand-600 border-2 border-white shadow-sm animate-pulse"></div>
-                                    <h3 class="font-bold text-brand-600 text-sm">{{ 'Thanh toán tạm giữ (Escrow)' if current_lang == 'vi' else 'Escrow Deposit' }}</h3>
+                                    <h3 class="font-bold text-brand-600 text-sm">{{ t('auto.thanh_toán_tạm_giữ_e') }}</h3>
                                     {% if current_user.role == 'hirer' %}
                                     <div class="mt-2">
                                         <a href="{{ url_for('payment_mockup', contract_id=contract.id) }}" class="inline-block bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm">
-                                            {{ 'Thanh toán ký quỹ ngay' if current_lang == 'vi' else 'Deposit Escrow Now' }}
+                                            {{ t('auto.thanh_toán_ký_quỹ_ng') }}
                                         </a>
                                     </div>
                                     {% else %}
-                                    <p class="text-xs text-slate-500 mt-0.5">{{ 'Đang chờ khách hàng thanh toán vào quỹ Escrow để bắt đầu.' if current_lang == 'vi' else 'Awaiting client deposit into Escrow to commence.' }}</p>
+                                    <p class="text-xs text-slate-500 mt-0.5">{{ t('auto.đang_chờ_khách_hàng') }}</p>
                                     {% endif %}
                                 {% else %}
                                     <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-sm">
                                         <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                                     </div>
-                                    <h3 class="font-bold text-slate-900 text-sm">{{ 'Thanh toán tạm giữ (Escrow)' if current_lang == 'vi' else 'Escrow Deposit' }}</h3>
-                                    <p class="text-xs text-emerald-600 font-semibold mt-0.5">{{ '✓ Tiền đã được bảo chứng an toàn trong quỹ.' if current_lang == 'vi' else '✓ Funds are secured in Escrow protection.' }}</p>
+                                    <h3 class="font-bold text-slate-900 text-sm">{{ t('auto.thanh_toán_tạm_giữ_e') }}</h3>
+                                    <p class="text-xs text-emerald-600 font-semibold mt-0.5">{{ t('auto.✓_tiền_đã_được_bảo_c') }}</p>
                                 {% endif %}
                             </div>
                             
@@ -142,18 +142,18 @@
                             <div class="relative pl-11">
                                 {% if contract.status in ['escrow_pending'] %}
                                     <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-slate-300 border-2 border-white"></div>
-                                    <h3 class="font-bold text-slate-400 text-sm">{{ 'Thực hiện công việc' if current_lang == 'vi' else 'Project Execution' }}</h3>
+                                    <h3 class="font-bold text-slate-400 text-sm">{{ t('auto.thực_hiện_công_việc') }}</h3>
                                 {% elif contract.status == 'in_progress' %}
                                     <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-brand-600 border-2 border-white shadow-sm"></div>
-                                    <h3 class="font-bold text-brand-600 text-sm">{{ 'Thực hiện công việc' if current_lang == 'vi' else 'Project Execution' }}</h3>
-                                    <p class="text-xs text-slate-600 mt-0.5">{{ 'Trao đổi tiến độ qua phòng chat bên phải hoặc tải lên bản dịch/biên bản.' if current_lang == 'vi' else 'Discuss progress in the chat or upload deliverables.' }}</p>
+                                    <h3 class="font-bold text-brand-600 text-sm">{{ t('auto.thực_hiện_công_việc') }}</h3>
+                                    <p class="text-xs text-slate-600 mt-0.5">{{ t('auto.trao_đổi_tiến_độ_qua') }}</p>
                                     
                                     {% if current_user.role == 'translator' %}
                                     <div class="mt-3 p-4 bg-slate-50 rounded-xl border border-slate-200/80">
-                                        <p class="text-xs font-bold text-slate-700 mb-2">{{ 'Tải lên tài liệu kết quả / File dịch:' if current_lang == 'vi' else 'Upload deliverables / translated files:' }}</p>
+                                        <p class="text-xs font-bold text-slate-700 mb-2">{{ t('auto.tải_lên_tài_liệu_kết') }}</p>
                                         <form method="POST" enctype="multipart/form-data" action="{{ url_for('transaction_detail', contract_id=contract.id) }}" class="flex flex-col sm:flex-row gap-2">
                                             <input type="file" name="file" required class="text-xs w-full bg-white border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
-                                            <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm whitespace-nowrap">{{ 'Gửi file' if current_lang == 'vi' else 'Upload' }}</button>
+                                            <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm whitespace-nowrap">{{ t('auto.gửi_file') }}</button>
                                         </form>
                                     </div>
                                     {% endif %}
@@ -161,7 +161,7 @@
                                     <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-sm">
                                         <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                                     </div>
-                                    <h3 class="font-bold text-slate-900 text-sm">{{ 'Thực hiện công việc' if current_lang == 'vi' else 'Project Execution' }}</h3>
+                                    <h3 class="font-bold text-slate-900 text-sm">{{ t('auto.thực_hiện_công_việc') }}</h3>
                                 {% endif %}
                                 
                                 <!-- List files -->
@@ -184,26 +184,26 @@
                                     <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center shadow-sm">
                                         <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                                     </div>
-                                    <h3 class="font-bold text-slate-900 text-sm">{{ 'Nghiệm thu & Giải ngân' if current_lang == 'vi' else 'Approval & Payout' }}</h3>
-                                    <p class="text-xs text-emerald-600 font-medium mt-0.5">{{ '✓ Đã nghiệm thu và giải ngân thành công cho phiên dịch viên.' if current_lang == 'vi' else '✓ Accepted and funds successfully disbursed to translator.' }}</p>
+                                    <h3 class="font-bold text-slate-900 text-sm">{{ t('auto.nghiệm_thu__giải_ngâ') }}</h3>
+                                    <p class="text-xs text-emerald-600 font-medium mt-0.5">{{ t('auto.✓_đã_nghiệm_thu_và_g') }}</p>
                                 {% elif contract.status == 'in_progress' %}
                                     <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-brand-600 border-2 border-white shadow-sm"></div>
-                                    <h3 class="font-bold text-brand-600 text-sm">{{ 'Nghiệm thu & Giải ngân' if current_lang == 'vi' else 'Approval & Payout' }}</h3>
+                                    <h3 class="font-bold text-brand-600 text-sm">{{ t('auto.nghiệm_thu__giải_ngâ') }}</h3>
                                     {% if current_user.role == 'hirer' %}
                                     <div class="bg-amber-50 border border-amber-200/80 p-3 mt-2 rounded-xl text-xs text-amber-900 mb-2 leading-relaxed">
-                                        {{ 'Chỉ bấm phê duyệt khi công việc/sự kiện đã diễn ra và bạn hoàn toàn hài lòng với kết quả. Tiền sẽ ngay lập tức được giải ngân cho Phiên dịch viên.' if current_lang == 'vi' else 'Approve only after work/event is completed and you are satisfied. Funds will be released immediately.' }}
+                                        {{ t('auto.chỉ_bấm_phê_duyệt_kh') }}
                                     </div>
-                                    <form method="POST" action="{{ url_for('approve_contract', contract_id=contract.id) }}" class="mt-2" onsubmit="return confirm('{{ 'Bạn chắc chắn muốn nghiệm thu và giải ngân?' if current_lang == 'vi' else 'Are you sure you want to approve and release funds?' }}');">
+                                    <form method="POST" action="{{ url_for('approve_contract', contract_id=contract.id) }}" class="mt-2" onsubmit="return confirm('{{ t('auto.bạn_chắc_chắn_muốn_n') }}');">
                                         <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs transition shadow-sm">
-                                            {{ 'Phê duyệt nghiệm thu & Giải ngân' if current_lang == 'vi' else 'Approve & Release Payment' }}
+                                            {{ t('auto.phê_duyệt_nghiệm_thu') }}
                                         </button>
                                     </form>
                                     {% else %}
-                                    <p class="text-xs text-slate-500 mt-0.5">{{ 'Chờ khách hàng nghiệm thu để nhận tiền về ví.' if current_lang == 'vi' else 'Awaiting client approval for payout release.' }}</p>
+                                    <p class="text-xs text-slate-500 mt-0.5">{{ t('auto.chờ_khách_hàng_nghiệ') }}</p>
                                     {% endif %}
                                 {% else %}
                                     <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-slate-300 border-2 border-white"></div>
-                                    <h3 class="font-bold text-slate-400 text-sm">{{ 'Nghiệm thu & Giải ngân' if current_lang == 'vi' else 'Approval & Payout' }}</h3>
+                                    <h3 class="font-bold text-slate-400 text-sm">{{ t('auto.nghiệm_thu__giải_ngâ') }}</h3>
                                 {% endif %}
                             </div>
                             
@@ -218,7 +218,7 @@
                                     {% endfor %}
                                     
                                     <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-brand-600 border-2 border-white shadow-sm"></div>
-                                    <h3 class="font-bold text-brand-600 text-sm">{{ 'Đánh giá chất lượng' if current_lang == 'vi' else 'Performance Review' }}</h3>
+                                    <h3 class="font-bold text-brand-600 text-sm">{{ t('auto.đánh_giá_chất_lượng') }}</h3>
                                     
                                     <form method="POST" action="{{ url_for('submit_review', contract_id=contract.id) }}" class="mt-3 p-4 border border-slate-200/80 rounded-xl bg-slate-50/50">
                                         <div class="mb-3 text-center">
@@ -237,12 +237,12 @@
                                             </div>
                                         </div>
 
-                                        <textarea name="comment" rows="3" class="w-full p-3 border border-slate-200 rounded-xl text-xs sm:text-sm mb-3 focus:ring-2 focus:ring-brand-500 focus:outline-none bg-white" placeholder="{{ 'Viết nhận xét trải nghiệm làm việc...' if current_lang == 'vi' else 'Write your feedback on working together...' }}">{{ user_review.comment if user_review else '' }}</textarea>
+                                        <textarea name="comment" rows="3" class="w-full p-3 border border-slate-200 rounded-xl text-xs sm:text-sm mb-3 focus:ring-2 focus:ring-brand-500 focus:outline-none bg-white" placeholder="{{ t('auto.viết_nhận_xét_trải_n') }}">{{ user_review.comment if user_review else '' }}</textarea>
                                         <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-sm w-full">{{ ('Lưu thay đổi' if user_review else 'Gửi đánh giá') if current_lang == 'vi' else ('Save changes' if user_review else 'Submit Review') }}</button>
                                     </form>
                                 {% else %}
                                     <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-slate-300 border-2 border-white"></div>
-                                    <h3 class="font-bold text-slate-400 text-sm">{{ 'Đánh giá' if current_lang == 'vi' else 'Review' }}</h3>
+                                    <h3 class="font-bold text-slate-400 text-sm">{{ t('auto.đánh_giá_1') }}</h3>
                                 {% endif %}
                             </div>
                         </div>
@@ -255,7 +255,7 @@
                 <div class="bg-white p-4 font-bold border-b border-slate-100 flex items-center justify-between">
                     <span class="flex items-center gap-2 text-sm text-slate-900">
                         <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                        {{ 'Phòng làm việc trực tiếp' if current_lang == 'vi' else 'Direct Workspace Chat' }}
+                        {{ t('auto.phòng_làm_việc_trực') }}
                     </span>
                     <span class="text-[11px] font-normal bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg">
                         {{ contract.translator.name if current_user.role == 'hirer' else contract.hirer.name }}
@@ -270,7 +270,7 @@
                 <!-- Input -->
                 <div class="p-3 border-t border-slate-100 bg-white">
                     <div class="flex gap-2">
-                        <input type="text" id="chat-input" class="flex-grow px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm transition" placeholder="{{ 'Nhập tin nhắn trao đổi...' if current_lang == 'vi' else 'Type message...' }}">
+                        <input type="text" id="chat-input" class="flex-grow px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm transition" placeholder="{{ t('auto.nhập_tin_nhắn_trao_đ') }}">
                         <button id="send-btn" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-xl transition shadow-sm shrink-0">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
                         </button>
