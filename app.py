@@ -573,6 +573,25 @@ def _init_db():
     """
     try:
         db.create_all()
+        # Vercel Postgres migration logic (auto-add missing columns)
+        with db.engine.connect() as conn:
+            from sqlalchemy import text
+            try:
+                conn.execute(text("ALTER TABLE translator_preference ADD COLUMN auto_reply_enabled BOOLEAN DEFAULT FALSE"))
+            except Exception: pass
+            try:
+                conn.execute(text("ALTER TABLE translator_preference ADD COLUMN auto_reply_message TEXT"))
+            except Exception: pass
+            try:
+                conn.execute(text("ALTER TABLE translator_preference ADD COLUMN auto_reply_cooldown_hours INTEGER DEFAULT 24"))
+            except Exception: pass
+            try:
+                conn.execute(text("ALTER TABLE message ADD COLUMN is_auto_reply BOOLEAN DEFAULT FALSE NOT NULL"))
+            except Exception: pass
+            try:
+                conn.execute(text("ALTER TABLE direct_message ADD COLUMN is_auto_reply BOOLEAN DEFAULT FALSE NOT NULL"))
+            except Exception: pass
+            conn.commit()
     except Exception as e:
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
         return
