@@ -3,8 +3,9 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from models import db, User, TranslatorProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from functools import wraps
+from sqlalchemy.exc import SQLAlchemyError
 import re
 from translations import t as t_lookup, get_localized_languages
 from sqlalchemy.pool import StaticPool
@@ -473,6 +474,9 @@ LANGUAGE_PAGES = {
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('VERCEL'))
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 basedir = os.path.abspath(os.path.dirname(__file__))
 database_url = os.getenv("DATABASE_URL")
 if database_url:
@@ -600,14 +604,24 @@ def inject_globals():
     user = None
     uid = session.get('user_id')
     if uid:
-        if isinstance(uid, str) and uid.startswith('mongo:'):
-            # MongoDB user: dựng dữ liệu đã lưu trong session (tránh query lại)
-            mongo_id = uid[len('mongo:'):]
-            mongo_data = mongo_find_user_by_id(mongo_id)
-            if mongo_data:
-                user = SimpleMongoUser(mongo_data)
-        else:
-            user = User.query.get(uid)
+        try:
+            if isinstance(uid, str) and uid.startswith('mongo:'):
+                # MongoDB user: dựng dữ liệu đã lưu trong session (tránh query lại)
+                mongo_id = uid[len('mongo:'):]
+                mongo_data = mongo_find_user_by_id(mongo_id)
+                if mongo_data:
+                    user = SimpleMongoUser(mongo_data)
+                else:
+                    session.pop('user_id', None)
+            else:
+                user = User.query.get(uid)
+                if not user:
+                    session.pop('user_id', None)
+        except SQLAlchemyError as e:
+            print(f"[AUTH SQL GLOBALS ERROR] {e}")
+            # Do not pop session on transient DB locks to prevent random logout
+        except Exception as e:
+            print(f"[AUTH GLOBALS ERROR] {e}")
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
     if current_lang not in ('vi', 'en'):
         current_lang = 'vi'
@@ -622,6 +636,7 @@ def inject_globals():
 def set_language(lang):
     if lang in ('vi', 'en'):
         session['lang'] = lang
+        session.modified = True
     referer = request.referrer
     # Prevent open redirect vulnerabilities
     if referer and request.host in referer:
@@ -659,35 +674,60 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
 
-        # ── Thử MongoDB trước (khi deploy trên Vercel) ──
-        if MONGO_URI:
-            mongo_user = mongo_find_user_by_email(email)
-            if mongo_user and mongo_user.get('is_active', True) and \
-                    check_password_hash(mongo_user['password_hash'], password):
-                # Lưu mongo _id dạng string vào session với prefix để phân biệt
-                session['user_id'] = f"mongo:{mongo_user['_id']}"
-                session['user_name'] = mongo_user.get('name', '')
-                session['user_role'] = mongo_user.get('role', '')
-                session['is_admin'] = mongo_user.get('is_admin', False)
-                flash('Đăng nhập thành công!', 'success')
-                if mongo_user.get('is_admin'):
-                    return redirect(url_for('admin_dashboard'))
-                return redirect(url_for('index'))
-            elif mongo_user:
-                flash('Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khoá.', 'error')
-                return render_template('login.html')
-            # Nếu không tìm thấy trong MongoDB thì fallback xuống SQLite bên dưới
+        try:
+            # ── Thử MongoDB trước (khi deploy trên Vercel) ──
+            if MONGO_URI:
+                mongo_user = mongo_find_user_by_email(email)
+                if mongo_user:
+                    if not mongo_user.get('is_active', True):
+                        flash('Tài khoản đã bị khoá.', 'error')
+                        return render_template('login.html', email=email)
+                    if check_password_hash(mongo_user['password_hash'], password):
+                        # Lưu mongo _id dạng string vào session với prefix để phân biệt
+                        session.clear()
+                        session.permanent = True
+                        session['user_id'] = f"mongo:{mongo_user['_id']}"
+                        session['user_name'] = mongo_user.get('name', '')
+                        session['user_role'] = mongo_user.get('role', '')
+                        session['is_admin'] = mongo_user.get('is_admin', False)
+                        flash('Đăng nhập thành công!', 'success')
+                        if mongo_user.get('is_admin'):
+                            return redirect(url_for('admin_dashboard'))
+                        return redirect(url_for('index'))
+                    else:
+                        flash('Mật khẩu không đúng.', 'error')
+                        return render_template('login.html', email=email)
+                # Nếu không tìm thấy trong MongoDB thì fallback xuống SQLite bên dưới
+    
+            # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
+            user = User.query.filter_by(email=email).first()
+            if user:
+                if not user.is_active:
+                    flash('Tài khoản đã bị khoá.', 'error')
+                    return render_template('login.html', email=email)
+                if check_password_hash(user.password_hash, password):
+                    session.clear()
+                    session.permanent = True
+                    session['user_id'] = user.id
+                    flash('Đăng nhập thành công!', 'success')
+                    if user.is_admin:
+                        return redirect(url_for('admin_dashboard'))
+                    return redirect(url_for('index'))
+                else:
+                    flash('Mật khẩu không đúng.', 'error')
+                    return render_template('login.html', email=email)
+            else:
+                flash('Tài khoản không tồn tại hoặc email không đúng.', 'error')
+                return render_template('login.html', email=email)
+        except SQLAlchemyError as e:
+            print(f"[AUTH SQL ERROR] {e}")
+            flash('Hệ thống đang quá tải hoặc cơ sở dữ liệu bị khoá. Vui lòng thử lại sau.', 'error')
+            return render_template('login.html', email=email)
+        except Exception as e:
+            print(f"[AUTH ERROR] {e}")
+            flash('Lỗi kết nối cơ sở dữ liệu. Vui lòng thử lại sau.', 'error')
+            return render_template('login.html', email=email)
 
-        # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
-        user = User.query.filter_by(email=email).first()
-        if user and user.is_active and check_password_hash(user.password_hash, password):
-            session['user_id'] = user.id
-            flash('Đăng nhập thành công!', 'success')
-            if user.is_admin:
-                return redirect(url_for('admin_dashboard'))
-            return redirect(url_for('index'))
-        else:
-            flash('Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khoá.', 'error')
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -743,7 +783,7 @@ def register():
 
 @app.route('/logout')
 def logout():
-    session.pop('user_id', None)
+    session.clear()
     flash('Đã đăng xuất.', 'success')
     return redirect(url_for('index'))
 
