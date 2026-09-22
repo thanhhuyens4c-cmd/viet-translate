@@ -507,8 +507,12 @@ if database_url:
     # Fix Heroku/Render PostgreSQL URL scheme
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
-    elif database_url.startswith("postgresql://"):
+    elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    # Supabase requires SSL
+    if 'postgresql' in database_url and 'sslmode' not in database_url:
+        sep = '&' if '?' in database_url else '?'
+        database_url += f'{sep}sslmode=require'
     print(f"[DB] Sử dụng PostgreSQL (DATABASE_URL)", file=sys.stderr)
 else:
     if os.environ.get('VERCEL') == '1':
@@ -1116,13 +1120,25 @@ def translator_list():
     return render_template('translator_list.html', profiles=pagination.items,
                            pagination=pagination, lang_filter=lang, LANGUAGES=LANGUAGES)
 
+@app.route('/api/ping')
+def api_ping():
+    return jsonify({'status': 'ok', 'db_uri_set': bool(os.getenv('DATABASE_URL')), 'version': 'v3'})
+
 @app.route('/api/health')
 def api_health():
-    user_count = User.query.count()
-    profile_count = TranslatorProfile.query.count()
-    service_count = Service.query.count()
+    try:
+        user_count = User.query.count()
+        profile_count = TranslatorProfile.query.count()
+        service_count = Service.query.count()
+        db_status = 'connected'
+    except Exception as e:
+        user_count = profile_count = service_count = -1
+        db_status = f'error: {e}'
+    db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+    safe_uri = db_uri.split('@')[-1] if '@' in db_uri else db_uri[:60]
     return jsonify({
-        'db_uri': app.config['SQLALCHEMY_DATABASE_URI'],
+        'db_host': safe_uri,
+        'db_status': db_status,
         'vercel': os.environ.get('VERCEL', '0'),
         'users': user_count,
         'profiles': profile_count,
