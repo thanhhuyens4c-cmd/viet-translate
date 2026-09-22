@@ -181,7 +181,7 @@ class Proposal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False)
     translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    cover_letter = db.Column(db.Text, nullable=False)
+    cover_letter = db.Column(db.Text, nullable=True)
     price = db.Column(db.Integer, nullable=False)
     time_estimate = db.Column(db.String(100))
     status = db.Column(db.String(20), default='pending')

@@ -1581,7 +1581,7 @@ def job_detail(job_id):
         proposal = Proposal(
             job_id=job.id,
             translator_id=session['user_id'],
-            cover_letter=request.form.get('cover_letter'),
+            cover_letter=request.form.get('cover_letter', ''),
             price=int(request.form.get('price') or 0),
             time_estimate=time_estimate_str
         )
