@@ -1511,6 +1511,14 @@ def job_detail(job_id):
         if user.role != 'translator':
             flash('Chỉ Phiên dịch viên mới có thể ứng tuyển.', 'error')
             return redirect(url_for('job_detail', job_id=job.id))
+            
+        if job.status != 'open':
+            flash('Công việc đã đóng, không thể ứng tuyển.', 'error')
+            return redirect(url_for('job_detail', job_id=job.id))
+            
+        if user.id == job.hirer_id:
+            flash('Bạn không thể ứng tuyển công việc của chính mình.', 'error')
+            return redirect(url_for('job_detail', job_id=job.id))
 
         # ── 2. Duplicate proposal guard ───────────────────────────────────────
         existing_proposal = Proposal.query.filter_by(

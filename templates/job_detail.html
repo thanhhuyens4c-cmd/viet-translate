@@ -76,9 +76,17 @@
             
 
             <!-- Bidding Form (If translator) -->
-            {% if current_user and current_user.role == 'translator' %}
+            {% if current_user and current_user.role == 'translator' and current_user.id != job.hirer_id %}
             <div id="proposal-form" class="bg-white rounded-2xl shadow-soft border border-brand-200/80 p-6 sm:p-8 scroll-mt-24">
-                {% if job.status != 'open' %}
+                {% if existing_proposal %}
+                <div class="flex flex-col items-center justify-center text-center py-6">
+                    <div class="w-16 h-16 bg-brand-50 text-brand-500 rounded-full flex items-center justify-center mb-4">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">Bạn đã ứng tuyển</h3>
+                    <p class="text-sm text-slate-500">Đề xuất của bạn đang chờ phản hồi từ khách thuê.</p>
+                </div>
+                {% elif job.status != 'open' %}
                 <div class="flex flex-col items-center justify-center text-center py-6">
                     <div class="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mb-4">
                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
@@ -426,17 +434,15 @@
                 </div>
 
                 <!-- Desktop CTA Button -->
-                {% if current_user and current_user.role == 'translator' %}
-                    {% if job.status == 'open' %}
-                        {% if existing_proposal %}
-                            <button disabled class="w-full bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed">
-                                ĐÃ ỨNG TUYỂN
-                            </button>
-                        {% else %}
-                            <a href="#proposal-form" id="desktop-apply-btn" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm">
-                                ỨNG TUYỂN
-                            </a>
-                        {% endif %}
+                {% if current_user and current_user.role == 'translator' and current_user.id != job.hirer_id %}
+                    {% if existing_proposal %}
+                        <button disabled class="w-full bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed">
+                            ĐÃ ỨNG TUYỂN
+                        </button>
+                    {% elif job.status == 'open' %}
+                        <a href="#proposal-form" id="desktop-apply-btn" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm">
+                            ỨNG TUYỂN
+                        </a>
                     {% else %}
                         <button disabled class="w-full bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed">
                             JOB ĐÃ ĐÓNG
@@ -488,18 +494,16 @@
 </div>
 
 <!-- Mobile Fixed CTA -->
-{% if current_user and current_user.role == 'translator' %}
+{% if current_user and current_user.role == 'translator' and current_user.id != job.hirer_id %}
 <div class="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-50">
-    {% if job.status == 'open' %}
-        {% if existing_proposal %}
-            <button disabled class="w-full bg-slate-100 text-slate-500 font-bold py-3.5 px-4 rounded-xl cursor-not-allowed">
-                ĐÃ ỨNG TUYỂN
-            </button>
-        {% else %}
-            <a href="#proposal-form" id="mobile-apply-btn" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 px-4 rounded-xl transition shadow-sm">
-                ỨNG TUYỂN
-            </a>
-        {% endif %}
+    {% if existing_proposal %}
+        <button disabled class="w-full bg-slate-100 text-slate-500 font-bold py-3.5 px-4 rounded-xl cursor-not-allowed">
+            ĐÃ ỨNG TUYỂN
+        </button>
+    {% elif job.status == 'open' %}
+        <a href="#proposal-form" id="mobile-apply-btn" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 px-4 rounded-xl transition shadow-sm">
+            ỨNG TUYỂN
+        </a>
     {% else %}
         <button disabled class="w-full bg-slate-100 text-slate-500 font-bold py-3.5 px-4 rounded-xl cursor-not-allowed">
             JOB ĐÃ ĐÓNG
