@@ -228,19 +228,19 @@
             <!-- Desktop Navigation Links -->
             <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
                 {% if current_user and current_user.role == 'hirer' %}
-                    <a href="{{ url_for('translator_list') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.find_translators') }}</a>
-                    <a href="{{ url_for('account_history') }}" class="nav-item hover:text-brand-600 py-1">Việc làm của tôi</a>
+                    <a href="{{ url_for('translator_list') }}" class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'translator_list' %}active text-brand-600 font-bold{% endif %}">{{ t('nav.find_translators') }}</a>
+                    <a href="{{ url_for('account_history') }}" class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_history' %}active text-brand-600 font-bold{% endif %}">Việc làm của tôi</a>
                 {% elif current_user and current_user.role == 'translator' %}
-                    <a href="{{ url_for('job_list') }}" class="nav-item hover:text-brand-600 py-1">Tìm việc</a>
-                    <a href="{{ url_for('job_list') }}?recommended=1" class="nav-item hover:text-brand-600 py-1">Việc phù hợp</a>
-                    <a href="{{ url_for('account_profile') }}" class="nav-item hover:text-brand-600 py-1">Dịch vụ của tôi</a>
+                    <a href="{{ url_for('job_list') }}" class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and not request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">Tìm việc</a>
+                    <a href="{{ url_for('job_list', recommended=1) }}" class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">Việc phù hợp</a>
+                    <a href="{{ url_for('account_profile') }}" class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_profile' %}active text-brand-600 font-bold{% endif %}">Dịch vụ của tôi</a>
                     <a href="#" class="nav-item hover:text-brand-600 py-1">Lịch làm việc</a>
                 {% else %}
                     <!-- Guest -->
-                    <a href="{{ url_for('translator_list') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.find_translators') }}</a>
-                    <a href="{{ url_for('job_list') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.jobs') }}</a>
-                    <a href="{{ url_for('about') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.about') }}</a>
-                    <a href="{{ url_for('payment_info') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.payment_escrow') }}</a>
+                    <a href="{{ url_for('translator_list') }}" class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'translator_list' %}active text-brand-600 font-bold{% endif %}">{{ t('nav.find_translators') }}</a>
+                    <a href="{{ url_for('job_list') }}" class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' %}active text-brand-600 font-bold{% endif %}">{{ t('nav.jobs') }}</a>
+                    <a href="{{ url_for('about') }}" class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'about' %}active text-brand-600 font-bold{% endif %}">{{ t('nav.about') }}</a>
+                    <a href="{{ url_for('payment_info') }}" class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'payment_info' %}active text-brand-600 font-bold{% endif %}">{{ t('nav.payment_escrow') }}</a>
                 {% endif %}
             </nav>
 
@@ -262,14 +262,14 @@
                     {% endif %}
 
                     {% if current_user.is_admin %}
-                    <a href="{{ url_for('admin_dashboard') }}" class="hidden md:inline-flex items-center gap-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-semibold px-3 py-1.5 rounded-xl transition">
+                    <a href="{{ url_for('admin_dashboard') }}" class="hidden md:inline-flex items-center gap-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-semibold px-3 py-1.5 rounded-xl transition {% if request.endpoint == 'admin_dashboard' %}ring-2 ring-rose-500 font-bold{% endif %}">
                         {{ t('nav.admin') }}
                     </a>
                     {% endif %}
 
                     <!-- Messages icon with badge -->
                     {% if current_user %}
-                    <a href="{{ url_for('messages_page') }}" id="nav-msg-btn" class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition" title="Tin nhắn">
+                    <a href="{{ url_for('messages_page') }}" id="nav-msg-btn" class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition {% if request.endpoint in ['messages_page', 'direct_chat', 'transaction_detail'] %}bg-brand-50 text-brand-600{% endif %}" title="Tin nhắn">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                         </svg>
@@ -277,7 +277,7 @@
                     </a>
 
                     <!-- Notifications icon with badge -->
-                    <a href="{{ url_for('notifications_page') }}" id="nav-notif-btn" class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition" title="Thông báo">
+                    <a href="{{ url_for('notifications_page') }}" id="nav-notif-btn" class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition {% if request.endpoint == 'notifications_page' %}bg-brand-50 text-brand-600{% endif %}" title="Thông báo">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                         </svg>
@@ -357,32 +357,32 @@
             </div>
 
             {% if current_user and current_user.role == 'hirer' %}
-                <a href="{{ url_for('translator_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.find_translators') }}</a>
-                <a href="{{ url_for('account_history') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">Việc làm của tôi</a>
-                <a href="{{ url_for('post_job') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-brand-600 bg-brand-50">{{ t('nav.mobile_post_job') }}</a>
+                <a href="{{ url_for('translator_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'translator_list' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{ t('nav.find_translators') }}</a>
+                <a href="{{ url_for('account_history') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'account_history' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Việc làm của tôi</a>
+                <a href="{{ url_for('post_job') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'post_job' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{ t('nav.mobile_post_job') }}</a>
             {% elif current_user and current_user.role == 'translator' %}
-                <a href="{{ url_for('job_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">Tìm việc</a>
-                <a href="{{ url_for('job_list') }}?recommended=1" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">Việc phù hợp</a>
-                <a href="{{ url_for('account_profile') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">Dịch vụ của tôi</a>
+                <a href="{{ url_for('job_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'job_list' and not request.args.get('recommended') %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Tìm việc</a>
+                <a href="{{ url_for('job_list', recommended=1) }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'job_list' and request.args.get('recommended') %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Việc phù hợp</a>
+                <a href="{{ url_for('account_profile') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'account_profile' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Dịch vụ của tôi</a>
                 <a href="#" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">Lịch làm việc</a>
             {% else %}
-                <a href="{{ url_for('translator_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.find_translators') }}</a>
-                <a href="{{ url_for('job_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.jobs') }}</a>
-                <a href="{{ url_for('about') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.about') }}</a>
-                <a href="{{ url_for('payment_info') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.payment_escrow') }}</a>
+                <a href="{{ url_for('translator_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'translator_list' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{ t('nav.find_translators') }}</a>
+                <a href="{{ url_for('job_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'job_list' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{ t('nav.jobs') }}</a>
+                <a href="{{ url_for('about') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'about' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{ t('nav.about') }}</a>
+                <a href="{{ url_for('payment_info') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'payment_info' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{ t('nav.payment_escrow') }}</a>
             {% endif %}
             {% if current_user %}
-            <a href="{{ url_for('messages_page') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 flex items-center gap-2">
+            <a href="{{ url_for('messages_page') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint in ['messages_page', 'direct_chat', 'transaction_detail'] %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                 Tin nhắn
             </a>
-            <a href="{{ url_for('notifications_page') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 flex items-center gap-2">
+            <a href="{{ url_for('notifications_page') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'notifications_page' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
                 Thông báo
             </a>
             {% endif %}
             {% if current_user and current_user.is_admin %}
-            <a href="{{ url_for('admin_dashboard') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-rose-600 bg-rose-50">{{ t('nav.admin_dashboard') }}</a>
+            <a href="{{ url_for('admin_dashboard') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'admin_dashboard' %}text-rose-700 bg-rose-100{% else %}text-rose-600 bg-rose-50{% endif %}">{{ t('nav.admin_dashboard') }}</a>
             {% endif %}
         </div>
     </div>
