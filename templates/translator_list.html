@@ -126,8 +126,17 @@
             {{ t('translator_list_page.showing_count') }} <span id="result-count-badge">...</span> {{ t('translator_list_page.translators_count_label') }}
           </p>
         </div>
-        
         <div class="flex items-center gap-2.5">
+          <!-- Search input -->
+          <form id="fl-search-form" class="relative w-full sm:w-64">
+            <input type="text" id="fl-search" 
+              placeholder="{{ t('translator_list_page.search_placeholder') | default('Tìm theo tên, ngôn ngữ...') }}"
+              class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+            <button type="submit" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-600 transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </button>
+          </form>
+
           <!-- Mobile filter button -->
           <div class="relative lg:hidden">
             <button id="mobile-filter-btn" class="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 hover:bg-slate-100 transition">
@@ -199,7 +208,7 @@
 <script>
 const CURRENT_LANG = "{{ current_lang }}";
 
-let filters = { languages: [], priceRange: null, minRating: null, completionTime: null, badges: [] };
+let filters = { languages: [], priceRange: null, minRating: null, completionTime: null, badges: [], query: '' };
 let allFreelancers = [];
 let sortBy = 'rating';
 
@@ -307,6 +316,14 @@ function buildFilterForm(s) {
 
 function filterFreelancers(list, f) {
   return list.filter(fl => {
+    if (f.query) {
+      const q = f.query;
+      const n = (fl.name || '').toLowerCase();
+      const t = (fl.title || '').toLowerCase();
+      const b = (fl.badges || []).join(' ').toLowerCase();
+      const l = (fl.languages || []).join(' ').toLowerCase();
+      if (!n.includes(q) && !t.includes(q) && !b.includes(q) && !l.includes(q)) return false;
+    }
     if (f.languages.length > 0) {
       if (!f.languages.some(lang => {
         const langItem = LANG_LIST.find(l => l.name === lang || l.enName === lang);
@@ -427,6 +444,8 @@ function syncFiltersFromDOM(s) {
   const pe = document.querySelector(`.price-rb-${s}:checked`); filters.priceRange = pe?pe.value:null;
   const re = document.querySelector(`.rating-rb-${s}:checked`); filters.minRating = re?parseFloat(re.value):null;
   filters.badges = [...document.querySelectorAll(`.badge-cb-${s}:checked`)].map(e=>e.value);
+  const qEl = document.getElementById('fl-search');
+  filters.query = qEl ? qEl.value.trim().toLowerCase() : '';
 }
 
 function syncDOMFromFilters(s) {
@@ -437,7 +456,9 @@ function syncDOMFromFilters(s) {
 }
 
 function clearAllFilters() {
-  filters = { languages:[], priceRange:null, minRating:null, completionTime:null, badges:[] };
+  filters = { languages:[], priceRange:null, minRating:null, completionTime:null, badges:[], query:'' };
+  const qEl = document.getElementById('fl-search');
+  if (qEl) qEl.value = '';
   syncDOMFromFilters('d'); syncDOMFromFilters('m'); renderList();
 }
 
@@ -482,6 +503,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('drawer-overlay').addEventListener('click', closeDrawer);
   document.getElementById('apply-drawer').addEventListener('click', closeDrawer);
   document.getElementById('clear-filters-desktop')?.addEventListener('click', clearAllFilters);
+  document.getElementById('fl-search')?.addEventListener('input', () => { syncFiltersFromDOM('d'); renderList(); });
+  document.getElementById('fl-search-form')?.addEventListener('submit', (e) => { e.preventDefault(); syncFiltersFromDOM('d'); renderList(); });
   document.addEventListener('keydown', e => { if(e.key==='Escape') closeDrawer(); });
 });
 </script>

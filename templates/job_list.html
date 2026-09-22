@@ -207,12 +207,14 @@
             {{ t('job_list_page.showing_count') }} <span id="jf-count">{{ jobs|length }}</span> {{ t('job_list_page.open_jobs_label') }}
           </p>
           <!-- Search input -->
-          <div class="relative w-full sm:w-64">
+          <form id="jf-search-form" class="relative w-full sm:w-64">
             <input type="text" id="jf-search" oninput="applyFilters()"
               placeholder="{{ t('job_list_page.search_placeholder') }}"
               class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
-            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-          </div>
+            <button type="submit" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-600 transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </button>
+          </form>
         </div>
         <div class="flex items-center gap-2.5">
 
@@ -666,6 +668,15 @@ document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeDrawer();
   });
+  
+  var searchForm = document.getElementById('jf-search-form');
+  if (searchForm) {
+    searchForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      applyFilters();
+    });
+  }
+  
   applyFilters();
 });
 </script>
