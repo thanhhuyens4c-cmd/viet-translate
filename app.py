@@ -1120,6 +1120,21 @@ def translator_list():
     return render_template('translator_list.html', profiles=pagination.items,
                            pagination=pagination, lang_filter=lang, LANGUAGES=LANGUAGES)
 
+@app.route('/api/init-db')
+def api_init_db():
+    try:
+        db.drop_all()
+        db.create_all()
+        from seed_data import seed_data as _run_seed
+        _run_seed()
+        return jsonify({'status': 'ok', 'message': 'Database reset and seeded',
+                        'users': User.query.count(),
+                        'profiles': TranslatorProfile.query.count(),
+                        'services': Service.query.count()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 @app.route('/api/ping')
 def api_ping():
     return jsonify({'status': 'ok', 'db_uri_set': bool(os.getenv('DATABASE_URL')), 'version': 'v3'})
