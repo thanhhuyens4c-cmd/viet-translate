@@ -562,12 +562,24 @@ def admin_required(f):
     def decorated(*args, **kwargs):
         if 'user_id' not in session:
             return redirect(url_for('login'))
-        user = User.query.get(session['user_id'])
+        uid = session['user_id']
+        # MongoDB users: check is_admin từ session (đã lưu khi login)
+        if isinstance(uid, str) and uid.startswith('mongo:'):
+            if not session.get('is_admin', False):
+                flash('Bạn không có quyền truy cập trang này.', 'error')
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        # SQLite users
+        try:
+            user = User.query.get(uid)
+        except SQLAlchemyError:
+            user = None
         if not user or not user.is_admin:
             flash('Bạn không có quyền truy cập trang này.', 'error')
             return redirect(url_for('index'))
         return f(*args, **kwargs)
     return decorated
+
 
 @app.template_filter('format_date_vn')
 def format_date_vn(val):
@@ -598,6 +610,26 @@ class SimpleMongoUser:
         self.is_admin = data.get('is_admin', False)
         self.is_active = data.get('is_active', True)
         self.profile = None  # Không dùng SQLAlchemy relationship
+
+
+def get_current_user():
+    """Trả về User object của người đang đăng nhập từ session hiện tại.
+    KHÔNG dùng User.query.first(), ID mặc định, hoặc dữ liệu hard-code.
+    Trả về None nếu chưa đăng nhập hoặc user không còn tồn tại.
+    """
+    uid = session.get('user_id')
+    if not uid:
+        return None
+    if isinstance(uid, str) and uid.startswith('mongo:'):
+        mongo_id = uid[len('mongo:'):]
+        mongo_data = mongo_find_user_by_id(mongo_id)
+        return SimpleMongoUser(mongo_data) if mongo_data else None
+    try:
+        return User.query.get(uid)
+    except SQLAlchemyError as e:
+        print(f"[get_current_user SQLError] {e}")
+        return None
+
 
 @app.context_processor
 def inject_globals():
@@ -958,7 +990,10 @@ def get_job_applicant_count(job_id):
 @app.route('/account/history')
 @login_required
 def account_history():
-    user = User.query.get(session['user_id'])
+    user = get_current_user()
+    if not user:
+        flash('Không tìm thấy tài khoản.', 'error')
+        return redirect(url_for('index'))
     if user.role == 'hirer':
         contracts = Contract.query.filter_by(hirer_id=user.id).order_by(Contract.created_at.desc()).all()
     else:
@@ -1267,7 +1302,10 @@ def book_service(service_id):
               'premium': service.premium_price}
     price = prices.get(tier, service.basic_price)
 
-    current_user = User.query.get(session['user_id'])
+    current_user = get_current_user()
+    if not current_user:
+        flash('Vui lòng đăng nhập để tiếp tục.', 'warning')
+        return redirect(url_for('login'))
     translator = service.profile.user if service.profile else None
 
     if not translator or getattr(translator, 'role', '') != 'translator' or not getattr(translator, 'is_active', True):
@@ -2050,7 +2088,7 @@ def api_invite_translator(job_id, translator_id):
             user_id=translator.id,
             notification_type='JOB_INVITATION',
             title='Bạn được mời ứng tuyển',
-            message=f'Khách hàng {session.get("user_name")} đã mời bạn ứng tuyển vào công việc "{job.title}".',
+            message=f'Khách hàng {job.hirer.name} đã mời bạn ứng tuyển vào công việc "{job.title}".',
             url=url_for('job_detail', job_id=job.id),
             related_job_id=job.id
         )

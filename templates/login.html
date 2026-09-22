@@ -31,14 +31,19 @@
         <form method="POST" action="{{ url_for('login') }}" class="space-y-4">
             <div>
                 <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.email_label') }}</label>
-                <input type="email" name="email" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" value="hirer@test.com">
+                <input type="email" name="email" required
+                       class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50"
+                       value="{{ email or '' }}"
+                       autocomplete="email">
             </div>
             <div>
                 <div class="flex justify-between items-center mb-1.5">
                     <label class="block text-slate-700 font-bold text-xs uppercase tracking-wider">{{ t('auth.password_label') }}</label>
                     <a href="#" class="text-[11px] text-brand-600 hover:text-brand-700 font-semibold">{{ t('auth.forgot_password') }}</a>
                 </div>
-                <input type="password" name="password" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" value="123456">
+                <input type="password" name="password" required
+                       class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50"
+                       autocomplete="current-password">
             </div>
             <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition shadow-sm text-xs sm:text-sm mt-2">
                 {{ t('auth.login_button') }}
