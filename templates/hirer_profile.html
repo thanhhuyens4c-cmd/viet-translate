@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Hồ sơ Khách hàng' if current_lang == 'vi' else 'Hirer Profile' }} - {{ user.name }}{% endblock %}
+
+{% block content %}
+<div class="mesh-hero-bg border-b border-slate-200/70 py-12 md:py-16">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+    <div class="w-24 h-24 mx-auto bg-gradient-to-br from-brand-600 to-indigo-600 rounded-3xl flex items-center justify-center text-white text-4xl font-extrabold shadow-md mb-6 transform -rotate-3 hover:rotate-0 transition duration-300">
+      {{ user.name[:1]|upper }}
+    </div>
+    
+    <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">{{ user.name }}</h1>
+    
+    {% if profile and profile.title %}
+    <p class="text-brand-600 font-bold text-base md:text-lg mb-1">{{ profile.title }}</p>
+    {% endif %}
+    
+    {% if profile and profile.company %}
+    <p class="text-slate-600 font-semibold mb-4">{{ profile.company }}</p>
+    {% endif %}
+    
+    <div class="flex flex-wrap items-center justify-center gap-3 mt-4 text-xs font-semibold text-slate-500">
+      <span class="bg-white/80 border border-slate-200/60 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        {{ 'Tham gia từ:' if current_lang == 'vi' else 'Joined:' }} {{ user.created_at.strftime('%m/%Y') }}
+      </span>
+      {% if profile and profile.location %}
+      <span class="bg-white/80 border border-slate-200/60 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.242-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        {{ profile.location }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+    
+    <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-soft text-center">
+      <div class="w-12 h-12 mx-auto bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      </div>
+      <div class="text-3xl font-extrabold text-slate-900 mb-1">{{ total_jobs }}</div>
+      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ 'Job đã đăng' if current_lang == 'vi' else 'Jobs Posted' }}</div>
+    </div>
+    
+    <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-soft text-center">
+      <div class="w-12 h-12 mx-auto bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mb-4">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div class="text-3xl font-extrabold text-slate-900 mb-1">{{ completed_contracts }}</div>
+      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ 'Contract hoàn thành' if current_lang == 'vi' else 'Contracts Completed' }}</div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-soft text-center">
+      <div class="w-12 h-12 mx-auto bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center mb-4">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+      </div>
+      <div class="text-3xl font-extrabold text-slate-900 mb-1">
+        {% if profile and profile.rating > 0 %}
+          {{ "%.1f"|format(profile.rating) }}
+        {% else %}
+          --
+        {% endif %}
+      </div>
+      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ 'Đánh giá' if current_lang == 'vi' else 'Rating' }}</div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

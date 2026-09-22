@@ -473,6 +473,10 @@
                             <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                             {{ t('job_detail_page.verified_account') }}
                         </div>
+                        <a href="{{ url_for('hirer_profile', hirer_id=job.hirer.id) }}" class="inline-flex mt-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 transition items-center gap-1">
+                            {{ 'Xem profile' if current_lang == 'vi' else 'View profile' }}
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </a>
                     </div>
                 </div>
                 

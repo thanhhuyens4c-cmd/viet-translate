@@ -50,6 +50,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     profile = db.relationship('TranslatorProfile', backref='user', uselist=False, cascade='all, delete-orphan')
+    hirer_profile = db.relationship('HirerProfile', backref='user', uselist=False, cascade='all, delete-orphan')
     jobs_posted = db.relationship('Job', backref='hirer', lazy=True, cascade='all, delete-orphan')
     proposals = db.relationship('Proposal', backref='translator', lazy=True, cascade='all, delete-orphan')
     direct_messages_sent = db.relationship('DirectMessage', foreign_keys='DirectMessage.sender_id', backref='sender', lazy=True)
@@ -85,6 +86,15 @@ class TranslatorPreference(db.Model):
     notify_reviews = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class HirerProfile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    title = db.Column(db.String(100))
+    company = db.Column(db.String(200))
+    location = db.Column(db.String(100))
+    rating = db.Column(db.Float, default=0.0)
 
 
 class Service(db.Model):

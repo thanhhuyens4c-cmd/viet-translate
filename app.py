@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response
-from models import db, User, TranslatorProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -986,9 +986,19 @@ def account_profile():
             pref.notify_messages = 'notify_messages' in request.form
             pref.notify_contracts = 'notify_contracts' in request.form
             pref.notify_reviews = 'notify_reviews' in request.form
-            
             db.session.commit()
-            flash('Đã cập nhật cài đặt nhận việc!', 'success')
+            flash('Đã lưu tùy chọn phiên dịch!', 'success')
+
+        elif action == 'hirer_profile' and user.role == 'hirer':
+            profile = user.hirer_profile
+            if not profile:
+                profile = HirerProfile(user_id=user.id)
+                db.session.add(profile)
+            profile.title = request.form.get('title', '').strip()
+            profile.company = request.form.get('company', '').strip()
+            profile.location = request.form.get('location', '').strip()
+            db.session.commit()
+            flash('Đã cập nhật hồ sơ khách thuê!', 'success')
 
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')
@@ -1158,6 +1168,20 @@ def translator_profile(profile_id):
     # Reviews received by this translator
     reviews = Review.query.filter_by(reviewee_id=profile.user_id).order_by(Review.created_at.desc()).limit(10).all()
     return render_template('translator_profile.html', profile=profile, reviews=reviews)
+
+@app.route('/hirer/<int:hirer_id>')
+def hirer_profile(hirer_id):
+    user = User.query.get_or_404(hirer_id)
+    if user.role != 'hirer':
+        abort(404)
+        
+    profile = user.hirer_profile
+    
+    # Calculate stats
+    total_jobs = Job.query.filter_by(hirer_id=hirer_id).count()
+    completed_contracts = Contract.query.join(Job).filter(Job.hirer_id == hirer_id, Contract.status == 'completed').count()
+    
+    return render_template('hirer_profile.html', user=user, profile=profile, total_jobs=total_jobs, completed_contracts=completed_contracts)
 
 @app.route('/translator/<string:lang_slug>')
 def translator_language(lang_slug):
