@@ -767,16 +767,12 @@ def set_language(lang):
 
 @app.route('/')
 def index():
-    try:
-        top_translators = TranslatorProfile.query.filter_by(is_verified=True).order_by(
-            TranslatorProfile.rating.desc()).limit(4).all()
-        if not top_translators:
-            top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
-        latest_jobs = Job.query.filter_by(status='open', is_flagged=False).order_by(Job.created_at.desc()).limit(4).all()
-        return render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
-    except Exception as e:
-        import traceback
-        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+    top_translators = TranslatorProfile.query.filter_by(is_verified=True).order_by(
+        TranslatorProfile.rating.desc()).limit(4).all()
+    if not top_translators:
+        top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
+    latest_jobs = Job.query.filter_by(status='open', is_flagged=False).order_by(Job.created_at.desc()).limit(4).all()
+    return render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
 
 @app.route('/about')
 def about():
@@ -1123,21 +1119,6 @@ def translator_list():
     pagination = query.order_by(TranslatorProfile.rating.desc()).paginate(page=page, per_page=per_page, error_out=False)
     return render_template('translator_list.html', profiles=pagination.items,
                            pagination=pagination, lang_filter=lang, LANGUAGES=LANGUAGES)
-
-@app.route('/api/init-db')
-def api_init_db():
-    try:
-        db.drop_all()
-        db.create_all()
-        from seed_data import seed_data as _run_seed
-        _run_seed()
-        return jsonify({'status': 'ok', 'message': 'Database reset and seeded',
-                        'users': User.query.count(),
-                        'profiles': TranslatorProfile.query.count(),
-                        'services': Service.query.count()})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/ping')
 def api_ping():
