@@ -842,6 +842,11 @@ def register():
             flash('Vai trò không hợp lệ.', 'error')
             return redirect(url_for('register'))
 
+        import re
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            flash('Email không hợp lệ. Vui lòng nhập đúng định dạng.', 'error')
+            return redirect(url_for('register'))
+
         hashed_pw = generate_password_hash(password)
 
         # ── Dùng MongoDB khi MONGO_URI được cấu hình (Vercel) ──
@@ -862,7 +867,7 @@ def register():
 
         # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
         if User.query.filter_by(email=email).first():
-            flash('Email đã được sử dụng.', 'error')
+            flash('Tài khoản với email này đã tồn tại. Vui lòng đăng nhập.', 'error')
             return redirect(url_for('register'))
 
         new_user = User(name=name, email=email,
