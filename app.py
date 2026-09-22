@@ -1541,10 +1541,41 @@ def job_detail(job_id):
                         f'Vui lòng kiểm tra lịch của bạn.',
                         'error'
                     )
-                    return redirect(url_for('job_detail', job_id=job.id))
+                    return render_template('job_detail.html', job=job, form_data=request.form)
         except ScheduleCheckError as e:
             flash(str(e), 'error')
-            return redirect(url_for('job_detail', job_id=job.id))
+            return render_template('job_detail.html', job=job, form_data=request.form)
+
+        # ── 3.5. Time Estimate Parsing & Validation ───────────────────────────
+        completion_type = request.form.get('completion_type')
+        time_estimate_str = ""
+        
+        if completion_type == 'duration':
+            val = request.form.get('estimated_duration_value')
+            unit = request.form.get('estimated_duration_unit')
+            if val:
+                try:
+                    val_int = int(val)
+                    if val_int <= 0:
+                        flash('Thời gian hoàn thành phải lớn hơn 0.', 'error')
+                        return render_template('job_detail.html', job=job, form_data=request.form)
+                    unit_str = "ngày" if unit == 'days' else "giờ"
+                    time_estimate_str = f"{val_int} {unit_str}"
+                except ValueError:
+                    flash('Giá trị thời gian hoàn thành phải là một số.', 'error')
+                    return render_template('job_detail.html', job=job, form_data=request.form)
+        elif completion_type == 'deadline':
+            date_val = request.form.get('estimated_completion_date')
+            if date_val:
+                try:
+                    parsed_date = datetime.strptime(date_val, '%Y-%m-%d').date()
+                    if parsed_date < datetime.today().date():
+                        flash('Ngày hoàn thành không được nằm trong quá khứ.', 'error')
+                        return render_template('job_detail.html', job=job, form_data=request.form)
+                    time_estimate_str = parsed_date.strftime('%d/%m/%Y')
+                except ValueError:
+                    flash('Định dạng ngày không hợp lệ.', 'error')
+                    return render_template('job_detail.html', job=job, form_data=request.form)
 
         # ── 4. Create Proposal (unchanged logic) ──────────────────────────────
         proposal = Proposal(
@@ -1552,7 +1583,7 @@ def job_detail(job_id):
             translator_id=session['user_id'],
             cover_letter=request.form.get('cover_letter'),
             price=int(request.form.get('price') or 0),
-            time_estimate=request.form.get('time_estimate')
+            time_estimate=time_estimate_str
         )
         db.session.add(proposal)
         db.session.flush()

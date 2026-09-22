@@ -88,12 +88,10 @@ def normalize_schedule_datetime(date_value, start_value, end_value):
     t_start = _parse_time(start_value)
     t_end = _parse_time(end_value)
 
-    # Empty schedule (e.g. for translation jobs) is valid
-    if not d and not t_start and not t_end:
-        return None, None, None
-
+    # If we are missing any component, this is a partial or empty schedule.
+    # We do NOT raise an error here because a job might only have a deadline date, not a scheduled event time.
     if not d or not t_start or not t_end:
-        raise ScheduleCheckError("Ngày hoặc thời gian không hợp lệ.")
+        return d, t_start, t_end
 
     if t_end <= t_start:
         raise ScheduleCheckError("Thời gian kết thúc phải sau thời gian bắt đầu.")
