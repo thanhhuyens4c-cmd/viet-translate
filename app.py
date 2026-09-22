@@ -475,32 +475,66 @@ LANGUAGE_PAGES = {
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('VERCEL'))
+# Bật Secure cookie nếu đang chạy trên HTTPS (Vercel, Render, hoặc bất kỳ môi trường có HTTPS=1)
+_is_https_env = bool(
+    os.environ.get('VERCEL') or
+    os.environ.get('RENDER') or        # Render.com tự set RENDER=true
+    os.environ.get('HTTPS') or
+    os.environ.get('FORCE_HTTPS')
+)
+app.config['SESSION_COOKIE_SECURE'] = _is_https_env
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+
 basedir = os.path.abspath(os.path.dirname(__file__))
+
+# ─── DATABASE URL RESOLUTION ───────────────────────────────────────────────────
+import sys
+
 database_url = os.getenv("DATABASE_URL")
+_is_memory_db = False  # flag: True nếu đang dùng :memory: (Vercel demo mode)
+
 if database_url:
+    # Fix Heroku/Render PostgreSQL URL scheme
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
     elif database_url.startswith("postgresql://"):
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    print(f"[DB] Sử dụng PostgreSQL (DATABASE_URL)", file=sys.stderr)
 else:
     if os.environ.get('VERCEL') == '1':
+        # Vercel: filesystem ephemeral — phải dùng MONGO_URI hoặc DATABASE_URL
+        # Nếu không có, fallback sang :memory: với cảnh báo rõ ràng
+        if not os.getenv("MONGO_URI"):
+            print("[DB WARNING] Chạy trên Vercel nhưng MONGO_URI và DATABASE_URL đều chưa được cấu hình!", file=sys.stderr)
+            print("[DB WARNING] Dữ liệu sẽ MẤT sau mỗi request do SQLite :memory: không lưu trữ!", file=sys.stderr)
         database_url = 'sqlite:///:memory:'
-    else:
+        _is_memory_db = True
+    elif os.environ.get('RENDER'):
+        # Chạy trên Render nhưng không có DATABASE_URL
+        print("[DB WARNING] Chạy trên Render nhưng DATABASE_URL chưa được cấu hình!", file=sys.stderr)
+        print("[DB WARNING] Hãy vào Render Dashboard → Environment → thêm DATABASE_URL hoặc MONGO_URI", file=sys.stderr)
+        # Vẫn dùng SQLite nhưng đây là ephemeral trên Render!
         database_url = 'sqlite:///' + os.path.join(basedir, 'instance', 'database.db')
+        print("[DB WARNING] Render filesystem là ephemeral — dữ liệu sẽ mất khi redeploy!", file=sys.stderr)
+    else:
+        # Local development: dùng SQLite file cục bộ
+        db_path = os.path.join(basedir, 'instance', 'database.db')
+        database_url = 'sqlite:///' + db_path
+        print(f"[DB] Sử dụng SQLite cục bộ: {db_path}", file=sys.stderr)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 
-if os.environ.get('VERCEL') == '1':
+# Pool config cho SQLite (cả local và :memory:)
+if 'sqlite' in database_url:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'poolclass': StaticPool,
         'connect_args': {'check_same_thread': False},
     }
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
-if os.environ.get('VERCEL') == '1':
+if os.environ.get('VERCEL') == '1' or _is_memory_db:
     UPLOAD_FOLDER = '/tmp'
 else:
     try:
@@ -517,34 +551,67 @@ def allowed_file(filename):
 
 db.init_app(app)
 
-import sys
+# ─── DATABASE INITIALIZATION ───────────────────────────────────────────────────
 
 def _init_db():
-    db.create_all()
-    if not User.query.first():
-        from seed_data import seed_data as _run_seed
-        _run_seed()
-        print(f"[SEED] Done. Users={User.query.count()}, Profiles={TranslatorProfile.query.count()}", file=sys.stderr)
-    else:
-        print(f"[SEED] Already seeded. Users={User.query.count()}", file=sys.stderr)
+    """Tạo bảng nếu chưa tồn tại và nạp seed data DUY NHẤT khi DB trống.
+    
+    QUAN TRỌNG:
+    - KHÔNG bao giờ drop_all() ở đây.
+    - KHÔNG chạy seed nếu đã có user (idempotent).
+    - Bắt lỗi IntegrityError riêng để tránh crash khi có race condition.
+    """
+    try:
+        db.create_all()
+    except Exception as e:
+        print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
+        return
 
+    try:
+        user_count = db.session.execute(db.select(db.func.count()).select_from(User)).scalar()
+    except Exception as e:
+        print(f"[DB] Cannot count users: {e}", file=sys.stderr)
+        user_count = 1  # Giả định đã có data, không seed
+
+    if user_count == 0:
+        # Chỉ seed khi DB thực sự trống
+        try:
+            from seed_data import seed_data as _run_seed
+            _run_seed()
+            print(f"[SEED] Seed hoàn thành. Users={User.query.count()}, Profiles={TranslatorProfile.query.count()}", file=sys.stderr)
+        except Exception as e:
+            # Không để seed failure crash app — user có thể tự đăng ký
+            db.session.rollback()
+            print(f"[SEED ERROR] Seed thất bại (bỏ qua): {e}", file=sys.stderr)
+    else:
+        print(f"[DB] Database sẵn sàng. Users={user_count}", file=sys.stderr)
+
+# Chạy _init_db() một lần khi module được import
 try:
     with app.app_context():
         _init_db()
 except Exception as e:
-    print(f"[SEED ERROR] {e}", file=sys.stderr)
+    print(f"[DB INIT ERROR] {e}", file=sys.stderr)
 
+# Trên Vercel, mỗi serverless invocation có thể là process mới;
+# _db_ready flag giúp tránh re-init trong cùng 1 process.
 _db_ready = False
 
 @app.before_request
 def _ensure_db():
+    """Chạy _init_db() một lần duy nhất cho mỗi process.
+    Trên Vercel/serverless: mỗi cold-start là process mới,
+    nên sẽ chạy 1 lần đầu tiên của process đó.
+    KHAI BÁO này không gây re-seed nếu DB có dữ liệu (điều kiện user_count == 0).
+    """
     global _db_ready
     if not _db_ready:
         try:
             _init_db()
         except Exception as e:
-            print(f"[SEED before_request ERROR] {e}", file=sys.stderr)
+            print(f"[DB before_request ERROR] {e}", file=sys.stderr)
         _db_ready = True
+
 
 # ─── DECORATORS ────────────────────────────────────────────────────────────────
 
