@@ -84,6 +84,9 @@ class TranslatorPreference(db.Model):
     notify_messages = db.Column(db.Boolean, default=True)
     notify_contracts = db.Column(db.Boolean, default=True)
     notify_reviews = db.Column(db.Boolean, default=True)
+    auto_reply_enabled = db.Column(db.Boolean, default=False)
+    auto_reply_message = db.Column(db.Text, nullable=True)
+    auto_reply_cooldown_hours = db.Column(db.Integer, default=24)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -234,6 +237,7 @@ class Message(db.Model):
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
+    is_auto_reply = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     sender = db.relationship(
@@ -250,6 +254,7 @@ class DirectMessage(db.Model):
     receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
+    is_auto_reply = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     receiver = db.relationship('User', foreign_keys=[receiver_id], backref='direct_messages_received')
