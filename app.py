@@ -7,6 +7,8 @@ from datetime import datetime, date, timedelta
 from functools import wraps
 from sqlalchemy.exc import SQLAlchemyError
 import re
+import json
+from flask_migrate import Migrate
 from translations import t as t_lookup, get_localized_languages
 from sqlalchemy.pool import StaticPool
 
@@ -560,6 +562,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 db.init_app(app)
+migrate = Migrate(app, db)
 
 # ─── DATABASE INITIALIZATION ───────────────────────────────────────────────────
 
@@ -599,7 +602,8 @@ def _init_db():
 # Chạy _init_db() một lần khi module được import
 try:
     with app.app_context():
-        _init_db()
+        # _init_db()
+        pass
 except Exception as e:
     print(f"[DB INIT ERROR] {e}", file=sys.stderr)
 

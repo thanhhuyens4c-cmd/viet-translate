@@ -4,3 +4,5 @@ Werkzeug==3.0.0
 gunicorn
 pymongo[srv]==4.6.3
 psycopg[binary]
+Flask-Migrate==4.0.5  
+ 
