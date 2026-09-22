@@ -573,25 +573,6 @@ def _init_db():
     """
     try:
         db.create_all()
-        # Vercel Postgres migration logic (auto-add missing columns)
-        with db.engine.connect() as conn:
-            from sqlalchemy import text
-            try:
-                conn.execute(text("ALTER TABLE translator_preference ADD COLUMN auto_reply_enabled BOOLEAN DEFAULT FALSE"))
-            except Exception: pass
-            try:
-                conn.execute(text("ALTER TABLE translator_preference ADD COLUMN auto_reply_message TEXT"))
-            except Exception: pass
-            try:
-                conn.execute(text("ALTER TABLE translator_preference ADD COLUMN auto_reply_cooldown_hours INTEGER DEFAULT 24"))
-            except Exception: pass
-            try:
-                conn.execute(text("ALTER TABLE message ADD COLUMN is_auto_reply BOOLEAN DEFAULT FALSE NOT NULL"))
-            except Exception: pass
-            try:
-                conn.execute(text("ALTER TABLE direct_message ADD COLUMN is_auto_reply BOOLEAN DEFAULT FALSE NOT NULL"))
-            except Exception: pass
-            conn.commit()
     except Exception as e:
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
         return
@@ -1018,8 +999,6 @@ def account_profile():
             pref.notify_messages = 'notify_messages' in request.form
             pref.notify_contracts = 'notify_contracts' in request.form
             pref.notify_reviews = 'notify_reviews' in request.form
-            pref.auto_reply_enabled = 'auto_reply_enabled' in request.form
-            pref.auto_reply_message = request.form.get('auto_reply_message', '').strip()
             db.session.commit()
             flash(_t('flash.preferences_saved'), 'success')
 
@@ -1280,41 +1259,8 @@ def get_direct_messages(other_user_id):
 
     return jsonify([{
         'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
-        'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m'),
-        'is_auto_reply': m.is_auto_reply
+        'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m')
     } for m in msgs])
-
-def trigger_auto_reply(sender_id, receiver_id, contract_id=None):
-    from datetime import datetime
-    receiver = User.query.get(receiver_id)
-    if not receiver or receiver.role != 'translator':
-        return
-        
-    pref = receiver.preference
-    if not pref or not pref.auto_reply_enabled or not pref.auto_reply_message:
-        return
-        
-    if contract_id:
-        has_replied = Message.query.filter_by(contract_id=contract_id, sender_id=receiver_id, is_auto_reply=False).first() is not None
-        if has_replied: return
-        last_auto = Message.query.filter_by(contract_id=contract_id, sender_id=receiver_id, is_auto_reply=True).order_by(Message.created_at.desc()).first()
-    else:
-        has_replied = DirectMessage.query.filter_by(sender_id=receiver_id, receiver_id=sender_id, is_auto_reply=False).first() is not None
-        if has_replied: return
-        last_auto = DirectMessage.query.filter_by(sender_id=receiver_id, receiver_id=sender_id, is_auto_reply=True).order_by(DirectMessage.created_at.desc()).first()
-        
-    if last_auto:
-        cooldown_hours = pref.auto_reply_cooldown_hours or 24
-        if (datetime.utcnow() - last_auto.created_at).total_seconds() < (cooldown_hours * 3600):
-            return
-            
-    if contract_id:
-        auto_msg = Message(contract_id=contract_id, sender_id=receiver_id, content=pref.auto_reply_message, is_auto_reply=True)
-    else:
-        auto_msg = DirectMessage(sender_id=receiver_id, receiver_id=sender_id, content=pref.auto_reply_message, is_auto_reply=True)
-    
-    db.session.add(auto_msg)
-    db.session.commit()
 
 @app.route('/api/direct-messages/<int:other_user_id>', methods=['POST'])
 @login_required
@@ -1350,10 +1296,6 @@ def send_direct_message(other_user_id):
                 pass
 
     db.session.commit()
-    
-    # Try triggering auto reply
-    trigger_auto_reply(me, other_user_id)
-    
     return jsonify({'status': 'ok'})
 
 
@@ -2031,8 +1973,7 @@ def get_messages(contract_id):
         db.session.commit()
 
     return jsonify([{'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
-                     'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m'),
-                     'is_auto_reply': m.is_auto_reply} for m in msgs])
+                     'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m')} for m in msgs])
 
 @app.route('/api/messages/<int:contract_id>', methods=['POST'])
 @login_required
@@ -2071,10 +2012,6 @@ def send_message(contract_id):
                     pass
 
         db.session.commit()
-        
-        # Try triggering auto reply
-        trigger_auto_reply(sender_id, receiver_id, contract_id=contract.id)
-        
         return jsonify({'status': 'ok'})
     return jsonify({'status': 'error'}), 400
 
