@@ -200,7 +200,7 @@
                     </h3>
                 </div>
                 <span class="text-[11px] text-slate-400 font-medium">
-                    {{ item.cert.split('/')[0] | trim }}
+                    {{ item.en_name }}
                 </span>
             </a>
             {% endfor %}
@@ -668,7 +668,7 @@
                                 <span class="text-base">{{ item.flag }}</span>
                                 <span>{{ item.name }}</span>
                             </td>
-                            <td class="py-3 px-3 text-slate-500">{{ item.cert }}</td>
+                            <td class="py-3 px-3 text-slate-500">{{ item.en_name }}</td>
                             <td class="py-3 px-3 text-right">
                                 <a href="{{ url_for('translator_language', lang_slug=item.slug) }}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline">
                                     {{ t('home_languages.view_all') }} →
