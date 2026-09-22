@@ -1434,6 +1434,11 @@ def book_service(service_id):
 @app.route('/post-job', methods=['GET', 'POST'])
 @login_required
 def post_job():
+    user = get_current_user()
+    if not user or user.role != 'hirer':
+        flash('Chỉ Khách hàng mới có thể đăng công việc.', 'error')
+        return redirect(url_for('index'))
+
     if request.method == 'POST':
         deadline_str = request.form.get('deadline')
         deadline = datetime.strptime(deadline_str, '%Y-%m-%d').date() if deadline_str else None
@@ -1493,10 +1498,14 @@ def job_list():
 def job_detail(job_id):
     job = Job.query.get_or_404(job_id)
     if request.method == 'POST':
-        # ── 1. Login guard ────────────────────────────────────────────────────
-        if 'user_id' not in session:
+        # ── 1. Login & Role guard ─────────────────────────────────────────────
+        user = get_current_user()
+        if not user:
             flash('Vui lòng đăng nhập để gửi đề xuất.', 'warning')
             return redirect(url_for('login'))
+        if user.role != 'translator':
+            flash('Chỉ Phiên dịch viên mới có thể ứng tuyển.', 'error')
+            return redirect(url_for('job_detail', job_id=job.id))
 
         # ── 2. Duplicate proposal guard ───────────────────────────────────────
         existing_proposal = Proposal.query.filter_by(

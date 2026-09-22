@@ -212,18 +212,36 @@
                     <span class="text-lg font-extrabold tracking-tight text-slate-900 group-hover:text-brand-600 transition-colors">
                         Viet<span class="text-brand-600">Translate</span>
                     </span>
-                    <span class="text-[10px] tracking-wider uppercase font-semibold text-slate-400 -mt-1">
+                    <span class="text-[10px] tracking-wider uppercase font-semibold text-slate-400 -mt-1 flex items-center gap-1.5">
                         {{ t('nav.brand_subtitle') }}
+                        {% if current_user %}
+                            {% if current_user.role == 'hirer' %}
+                            <span class="px-1.5 py-0.5 rounded text-[8px] bg-brand-100 text-brand-700 font-bold border border-brand-200">KHÁCH THUÊ</span>
+                            {% elif current_user.role == 'translator' %}
+                            <span class="px-1.5 py-0.5 rounded text-[8px] bg-amber-100 text-amber-700 font-bold border border-amber-200">PHIÊN DỊCH VIÊN</span>
+                            {% endif %}
+                        {% endif %}
                     </span>
                 </div>
             </a>
 
             <!-- Desktop Navigation Links -->
             <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-                <a href="{{ url_for('translator_list') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.find_translators') }}</a>
-                <a href="{{ url_for('job_list') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.jobs') }}</a>
-                <a href="{{ url_for('about') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.about') }}</a>
-                <a href="{{ url_for('payment_info') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.payment_escrow') }}</a>
+                {% if current_user and current_user.role == 'hirer' %}
+                    <a href="{{ url_for('translator_list') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.find_translators') }}</a>
+                    <a href="{{ url_for('account_history') }}" class="nav-item hover:text-brand-600 py-1">Việc làm của tôi</a>
+                {% elif current_user and current_user.role == 'translator' %}
+                    <a href="{{ url_for('job_list') }}" class="nav-item hover:text-brand-600 py-1">Tìm việc</a>
+                    <a href="{{ url_for('job_list') }}?recommended=1" class="nav-item hover:text-brand-600 py-1">Việc phù hợp</a>
+                    <a href="{{ url_for('account_profile') }}" class="nav-item hover:text-brand-600 py-1">Dịch vụ của tôi</a>
+                    <a href="#" class="nav-item hover:text-brand-600 py-1">Lịch làm việc</a>
+                {% else %}
+                    <!-- Guest -->
+                    <a href="{{ url_for('translator_list') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.find_translators') }}</a>
+                    <a href="{{ url_for('job_list') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.jobs') }}</a>
+                    <a href="{{ url_for('about') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.about') }}</a>
+                    <a href="{{ url_for('payment_info') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.payment_escrow') }}</a>
+                {% endif %}
             </nav>
 
             <!-- Right Actions & User Account -->
@@ -338,12 +356,20 @@
                 </div>
             </div>
 
-            <a href="{{ url_for('translator_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.find_translators') }}</a>
-            <a href="{{ url_for('job_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.jobs') }}</a>
-            <a href="{{ url_for('about') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.about') }}</a>
-            <a href="{{ url_for('payment_info') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.payment_escrow') }}</a>
             {% if current_user and current_user.role == 'hirer' %}
-            <a href="{{ url_for('post_job') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-brand-600 bg-brand-50">{{ t('nav.mobile_post_job') }}</a>
+                <a href="{{ url_for('translator_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.find_translators') }}</a>
+                <a href="{{ url_for('account_history') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">Việc làm của tôi</a>
+                <a href="{{ url_for('post_job') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-brand-600 bg-brand-50">{{ t('nav.mobile_post_job') }}</a>
+            {% elif current_user and current_user.role == 'translator' %}
+                <a href="{{ url_for('job_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">Tìm việc</a>
+                <a href="{{ url_for('job_list') }}?recommended=1" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">Việc phù hợp</a>
+                <a href="{{ url_for('account_profile') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">Dịch vụ của tôi</a>
+                <a href="#" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">Lịch làm việc</a>
+            {% else %}
+                <a href="{{ url_for('translator_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.find_translators') }}</a>
+                <a href="{{ url_for('job_list') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.jobs') }}</a>
+                <a href="{{ url_for('about') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.about') }}</a>
+                <a href="{{ url_for('payment_info') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">{{ t('nav.payment_escrow') }}</a>
             {% endif %}
             {% if current_user %}
             <a href="{{ url_for('messages_page') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 flex items-center gap-2">
