@@ -1,24 +1,24 @@
 {% extends "base.html" %}
 
-{% block title %}Quản Lý Tài Khoản Thành Viên | VietTranslate Admin{% endblock %}
+{% block title %}{{ t('admin_page.users_title') }}{% endblock %}
 
 {% block content %}
 <div class="bg-slate-50/60 flex-grow py-10 sm:py-14 min-h-screen">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="mb-6">
             <a href="{{ url_for('admin_dashboard') }}" class="text-xs text-brand-600 font-bold hover:underline inline-flex items-center gap-1 mb-2">
-                ← Bảng điều khiển Admin
+                {{ t('admin_page.back_to_dashboard') }}
             </a>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Quản Lý Tài Khoản Thành Viên</h1>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('admin_page.users_heading') }}</h1>
         </div>
 
         <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
             <!-- Filter Tabs -->
             <div class="bg-slate-50/70 border-b border-slate-100 px-6 py-3.5 flex flex-wrap gap-2">
-                <a href="?role=all" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if role_filter == 'all' %}bg-white border border-slate-200 shadow-soft text-slate-900{% else %}text-slate-500 hover:text-slate-800{% endif %}">Tất cả</a>
-                <a href="?role=hirer" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if role_filter == 'hirer' %}bg-white border border-slate-200 shadow-soft text-brand-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">Khách hàng (Hirer)</a>
-                <a href="?role=translator" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if role_filter == 'translator' %}bg-white border border-slate-200 shadow-soft text-brand-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">Phiên dịch viên (Translator)</a>
+                <a href="?role=all" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if role_filter == 'all' %}bg-white border border-slate-200 shadow-soft text-slate-900{% else %}text-slate-500 hover:text-slate-800{% endif %}">{{ t('admin_page.filter_all') }}</a>
+                <a href="?role=hirer" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if role_filter == 'hirer' %}bg-white border border-slate-200 shadow-soft text-brand-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">{{ t('admin_page.filter_hirer') }}</a>
+                <a href="?role=translator" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if role_filter == 'translator' %}bg-white border border-slate-200 shadow-soft text-brand-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">{{ t('admin_page.filter_translator') }}</a>
             </div>
 
             <!-- Table -->
@@ -26,11 +26,11 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/30">
-                            <th class="px-6 py-3.5">Người dùng</th>
-                            <th class="px-6 py-3.5">Vai trò</th>
-                            <th class="px-6 py-3.5">Ngày tham gia</th>
-                            <th class="px-6 py-3.5">Trạng thái</th>
-                            <th class="px-6 py-3.5 text-right">Thao tác</th>
+                            <th class="px-6 py-3.5">{{ t('admin_page.th_user') }}</th>
+                            <th class="px-6 py-3.5">{{ t('admin_page.th_role') }}</th>
+                            <th class="px-6 py-3.5">{{ t('admin_page.th_joined_date') }}</th>
+                            <th class="px-6 py-3.5">{{ t('admin_page.th_status') }}</th>
+                            <th class="px-6 py-3.5 text-right">{{ t('admin_page.th_actions') }}</th>
                         </tr>
                     </thead>
                     <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
@@ -38,7 +38,7 @@
                         <tr class="hover:bg-slate-50/60 transition {% if not user.is_active %}bg-rose-50/20{% endif %}">
                             <td class="px-6 py-4">
                                 <div class="font-bold text-slate-900">{{ user.name }}</div>
-                                <div class="text-[11px] text-slate-400">{{ user.email }} • {{ user.phone or 'Chưa có SĐT' }}</div>
+                                <div class="text-[11px] text-slate-400">{{ user.email }} • {{ user.phone or t('admin_page.no_phone') }}</div>
                             </td>
                             <td class="px-6 py-4">
                                 <span class="px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold uppercase tracking-wider">{{ user.role }}</span>
@@ -47,23 +47,23 @@
                             <td class="px-6 py-4">
                                 {% if user.is_active %}
                                 <span class="text-emerald-700 text-xs font-bold flex items-center gap-1">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Hoạt động
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{{ t('admin_page.status_active') }}
                                 </span>
                                 {% else %}
                                 <span class="text-rose-700 text-xs font-bold flex items-center gap-1">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>Bị khoá
+                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>{{ t('admin_page.status_locked') }}
                                 </span>
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <form method="POST" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" class="inline">
                                     {% if user.is_active %}
-                                    <button type="submit" class="text-xs font-bold text-rose-600 hover:underline bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200" onclick="return confirm('Khoá tài khoản này không cho phép đăng nhập?');">
-                                        Khoá tài khoản
+                                    <button type="submit" class="text-xs font-bold text-rose-600 hover:underline bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200" onclick="return confirm('{{ t('admin_page.action_lock_confirm') }}');">
+                                        {{ t('admin_page.action_lock') }}
                                     </button>
                                     {% else %}
                                     <button type="submit" class="text-xs font-bold text-emerald-600 hover:underline bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                                        Mở khoá
+                                        {{ t('admin_page.action_unlock') }}
                                     </button>
                                     {% endif %}
                                 </form>
@@ -71,14 +71,14 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-slate-400 text-xs sm:text-sm">Không có dữ liệu người dùng.</td>
+                            <td colspan="5" class="px-6 py-12 text-center text-slate-400 text-xs sm:text-sm">{{ t('admin_page.no_users_data') }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
-        
+
     </div>
 </div>
 {% endblock %}

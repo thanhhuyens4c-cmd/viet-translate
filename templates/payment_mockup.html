@@ -1,50 +1,50 @@
 {% extends "base.html" %}
 
-{% block title %}Thanh toán Escrow | VietTranslate{% endblock %}
+{% block title %}{{ t('payment_mockup_page.title') }}{% endblock %}
 
 {% block content %}
 <div class="bg-slate-50/60 py-12 sm:py-16 min-h-screen">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="text-center max-w-xl mx-auto mb-10">
             <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-3 py-1 rounded-full mb-2">
-                🔒 Giao dịch bảo mật 256-bit SSL
+                {{ t('payment_mockup_page.secure_badge') }}
             </span>
             <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-2">
-                Thanh toán Tạm giữ (Escrow)
+                {{ t('payment_mockup_page.heading') }}
             </h1>
             <p class="text-slate-500 text-xs sm:text-sm leading-relaxed">
-                Số tiền sẽ được ký quỹ an toàn bởi VietTranslate cho đến khi bạn nghiệm thu chất lượng công việc hoàn tất.
+                {{ t('payment_mockup_page.intro') }}
             </p>
         </div>
 
         <div class="flex flex-col md:flex-row gap-8">
-            
+
             <!-- Left: Payment Form -->
             <div class="w-full md:w-3/5">
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
                     <div class="p-5 sm:p-6 border-b border-slate-100 bg-slate-50/40">
                         <h2 class="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
                             <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                            Thông tin thẻ thanh toán (Mô phỏng Sandbox)
+                            {{ t('payment_mockup_page.card_info_heading') }}
                         </h2>
                     </div>
-                    
+
                     <form method="POST" action="{{ url_for('payment_mockup', contract_id=contract.id) }}" class="p-5 sm:p-6 space-y-5">
-                        
+
                         <!-- Card UI Mockup -->
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số thẻ quốc tế</label>
+                                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{{ t('payment_mockup_page.card_number_label') }}</label>
                                 <div class="relative">
                                     <input type="text" placeholder="4123 4567 8901 2345" class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono bg-slate-50/50 focus:ring-brand-500 focus:border-brand-500 text-slate-800" value="4123 4567 8901 2345" readonly>
                                     <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
                                 </div>
                             </div>
-                            
+
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Hạn thẻ</label>
+                                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{{ t('payment_mockup_page.card_expiry_label') }}</label>
                                     <input type="text" placeholder="MM/YY" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono bg-slate-50/50 text-slate-800" value="12/28" readonly>
                                 </div>
                                 <div>
@@ -52,21 +52,21 @@
                                     <input type="text" placeholder="123" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono bg-slate-50/50 text-slate-800" value="123" readonly>
                                 </div>
                             </div>
-                            
+
                             <div>
-                                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Chủ thẻ</label>
+                                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{{ t('payment_mockup_page.card_holder_label') }}</label>
                                 <input type="text" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm uppercase font-semibold bg-slate-50/50 text-slate-800" value="{{ current_user.name }}" readonly>
                             </div>
                         </div>
 
                         <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-3.5 flex gap-2.5 text-xs text-amber-800 leading-relaxed">
                             <span class="text-base shrink-0">💡</span>
-                            <p>Đây là cổng thanh toán mô phỏng thử nghiệm. Bấm "Thanh toán ngay" để chuyển số tiền vào quỹ Escrow bảo chứng và kích hoạt trạng thái hợp đồng.</p>
+                            <p>{{ t('payment_mockup_page.sandbox_note') }}</p>
                         </div>
 
                         <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex justify-center items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                            <span>Thanh toán Escrow {{ "{:,.0f}".format(contract.agreed_price) }}đ</span>
+                            <span>{{ t('payment_mockup_page.pay_btn') }} {{ "{:,.0f}".format(contract.agreed_price) }}{{ t('common.currency') }}</span>
                         </button>
                     </form>
                 </div>
@@ -76,49 +76,49 @@
             <div class="w-full md:w-2/5">
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6 sticky top-24">
                     <h3 class="font-bold text-slate-900 text-sm border-b border-slate-100 pb-3 mb-4">
-                        Chi tiết thanh toán
+                        {{ t('payment_mockup_page.payment_details_heading') }}
                     </h3>
-                    
+
                     <div class="flex items-center gap-3 mb-5">
                         <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-600 to-indigo-600 text-white flex items-center justify-center font-extrabold text-sm shrink-0">
                             {{ contract.translator.name[0] | upper }}
                         </div>
                         <div>
                             <p class="font-bold text-slate-900 text-xs sm:text-sm">{{ contract.translator.name }}</p>
-                            <p class="text-[11px] text-slate-400">Phiên dịch viên phụ trách</p>
+                            <p class="text-[11px] text-slate-400">{{ t('payment_mockup_page.assigned_translator') }}</p>
                         </div>
                     </div>
 
                     <div class="space-y-2.5 text-xs mb-5">
                         {% if contract.job %}
                         <div class="flex justify-between gap-2">
-                            <span class="text-slate-500 shrink-0">Dự án:</span>
+                            <span class="text-slate-500 shrink-0">{{ t('payment_mockup_page.project_label') }}</span>
                             <span class="font-bold text-slate-800 text-right truncate" title="{{ contract.job.title }}">{{ contract.job.title }}</span>
                         </div>
                         {% elif contract.service %}
                         <div class="flex justify-between gap-2">
-                            <span class="text-slate-500 shrink-0">Dịch vụ:</span>
+                            <span class="text-slate-500 shrink-0">{{ t('payment_mockup_page.service_label') }}</span>
                             <span class="font-bold text-slate-800 text-right truncate" title="{{ contract.service.name }}">{{ contract.service.name }}</span>
                         </div>
                         {% endif %}
 
                         <div class="flex justify-between">
-                            <span class="text-slate-500">Giá thỏa thuận:</span>
-                            <span class="font-bold text-slate-800">{{ "{:,.0f}".format(contract.agreed_price) }}đ</span>
+                            <span class="text-slate-500">{{ t('payment_mockup_page.agreed_price_label') }}</span>
+                            <span class="font-bold text-slate-800">{{ "{:,.0f}".format(contract.agreed_price) }}{{ t('common.currency') }}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-slate-500">Phí nền tảng (0%):</span>
-                            <span class="font-bold text-emerald-600">Miễn phí</span>
+                            <span class="text-slate-500">{{ t('payment_mockup_page.platform_fee_label') }}</span>
+                            <span class="font-bold text-emerald-600">{{ t('payment_mockup_page.free_label') }}</span>
                         </div>
                     </div>
 
                     <div class="border-t border-slate-100 pt-3.5 flex justify-between items-center mb-4">
-                        <span class="font-bold text-slate-900 text-sm">Tổng thanh toán:</span>
-                        <span class="text-xl font-black text-brand-700">{{ "{:,.0f}".format(contract.agreed_price) }}đ</span>
+                        <span class="font-bold text-slate-900 text-sm">{{ t('payment_mockup_page.total_payment_label') }}</span>
+                        <span class="text-xl font-black text-brand-700">{{ "{:,.0f}".format(contract.agreed_price) }}{{ t('common.currency') }}</span>
                     </div>
 
                     <div class="text-[11px] text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed">
-                        Số tiền này sẽ được giữ an toàn và Phiên dịch viên chỉ nhận được <strong>{{ "{:,.0f}".format(translator_receives) }}đ</strong> khi bạn hoàn toàn hài lòng và xác nhận nghiệm thu.
+                        {{ t('payment_mockup_page.escrow_note') }} <strong>{{ "{:,.0f}".format(translator_receives) }}{{ t('common.currency') }}</strong> {{ t('payment_mockup_page.escrow_note_suffix') }}
                     </div>
                 </div>
             </div>

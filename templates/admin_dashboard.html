@@ -1,87 +1,87 @@
 {% extends "base.html" %}
 
-{% block title %}Bảng Điều Khiển Quản Trị | VietTranslate Admin{% endblock %}
+{% block title %}{{ t('admin_page.dashboard_title') }}{% endblock %}
 
 {% block content %}
 <div class="bg-slate-50/60 flex-grow py-10 sm:py-14 min-h-screen">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="mb-8">
             <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/60 px-3 py-1 rounded-full mb-2">
                 VietTranslate Admin Central
             </span>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Bảng Điều Khiển Quản Trị</h1>
-            <p class="text-xs sm:text-sm text-slate-500 mt-1">Tổng quan thời gian thực hoạt động thị trường kết nối ngôn ngữ</p>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('admin_page.dashboard_heading') }}</h1>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1">{{ t('admin_page.dashboard_subtitle') }}</p>
         </div>
 
         <!-- Quick Stats Grid -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Tổng người dùng</span>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">{{ t('admin_page.stat_total_users') }}</span>
                 <div class="text-2xl sm:text-3xl font-black text-slate-900">{{ stats.total_users }}</div>
-                <p class="text-[11px] text-slate-400 mt-1">Thành viên hệ thống</p>
+                <p class="text-[11px] text-slate-400 mt-1">{{ t('admin_page.stat_system_members') }}</p>
             </div>
-            
+
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Phiên dịch viên</span>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">{{ t('admin_page.stat_translators') }}</span>
                 <div class="text-2xl sm:text-3xl font-black text-brand-700">{{ stats.total_translators }}</div>
                 {% if stats.pending_verify > 0 %}
                 <a href="{{ url_for('admin_translators') }}" class="text-[11px] text-amber-700 font-bold hover:underline mt-1 inline-block">
-                    ⚡ {{ stats.pending_verify }} hồ sơ chờ duyệt
+                    ⚡ {{ stats.pending_verify }} {{ t('admin_page.stat_pending_profiles') }}
                 </a>
                 {% else %}
-                <p class="text-[11px] text-emerald-600 mt-1 font-semibold">✓ Đã duyệt toàn bộ</p>
+                <p class="text-[11px] text-emerald-600 mt-1 font-semibold">{{ t('admin_page.stat_all_verified') }}</p>
                 {% endif %}
             </div>
-            
+
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Yêu cầu tuyển dụng</span>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">{{ t('admin_page.stat_job_postings') }}</span>
                 <div class="text-2xl sm:text-3xl font-black text-slate-900">{{ stats.open_jobs }}</div>
                 {% if stats.flagged_jobs > 0 %}
-                <p class="text-[11px] text-rose-600 font-bold mt-1">{{ stats.flagged_jobs }} bài bị gỡ</p>
+                <p class="text-[11px] text-rose-600 font-bold mt-1">{{ stats.flagged_jobs }} {{ t('admin_page.stat_flagged_jobs') }}</p>
                 {% else %}
-                <p class="text-[11px] text-slate-400 mt-1">Đang hoạt động</p>
+                <p class="text-[11px] text-slate-400 mt-1">{{ t('admin_page.stat_active') }}</p>
                 {% endif %}
             </div>
-            
+
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Giao dịch Escrow</span>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">{{ t('admin_page.stat_escrow_transactions') }}</span>
                 <div class="text-2xl sm:text-3xl font-black text-emerald-600">{{ stats.active_contracts }}</div>
-                <p class="text-[11px] text-slate-400 mt-1">Đã hoàn tất: <strong class="text-slate-700">{{ stats.completed_contracts }}</strong></p>
+                <p class="text-[11px] text-slate-400 mt-1">{{ t('admin_page.stat_completed_label') }} <strong class="text-slate-700">{{ stats.completed_contracts }}</strong></p>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            
+
             <!-- Admin Navigation -->
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
                 <div class="bg-slate-50/70 border-b border-slate-100 px-6 py-4 font-bold text-slate-900 text-sm flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                    Trung tâm Điều Hành & Quản Trị
+                    {{ t('admin_page.ops_center_heading') }}
                 </div>
                 <div class="divide-y divide-slate-100">
                     <a href="{{ url_for('admin_translators') }}" class="block px-6 py-4 hover:bg-brand-50/40 transition group">
                         <div class="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-brand-600 flex items-center justify-between">
-                            <span>Duyệt & Thẩm định Phiên dịch viên</span>
+                            <span>{{ t('admin_page.ops_verify_translators') }}</span>
                             <span class="text-slate-400">→</span>
                         </div>
-                        <p class="text-[11px] text-slate-500 mt-0.5">Xác minh bằng cấp, năng lực và cấp tích xanh chứng thực.</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">{{ t('admin_page.ops_verify_translators_desc') }}</p>
                     </a>
-                    
+
                     <a href="{{ url_for('admin_jobs') }}" class="block px-6 py-4 hover:bg-brand-50/40 transition group">
                         <div class="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-brand-600 flex items-center justify-between">
-                            <span>Quản lý Tin Tuyển Dụng (Jobs)</span>
+                            <span>{{ t('admin_page.ops_manage_jobs') }}</span>
                             <span class="text-slate-400">→</span>
                         </div>
-                        <p class="text-[11px] text-slate-500 mt-0.5">Kiểm duyệt nội dung, xử lý tin rác và gỡ bỏ bài đăng vi phạm.</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">{{ t('admin_page.ops_manage_jobs_desc') }}</p>
                     </a>
-                    
+
                     <a href="{{ url_for('admin_users') }}" class="block px-6 py-4 hover:bg-brand-50/40 transition group">
                         <div class="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-brand-600 flex items-center justify-between">
-                            <span>Quản trị Tài Khoản Thành Viên</span>
+                            <span>{{ t('admin_page.ops_manage_users') }}</span>
                             <span class="text-slate-400">→</span>
                         </div>
-                        <p class="text-[11px] text-slate-500 mt-0.5">Tra cứu người dùng, phân quyền và khoá tài khoản có hành vi tiêu cực.</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">{{ t('admin_page.ops_manage_users_desc') }}</p>
                     </a>
                 </div>
             </div>
@@ -91,9 +91,9 @@
                 <div class="bg-slate-50/70 border-b border-slate-100 px-6 py-4 font-bold text-slate-900 text-sm flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span>Người Dùng Mới Nhất</span>
+                        <span>{{ t('admin_page.newest_users_heading') }}</span>
                     </div>
-                    <a href="{{ url_for('admin_users') }}" class="text-xs text-brand-600 font-bold hover:underline">Xem tất cả</a>
+                    <a href="{{ url_for('admin_users') }}" class="text-xs text-brand-600 font-bold hover:underline">{{ t('admin_page.view_all') }}</a>
                 </div>
                 <ul class="divide-y divide-slate-100">
                     {% for user in recent_users %}

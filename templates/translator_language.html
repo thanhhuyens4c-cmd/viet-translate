@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}{{ lang.title }} Chuyên Nghiệp | VietTranslate{% endblock %}
+{% block title %}{{ lang.title }} {{ 'Chuyên Nghiệp' if current_lang == 'vi' else 'Professional' }} | VietTranslate{% endblock %}
 
 {% block head %}
 <meta name="description" content="{{ lang.seo_description }}">
 <link rel="canonical" href="{{ request.url_root.rstrip('/') }}/translator/{{ lang.slug }}">
-<meta property="og:title" content="{{ lang.title }} Chuyên Nghiệp | VietTranslate">
+<meta property="og:title" content="{{ lang.title }} {{ 'Chuyên Nghiệp' if current_lang == 'vi' else 'Professional' }} | VietTranslate">
 <meta property="og:description" content="{{ lang.seo_description }}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ request.url_root.rstrip('/') }}/translator/{{ lang.slug }}">
@@ -14,8 +14,8 @@
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": [
-    {"@type":"ListItem","position":1,"name":"Trang chủ","item":"{{ request.url_root }}"},
-    {"@type":"ListItem","position":2,"name":"Phiên dịch viên","item":"{{ request.url_root.rstrip('/') }}/translator"},
+    {"@type":"ListItem","position":1,"name":"{{ t('lang_landing.breadcrumb_home') }}","item":"{{ request.url_root }}"},
+    {"@type":"ListItem","position":2,"name":"{{ t('lang_landing.breadcrumb_translators') }}","item":"{{ request.url_root.rstrip('/') }}/translator"},
     {"@type":"ListItem","position":3,"name":"{{ lang.title }}","item":"{{ request.url_root.rstrip('/') }}/translator/{{ lang.slug }}"}
   ]
 }
@@ -251,7 +251,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="bg-brand-50/70 border border-brand-100 rounded-2xl p-5 text-center flex flex-col justify-center">
         <p class="text-xs text-brand-700 font-medium mb-1">{{ t('lang_landing.starting_price_label') }}</p>
-        <p class="text-2xl font-extrabold text-brand-700">{{ '{:,}'.format(lang.starting_price) }}đ</p>
+        <p class="text-2xl font-extrabold text-brand-700">{{ '{:,}'.format(lang.starting_price) }}{{ t('common.currency') }}</p>
         <p class="text-[11px] text-slate-400 mt-1">{{ t('lang_landing.starting_price_unit') }}</p>
       </div>
       <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">

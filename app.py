@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta
 from functools import wraps
 from sqlalchemy.exc import SQLAlchemyError
 import re
-from translations import t as t_lookup, get_localized_languages
+from translations import t as t_lookup, get_localized_languages, get_language_display_name
 from sqlalchemy.pool import StaticPool
 
 def get_locale():
@@ -742,7 +742,8 @@ def inject_globals():
         current_user=user,
         LANGUAGES=get_localized_languages(current_lang),
         current_lang=current_lang,
-        t=lambda key, **kwargs: t_lookup(key, current_lang, **kwargs)
+        t=lambda key, **kwargs: t_lookup(key, current_lang, **kwargs),
+        lang_name=lambda name: get_language_display_name(name, current_lang)
     )
 
 @app.route('/set-language/<lang>')
@@ -1033,7 +1034,7 @@ def account_profile():
                 flash(_t('flash.password_changed'), 'success')
 
         return redirect(url_for('account_profile'))
-    return render_template('account_profile.html', user=user, LANGUAGES=LANGUAGES)
+    return render_template('account_profile.html', user=user, LANGUAGES=get_localized_languages(get_locale()))
 
 def get_translator_preferences(user_id):
     return TranslatorPreference.query.filter_by(translator_id=user_id).first()

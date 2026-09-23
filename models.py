@@ -158,25 +158,19 @@ class Job(db.Model):
         }
         return mapping.get(self.category, 'other_interpretation')
 
-    @property
-    def display_category_text(self):
-        group_text = 'Dịch thuật' if self.display_category_group == 'translation' else 'Phiên dịch & Khác'
-        mapping = {
-            'document_translation': "Dịch tài liệu",
-            'website_translation': "Dịch website",
-            'subtitle': "Dịch phụ đề",
-            'proofreading': "Hiệu đính",
-            'localization': "Bản địa hóa",
-            'other_translation': "Dịch thuật khác",
-            'conference': "Hội nghị / Cabin",
-            'meeting': "Họp / Đàm phán",
-            'business': "Kinh doanh / Thương mại",
-            'travel': "Du lịch",
-            'escort': "Tháp tùng",
-            'event': "Sự kiện",
-            'other_interpretation': "Dịch vụ khác"
-        }
-        type_text = mapping.get(self.display_service_type, self.category or 'Khác')
+    def display_category_text(self, lang='vi'):
+        from translations import t as t_lookup
+        group_key = 'translation' if self.display_category_group == 'translation' else 'interpretation_other'
+        group_text = t_lookup(f'job_category.{group_key}', lang)
+        known_types = (
+            'document_translation', 'website_translation', 'subtitle', 'proofreading',
+            'localization', 'other_translation', 'conference', 'meeting', 'business',
+            'travel', 'escort', 'event', 'other_interpretation'
+        )
+        if self.display_service_type in known_types:
+            type_text = t_lookup(f'job_category.{self.display_service_type}', lang)
+        else:
+            type_text = self.category or t_lookup('job_category.other', lang)
         return f"{group_text} - {type_text}"
 
     @property

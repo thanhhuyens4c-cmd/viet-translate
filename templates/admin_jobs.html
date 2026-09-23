@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}Quản Lý Bài Đăng Tuyển | VietTranslate Admin{% endblock %}
+{% block title %}{{ t('admin_page.jobs_title') }}{% endblock %}
 
 {% block content %}
 <div class="bg-slate-50/60 flex-grow py-10 sm:py-14 min-h-screen">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="mb-6">
             <a href="{{ url_for('admin_dashboard') }}" class="text-xs text-brand-600 font-bold hover:underline inline-flex items-center gap-1 mb-2">
-                ← Bảng điều khiển Admin
+                {{ t('admin_page.back_to_dashboard') }}
             </a>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Quản Lý Bài Đăng Tuyển (Jobs)</h1>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('admin_page.jobs_heading') }}</h1>
         </div>
 
         <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
             <!-- Filter Tabs -->
             <div class="bg-slate-50/70 border-b border-slate-100 px-6 py-3.5 flex flex-wrap gap-2">
-                <a href="?status=all" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'all' %}bg-white border border-slate-200 shadow-soft text-slate-900{% else %}text-slate-500 hover:text-slate-800{% endif %}">Tất cả</a>
-                <a href="?status=open" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'open' %}bg-white border border-slate-200 shadow-soft text-brand-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">Đang mở</a>
-                <a href="?status=flagged" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition text-rose-600 {% if status_filter == 'flagged' %}bg-rose-50 border border-rose-200{% else %}hover:bg-rose-50{% endif %}">Bị gỡ (Flagged)</a>
-                <a href="?status=completed" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'completed' %}bg-white border border-slate-200 shadow-soft text-emerald-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">Đã hoàn tất</a>
+                <a href="?status=all" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'all' %}bg-white border border-slate-200 shadow-soft text-slate-900{% else %}text-slate-500 hover:text-slate-800{% endif %}">{{ t('admin_page.filter_all') }}</a>
+                <a href="?status=open" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'open' %}bg-white border border-slate-200 shadow-soft text-brand-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">{{ t('admin_page.filter_open') }}</a>
+                <a href="?status=flagged" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition text-rose-600 {% if status_filter == 'flagged' %}bg-rose-50 border border-rose-200{% else %}hover:bg-rose-50{% endif %}">{{ t('admin_page.filter_flagged') }}</a>
+                <a href="?status=completed" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'completed' %}bg-white border border-slate-200 shadow-soft text-emerald-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">{{ t('admin_page.filter_completed') }}</a>
             </div>
 
             <!-- Table -->
@@ -27,11 +27,11 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/30">
-                            <th class="px-6 py-3.5">Tiêu đề Job</th>
-                            <th class="px-6 py-3.5">Người đăng</th>
-                            <th class="px-6 py-3.5">Trạng thái</th>
-                            <th class="px-6 py-3.5">Ngày đăng</th>
-                            <th class="px-6 py-3.5 text-right">Thao tác</th>
+                            <th class="px-6 py-3.5">{{ t('admin_page.th_job_title') }}</th>
+                            <th class="px-6 py-3.5">{{ t('admin_page.th_posted_by') }}</th>
+                            <th class="px-6 py-3.5">{{ t('admin_page.th_status') }}</th>
+                            <th class="px-6 py-3.5">{{ t('admin_page.th_posted_date') }}</th>
+                            <th class="px-6 py-3.5 text-right">{{ t('admin_page.th_actions') }}</th>
                         </tr>
                     </thead>
                     <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
@@ -39,47 +39,47 @@
                         <tr class="hover:bg-slate-50/60 transition {% if job.is_flagged %}bg-rose-50/20{% endif %}">
                             <td class="px-6 py-4">
                                 <div class="font-bold text-slate-900 max-w-xs truncate" title="{{ job.title }}">{{ job.title }}</div>
-                                <div class="text-[11px] text-slate-400 mt-0.5">{{ job.display_category_text }} • {{ job.source_lang }} → {{ job.target_lang }}</div>
+                                <div class="text-[11px] text-slate-400 mt-0.5">{{ job.display_category_text(current_lang) }} • {{ lang_name(job.source_lang) }} → {{ lang_name(job.target_lang) }}</div>
                             </td>
                             <td class="px-6 py-4 text-slate-700 font-medium">{{ job.hirer.name }}</td>
                             <td class="px-6 py-4">
                                 {% if job.is_flagged %}
-                                <span class="px-2.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-[10px] font-bold">Bị gỡ</span>
+                                <span class="px-2.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-[10px] font-bold">{{ t('admin_page.badge_flagged') }}</span>
                                 {% elif job.status == 'open' %}
-                                <span class="px-2.5 py-0.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-full text-[10px] font-bold">Đang tuyển</span>
+                                <span class="px-2.5 py-0.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-full text-[10px] font-bold">{{ t('admin_page.badge_open') }}</span>
                                 {% elif job.status == 'contracted' %}
-                                <span class="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-bold">Đã ký HĐ</span>
+                                <span class="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-bold">{{ t('admin_page.badge_contracted') }}</span>
                                 {% elif job.status == 'completed' %}
-                                <span class="px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold">Hoàn tất</span>
+                                <span class="px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold">{{ t('admin_page.badge_completed') }}</span>
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 text-slate-400 text-xs">{{ job.created_at.strftime('%d/%m/%Y') }}</td>
                             <td class="px-6 py-4 text-right space-x-2">
-                                <a href="{{ url_for('job_detail', job_id=job.id) }}" target="_blank" class="text-xs font-semibold text-brand-600 hover:underline">Xem</a>
-                                
+                                <a href="{{ url_for('job_detail', job_id=job.id) }}" target="_blank" class="text-xs font-semibold text-brand-600 hover:underline">{{ t('admin_page.action_view') }}</a>
+
                                 <form method="POST" action="{{ url_for('admin_flag_job', job_id=job.id) }}" class="inline">
                                     {% if job.is_flagged %}
-                                    <button type="submit" class="text-xs font-bold text-emerald-600 hover:underline">Khôi phục</button>
+                                    <button type="submit" class="text-xs font-bold text-emerald-600 hover:underline">{{ t('admin_page.action_restore') }}</button>
                                     {% else %}
-                                    <button type="submit" class="text-xs font-bold text-amber-600 hover:underline" onclick="return confirm('Gỡ bỏ bài đăng này khỏi danh sách công khai?');">Gỡ bài</button>
+                                    <button type="submit" class="text-xs font-bold text-amber-600 hover:underline" onclick="return confirm('{{ t('admin_page.action_flag_confirm') }}');">{{ t('admin_page.action_flag') }}</button>
                                     {% endif %}
                                 </form>
 
                                 <form method="POST" action="{{ url_for('admin_delete_job', job_id=job.id) }}" class="inline">
-                                    <button type="submit" class="text-xs font-bold text-rose-600 hover:underline" onclick="return confirm('CẢNH BÁO: Xoá vĩnh viễn bài đăng này khỏi cơ sở dữ liệu?');">Xóa</button>
+                                    <button type="submit" class="text-xs font-bold text-rose-600 hover:underline" onclick="return confirm('{{ t('admin_page.action_delete_confirm') }}');">{{ t('admin_page.action_delete') }}</button>
                                 </form>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-slate-400 text-xs sm:text-sm">Không có dữ liệu bài đăng.</td>
+                            <td colspan="5" class="px-6 py-12 text-center text-slate-400 text-xs sm:text-sm">{{ t('admin_page.no_jobs_data') }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
-        
+
     </div>
 </div>
 {% endblock %}

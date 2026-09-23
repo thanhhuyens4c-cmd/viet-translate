@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Thông báo – VietTranslate{% endblock %}
+{% block title %}{{ t('notifications_page.title') }}{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-slate-50/60">
@@ -8,22 +8,22 @@
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
         <div>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Thông báo</h1>
-            <p class="text-slate-500 text-sm mt-1">Cập nhật mới nhất về tài khoản của bạn</p>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('notifications_page.heading') }}</h1>
+            <p class="text-slate-500 text-sm mt-1">{{ t('notifications_page.subtitle') }}</p>
         </div>
         <button id="mark-all-read" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-4 py-2 rounded-xl transition cursor-pointer">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-            Đánh dấu tất cả đã đọc
+            {{ t('notifications_page.mark_all_read') }}
         </button>
     </div>
 
     <!-- Filters -->
     <div class="flex overflow-x-auto hide-scrollbar gap-2 mb-6 pb-2 border-b border-slate-200">
-        <button class="filter-btn active px-4 py-2 text-sm font-bold border-b-2 border-brand-600 text-brand-600 whitespace-nowrap" data-filter="all">Tất cả</button>
-        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="job">Việc làm</button>
-        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="message">Tin nhắn</button>
-        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="contract">Hợp đồng</button>
-        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="review">Đánh giá</button>
+        <button class="filter-btn active px-4 py-2 text-sm font-bold border-b-2 border-brand-600 text-brand-600 whitespace-nowrap" data-filter="all">{{ t('notifications_page.filter_all') }}</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="job">{{ t('notifications_page.filter_job') }}</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="message">{{ t('notifications_page.filter_message') }}</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="contract">{{ t('notifications_page.filter_contract') }}</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="review">{{ t('notifications_page.filter_review') }}</button>
     </div>
 
     <!-- Notifications List -->
@@ -32,7 +32,7 @@
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        <span class="text-sm font-medium">Đang tải...</span>
+        <span class="text-sm font-medium">{{ t('notifications_page.loading') }}</span>
     </div>
 
     <div id="notif-empty" class="hidden flex-col items-center justify-center py-20 text-slate-400">
@@ -41,7 +41,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
             </svg>
         </div>
-        <p class="font-semibold text-slate-500 text-base">Bạn không có thông báo nào</p>
+        <p class="font-semibold text-slate-500 text-base">{{ t('notifications_page.empty') }}</p>
     </div>
 
     <div id="notif-list" class="hidden bg-white rounded-2xl shadow-soft border border-slate-200/80 divide-y divide-slate-100 overflow-hidden">
@@ -53,6 +53,7 @@
 
 <script>
 (function() {
+    const isEn = "{{ current_lang }}" === "en";
     const loading = document.getElementById("notif-loading");
     const empty   = document.getElementById("notif-empty");
     const list    = document.getElementById("notif-list");
@@ -80,14 +81,14 @@
     function timeAgo(dateStr) {
         const date = new Date(dateStr + "Z"); // assumes UTC from backend
         const seconds = Math.floor((new Date() - date) / 1000);
-        if (seconds < 60) return "Vừa xong";
+        if (seconds < 60) return "{{ t('notifications_page.time_just_now') }}";
         const minutes = Math.floor(seconds / 60);
-        if (minutes < 60) return `${minutes} phút trước`;
+        if (minutes < 60) return `${minutes} {{ t('notifications_page.time_minutes_ago') }}`;
         const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours} giờ trước`;
+        if (hours < 24) return `${hours} {{ t('notifications_page.time_hours_ago') }}`;
         const days = Math.floor(hours / 24);
-        if (days < 30) return `${days} ngày trước`;
-        return date.toLocaleDateString('vi-VN');
+        if (days < 30) return `${days} {{ t('notifications_page.time_days_ago') }}`;
+        return date.toLocaleDateString(isEn ? 'en-US' : 'vi-VN');
     }
 
     const render = () => {

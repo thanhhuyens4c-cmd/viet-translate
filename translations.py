@@ -95,3 +95,17 @@ def get_localized_languages(lang='vi'):
             loc['display_name'] = loc['name']
         localized.append(loc)
     return localized
+
+
+def get_language_display_name(name, lang='vi'):
+    """
+    Maps a stored Vietnamese language name (e.g. 'Tiếng Nhật', as saved on Job/Service
+    records) to its localized display name. Falls back to the original value when the
+    active language is Vietnamese or when no match is found (e.g. free-text values).
+    """
+    if lang != 'en' or not name:
+        return name
+    for item in LANGUAGES:
+        if item['name'] == name:
+            return item['en_name']
+    return name

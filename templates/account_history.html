@@ -54,11 +54,12 @@
                         <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
                             {% for contract in contracts %}
                             <tr class="hover:bg-slate-50/60 transition">
-                                <td class="py-4 font-bold text-slate-900 max-w-xs truncate" title="{{ contract.job.title if contract.job else (contract.service.name if contract.service else ('Hợp đồng #' ~ contract.id)) }}">
-                                    {{ contract.job.title if contract.job else (contract.service.name if contract.service else ('Hợp đồng #' ~ contract.id)) }}
+                                {% set fallback_title = ('Hợp đồng #' if current_lang == 'vi' else 'Contract #') ~ contract.id %}
+                                <td class="py-4 font-bold text-slate-900 max-w-xs truncate" title="{{ contract.job.title if contract.job else (contract.service.name if contract.service else fallback_title) }}">
+                                    {{ contract.job.title if contract.job else (contract.service.name if contract.service else fallback_title) }}
                                 </td>
                                 <td class="py-4 font-extrabold text-brand-700">
-                                    {{ "{:,.0f}".format(contract.agreed_price) }}đ
+                                    {{ "{:,.0f}".format(contract.agreed_price) }}{{ t('common.currency') }}
                                 </td>
                                 <td class="py-4">
                                     {% if contract.status == 'escrow_pending' %}
@@ -151,7 +152,7 @@
                             {% for prop in current_user.proposals %}
                                 <tr class="hover:bg-slate-50/60 transition">
                                     <td class="py-4 font-bold text-slate-900 max-w-xs truncate">{{ prop.job.title }}</td>
-                                    <td class="py-4 font-extrabold text-brand-700">{{ "{:,.0f}".format(prop.price) }}đ</td>
+                                    <td class="py-4 font-extrabold text-brand-700">{{ "{:,.0f}".format(prop.price) }}{{ t('common.currency') }}</td>
                                     <td class="py-4 text-slate-500">{{ prop.time_estimate or '—' }}</td>
                                     <td class="py-4">
                                         {% if prop.status == 'accepted' %}

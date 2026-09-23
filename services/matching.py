@@ -41,7 +41,8 @@ def normalize_text(value):
         return ''
     return unicodedata.normalize('NFKD', str(value)).encode('ASCII', 'ignore').decode('utf-8').lower().strip()
 
-def calculate_job_match_score(translator, job):
+def calculate_job_match_score(translator, job, lang='vi'):
+    from translations import t as t_lookup
     # Base score 0 to 100
     score = 0
     reasons = []
@@ -61,10 +62,10 @@ def calculate_job_match_score(translator, job):
         
         if exact_pair in pairs:
             score += 40
-            reasons.append("Khớp cặp ngôn ngữ chính xác")
+            reasons.append(t_lookup('match_reasons.exact_language_pair', lang))
         elif reverse_pair in pairs:
             score += 20
-            reasons.append("Khớp cặp ngôn ngữ (đảo chiều)")
+            reasons.append(t_lookup('match_reasons.reverse_language_pair', lang))
         else:
             translator_langs = set()
             for p in pairs:
@@ -74,20 +75,20 @@ def calculate_job_match_score(translator, job):
                     translator_langs.add(tgt)
             if source_norm in translator_langs or target_norm in translator_langs:
                 score += 10
-                reasons.append("Khớp một phần ngôn ngữ")
+                reasons.append(t_lookup('match_reasons.partial_language', lang))
     else:
         translator_langs = []
         if pref and getattr(pref, 'languages', None):
             translator_langs = [normalize_text(l) for l in pref.languages.split(',')]
         elif prof and prof.languages:
             translator_langs = [normalize_text(l) for l in prof.languages.split(',')]
-            
+
         if source_norm in translator_langs and target_norm in translator_langs:
             score += 40
-            reasons.append("Khớp ngôn ngữ")
+            reasons.append(t_lookup('match_reasons.language_match', lang))
         elif source_norm in translator_langs or target_norm in translator_langs:
             score += 20
-            reasons.append("Khớp một phần ngôn ngữ")
+            reasons.append(t_lookup('match_reasons.partial_language', lang))
 
     # 2. Service Type (25 points)
     job_group = job.display_category_group
@@ -121,10 +122,10 @@ def calculate_job_match_score(translator, job):
     if pref_services:
         if any(s in pref_services for s in exact_match_texts):
             score += 25
-            reasons.append("Khớp loại công việc (chính xác)")
+            reasons.append(t_lookup('match_reasons.exact_job_type', lang))
         elif any(s in pref_services for s in group_match_texts):
             score += 15
-            reasons.append("Khớp nhóm hình thức làm việc")
+            reasons.append(t_lookup('match_reasons.group_match', lang))
     else:
         score += 25
         
@@ -145,7 +146,7 @@ def calculate_job_match_score(translator, job):
     exp_score = min(exp_score, 15)
     score += exp_score
     if exp_score >= 10:
-        reasons.append("Kinh nghiệm phù hợp")
+        reasons.append(t_lookup('match_reasons.experience_match', lang))
         
     # 4. Location (10 points)
     loc_score = 10
@@ -153,7 +154,7 @@ def calculate_job_match_score(translator, job):
     
     if job_loc_norm:
         if "online" in job_loc_norm or "tu xa" in job_loc_norm:
-            reasons.append("Làm việc từ xa (Online)")
+            reasons.append(t_lookup('match_reasons.remote_work', lang))
         elif prof and prof.bio and normalize_text(prof.bio):
             bio_norm = normalize_text(prof.bio)
             if "ha noi" in job_loc_norm and "ha noi" not in bio_norm:
@@ -161,7 +162,7 @@ def calculate_job_match_score(translator, job):
             elif "ho chi minh" in job_loc_norm and "ho chi minh" not in bio_norm and "hcm" not in bio_norm:
                 loc_score = 5
             else:
-                reasons.append("Phù hợp địa điểm")
+                reasons.append(t_lookup('match_reasons.location_match', lang))
         else:
             pass # No penalty if lack of info
     score += loc_score
@@ -173,7 +174,7 @@ def calculate_job_match_score(translator, job):
         if min_price and job.budget_min < (min_price * 0.7):
             budget_score = 5
         elif min_price and job.budget_min >= min_price:
-            reasons.append("Ngân sách phù hợp")
+            reasons.append(t_lookup('match_reasons.budget_match', lang))
     score += budget_score
 
     # Limit score to 100
@@ -181,8 +182,9 @@ def calculate_job_match_score(translator, job):
 
     return score, reasons
 
-def get_recommended_jobs_for_translator(user_id, limit=10):
+def get_recommended_jobs_for_translator(user_id, limit=10, lang='vi'):
     from app import translator_accepts_job
+    from translations import t as t_lookup
     translator = User.query.get(user_id)
     if not translator or translator.role != 'translator' or not translator.is_active:
         return []
@@ -202,11 +204,11 @@ def get_recommended_jobs_for_translator(user_id, limit=10):
         if not available:
             continue
 
-        score, reasons = calculate_job_match_score(translator, job)
+        score, reasons = calculate_job_match_score(translator, job, lang)
         if score > 0:
             if available:
-                reasons.append("Có lịch trống")
-            
+                reasons.append(t_lookup('match_reasons.schedule_free', lang))
+
             scored_jobs.append({
                 'job_id': job.id,
                 'match_score': score,
@@ -218,11 +220,12 @@ def get_recommended_jobs_for_translator(user_id, limit=10):
     
     return [{'job_id': x['job_id'], 'match_score': x['match_score'], 'reasons': x['reasons']} for x in scored_jobs[:limit]]
 
-def calculate_translator_match_score(translator, job):
+def calculate_translator_match_score(translator, job, lang='vi'):
     # This is symmetric to calculate_job_match_score
-    return calculate_job_match_score(translator, job)
+    return calculate_job_match_score(translator, job, lang)
 
-def get_recommended_translators_for_job(job_id, limit=10):
+def get_recommended_translators_for_job(job_id, limit=10, lang='vi'):
+    from translations import t as t_lookup
     job = Job.query.get(job_id)
     if not job or job.status != 'open':
         return []
@@ -241,10 +244,10 @@ def get_recommended_translators_for_job(job_id, limit=10):
             continue
             
         try:
-            score, reasons = calculate_translator_match_score(translator, job)
+            score, reasons = calculate_translator_match_score(translator, job, lang)
             if score > 0:
                 if available:
-                    reasons.append("Có lịch trống")
+                    reasons.append(t_lookup('match_reasons.schedule_free', lang))
                 scored_translators.append({
                     'translator': translator,
                     'score': score,

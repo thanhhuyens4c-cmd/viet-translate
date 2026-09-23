@@ -153,7 +153,7 @@
                                         class="rounded text-brand-600 focus:ring-brand-500"
                                         onchange="updateLangField()">
                                     <span>{{ lang.flag }}</span>
-                                    <span>{{ lang.short_name }}</span>
+                                    <span>{{ lang.display_name }}</span>
                                 </label>
                                 {% endfor %}
                             </div>
@@ -202,7 +202,7 @@
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
                     <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                        Cài đặt nhận việc & thông báo
+                        {{ t('account_profile_page.heading_preferences') }}
                     </h2>
                     
                     <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-6">
@@ -213,47 +213,49 @@
                         {% set pref_services = (pref.service_types or '').split(',') if pref else [] %}
 
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Ngôn ngữ</label>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{ t('account_profile_page.label_pref_languages') }}</label>
                             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                                 {% for lang in ['Tiếng Anh', 'Tiếng Nhật', 'Tiếng Hàn', 'Tiếng Trung', 'Tiếng Pháp', 'Tiếng Đức', 'Tiếng Nga', 'Tiếng Thái', 'Tiếng Bồ Đào Nha', 'Tiếng Tây Ban Nha'] %}
                                 <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
                                     <input type="checkbox" name="languages" value="{{ lang }}" class="rounded text-brand-600" {% if lang in pref_langs %}checked{% endif %}>
-                                    <span>{{ lang }}</span>
+                                    <span>{{ lang_name(lang) }}</span>
                                 </label>
                                 {% endfor %}
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Loại công việc</label>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{ t('account_profile_page.label_job_type') }}</label>
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                {% set service_labels_vi = {'Dịch thuật': 'Dịch thuật', 'Phiên dịch': 'Phiên dịch', 'Hội họp': 'Hội họp', 'Kinh doanh': 'Kinh doanh', 'Du lịch': 'Du lịch', 'Sự kiện': 'Sự kiện', 'Khác': 'Khác'} %}
+                                {% set service_labels_en = {'Dịch thuật': 'Translation', 'Phiên dịch': 'Interpretation', 'Hội họp': 'Meeting', 'Kinh doanh': 'Business', 'Du lịch': 'Travel', 'Sự kiện': 'Event', 'Khác': 'Other'} %}
                                 {% for service in ['Dịch thuật', 'Phiên dịch', 'Hội họp', 'Kinh doanh', 'Du lịch', 'Sự kiện', 'Khác'] %}
                                 <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
                                     <input type="checkbox" name="service_types" value="{{ service }}" class="rounded text-brand-600" {% if service in pref_services %}checked{% endif %}>
-                                    <span>{{ service }}</span>
+                                    <span>{{ service_labels_en[service] if current_lang == 'en' else service_labels_vi[service] }}</span>
                                 </label>
                                 {% endfor %}
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Thông báo</label>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{ t('account_profile_page.label_notifications') }}</label>
                             <div class="space-y-3">
                                 <label class="flex items-center gap-3">
                                     <input type="checkbox" name="notify_new_jobs" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_new_jobs %}checked{% endif %}>
-                                    <span class="text-sm text-slate-700">Việc mới phù hợp</span>
+                                    <span class="text-sm text-slate-700">{{ t('account_profile_page.notif_new_jobs') }}</span>
                                 </label>
                                 <label class="flex items-center gap-3">
                                     <input type="checkbox" name="notify_messages" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_messages %}checked{% endif %}>
-                                    <span class="text-sm text-slate-700">Tin nhắn mới</span>
+                                    <span class="text-sm text-slate-700">{{ t('account_profile_page.notif_new_messages') }}</span>
                                 </label>
                                 <label class="flex items-center gap-3">
                                     <input type="checkbox" name="notify_contracts" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_contracts %}checked{% endif %}>
-                                    <span class="text-sm text-slate-700">Hợp đồng</span>
+                                    <span class="text-sm text-slate-700">{{ t('account_profile_page.notif_contracts') }}</span>
                                 </label>
                                 <label class="flex items-center gap-3">
                                     <input type="checkbox" name="notify_reviews" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_reviews %}checked{% endif %}>
-                                    <span class="text-sm text-slate-700">Đánh giá mới</span>
+                                    <span class="text-sm text-slate-700">{{ t('account_profile_page.notif_new_reviews') }}</span>
                                 </label>
                             </div>
                         </div>
@@ -263,7 +265,7 @@
                         <div class="flex justify-end pt-5 border-t border-slate-100">
                             <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                <span>Lưu cài đặt</span>
+                                <span>{{ t('account_profile_page.save_preferences_btn') }}</span>
                             </button>
                         </div>
                     </form>

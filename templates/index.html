@@ -87,7 +87,7 @@
                     <select id="search-lang" class="w-full bg-transparent text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer">
                         <option value="">{{ t('hero.all_languages') }}</option>
                         {% for item in LANGUAGES %}
-                        <option value="{{ item.name }}">{{ item.flag }} {{ item.name }}</option>
+                        <option value="{{ item.name }}">{{ item.flag }} {{ item.display_name }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -196,7 +196,7 @@
                         {{ item.code }}
                     </span>
                     <h3 class="font-bold text-slate-800 text-sm group-hover:text-brand-600 transition-colors">
-                        {{ item.name }}
+                        {{ item.display_name }}
                     </h3>
                 </div>
                 <span class="text-[11px] text-slate-400 font-medium">
@@ -344,12 +344,12 @@
                     <div>
                         <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                             <span class="inline-flex items-center gap-1.5 text-xs font-bold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg">
-                                <span>{{ job.source_lang }}</span>
+                                <span>{{ lang_name(job.source_lang) }}</span>
                                 <span class="text-brand-400">→</span>
-                                <span>{{ job.target_lang }}</span>
+                                <span>{{ lang_name(job.target_lang) }}</span>
                             </span>
                             <span class="text-xs text-slate-400">
-                                {% if job.category %}{{ job.display_category_text }} · {% endif %}
+                                {% if job.category %}{{ job.display_category_text(current_lang) }} · {% endif %}
                                 {{ job.created_at.strftime('%d/%m/%Y') }}
                             </span>
                         </div>
@@ -467,65 +467,65 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <div class="text-center max-w-2xl mx-auto mb-12">
-            <span class="text-xs font-bold uppercase tracking-wider text-brand-600">Thực tiễn hợp tác</span>
+            <span class="text-xs font-bold uppercase tracking-wider text-brand-600">{{ t('portfolio.badge') }}</span>
             <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mt-1 mb-2.5">
-                Những Dự Án Đã Được Kết Nối
+                {{ t('portfolio.title') }}
             </h2>
             <p class="text-slate-500 text-sm">
-                Điểm qua các dự án tiêu biểu được kết nối thành công qua nền tảng VietTranslate.
+                {{ t('portfolio.subtitle') }}
             </p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
+
             <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-soft flex flex-col justify-between">
                 <div>
                     <div class="flex items-center justify-between mb-4">
-                        <span class="text-xs font-bold text-brand-700 bg-brand-50 px-3 py-1 rounded-full">Hội nghị quốc tế</span>
-                        <span class="text-xs font-semibold text-slate-400">🇯🇵 Tiếng Nhật</span>
+                        <span class="text-xs font-bold text-brand-700 bg-brand-50 px-3 py-1 rounded-full">{{ t('portfolio.p1_category') }}</span>
+                        <span class="text-xs font-semibold text-slate-400">🇯🇵 {{ t('portfolio.p1_lang') }}</span>
                     </div>
-                    <h3 class="font-bold text-slate-900 text-base mb-2">Hội thảo xúc tiến đầu tư FDI Nhật Bản – Việt Nam</h3>
+                    <h3 class="font-bold text-slate-900 text-base mb-2">{{ t('portfolio.p1_title') }}</h3>
                     <p class="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                        Phiên dịch song song (Cabin) cho hơn 250 đại diện doanh nghiệp tại Trung tâm Hội nghị Quốc gia.
+                        {{ t('portfolio.p1_desc') }}
                     </p>
                 </div>
                 <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span class="text-slate-400">Lĩnh vực: <strong class="text-slate-700 font-semibold">Công nghiệp & FDI</strong></span>
-                    <span class="text-emerald-600 font-semibold">✓ Hoàn thành</span>
+                    <span class="text-slate-400">{{ t('portfolio.field_label') }} <strong class="text-slate-700 font-semibold">{{ t('portfolio.p1_field') }}</strong></span>
+                    <span class="text-emerald-600 font-semibold">{{ t('portfolio.status_done') }}</span>
                 </div>
             </div>
 
             <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-soft flex flex-col justify-between">
                 <div>
                     <div class="flex items-center justify-between mb-4">
-                        <span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">Pháp lý & Hợp đồng</span>
-                        <span class="text-xs font-semibold text-slate-400">🇬🇧 Tiếng Anh</span>
+                        <span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">{{ t('portfolio.p2_category') }}</span>
+                        <span class="text-xs font-semibold text-slate-400">🇬🇧 {{ t('portfolio.p2_lang') }}</span>
                     </div>
-                    <h3 class="font-bold text-slate-900 text-base mb-2">Đàm phán & Ký kết hợp đồng xuất khẩu phần mềm</h3>
+                    <h3 class="font-bold text-slate-900 text-base mb-2">{{ t('portfolio.p2_title') }}</h3>
                     <p class="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                        Phiên dịch đàm phán thương mại trực tiếp và dịch thuật tài liệu NDA, Master Agreement cho đối tác Mỹ.
+                        {{ t('portfolio.p2_desc') }}
                     </p>
                 </div>
                 <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span class="text-slate-400">Lĩnh vực: <strong class="text-slate-700 font-semibold">Công nghệ thông tin</strong></span>
-                    <span class="text-emerald-600 font-semibold">✓ Hoàn thành</span>
+                    <span class="text-slate-400">{{ t('portfolio.field_label') }} <strong class="text-slate-700 font-semibold">{{ t('portfolio.p2_field') }}</strong></span>
+                    <span class="text-emerald-600 font-semibold">{{ t('portfolio.status_done') }}</span>
                 </div>
             </div>
 
             <div class="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-soft flex flex-col justify-between">
                 <div>
                     <div class="flex items-center justify-between mb-4">
-                        <span class="text-xs font-bold text-violet-700 bg-violet-50 px-3 py-1 rounded-full">Kỹ thuật nhà máy</span>
-                        <span class="text-xs font-semibold text-slate-400">🇰🇷 Tiếng Hàn</span>
+                        <span class="text-xs font-bold text-violet-700 bg-violet-50 px-3 py-1 rounded-full">{{ t('portfolio.p3_category') }}</span>
+                        <span class="text-xs font-semibold text-slate-400">🇰🇷 {{ t('portfolio.p3_lang') }}</span>
                     </div>
-                    <h3 class="font-bold text-slate-900 text-base mb-2">Đào tạo vận hành dây chuyền sản xuất linh kiện</h3>
+                    <h3 class="font-bold text-slate-900 text-base mb-2">{{ t('portfolio.p3_title') }}</h3>
                     <p class="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                        Phiên dịch tháp tùng kỹ sư trưởng Hàn Quốc hướng dẫn kỹ thuật viên Việt Nam trong 5 ngày onsite.
+                        {{ t('portfolio.p3_desc') }}
                     </p>
                 </div>
                 <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span class="text-slate-400">Lĩnh vực: <strong class="text-slate-700 font-semibold">Sản xuất tự động</strong></span>
-                    <span class="text-emerald-600 font-semibold">✓ Hoàn thành</span>
+                    <span class="text-slate-400">{{ t('portfolio.field_label') }} <strong class="text-slate-700 font-semibold">{{ t('portfolio.p3_field') }}</strong></span>
+                    <span class="text-emerald-600 font-semibold">{{ t('portfolio.status_done') }}</span>
                 </div>
             </div>
 
@@ -632,7 +632,7 @@
 <!-- ═══════════════════════════════════════════════════════════════
      SECTION 10: SEO CONTENT HUB (Bảng giá, Cẩm nang & Kiến thức)
      ═══════════════════════════════════════════════════════════════ -->
-<section class="py-16 md:py-20 bg-white border-t border-slate-200/70" aria-label="Trung tâm thông tin phiên dịch">
+<section class="py-16 md:py-20 bg-white border-t border-slate-200/70" aria-label="{{ 'Trung tâm thông tin phiên dịch' if current_lang == 'vi' else 'Translation Information Hub' }}">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <div class="text-center max-w-2xl mx-auto mb-14">
@@ -666,7 +666,7 @@
                         <tr class="hover:bg-white/80 transition-colors">
                             <td class="py-3 px-3 font-semibold text-slate-800 flex items-center gap-2">
                                 <span class="text-base">{{ item.flag }}</span>
-                                <span>{{ item.name }}</span>
+                                <span>{{ item.display_name }}</span>
                             </td>
                             <td class="py-3 px-3 text-slate-500">{{ item.en_name }}</td>
                             <td class="py-3 px-3 text-right">
