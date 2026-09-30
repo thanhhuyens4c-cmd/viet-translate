@@ -486,6 +486,7 @@ TRANSLATIONS = {
             'input_placeholder': 'Nhập tin nhắn trao đổi công việc...',
             'role_translator': 'Phiên dịch viên chuyên nghiệp',
             'role_hirer': 'Khách hàng',
+            'upload_image': 'Gửi hình ảnh',
         },
 
         # ─── Account History Page ───
@@ -1364,6 +1365,7 @@ TRANSLATIONS = {
             'input_placeholder': 'Type your message regarding the project...',
             'role_translator': 'Professional Translator',
             'role_hirer': 'Client',
+            'upload_image': 'Send image',
         },
 
         # ─── Account History Page ───

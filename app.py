@@ -1673,23 +1673,29 @@ def get_direct_messages(other_user_id):
 
     return jsonify([{
         'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
-        'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m')
+        'content': m.content, 'image_url': m.image_url,
+        'time': m.created_at.strftime('%H:%M %d/%m')
     } for m in msgs])
 
 @app.route('/api/direct-messages/<int:other_user_id>', methods=['POST'])
 @login_required
 def send_direct_message(other_user_id):
     content = request.json.get('content', '').strip()
+    image_url = request.json.get('image_url', '').strip()
     me = session['user_id']
     
-    if not content or other_user_id == me:
+    if (not content and not image_url) or other_user_id == me:
         return jsonify({'status': 'error'}), 400
         
     receiver = User.query.get(other_user_id)
     if not receiver:
         return jsonify({'status': 'error'}), 400
         
-    msg = DirectMessage(sender_id=me, receiver_id=other_user_id, content=content)
+    msg = DirectMessage(
+        sender_id=me, receiver_id=other_user_id,
+        content=content or ('[Hình ảnh]' if image_url else ''),
+        image_url=image_url or None
+    )
     db.session.add(msg)
 
     # Notify receiver
@@ -1711,6 +1717,48 @@ def send_direct_message(other_user_id):
 
     db.session.commit()
     return jsonify({'status': 'ok'})
+
+
+CHAT_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+def allowed_chat_image(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in CHAT_IMAGE_EXTENSIONS
+
+@app.route('/api/chat/upload-image', methods=['POST'])
+@login_required
+def upload_chat_image():
+    """Upload ảnh cho chat. Trả về URL ảnh đã lưu."""
+    if 'image' not in request.files:
+        return jsonify({'status': 'error', 'message': 'No file provided'}), 400
+
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'status': 'error', 'message': 'No file selected'}), 400
+
+    if not allowed_chat_image(file.filename):
+        return jsonify({'status': 'error', 'message': 'File type not allowed'}), 400
+
+    # Tạo thư mục chat_images nếu chưa có
+    chat_img_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'chat_images')
+    try:
+        os.makedirs(chat_img_dir, exist_ok=True)
+    except OSError:
+        chat_img_dir = app.config['UPLOAD_FOLDER']
+
+    # Tạo tên file duy nhất
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    unique_name = f"chat_{session['user_id']}_{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}.{ext}"
+    filename = secure_filename(unique_name)
+    filepath = os.path.join(chat_img_dir, filename)
+    file.save(filepath)
+
+    # Trả về URL tương đối
+    if app.config['UPLOAD_FOLDER'] == '/tmp':
+        image_url = f'/tmp/{filename}'
+    else:
+        image_url = f'/static/uploads/chat_images/{filename}'
+
+    return jsonify({'status': 'ok', 'image_url': image_url})
 
 
 # ─── MESSAGES PAGE ─────────────────────────────────────────────────────────────
@@ -2411,7 +2459,8 @@ def get_messages(contract_id):
         db.session.commit()
 
     return jsonify([{'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
-                     'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m')} for m in msgs])
+                     'content': m.content, 'image_url': m.image_url,
+                     'time': m.created_at.strftime('%H:%M %d/%m')} for m in msgs])
 
 @app.route('/api/messages/<int:contract_id>', methods=['POST'])
 @login_required
@@ -2422,8 +2471,13 @@ def send_message(contract_id):
     require_contract_access(sender_id, contract)
 
     content = request.json.get('content', '').strip()
-    if content:
-        db.session.add(Message(contract_id=contract_id, sender_id=sender_id, content=content))
+    image_url = request.json.get('image_url', '').strip()
+    if content or image_url:
+        db.session.add(Message(
+            contract_id=contract_id, sender_id=sender_id,
+            content=content or ('[Hình ảnh]' if image_url else ''),
+            image_url=image_url or None
+        ))
         db.session.flush()
 
         if sender_id == contract.hirer_id:
