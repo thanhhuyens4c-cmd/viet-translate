@@ -49,6 +49,7 @@ class User(db.Model):
     admin_role = db.Column(db.String(50), nullable=True) # 'super_admin', 'moderator', 'finance'
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    avatar = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     profile = db.relationship('TranslatorProfile', backref='user', uselist=False, cascade='all, delete-orphan')
@@ -61,6 +62,11 @@ class User(db.Model):
 
     @property
     def avatar_url(self):
+        if self.avatar:
+            if self.avatar.startswith('http://') or self.avatar.startswith('https://') or self.avatar.startswith('/'):
+                return self.avatar
+            return f'/static/uploads/avatars/{self.avatar}'
+
         email_map = {
             'trans_kr@test.com': '/static/avatars/avatar_dung.jpg',
             'trans_ru@test.com': '/static/avatars/avatar_ha.jpg',
