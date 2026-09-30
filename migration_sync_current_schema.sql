@@ -15,7 +15,11 @@ ADD COLUMN IF NOT EXISTS buffer_after_minutes INTEGER DEFAULT 30,
 ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'reserved',
 ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
 
--- 3. Create missing tables if they don't exist
+-- 3. Update "review" table
+ALTER TABLE review
+ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT FALSE NOT NULL;
+
+-- 4. Create missing tables if they don't exist
 -- Note: It is generally safer to let SQLAlchemy create new tables via db.create_all() (or migration_admin_security.py)
 -- but adding them here ensures the SQL migration is complete.
 
@@ -91,7 +95,7 @@ CREATE INDEX IF NOT EXISTS ix_admin_audit_log_admin_id ON admin_audit_log (admin
 CREATE INDEX IF NOT EXISTS ix_admin_audit_log_action ON admin_audit_log (action);
 CREATE INDEX IF NOT EXISTS ix_admin_audit_log_created_at ON admin_audit_log (created_at);
 
--- 4. Constraint checking for translator_schedule (from migration_add_exclusion.sql)
+-- 5. Constraint checking for translator_schedule (from migration_add_exclusion.sql)
 -- Create extension if not exists
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
