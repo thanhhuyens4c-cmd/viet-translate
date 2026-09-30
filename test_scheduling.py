@@ -226,6 +226,57 @@ class SchedulingTestCase(unittest.TestCase):
         self.assertIsNotNone(s2)
         self.assertEqual(s2.status, 'reserved')
 
+    def test_P_multiday_booking_creates_entries_for_all_days(self):
+        """TEST P: Đặt lịch nhiều ngày tạo bản ghi TranslatorSchedule cho từng ngày."""
+        schedules = reserve_slot(
+            self.trans1.id,
+            "2024-12-01 to 2024-12-03",
+            "08:00",
+            "17:00",
+            contract_id=150
+        )
+        db.session.flush()
+        self.assertIsInstance(schedules, list)
+        self.assertEqual(len(schedules), 3)
+        dates = [s.scheduled_date for s in schedules]
+        self.assertEqual(dates, [date(2024, 12, 1), date(2024, 12, 2), date(2024, 12, 3)])
+        for s in schedules:
+            self.assertEqual(s.start_time, time(8, 0))
+            self.assertEqual(s.end_time, time(17, 0))
+            self.assertEqual(s.status, 'reserved')
+
+        # Confirm should activate all 3 entries
+        success = confirm_slot(150, commit=False)
+        self.assertTrue(success)
+        for s in schedules:
+            self.assertEqual(s.status, 'active')
+
+        # Cancel should cancel all 3 entries
+        cancelled = cancel_slot(150, commit=False)
+        self.assertTrue(cancelled)
+        for s in schedules:
+            self.assertEqual(s.status, 'cancelled')
+
+    def test_Q_multiday_conflict_rolls_back_completely(self):
+        """TEST Q: Trùng một ngày trong chuỗi ngày -> báo lỗi và rollback toàn bộ."""
+        # Book day 2 first
+        reserve_slot(self.trans1.id, "2024-12-02", "10:00", "12:00", contract_id=160)
+        db.session.flush()
+
+        # Attempt to book 2024-12-01 to 2024-12-03 with overlapping hours
+        before_count = TranslatorSchedule.query.count()
+        with self.assertRaises(SlotTakenError) as ctx:
+            reserve_slot(
+                self.trans1.id,
+                "2024-12-01 to 2024-12-03",
+                "08:00",
+                "17:00",
+                contract_id=170
+            )
+        self.assertIn("02/12/2024", str(ctx.exception))
+        # No extra schedules created for contract 170
+        self.assertEqual(TranslatorSchedule.query.filter_by(contract_id=170).count(), 0)
+
 if __name__ == '__main__':
     unittest.main()
 

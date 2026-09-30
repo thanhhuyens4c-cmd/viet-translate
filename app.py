@@ -1899,8 +1899,8 @@ def payment_mockup(contract_id):
                 c.status = 'cancelled'
                 
             from models import TranslatorSchedule
-            s = TranslatorSchedule.query.filter_by(contract_id=contract.id).first()
-            if s:
+            schedules = TranslatorSchedule.query.filter_by(contract_id=contract.id).all()
+            for s in schedules:
                 s.status = 'cancelled'
                 
             db.session.commit()
@@ -2493,12 +2493,15 @@ def admin_contracts():
 @admin_required
 def admin_schedules():
     status_filter = request.args.get('status', 'all')
+    contract_id = request.args.get('contract_id', type=int)
     query = TranslatorSchedule.query
     if status_filter != 'all':
         query = query.filter_by(status=status_filter)
+    if contract_id:
+        query = query.filter_by(contract_id=contract_id)
     
     schedules = query.order_by(TranslatorSchedule.scheduled_date.desc(), TranslatorSchedule.start_time.desc()).all()
-    return render_template('admin_schedules.html', schedules=schedules, status_filter=status_filter)
+    return render_template('admin_schedules.html', schedules=schedules, status_filter=status_filter, contract_id=contract_id)
 
 @app.route('/admin/reviews')
 @admin_required
