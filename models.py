@@ -348,7 +348,7 @@ SCHEDULE_STATUS = ('reserved', 'active', 'completed', 'cancelled')
 class TranslatorSchedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
-    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True, unique=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True, index=True)
     job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)
 
@@ -366,7 +366,7 @@ class TranslatorSchedule(db.Model):
     expires_at = db.Column(db.DateTime, nullable=True, index=True)
 
     translator = db.relationship('User', backref=db.backref('schedules', lazy=True))
-    contract = db.relationship('Contract', backref=db.backref('schedule', uselist=False))
+    contract = db.relationship('Contract', backref=db.backref('schedule_entries', lazy=True))
 
 
 # ─── REPORT MODEL (TASK 11) ────────────────────────────────────────────────────

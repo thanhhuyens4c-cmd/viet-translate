@@ -56,6 +56,47 @@ def _parse_date(value) -> date | None:
     return None
 
 
+def parse_date_range(value):
+    """
+    Parse a date string that may be a single date or a date range.
+
+    Supports:
+      - Single date: "2024-11-30"  → [date(2024, 11, 30)]
+      - Date range:  "2024-11-30 to 2024-12-02"  → [date(11/30), date(12/1), date(12/2)]
+
+    Returns:
+        list[date] – one entry per day in the range (inclusive).
+        Empty list if parsing fails entirely.
+    """
+    if value is None:
+        return []
+    raw = str(value).strip()
+    if not raw:
+        return []
+
+    # Check for range separator " to " (used by flatpickr range mode)
+    if ' to ' in raw:
+        parts = raw.split(' to ', 1)
+        start_date = _parse_date(parts[0].strip())
+        end_date = _parse_date(parts[1].strip())
+        if start_date and end_date and end_date >= start_date:
+            from datetime import timedelta
+            days = []
+            current = start_date
+            while current <= end_date:
+                days.append(current)
+                current += timedelta(days=1)
+            return days
+        elif start_date:
+            # End date invalid, return at least the start
+            return [start_date]
+        return []
+
+    # Single date
+    d = _parse_date(raw)
+    return [d] if d else []
+
+
 def _parse_time(value) -> time | None:
     """Try to parse *value* into a time. Returns None on failure."""
     if value is None:
