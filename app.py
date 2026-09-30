@@ -562,10 +562,76 @@ else:
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 
+AVATAR_UPLOAD_FOLDER = os.path.join('static', 'uploads', 'avatars')
+if os.environ.get('VERCEL') == '1' or _is_memory_db:
+    AVATAR_UPLOAD_FOLDER = '/tmp/avatars'
+try:
+    os.makedirs(AVATAR_UPLOAD_FOLDER, exist_ok=True)
+except OSError:
+    AVATAR_UPLOAD_FOLDER = '/tmp'
+app.config['AVATAR_UPLOAD_FOLDER'] = AVATAR_UPLOAD_FOLDER
+
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'zip', 'rar', 'png', 'jpg', 'jpeg'}
+ALLOWED_AVATAR_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def allowed_avatar_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_AVATAR_EXTENSIONS
+
+def save_user_avatar(file, user_id, current_avatar=None):
+    """Lưu tệp ảnh đại diện được tải lên và trả về (thành_công, tên_file_hoặc_mã_lỗi)."""
+    if not file or not file.filename:
+        return False, 'flash.avatar_invalid_file'
+    if not allowed_avatar_file(file.filename):
+        return False, 'flash.avatar_invalid_file'
+
+    try:
+        file.seek(0, os.SEEK_END)
+        size = file.tell()
+        file.seek(0)
+    except Exception:
+        size = 0
+    if size > 5 * 1024 * 1024:
+        return False, 'flash.avatar_file_too_large'
+
+    import time
+    clean_uid = str(user_id).replace('mongo:', 'm_')
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"avatar_u{clean_uid}_{int(time.time())}.{ext}"
+    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join('static', 'uploads', 'avatars'))
+    os.makedirs(folder, exist_ok=True)
+    filepath = os.path.join(folder, filename)
+
+    try:
+        if current_avatar and not current_avatar.startswith('http') and not current_avatar.startswith('/static/avatars/'):
+            old_base = os.path.basename(current_avatar)
+            old_path = os.path.join(folder, old_base)
+            if os.path.exists(old_path):
+                try:
+                    os.remove(old_path)
+                except OSError:
+                    pass
+        file.save(filepath)
+        return True, filename
+    except Exception as e:
+        print(f"[AVATAR UPLOAD ERROR] {e}", file=sys.stderr)
+        return False, 'flash.avatar_upload_failed'
+
+def delete_user_avatar(current_avatar):
+    """Xóa file ảnh đại diện cũ nếu là ảnh do người dùng tải lên."""
+    if not current_avatar:
+        return
+    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join('static', 'uploads', 'avatars'))
+    if not current_avatar.startswith('http') and not current_avatar.startswith('/static/avatars/'):
+        old_base = os.path.basename(current_avatar)
+        old_path = os.path.join(folder, old_base)
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except OSError:
+                pass
 
 db.init_app(app)
 
@@ -591,6 +657,23 @@ def _init_db():
     except Exception as e:
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
         return
+
+    # Tự động đồng bộ cột avatar nếu chưa tồn tại trong bảng user
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if 'user' in inspector.get_table_names():
+            user_cols = [c['name'] for c in inspector.get_columns('user')]
+            if 'avatar' not in user_cols:
+                with db.engine.connect() as conn:
+                    try:
+                        conn.execute(text('ALTER TABLE "user" ADD COLUMN avatar VARCHAR(255)'))
+                        conn.commit()
+                    except Exception:
+                        conn.execute(text('ALTER TABLE user ADD COLUMN avatar VARCHAR(255)'))
+                        conn.commit()
+    except Exception:
+        pass
 
     try:
         # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
@@ -766,7 +849,16 @@ class SimpleMongoUser:
         self.phone = data.get('phone', '')
         self.is_admin = data.get('is_admin', False)
         self.is_active = data.get('is_active', True)
+        self.avatar = data.get('avatar', None)
         self.profile = None  # Không dùng SQLAlchemy relationship
+
+    @property
+    def avatar_url(self):
+        if self.avatar:
+            if self.avatar.startswith('http://') or self.avatar.startswith('https://') or self.avatar.startswith('/'):
+                return self.avatar
+            return f'/static/uploads/avatars/{self.avatar}'
+        return None
 
 
 def get_current_user():
@@ -1037,6 +1129,33 @@ def account_profile():
                     )
                     flash(_t('flash.password_changed'), 'success')
 
+            elif action == 'upload_avatar':
+                file = request.files.get('avatar')
+                is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+                ok, res = save_user_avatar(file, user.id, user.avatar)
+                if not ok:
+                    msg = _t(res)
+                    if is_ajax:
+                        return jsonify({'success': False, 'message': msg}), 400
+                    flash(msg, 'error')
+                    return redirect(url_for('account_profile'))
+                col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": res}})
+                user.avatar = res
+                msg = _t('flash.avatar_updated')
+                if is_ajax:
+                    return jsonify({'success': True, 'avatar_url': user.avatar_url, 'message': msg})
+                flash(msg, 'success')
+
+            elif action == 'remove_avatar':
+                is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+                delete_user_avatar(user.avatar)
+                col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": None}})
+                user.avatar = None
+                msg = _t('flash.avatar_removed')
+                if is_ajax:
+                    return jsonify({'success': True, 'avatar_url': None, 'initial': (user.name or 'U')[0].upper(), 'message': msg})
+                flash(msg, 'success')
+
             return redirect(url_for('account_profile'))
         return render_template('account_profile.html', user=user)
 
@@ -1052,8 +1171,65 @@ def account_profile():
         if action == 'basic':
             user.name = request.form.get('name', user.name).strip()
             user.phone = request.form.get('phone', user.phone or '').strip()
+
+            # Tùy chọn: người dùng có thể gửi kèm file avatar trong form basic
+            if 'avatar' in request.files and request.files['avatar'].filename:
+                ok, res = save_user_avatar(request.files['avatar'], user.id, user.avatar)
+                if ok:
+                    user.avatar = res
+                else:
+                    flash(_t(res), 'error')
+
             db.session.commit()
             flash(_t('flash.profile_updated'), 'success')
+
+        elif action == 'upload_avatar':
+            file = request.files.get('avatar')
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+            ok, res = save_user_avatar(file, user.id, user.avatar)
+            if not ok:
+                msg = _t(res)
+                if is_ajax:
+                    return jsonify({'success': False, 'message': msg}), 400
+                flash(msg, 'error')
+                return redirect(url_for('account_profile'))
+
+            try:
+                user.avatar = res
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                msg = _t('flash.avatar_upload_failed')
+                if is_ajax:
+                    return jsonify({'success': False, 'message': msg}), 500
+                flash(msg, 'error')
+                return redirect(url_for('account_profile'))
+
+            msg = _t('flash.avatar_updated')
+            if is_ajax:
+                return jsonify({'success': True, 'avatar_url': user.avatar_url, 'message': msg})
+            flash(msg, 'success')
+            return redirect(url_for('account_profile'))
+
+        elif action == 'remove_avatar':
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+            delete_user_avatar(user.avatar)
+            try:
+                user.avatar = None
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                msg = _t('flash.system_error')
+                if is_ajax:
+                    return jsonify({'success': False, 'message': msg}), 500
+                flash(msg, 'error')
+                return redirect(url_for('account_profile'))
+
+            msg = _t('flash.avatar_removed')
+            if is_ajax:
+                return jsonify({'success': True, 'avatar_url': user.avatar_url, 'initial': (user.name or 'U')[0].upper(), 'message': msg})
+            flash(msg, 'success')
+            return redirect(url_for('account_profile'))
 
         elif action == 'translator_profile' and user.role == 'translator':
             profile = user.profile
@@ -1112,6 +1288,128 @@ def account_profile():
         return redirect(url_for('account_profile'))
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
     return render_template('account_profile.html', user=user, LANGUAGES=get_localized_languages(current_lang))
+
+
+@app.route('/account/avatar/upload', methods=['POST'])
+@login_required
+def upload_avatar_endpoint():
+    """Endpoint riêng biệt hỗ trợ tải ảnh đại diện qua AJAX hoặc form POST."""
+    uid = session['user_id']
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
+    file = request.files.get('avatar')
+
+    if isinstance(uid, str) and uid.startswith('mongo:'):
+        mongo_id = uid[len('mongo:'):]
+        mongo_data = mongo_find_user_by_id(mongo_id)
+        if not mongo_data:
+            if is_ajax:
+                return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
+            flash(_t('flash.account_not_found'), 'error')
+            return redirect(url_for('account_profile'))
+        user = SimpleMongoUser(mongo_data)
+        ok, res = save_user_avatar(file, user.id, user.avatar)
+        if not ok:
+            msg = _t(res)
+            if is_ajax:
+                return jsonify({'success': False, 'message': msg}), 400
+            flash(msg, 'error')
+            return redirect(url_for('account_profile'))
+        col = get_mongo_users()
+        if col is not None:
+            from bson import ObjectId
+            col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": res}})
+        user.avatar = res
+        msg = _t('flash.avatar_updated')
+        if is_ajax:
+            return jsonify({'success': True, 'avatar_url': user.avatar_url, 'message': msg})
+        flash(msg, 'success')
+        return redirect(url_for('account_profile'))
+
+    user = User.query.get(uid)
+    if not user:
+        if is_ajax:
+            return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('account_profile'))
+
+    ok, res = save_user_avatar(file, user.id, user.avatar)
+    if not ok:
+        msg = _t(res)
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile'))
+
+    try:
+        user.avatar = res
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        msg = _t('flash.avatar_upload_failed')
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 500
+        flash(msg, 'error')
+        return redirect(url_for('account_profile'))
+
+    msg = _t('flash.avatar_updated')
+    if is_ajax:
+        return jsonify({'success': True, 'avatar_url': user.avatar_url, 'message': msg})
+    flash(msg, 'success')
+    return redirect(url_for('account_profile'))
+
+
+@app.route('/account/avatar/remove', methods=['POST'])
+@login_required
+def remove_avatar_endpoint():
+    """Endpoint gỡ ảnh đại diện tùy chỉnh trở về ảnh mặc định."""
+    uid = session['user_id']
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
+
+    if isinstance(uid, str) and uid.startswith('mongo:'):
+        mongo_id = uid[len('mongo:'):]
+        mongo_data = mongo_find_user_by_id(mongo_id)
+        if not mongo_data:
+            if is_ajax:
+                return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
+            flash(_t('flash.account_not_found'), 'error')
+            return redirect(url_for('account_profile'))
+        user = SimpleMongoUser(mongo_data)
+        delete_user_avatar(user.avatar)
+        col = get_mongo_users()
+        if col is not None:
+            from bson import ObjectId
+            col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": None}})
+        user.avatar = None
+        msg = _t('flash.avatar_removed')
+        if is_ajax:
+            return jsonify({'success': True, 'avatar_url': user.avatar_url, 'initial': (user.name or 'U')[0].upper(), 'message': msg})
+        flash(msg, 'success')
+        return redirect(url_for('account_profile'))
+
+    user = User.query.get(uid)
+    if not user:
+        if is_ajax:
+            return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('account_profile'))
+
+    delete_user_avatar(user.avatar)
+    try:
+        user.avatar = None
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        msg = _t('flash.system_error')
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 500
+        flash(msg, 'error')
+        return redirect(url_for('account_profile'))
+
+    msg = _t('flash.avatar_removed')
+    if is_ajax:
+        return jsonify({'success': True, 'avatar_url': user.avatar_url, 'initial': (user.name or 'U')[0].upper(), 'message': msg})
+    flash(msg, 'success')
+    return redirect(url_for('account_profile'))
 
 def get_translator_preferences(user_id):
     return TranslatorPreference.query.filter_by(translator_id=user_id).first()

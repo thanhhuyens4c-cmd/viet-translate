@@ -1888,6 +1888,31 @@ LOCALIZED_LANGUAGES_DATA = [
     },
 ]
 
+def _load_json_translations():
+    import os
+    import json
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    for code in ('vi', 'en'):
+        json_file = os.path.join(base_dir, 'i18n', f'{code}.json')
+        if os.path.exists(json_file):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        if code not in TRANSLATIONS:
+                            TRANSLATIONS[code] = {}
+                        for sec_k, sec_v in data.items():
+                            if sec_k not in TRANSLATIONS[code]:
+                                TRANSLATIONS[code][sec_k] = sec_v
+                            elif isinstance(TRANSLATIONS[code][sec_k], dict) and isinstance(sec_v, dict):
+                                TRANSLATIONS[code][sec_k].update(sec_v)
+                            else:
+                                TRANSLATIONS[code][sec_k] = sec_v
+            except Exception:
+                pass
+
+_load_json_translations()
+
 
 def t(key, lang='vi', **kwargs):
     """

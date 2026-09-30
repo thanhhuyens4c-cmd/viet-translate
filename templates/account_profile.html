@@ -36,17 +36,30 @@
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden sticky top-24">
                     <!-- Avatar -->
                     <div class="p-6 text-center border-b border-slate-100 bg-slate-50/40">
-                        <div
-                            class="relative w-20 h-20 rounded-2xl mx-auto overflow-hidden shadow-soft border border-slate-200/90 bg-slate-100 mb-3">
-                            {% if user.avatar_url %}
-                            <img src="{{ user.avatar_url }}" alt="{{ user.name }}"
-                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                                class="w-full h-full object-cover object-top">
-                            {% endif %}
-                            <div style="{% if user.avatar_url %}display:none;{% else %}display:flex;{% endif %}"
-                                class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-2xl font-black shadow-soft">
-                                {{ user.name[0] | upper }}
+                        <div class="relative w-24 h-24 mx-auto mb-3 group">
+                            <div id="sidebar-avatar-box"
+                                class="w-full h-full rounded-2xl overflow-hidden shadow-soft border-2 border-slate-200/90 bg-slate-100 transition-all duration-300 group-hover:border-brand-500/50">
+                                {% if user.avatar_url %}
+                                <img id="sidebar-avatar-img" src="{{ user.avatar_url }}" alt="{{ user.name }}"
+                                    onerror="this.style.display='none'; document.getElementById('sidebar-avatar-fallback').style.display='flex';"
+                                    class="w-full h-full object-cover object-top">
+                                {% endif %}
+                                <div id="sidebar-avatar-fallback" style="{% if user.avatar_url %}display:none;{% else %}display:flex;{% endif %}"
+                                    class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-3xl font-black shadow-soft">
+                                    {{ user.name[0] | upper }}
+                                </div>
                             </div>
+                            <!-- Floating Camera Edit Button -->
+                            <button type="button" onclick="openAvatarModal()"
+                                title="{{ t('account_profile_page.btn_change_photo') }}"
+                                class="absolute -bottom-1.5 -right-1.5 p-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-lg border-2 border-white transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                            </button>
                         </div>
                         <h2 class="font-bold text-slate-900 text-sm sm:text-base">{{ user.name }}</h2>
                         <p class="text-xs text-slate-400 mt-0.5">
@@ -131,7 +144,62 @@
                             {{ t('account_profile_page.heading_basic') }}
                         </h2>
 
-                        <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-6">
+                        <!-- Avatar Management Card -->
+                        <div class="mb-8 p-5 sm:p-6 bg-slate-50/80 rounded-2xl border border-slate-200/80">
+                            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                                <!-- Big Preview -->
+                                <div class="relative w-24 h-24 rounded-2xl overflow-hidden shadow-soft border-2 border-white bg-slate-100 shrink-0 ring-4 ring-slate-100/80">
+                                    {% if user.avatar_url %}
+                                    <img id="basic-tab-avatar-img" src="{{ user.avatar_url }}" alt="{{ user.name }}"
+                                        onerror="this.style.display='none'; document.getElementById('basic-tab-avatar-fallback').style.display='flex';"
+                                        class="w-full h-full object-cover object-top">
+                                    {% endif %}
+                                    <div id="basic-tab-avatar-fallback" style="{% if user.avatar_url %}display:none;{% else %}display:flex;{% endif %}"
+                                        class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-3xl font-black">
+                                        {{ user.name[0] | upper }}
+                                    </div>
+                                </div>
+
+                                <!-- Actions & Guidelines -->
+                                <div class="flex-grow text-center sm:text-left space-y-2">
+                                    <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                                        <h3 class="text-sm font-bold text-slate-900">{{ t('account_profile_page.heading_avatar') }}</h3>
+                                        <span id="avatar-badge-custom" style="{% if user.avatar %}display:inline-block;{% else %}display:none;{% endif %}"
+                                            class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                                            {{ t('account_profile_page.custom_avatar_badge') }}
+                                        </span>
+                                        <span id="avatar-badge-default" style="{% if user.avatar %}display:none;{% else %}display:inline-block;{% endif %}"
+                                            class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/70">
+                                            {{ t('account_profile_page.default_avatar_badge') }}
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-slate-500 leading-relaxed max-w-xl">
+                                        {{ t('account_profile_page.avatar_guidelines') }}
+                                    </p>
+                                    <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 pt-1.5">
+                                        <button type="button" onclick="openAvatarModal()"
+                                            class="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                            </svg>
+                                            <span>{{ t('account_profile_page.btn_upload_photo') }}</span>
+                                        </button>
+                                        <button type="button" id="btn-remove-avatar" onclick="confirmRemoveAvatar()"
+                                            style="{% if user.avatar %}display:inline-flex;{% else %}display:none;{% endif %}"
+                                            class="items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-semibold rounded-xl transition cursor-pointer">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                            <span>{{ t('account_profile_page.btn_remove_photo') }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <form method="POST" action="{{ url_for('account_profile') }}" enctype="multipart/form-data" class="space-y-6">
                             <input type="hidden" name="action" value="basic">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                 <div>
@@ -485,6 +553,99 @@
         </div>
     </div>
 </div>
+
+<!-- Avatar Upload Modal -->
+<div id="avatar-modal" class="fixed inset-0 z-50 hidden transition-opacity duration-300" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" onclick="closeAvatarModal()"></div>
+
+    <div class="fixed inset-0 z-10 overflow-y-auto p-4 sm:p-6 md:p-20 flex items-center justify-center">
+        <div class="relative transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all w-full max-w-md border border-slate-100 p-6 sm:p-8 animate-fade-in">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
+                    {{ t('account_profile_page.modal_avatar_title') }}
+                </h3>
+                <button type="button" onclick="closeAvatarModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="py-6 space-y-5">
+                <!-- Dropzone Area -->
+                <div id="avatar-dropzone" onclick="document.getElementById('modal-avatar-input').click()"
+                    class="border-2 border-dashed border-slate-200 hover:border-brand-500 rounded-2xl p-6 sm:p-8 text-center cursor-pointer bg-slate-50/50 hover:bg-brand-50/30 transition-all duration-200 group">
+                    
+                    <!-- Empty State View -->
+                    <div id="dropzone-empty-state" class="space-y-3">
+                        <div class="w-14 h-14 mx-auto rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center group-hover:scale-110 transition duration-300 shadow-xs">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-brand-600 transition">{{ t('account_profile_page.select_photo_prompt') }}</p>
+                            <p class="text-[11px] text-slate-400 mt-1">{{ t('account_profile_page.avatar_guidelines') }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Preview State View (Hidden by default) -->
+                    <div id="dropzone-preview-state" class="hidden space-y-4">
+                        <div class="relative w-28 h-28 mx-auto rounded-2xl overflow-hidden shadow-md border-2 border-brand-500 ring-4 ring-brand-100 bg-white">
+                            <img id="modal-preview-img" src="" alt="Preview" class="w-full h-full object-cover object-top">
+                        </div>
+                        <div>
+                            <p id="modal-file-name" class="text-xs font-bold text-slate-800 truncate max-w-xs mx-auto"></p>
+                            <p id="modal-file-size" class="text-[11px] text-slate-400 mt-0.5"></p>
+                            <button type="button" onclick="event.stopPropagation(); document.getElementById('modal-avatar-input').click()"
+                                class="mt-2 text-xs font-bold text-brand-600 hover:text-brand-700 underline cursor-pointer">
+                                {{ t('account_profile_page.btn_change_photo') }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="file" id="modal-avatar-input" accept="image/png, image/jpeg, image/jpg, image/webp, image/gif" class="hidden" onchange="handleAvatarFileSelected(this)">
+
+                <!-- Error Alert -->
+                <div id="modal-avatar-error" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                    <svg class="w-4 h-4 shrink-0 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span id="modal-avatar-error-text"></span>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onclick="closeAvatarModal()"
+                    class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition cursor-pointer">
+                    {{ t('common.cancel') }}
+                </button>
+                <button type="button" id="btn-submit-avatar" onclick="submitAvatarUpload()" disabled
+                    class="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                    <svg id="upload-spinner" class="hidden w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span id="upload-btn-text">{{ t('account_profile_page.btn_save_avatar') }}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Toast Notification -->
+<div id="avatar-toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div id="avatar-toast-inner" class="flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-xs sm:text-sm font-semibold bg-white">
+        <span id="avatar-toast-icon"></span>
+        <span id="avatar-toast-msg"></span>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -516,6 +677,267 @@
                 label.classList.add('border-slate-200', 'text-slate-700');
             }
         });
+    }
+
+    // Avatar Management Logic
+    let selectedAvatarFile = null;
+
+    function openAvatarModal() {
+        selectedAvatarFile = null;
+        const input = document.getElementById('modal-avatar-input');
+        if (input) input.value = '';
+        document.getElementById('dropzone-empty-state').classList.remove('hidden');
+        document.getElementById('dropzone-preview-state').classList.add('hidden');
+        document.getElementById('btn-submit-avatar').disabled = true;
+        document.getElementById('modal-avatar-error').classList.add('hidden');
+        document.getElementById('avatar-modal').classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeAvatarModal() {
+        document.getElementById('avatar-modal').classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        selectedAvatarFile = null;
+    }
+
+    function handleAvatarFileSelected(input) {
+        if (!input.files || !input.files[0]) return;
+        validateAndPreviewAvatar(input.files[0]);
+    }
+
+    function validateAndPreviewAvatar(file) {
+        const errorEl = document.getElementById('modal-avatar-error');
+        const errorText = document.getElementById('modal-avatar-error-text');
+        errorEl.classList.add('hidden');
+
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!validTypes.includes(file.type)) {
+            errorText.textContent = "{{ t('flash.avatar_invalid_file') }}";
+            errorEl.classList.remove('hidden');
+            document.getElementById('btn-submit-avatar').disabled = true;
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            errorText.textContent = "{{ t('flash.avatar_file_too_large') }}";
+            errorEl.classList.remove('hidden');
+            document.getElementById('btn-submit-avatar').disabled = true;
+            return;
+        }
+
+        selectedAvatarFile = file;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('modal-preview-img').src = e.target.result;
+            document.getElementById('modal-file-name').textContent = file.name;
+            document.getElementById('modal-file-size').textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+            document.getElementById('dropzone-empty-state').classList.add('hidden');
+            document.getElementById('dropzone-preview-state').classList.remove('hidden');
+            document.getElementById('btn-submit-avatar').disabled = false;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // Drag & drop support
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropzone = document.getElementById('avatar-dropzone');
+        if (dropzone) {
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add('border-brand-500', 'bg-brand-50/50');
+                });
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('border-brand-500', 'bg-brand-50/50');
+                });
+            });
+            dropzone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files && files.length > 0) {
+                    validateAndPreviewAvatar(files[0]);
+                }
+            });
+        }
+    });
+
+    async function submitAvatarUpload() {
+        if (!selectedAvatarFile) return;
+
+        const btn = document.getElementById('btn-submit-avatar');
+        const spinner = document.getElementById('upload-spinner');
+        const btnText = document.getElementById('upload-btn-text');
+        const errorEl = document.getElementById('modal-avatar-error');
+        const errorText = document.getElementById('modal-avatar-error-text');
+
+        btn.disabled = true;
+        spinner.classList.remove('hidden');
+        btnText.textContent = "{{ t('account_profile_page.uploading_avatar') }}";
+        errorEl.classList.add('hidden');
+
+        const formData = new FormData();
+        formData.append('avatar', selectedAvatarFile);
+
+        try {
+            const response = await fetch("{{ url_for('upload_avatar_endpoint') }}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok && data.success) {
+                updateAvatarElements(data.avatar_url, true);
+                closeAvatarModal();
+                showAvatarToast(data.message || "{{ t('flash.avatar_updated') }}", 'success');
+            } else {
+                errorText.textContent = data.message || "{{ t('flash.avatar_upload_failed') }}";
+                errorEl.classList.remove('hidden');
+                btn.disabled = false;
+            }
+        } catch (err) {
+            errorText.textContent = "{{ t('flash.avatar_upload_failed') }}";
+            errorEl.classList.remove('hidden');
+            btn.disabled = false;
+        } finally {
+            spinner.classList.add('hidden');
+            btnText.textContent = "{{ t('account_profile_page.btn_save_avatar') }}";
+        }
+    }
+
+    async function confirmRemoveAvatar() {
+        if (!confirm("{{ t('account_profile_page.confirm_remove_avatar') }}")) {
+            return;
+        }
+
+        try {
+            const response = await fetch("{{ url_for('remove_avatar_endpoint') }}", {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok && data.success) {
+                updateAvatarElements(data.avatar_url, false, data.initial);
+                showAvatarToast(data.message || "{{ t('flash.avatar_removed') }}", 'success');
+            } else {
+                showAvatarToast(data.message || "{{ t('flash.system_error') }}", 'error');
+            }
+        } catch (err) {
+            showAvatarToast("{{ t('flash.system_error') }}", 'error');
+        }
+    }
+
+    function updateAvatarElements(newUrl, isCustom, initial) {
+        const sidebarImg = document.getElementById('sidebar-avatar-img');
+        const sidebarFallback = document.getElementById('sidebar-avatar-fallback');
+        const basicImg = document.getElementById('basic-tab-avatar-img');
+        const basicFallback = document.getElementById('basic-tab-avatar-fallback');
+        const customBadge = document.getElementById('avatar-badge-custom');
+        const defaultBadge = document.getElementById('avatar-badge-default');
+        const removeBtn = document.getElementById('btn-remove-avatar');
+
+        // Header User Dropdown Avatar
+        const headerAvatar = document.querySelector('button .rounded-full.bg-gradient-to-tr');
+        if (headerAvatar) {
+            if (newUrl) {
+                headerAvatar.innerHTML = `<img src="${newUrl}" class="w-full h-full object-cover">`;
+            } else if (initial) {
+                headerAvatar.innerHTML = initial;
+            }
+        }
+
+        if (newUrl) {
+            if (sidebarImg) {
+                sidebarImg.src = newUrl;
+                sidebarImg.style.display = 'block';
+            } else {
+                const container = document.getElementById('sidebar-avatar-box');
+                if (container) {
+                    const img = document.createElement('img');
+                    img.id = 'sidebar-avatar-img';
+                    img.src = newUrl;
+                    img.alt = "{{ user.name }}";
+                    img.className = 'w-full h-full object-cover object-top';
+                    container.insertBefore(img, container.firstChild);
+                }
+            }
+            if (sidebarFallback) sidebarFallback.style.display = 'none';
+
+            if (basicImg) {
+                basicImg.src = newUrl;
+                basicImg.style.display = 'block';
+            } else {
+                const container = document.querySelector('#tab-basic .relative.w-24.h-24');
+                if (container) {
+                    const img = document.createElement('img');
+                    img.id = 'basic-tab-avatar-img';
+                    img.src = newUrl;
+                    img.alt = "{{ user.name }}";
+                    img.className = 'w-full h-full object-cover object-top';
+                    container.insertBefore(img, container.firstChild);
+                }
+            }
+            if (basicFallback) basicFallback.style.display = 'none';
+        } else {
+            if (sidebarImg) sidebarImg.style.display = 'none';
+            if (sidebarFallback) {
+                sidebarFallback.style.display = 'flex';
+                if (initial) sidebarFallback.textContent = initial;
+            }
+            if (basicImg) basicImg.style.display = 'none';
+            if (basicFallback) {
+                basicFallback.style.display = 'flex';
+                if (initial) basicFallback.textContent = initial;
+            }
+        }
+
+        if (isCustom) {
+            if (customBadge) customBadge.style.display = 'inline-block';
+            if (defaultBadge) defaultBadge.style.display = 'none';
+            if (removeBtn) removeBtn.style.display = 'inline-flex';
+        } else {
+            if (customBadge) customBadge.style.display = 'none';
+            if (defaultBadge) defaultBadge.style.display = 'inline-block';
+            if (removeBtn) removeBtn.style.display = 'none';
+        }
+    }
+
+    function showAvatarToast(msg, type = 'success') {
+        const toast = document.getElementById('avatar-toast');
+        const toastInner = document.getElementById('avatar-toast-inner');
+        const toastIcon = document.getElementById('avatar-toast-icon');
+        const toastMsg = document.getElementById('avatar-toast-msg');
+
+        if (!toast || !toastInner || !toastIcon || !toastMsg) return;
+
+        toastMsg.textContent = msg;
+        if (type === 'success') {
+            toastInner.className = 'flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-xs sm:text-sm font-semibold bg-emerald-50 border-emerald-200 text-emerald-800';
+            toastIcon.innerHTML = `<svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+        } else {
+            toastInner.className = 'flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-xs sm:text-sm font-semibold bg-rose-50 border-rose-200 text-rose-800';
+            toastIcon.innerHTML = `<svg class="w-5 h-5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`;
+        }
+
+        toast.classList.remove('translate-y-20', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+
+        setTimeout(() => {
+            toast.classList.remove('translate-y-0', 'opacity-100');
+            toast.classList.add('translate-y-20', 'opacity-0');
+        }, 4000);
     }
 </script>
 {% endblock %}
