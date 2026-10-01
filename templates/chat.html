@@ -110,22 +110,30 @@
 
     function renderMessageContent(msg, isMe) {
         let html = '';
+        const hasText = msg.content && msg.content !== '[Hình ảnh]';
         if (msg.image_url) {
             html += `<img src="${escapeHtml(msg.image_url)}" alt="${isEn ? 'Shared image' : 'Hình ảnh chia sẻ'}" 
-                class="rounded-xl max-w-[260px] sm:max-w-[320px] cursor-pointer hover:opacity-90 transition shadow-sm border border-slate-200/50 mb-1" 
+                class="rounded-xl max-w-[260px] sm:max-w-[320px] max-h-[320px] object-cover cursor-pointer hover:opacity-90 transition shadow-sm border border-slate-200/50 ${hasText ? 'mb-1.5' : ''}" 
                 onclick="openLightbox('${escapeHtml(msg.image_url)}')" loading="lazy">`;
         }
-        if (msg.content && msg.content !== '[Hình ảnh]') {
-            html += `<span>${escapeHtml(msg.content)}</span>`;
+        if (hasText) {
+            html += `<div class="break-words leading-relaxed">${escapeHtml(msg.content)}</div>`;
+        } else if (!msg.image_url && msg.content) {
+            html += `<div class="break-words leading-relaxed">${escapeHtml(msg.content)}</div>`;
         }
         return html;
     }
 
     function fetchMessages() {
         fetch(`/api/direct-messages/${otherUserId}`)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
             .then(data => {
-                const isScrolledToBottom = chatBox.scrollHeight - chatBox.clientHeight <= chatBox.scrollTop + 1;
+                if (!Array.isArray(data)) return;
+                
+                const isScrolledToBottom = chatBox.scrollHeight - chatBox.clientHeight <= chatBox.scrollTop + 50;
                 chatBox.innerHTML = '';
                 
                 if (data.length === 0) {
@@ -156,6 +164,9 @@
                 if (isScrolledToBottom) {
                     chatBox.scrollTop = chatBox.scrollHeight;
                 }
+            })
+            .catch(err => {
+                console.error('Error fetching messages:', err);
             });
     }
 
@@ -196,6 +207,7 @@
                 isUploading = false;
                 sendBtn.disabled = false;
                 sendBtn.classList.remove('opacity-50');
+                chatInput.value = text;
                 return;
             }
             
@@ -210,9 +222,15 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content: text, image_url: imageUrl })
+        }).then(res => {
+            if (!res.ok) throw new Error('Send failed');
+            return res.json();
         }).then(() => {
             fetchMessages();
             setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 100);
+        }).catch(err => {
+            console.error('Error sending message:', err);
+            chatInput.value = text;
         });
     }
 

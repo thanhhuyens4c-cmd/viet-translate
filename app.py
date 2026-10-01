@@ -588,6 +588,19 @@ def _init_db():
     """
     try:
         db.create_all()
+        # Tự động thêm cột image_url nếu DB đã tồn tại từ trước chưa có cột này
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE message ADD COLUMN image_url VARCHAR(500)"))
+                conn.commit()
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE direct_message ADD COLUMN image_url VARCHAR(500)"))
+                conn.commit()
+            except Exception:
+                pass
     except Exception as e:
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
         return
@@ -1374,9 +1387,9 @@ def get_direct_messages(other_user_id):
         db.session.commit()
 
     return jsonify([{
-        'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
-        'content': m.content, 'image_url': m.image_url,
-        'time': m.created_at.strftime('%H:%M %d/%m')
+        'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name if m.sender else '',
+        'content': m.content, 'image_url': getattr(m, 'image_url', None),
+        'time': m.created_at.strftime('%H:%M %d/%m') if m.created_at else ''
     } for m in msgs])
 
 @app.route('/api/direct-messages/<int:other_user_id>', methods=['POST'])
@@ -2160,9 +2173,9 @@ def get_messages(contract_id):
     if unread:
         db.session.commit()
 
-    return jsonify([{'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
-                     'content': m.content, 'image_url': m.image_url,
-                     'time': m.created_at.strftime('%H:%M %d/%m')} for m in msgs])
+    return jsonify([{'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name if m.sender else '',
+                     'content': m.content, 'image_url': getattr(m, 'image_url', None),
+                     'time': m.created_at.strftime('%H:%M %d/%m') if m.created_at else ''} for m in msgs])
 
 @app.route('/api/messages/<int:contract_id>', methods=['POST'])
 @login_required
