@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory
 from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -551,7 +551,7 @@ else:
     }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-UPLOAD_FOLDER = os.path.join('static', 'uploads')
+UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     UPLOAD_FOLDER = '/tmp'
 else:
@@ -592,12 +592,22 @@ def _init_db():
         from sqlalchemy import text
         with db.engine.connect() as conn:
             try:
-                conn.execute(text("ALTER TABLE message ADD COLUMN image_url VARCHAR(500)"))
+                conn.execute(text("ALTER TABLE message ADD COLUMN image_url TEXT"))
                 conn.commit()
             except Exception:
                 pass
             try:
-                conn.execute(text("ALTER TABLE direct_message ADD COLUMN image_url VARCHAR(500)"))
+                conn.execute(text("ALTER TABLE direct_message ADD COLUMN image_url TEXT"))
+                conn.commit()
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE message ALTER COLUMN image_url TYPE TEXT"))
+                conn.commit()
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE direct_message ALTER COLUMN image_url TYPE TEXT"))
                 conn.commit()
             except Exception:
                 pass
@@ -1453,12 +1463,26 @@ def upload_chat_image():
     if not allowed_chat_image(file.filename):
         return jsonify({'status': 'error', 'message': 'File type not allowed'}), 400
 
-    # Tạo thư mục chat_images nếu chưa có
-    chat_img_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'chat_images')
+    # Nếu đang chạy trên môi trường Vercel hoặc filesystem tạm / read-only:
+    # Trả về trực tiếp Base64 Data URI để lưu và hiển thị trực tiếp 100%,
+    # không phụ thuộc vào filesystem ephemeral của serverless.
+    if os.environ.get('VERCEL') == '1' or app.config.get('UPLOAD_FOLDER') == '/tmp':
+        import base64
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        mime_map = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp'}
+        mime = mime_map.get(ext, 'image/jpeg')
+        file_bytes = file.read()
+        b64_str = base64.b64encode(file_bytes).decode('utf-8')
+        image_url = f"data:{mime};base64,{b64_str}"
+        return jsonify({'status': 'ok', 'image_url': image_url})
+
+    # Môi trường server thường / local: Lưu vào static/uploads/chat_images
+    chat_img_dir = os.path.join(basedir, 'static', 'uploads', 'chat_images')
     try:
         os.makedirs(chat_img_dir, exist_ok=True)
     except OSError:
-        chat_img_dir = app.config['UPLOAD_FOLDER']
+        chat_img_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'chat_images')
+        os.makedirs(chat_img_dir, exist_ok=True)
 
     # Tạo tên file duy nhất
     ext = file.filename.rsplit('.', 1)[1].lower()
@@ -1467,13 +1491,27 @@ def upload_chat_image():
     filepath = os.path.join(chat_img_dir, filename)
     file.save(filepath)
 
-    # Trả về URL tương đối
-    if app.config['UPLOAD_FOLDER'] == '/tmp':
-        image_url = f'/tmp/{filename}'
-    else:
-        image_url = f'/static/uploads/chat_images/{filename}'
-
+    image_url = f'/static/uploads/chat_images/{filename}'
     return jsonify({'status': 'ok', 'image_url': image_url})
+
+
+@app.route('/static/uploads/chat_images/<path:filename>')
+def serve_chat_image(filename):
+    """Phục vụ file ảnh chat trực tiếp để tránh lỗi 404."""
+    chat_img_dir = os.path.join(basedir, 'static', 'uploads', 'chat_images')
+    if os.path.exists(os.path.join(chat_img_dir, filename)):
+        return send_from_directory(chat_img_dir, filename)
+    if os.path.exists(os.path.join('/tmp', filename)):
+        return send_from_directory('/tmp', filename)
+    abort(404)
+
+
+@app.route('/tmp/<path:filename>')
+def serve_tmp_file(filename):
+    """Phục vụ file từ thư mục /tmp nếu có."""
+    if os.path.exists(os.path.join('/tmp', filename)):
+        return send_from_directory('/tmp', filename)
+    abort(404)
 
 
 # ─── MESSAGES PAGE ─────────────────────────────────────────────────────────────
