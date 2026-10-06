@@ -145,7 +145,7 @@ def create_admin_session(user):
 
     now_ts = datetime.utcnow().timestamp()
     session[ADMIN_SESSION_KEY] = user.id
-    session[ADMIN_SESSION_ROLE] = user.admin_role if hasattr(user, 'admin_role') else 'super_admin'
+    session[ADMIN_SESSION_ROLE] = getattr(user, 'admin_role', None) or 'super_admin'
     session[ADMIN_SESSION_CREATED] = now_ts
     session[ADMIN_SESSION_LAST_SEEN] = now_ts
     session[ADMIN_SESSION_CSRF] = secrets.token_hex(32)
