@@ -11,8 +11,36 @@ class SchedulingTestCase(unittest.TestCase):
     def setUp(self):
         # Thiết lập context và database
         app.config['TESTING'] = True
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         self.app_context = app.app_context()
         self.app_context.push()
+        db.create_all()
+        
+        # Bỏ qua lỗi SQLAlchemy tự generate UNIQUE(contract_id) trên SQLite
+        from sqlalchemy import text
+        db.session.execute(text("DROP TABLE translator_schedule"))
+        db.session.execute(text("""
+        CREATE TABLE translator_schedule (
+            id INTEGER NOT NULL PRIMARY KEY, 
+            translator_id INTEGER NOT NULL, 
+            contract_id INTEGER, 
+            job_id INTEGER, 
+            service_id INTEGER, 
+            scheduled_date DATE NOT NULL, 
+            start_time TIME NOT NULL, 
+            end_time TIME NOT NULL, 
+            buffer_before_minutes INTEGER, 
+            buffer_after_minutes INTEGER, 
+            status VARCHAR(20), 
+            created_at DATETIME, 
+            expires_at DATETIME, 
+            FOREIGN KEY(translator_id) REFERENCES user (id), 
+            FOREIGN KEY(contract_id) REFERENCES contract (id), 
+            FOREIGN KEY(job_id) REFERENCES job (id), 
+            FOREIGN KEY(service_id) REFERENCES service (id)
+        )
+        """))
+        db.session.commit()
         
         # Start a transaction
         db.session.begin_nested()

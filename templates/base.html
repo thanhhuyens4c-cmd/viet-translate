@@ -286,7 +286,7 @@
                     <a href="{{ url_for('account_profile') }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_profile' %}active text-brand-600 font-bold{% endif %}">Dịch
                         vụ của tôi</a>
-                    <a href="#" class="nav-item hover:text-brand-600 py-1">Lịch làm việc</a>
+                    <a href="{{ url_for('my_schedule') }}" class="nav-item hover:text-brand-600 py-1">Lịch làm việc</a>
                     {% else %}
                     <!-- Guest -->
                     <a href="{{ url_for('translator_list') }}"

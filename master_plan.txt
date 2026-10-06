@@ -1,0 +1,1286 @@
+<USER_REQUEST>
+MASTER PLAN — VIETTRANSLATE
+SỬA LỖI HIỆN TẠI + NÂNG CẤP THEO TASK, KHÔNG PHÁ CODE CŨ
+Repository:
+[https://github.com/thanhhuyens4c-cmd/viet-translate](https://github.com/thanhhuyens4c-cmd/viet-translate)
+SOURCE ĐANG PHÂN TÍCH:
+bản ZIP VietTranslate hiện tại.
+PRODUCTION DATABASE:
+Supabase PostgreSQL.
+CODING AGENT:
+Antigravity.
+==================================================
+A. MỤC TIÊU
+Sửa các lỗi hiện tại:
+CLIENT
+Đặt lịch nhiều ngày không có giờ riêng từng ngày.
+Không có UI chỉnh giờ bắt đầu/kết thúc cho từng ngày.
+Lỗi "ngày giờ không hợp lệ".
+Tài khoản khách thuê không đăng Job ổn định / Job detail có thể lỗi.
+Phiên dịch viên không xem được việc trong trang tìm việc.
+Trang lịch làm việc của phiên dịch viên đang trống.
+Hồ sơ chuyên môn thiếu chức năng upload chứng chỉ.
+Avatar chưa có flow thay đổi ổn định.
+Chat cần hỗ trợ upload ảnh.
+Sau đó mới nâng cấp UI/UX Client + Translator.
+ADMIN
+11. Admin không xóa/gỡ Job được.
+12. Admin thao tác Job bị HTTP 500 do ForeignKeyViolation.
+13. Admin chưa có cơ chế gỡ tài khoản KH an toàn.
+14. Admin chưa có workflow duyệt Job trước khi đưa ra marketplace.
+15. Admin UI cần trực quan hơn và quản lý theo workflow.
+==================================================
+B. NGUYÊN NHÂN HIỆN ĐÃ XÁC ĐỊNH — KHÔNG ĐƯỢC ĐOÁN
+ANTIGRAVITY PHẢI COI CÁC THÔNG TIN DƯỚI ĐÂY LÀ
+TRẠNG THÁI CODE HIỆN TẠI.
+B1. MULTI-DAY JOB
+Trong models.py, Job hiện chỉ có:
+event_date
+event_time_start
+event_time_end
+đều là field legacy.
+Hiện KHÔNG có model JobSchedule.
+Trong app.py /post-job hiện lưu trực tiếp:
+event_date
+event_time_start
+event_time_end
+Trong book_service / accept_proposal cũng đang truyền:
+job.event_date
+job.event_time_start
+job.event_time_end
+Vì vậy hệ thống hiện tại chỉ có thể biểu diễn:
+10/10 08:00-17:00
+11/10 08:00-17:00
+12/10 08:00-17:00
+nhưng không biểu diễn chuẩn:
+10/10 08:00-12:00
+11/10 13:00-17:00
+12/10 09:00-15:00.
+KHÔNG được tiếp tục mở rộng multi-day bằng cách nhét thêm thông tin vào event_date dạng string.
+GIẢI PHÁP:
+thêm JobSchedule[].
+B2. BOOKING MULTI-DAY
+services/scheduling.py hiện parse:
+parse_date_range(scheduled_date)
+nhưng reserve_slot() vẫn nhận:
+scheduled_date
+start_time
+end_time
+và dùng cùng start/end cho tất cả các ngày.
+Do đó backend chưa hỗ trợ per-day time.
+GIẢI PHÁP:
+reserve_slot() phải hỗ trợ danh sách schedule entries.
+B3. CLIENT "NGÀY GIỜ KHÔNG HỢP LỆ"
+Backend post_job() hiện trực tiếp:
+datetime.strptime(deadline_str, ...)
+int(...)
+request.form.get(...)
+và không có một shared validator hoàn chỉnh cho
+multi-day date/time entries.
+GIẢI PHÁP:
+dùng một schedule validation service chung cho:
+post job
+booking
+schedule-check.
+B4. ADMIN DELETE JOB 500
+Route hiện tại trong app.py:
+/admin/jobs/<job_id>/delete
+function:
+admin_delete_job()
+đang thực hiện:
+db.session.delete(job)
+db.session.commit()
+Lỗi production thực tế:
+psycopg.errors.ForeignKeyViolation
+notification_related_job_id_fkey
+DETAIL:
+Key (id)=(27) is still referenced from table notification.
+Nghĩa là Notification đang reference Job.
+PostgreSQL chặn:
+DELETE FROM job
+ĐÂY LÀ LỖI FOREIGN KEY / DELETE STRATEGY.
+KHÔNG sửa bằng cách catch Exception rồi giả vờ "xóa thành công".
+GIẢI PHÁP CHÍNH:
+"Gỡ bài" phải là soft removal.
+Hard delete phải là một action đặc biệt và phải kiểm tra dependency.
+B5. ADMIN USER REMOVAL
+User model đang có:
+is_active
+và Admin hiện đã có route:
+/admin/users/<user_id>/toggle-active
+function:
+admin_toggle_user()
+Hành động hiện tại:
+is_active = not is_active
+Đây phải trở thành cơ chế chính cho:
+Suspend / Ban / Reactivate
+KHÔNG DELETE User làm workflow thường.
+B6. ADMIN AUTH / RBAC
+admin_auth.py đã có:
+admin_login_required
+require_permission
+csrf_protected
+Admin session
+admin_role
+ROLE_PERMISSIONS
+Audit Log helper.
+NHƯNG app.py hiện tại các route Admin chủ yếu chỉ dùng:
+@admin_required
+mà chưa enforce đầy đủ:
+@require_permission(...)
+@csrf_protected
+Do đó framework bảo mật đã có nhưng enforcement chưa hoàn chỉnh.
+KHÔNG xây lại auth framework.
+PHẢI tận dụng code đã có.
+B7. ADMIN CREATE ACCOUNT
+User model có:
+admin_role
+is_admin
+create_admin.py đã có logic tạo user is_admin.
+Không được tạo một hệ thống Admin authentication thứ hai ngoài hệ thống hiện tại.
+KHÔNG hard-code password.
+B8. EXPIRES_AT
+TranslatorSchedule hiện đã có:
+expires_at
+và services/scheduling.py đã có:
+_release_expired_schedules()
+release_expired()
+reserve_slot()
+confirm_slot()
+cancel_slot()
+Cơ chế chống trùng lịch hiện tại PHẢI ĐƯỢC GIỮ.
+Không rewrite scheduling nếu không cần cho multi-day.
+B9. SUPABASE
+Production database là Supabase PostgreSQL.
+Các schema thay đổi phải có migration.
+KHÔNG dựa vào:
+db.create_all()
+để cập nhật production schema.
+KHÔNG dùng SQLite để thay thế production PostgreSQL.
+==================================================
+C. QUY TẮC BẮT BUỘC CHO ANTIGRAVITY
+KHÔNG commit.
+KHÔNG push.
+KHÔNG tạo PR.
+KHÔNG reset Git.
+KHÔNG reset database.
+KHÔNG db.drop_all().
+KHÔNG DROP TABLE.
+KHÔNG DROP COLUMN.
+KHÔNG delete production data.
+KHÔNG chạy migration trực tiếp lên Supabase production.
+KHÔNG sửa các Task khác Task hiện tại.
+KHÔNG rewrite toàn bộ project.
+KHÔNG cài framework mới nếu không bắt buộc.
+KHÔNG dùng try/except rộng để che lỗi 500.
+KHÔNG sửa template để che lỗi database.
+Không thay đổi business logic không liên quan.
+Giữ backward compatibility cho dữ liệu cũ.
+Migration mới phải được tạo riêng; không sửa migration lịch sử đã tồn tại nếu không cần.
+Không hard-code secret/password.
+Sau mỗi Task phải dừng và báo cáo.
+==================================================
+D. CÁCH ANTIGRAVITY PHẢI THỰC HIỆN TASK
+Mỗi lần chỉ thực hiện 1 TASK LỚN.
+Quy trình:
+READ
+↓
+UNDERSTAND CURRENT CODE
+↓
+MODIFY ONLY TASK SCOPE
+↓
+STATIC CHECK
+↓
+REPORT
+↓
+STOP
+KHÔNG tự động sang Task tiếp theo.
+Nếu phát hiện lỗi ngoài scope:
+STOP
+→ ghi:
+"OUT OF SCOPE ISSUE"
+→ không sửa.
+Nếu thay đổi model:
+PHẢI kiểm tra migration.
+Nếu thay đổi route:
+PHẢI kiểm tra template/API caller.
+Nếu thay đổi schema:
+PHẢI kiểm tra Supabase migration.
+==================================================
+TASK 0 — AUDIT ONLY
+PRIORITY P0
+MỤC ĐÍCH:
+Xác nhận cấu trúc thật trước khi sửa.
+KHÔNG sửa code.
+Đọc:
+app.py
+models.py
+admin_auth.py
+services/scheduling.py
+services/schedule.py
+services/booking.py
+config.py
+vercel.json
+requirements.txt
+templates/post_job.html
+templates/book_service.html
+templates/job_detail.html
+templates/job_list.html
+templates/admin_jobs.html
+templates/admin_users.html
+templates/admin_translators.html
+templates/admin_base.html
+tất cả migration.
+Báo cáo:
+Job đang lưu lịch ở đâu.
+Có/không có JobSchedule.
+Booking nhận dữ liệu lịch như thế nào.
+Translator schedule hiện được tạo ở đâu.
+Route tìm Job.
+Route lịch PDV.
+Admin delete Job.
+Admin toggle user.
+Admin approve translator.
+Các FK liên quan Job.
+Các column model có nhưng migration chưa chắc có.
+Các route/template đang tham chiếu route chưa tồn tại.
+KHÔNG sửa.
+==================================================
+TASK 1 — SUPABASE SCHEMA FOUNDATION
+PRIORITY P0
+DEPENDENCY TASK 0
+MỤC ĐÍCH:
+Ngăn tiếp tục phát sinh:
+UndefinedColumn
+ForeignKeyViolation
+schema drift
+500.
+1.1 MODEL VS MIGRATION
+Rà:
+User.admin_role
+TranslatorSchedule.expires_at
+AdminAuditLog
+LoginAttempt
+Report
+PaymentTransaction
+AdminNotification
+các model mới.
+1.2 JOB SCHEDULE
+Tạo migration cho JobSchedule nếu Task 0 xác nhận chưa có.
+1.3 ADMIN ROLE
+Migration cho User.admin_role nếu thiếu trong database schema.
+User cũ:
+admin_role NULL hoặc non-admin.
+Không biến user cũ thành Admin.
+1.4 EXPIRES_AT
+Migration cho TranslatorSchedule.expires_at nếu production schema chưa có.
+1.5 NOTIFICATION FK
+Kiểm tra notification.related_job_id.
+Thiết kế để notification/history không ngăn soft removal.
+Nếu cần hard delete:
+related_job_id phải có cơ chế phù hợp như SET NULL.
+Không cascade xóa lịch sử notification nếu không cần.
+1.6 MIGRATION FILE
+Tạo migration MỚI.
+Không sửa migration cũ đã tồn tại nếu không cần.
+Migration:
+safe
+idempotent nếu có thể
+không xóa dữ liệu.
+1.7 DB INITIALIZATION
+Không để application tự thực hiện schema migration production.
+db.create_all():
+chỉ giữ nếu cần cho local bootstrap.
+Production:
+migration riêng.
+OUTPUT:
+files modified
+migration created
+schema changes
+migration chưa chạy production.
+==================================================
+TASK 2 — MULTI-DAY DATA MODEL
+PRIORITY P0
+DEPENDENCY TASK 1
+MỤC ĐÍCH:
+Sửa gốc của:
+"Không có giờ bắt đầu/kết thúc từng ngày."
+Tạo:
+JobSchedule
+Fields:
+id
+job_id
+scheduled_date
+start_time
+end_time
+created_at
+updated_at
+Relationship:
+Job.schedules
+Mỗi ngày = một record.
+Ví dụ:
+Job #20:
+10/10 08:00-12:00
+11/10 13:00-17:00
+12/10 09:00-15:00
+= 3 JobSchedule.
+BACKWARD COMPATIBILITY:
+KHÔNG xóa:
+Job.event_date
+Job.event_time_start
+Job.event_time_end
+Ngay lập tức.
+Tạo helper:
+get_job_schedule_entries(job)
+Ưu tiên:
+JobSchedule
+Fallback:
+legacy fields.
+Shared validation:
+validate_schedule_entries()
+Phải validate:
+valid date
+valid start time
+valid end time
+start < end
+không duplicate ngày
+không malformed entry.
+Không duplicate validation ở nhiều route.
+==================================================
+TASK 3 — CLIENT POST JOB MULTI-DAY
+PRIORITY P0
+DEPENDENCY TASK 2
+MỤC ĐÍCH:
+Sửa:
+KH không nhập được lịch nhiều ngày đúng.
+Không sửa được giờ từng ngày.
+invalid date/time.
+post-job flow không rõ ràng.
+FILE CHÍNH:
+app.py
+templates/post_job.html
+service validation liên quan.
+UI MONG MUỐN:
+Ngày 1
+[10/10/2026]
+[08:00] → [12:00]
+Ngày 2
+[11/10/2026]
+[13:00] → [17:00]
+Ngày 3
+[12/10/2026]
+[09:00] → [15:00]
+[+ Thêm ngày]
+Mỗi ngày có:
+date
+start
+end
+remove.
+Có shortcut:
+[Áp dụng giờ này cho tất cả]
+nhưng không bắt buộc.
+VALIDATION:
+Lỗi phải hiển thị ngay tại ngày bị lỗi.
+Ví dụ:
+"Ngày này chưa có giờ bắt đầu."
+"Giờ kết thúc phải sau giờ bắt đầu."
+"Ngày đã tồn tại."
+Không dùng lỗi chung:
+"Ngày giờ không hợp lệ."
+BACKEND:
+post_job():
+parse schedule_entries
+validate
+tạo Job
+tạo JobSchedule entries
+transaction atomic.
+Nếu schedule invalid:
+→ không tạo Job.
+NEW JOB STATUS:
+Nếu Admin Job Approval chưa được triển khai ở Task 9:
+→ giữ status hiện tại để không phá flow.
+KHÔNG thay đổi Job status trong Task 3.
+==================================================
+TASK 4 — JOB DETAIL + SCHEDULE CHECK + BOOKING INPUT
+PRIORITY P0
+DEPENDENCY TASK 2 + TASK 3
+MỤC ĐÍCH:
+Sửa:
+Job detail không hiển thị đầy đủ lịch.
+schedule-check chỉ hiểu một khoảng.
+booking vẫn nhận legacy schedule.
+FILE CHÍNH:
+app.py
+services/schedule.py
+services/booking.py
+services/scheduling.py
+templates/job_detail.html
+templates/book_service.html.
+4.1 JOB DETAIL
+Hiển thị:
+Lịch công việc
+10/10/2026
+08:00 – 12:00
+11/10/2026
+13:00 – 17:00
+12/10/2026
+09:00 – 15:00
+Không hiển thị:
+"2026-10-10 to 2026-10-12"
+làm thông tin chính.
+4.2 SCHEDULE CHECK
+/api/jobs/<job_id>/schedule-check
+API phải hỗ trợ nhiều entries.
+Response phải chỉ ra:
+available
++
+từng ngày conflict/available.
+Ví dụ:
+{
+"available": false,
+"days": [
+{
+"date": "...",
+"available": true
+},
+{
+"date": "...",
+"available": false,
+"message": "Lịch bị trùng..."
+}
+]
+}
+4.3 BOOKING
+Không còn dùng:
+một start + một end
+cho tất cả các ngày.
+Booking phải nhận:
+schedule_entries[].
+Không phá compatibility của job cũ.
+==================================================
+TASK 5 — MULTI-DAY RESERVATION + ANTI DOUBLE BOOKING
+PRIORITY P0
+DEPENDENCY TASK 4
+MỤC ĐÍCH:
+Hoàn thiện backend booking nhiều ngày.
+GIỮ NGUYÊN:
+row lock
++
+application conflict check
++
+PostgreSQL exclusion constraint
++
+expires_at
++
+30-minute reservation.
+Một Contract:
+1 Contract
++
+N TranslatorSchedule.
+Ví dụ:
+10/10 08-12
+11/10 13-17
+12/10 09-15.
+RESERVE:
+reserve_slot(...)
+phải hỗ trợ danh sách entries.
+Trước khi tạo:
+release expired
+validate tất cả
+lock translator
+check tất cả dates
+nếu một ngày conflict → rollback toàn bộ.
+KHÔNG được tạo một phần:
+Contract
++
+2 schedule
++
+1 schedule fail.
+Phải atomic.
+EXPIRY:
+reserved
+→ expires_at +30 phút
+payment:
+→ active
+expired:
+→ cancelled.
+Không để:
+expired → active.
+Không rewrite exclusion constraint nếu hiện tại đã có.
+==================================================
+TASK 6 — TRANSLATOR JOB LIST + SCHEDULE CENTER
+PRIORITY P0
+DEPENDENCY TASK 4 + TASK 5
+MỤC ĐÍCH:
+Sửa:
+PDV không xem được việc.
+Trang lịch làm việc trống.
+FILE CHÍNH:
+app.py
+templates/job_list.html
+templates/job_detail.html
+templates/account_profile.html hoặc navigation tương ứng
+templates mới nếu cần.
+6.1 JOB LIST
+Kiểm tra:
+/jobs
+Phải hiển thị Job có:
+status='open'
+is_flagged=False
+Nhưng Job Detail phải hoạt động.
+Nếu Job malformed:
+không crash toàn trang.
+Không dùng try/except để nuốt lỗi database.
+6.2 JOB DETAIL
+PDV có thể:
+xem Job
+xem toàn bộ lịch
+gửi proposal nếu hợp lệ.
+Nếu lịch thiếu:
+hiển thị trạng thái rõ ràng.
+6.3 SCHEDULE CENTER
+Tạo:
+/translator/schedule
+Hiển thị:
+Today
+This week
+Upcoming
+Completed
+Cancelled.
+Có Calendar View hoặc Table View.
+Table:
+Date
+Start
+End
+Job
+Client
+Contract
+Status.
+Nếu không có lịch:
+"Bạn chưa có lịch làm việc."
+Không để blank screen.
+6.4 NAVIGATION
+Thêm:
+"Lịch làm việc"
+vào navigation PDV.
+==================================================
+TASK 7 — PROFILE / CERTIFICATE / AVATAR / CHAT IMAGE
+PRIORITY P1
+DEPENDENCY TASK 1
+MỤC ĐÍCH:
+Hoàn thiện profile và file upload.
+7.1 CERTIFICATE
+Tạo TranslatorCertificate nếu chưa có.
+Fields:
+id
+translator_id
+name
+issuer
+certificate_number
+issued_date
+expiry_date
+file_path
+verification_status
+verified_by
+verified_at
+created_at.
+Status:
+pending
+verified
+rejected
+expired.
+Upload:
+Supabase Storage.
+Không lưu file binary lớn vào PostgreSQL.
+Certificate private:
+ưu tiên private bucket + signed URL.
+7.2 AVATAR
+Không phụ thuộc local filesystem Vercel.
+Upload:
+Supabase Storage.
+Database:
+path/URL.
+Giữ route hiện tại nếu có thể.
+7.3 CHAT IMAGE
+Giữ text chat.
+Image upload:
+Supabase Storage.
+Message chỉ lưu path/URL.
+Validate:
+MIME
+size
+ownership.
+Không lưu Base64 lớn trực tiếp vào DB nếu có thể tránh.
+==================================================
+TASK 8 — ADMIN AUTHENTICATION + AUTHORIZATION
+PRIORITY P0
+DEPENDENCY TASK 1
+MỤC ĐÍCH:
+Không cho KH/PDV truy cập hoặc thao túng Admin.
+ĐÃ CÓ:
+admin_auth.py
+admin_login_required
+require_permission
+csrf_protected
+Admin session
+RBAC mapping.
+KHÔNG rewrite.
+8.1 ADMIN LOGIN
+/admin/login
+Không có:
+/admin/register.
+8.2 SESSION
+Admin session riêng:
+admin_id
+admin_role
+created
+last_seen
+csrf.
+8.3 ROUTE PROTECTION
+Anonymous:
+→ /admin/login.
+User:
+→ 403/login.
+Translator:
+→ 403/login.
+8.4 PERMISSIONS
+Phải áp dụng thực tế:
+@require_permission(...)
+cho từng action nhạy cảm.
+Ví dụ:
+verify_translator
+reject_translator
+approve_job
+reject_job
+flag_job
+lock_user
+refund_payment
+manage_admins.
+Không chỉ dựa vào @admin_required.
+8.5 CSRF
+Tất cả POST/PUT/PATCH/DELETE Admin:
+→ CSRF protected.
+Không chỉ thêm token vào HTML.
+Route phải enforce.
+8.6 ADMIN ROLE
+Roles:
+super_admin
+moderator
+support
+finance.
+User không có admin_role hợp lệ:
+→ không được Admin permission.
+8.7 SESSION SECURITY
+Giữ timeout hiện tại.
+Không hard-code secret/password.
+==================================================
+TASK 9 — ADMIN JOB / USER MODERATION
+PRIORITY P0
+DEPENDENCY TASK 8
+MỤC ĐÍCH:
+Sửa:
+Admin không gỡ được Job.
+Admin không quản lý KH an toàn.
+DELETE Job gây 500.
+9.1 JOB REMOVE
+THAY ĐỔI QUAN TRỌNG:
+Route:
+/admin/jobs/<job_id>/delete
+không được mặc định hard delete.
+Tạo action:
+REMOVE JOB
+→ job.status = 'removed'
+→ giữ Job trong database.
+Public:
+/jobs
+→ không hiển thị removed.
+Owner:
+→ vẫn thấy trong Job của tôi
+→ badge "Đã gỡ".
+9.2 REMOVE REASON
+Admin nhập:
+Lý do gỡ bài.
+Lưu audit log.
+9.3 RESTORE
+Super Admin hoặc permission phù hợp:
+removed → open
+hoặc workflow status hiện tại phù hợp.
+9.4 HARD DELETE
+Nếu giữ chức năng hard delete:
+CHỈ Super Admin.
+Trước DELETE:
+kiểm tra:
+Proposal
+Contract
+Schedule
+Payment
+Review
+Notification
+Report
+Message
+các FK liên quan.
+Nếu có dependency quan trọng:
+→ KHÔNG hard delete.
+Thông báo:
+"Không thể xóa vĩnh viễn vì Job đang có dữ liệu liên quan. Hãy sử dụng Gỡ bài."
+9.5 NOTIFICATION FK
+Sửa migration/schema để:
+notification.related_job_id
+không chặn soft removal.
+Nếu hard delete được phép:
+related_job_id có thể SET NULL nếu business rule cho phép.
+Không CASCADE xóa lịch sử notification một cách mù quáng.
+9.6 USER MODERATION
+Không DELETE User thường.
+Dùng:
+Active
+Suspended
+Banned
+Mapping vào is_active và/hoặc field trạng thái mới nếu thực sự cần.
+Admin:
+Lock
+Unlock
+Ban.
+KH vẫn giữ lịch sử:
+Job
+Contract
+Payment
+Notification
+Message.
+9.7 ADMIN ACTION SECURITY
+Mọi action:
+remove job
+hard delete
+lock user
+ban user
+phải:
+permission
++
+CSRF
++
+confirmation
++
+reason
++
+audit log.
+==================================================
+TASK 10 — ADMIN JOB APPROVAL
+PRIORITY P0
+DEPENDENCY TASK 9
+MỤC ĐÍCH:
+Bổ sung:
+"Admin duyệt Job cho nhà tuyển dụng."
+FLOW:
+KH tạo Job
+↓
+pending_review
+↓
+Admin
+↓
+Approve
+↓
+open
+↓
+matching
+↓
+notify PDV.
+REJECT:
+pending_review
+↓
+rejected.
+Admin bắt buộc nhập:
+rejection_reason.
+Notification cho KH.
+QUAN TRỌNG:
+Không notify matching translators trước khi Admin Approve.
+Trong Task 3:
+nếu chưa có approval flow:
+giữ job flow cũ.
+Chỉ từ Task 10 mới đổi Job mới sang pending_review.
+JOB CŨ:
+open
+→ vẫn hoạt động bình thường.
+==================================================
+TASK 11 — ADMIN DASHBOARD / MANAGEMENT CENTER
+PRIORITY P1
+DEPENDENCY TASK 8 + TASK 9 + TASK 10
+MỤC ĐÍCH:
+Biến Admin từ một trang CRUD đơn giản thành dashboard vận hành.
+Dashboard:
+KPI:
+Users
+Translators
+Pending translators
+Pending jobs
+Reports
+Active contracts
+Upcoming bookings.
+Pending Work:
+18 PDV chờ duyệt
+27 Job chờ duyệt
+6 Report
+...
+Sidebar:
+Dashboard
+Moderation
+Translators
+Jobs
+Reports
+Management
+Users
+Proposals
+Contracts
+Schedules
+Reviews
+Payments
+System
+Notifications
+Audit
+Admins
+Không tạo page Analytics/Settings nếu backend chưa có.
+Không để navigation trỏ tới route không tồn tại.
+==================================================
+TASK 12 — ADMIN CONTRACT / SCHEDULE / PAYMENT
+PRIORITY P1
+DEPENDENCY TASK 5 + TASK 11
+12.1 CONTRACT
+/admin/contracts
+Xem:
+Job
+Client
+Translator
+Proposal
+Schedule
+Payment
+Status.
+12.2 SCHEDULE
+/admin/schedules
+Calendar + Table.
+Không cho chỉnh schedule bằng input tùy tiện.
+Nếu cần reschedule:
+workflow riêng.
+12.3 PAYMENT
+/admin/payments
+Xem:
+transaction
+amount
+contract
+status.
+Refund:
+permission
++
+CSRF
++
+confirmation
++
+audit.
+Nếu refund/cancel Contract:
+Schedule phải được xử lý theo lifecycle hiện tại.
+Không tạo:
+payment refunded
++
+schedule active.
+==================================================
+TASK 13 — AUDIT / NOTIFICATION / SEARCH
+PRIORITY P1
+DEPENDENCY TASK 11
+13.1 AUDIT
+Ghi:
+login success
+login failed
+approve translator
+reject translator
+approve job
+reject job
+remove job
+restore job
+lock user
+ban user
+refund
+cancel booking
+permission change.
+Không log:
+password
+session token
+secret.
+13.2 NOTIFICATION
+Admin notification badge.
+Pending:
+translator
+job
+report
+payment.
+Click:
+→ đúng detail.
+13.3 GLOBAL SEARCH
+Tìm:
+User
+Translator
+Job
+Proposal
+Contract
+Payment
+Report.
+Search:
+ID
+email
+name
+title.
+Không query toàn DB nặng.
+==================================================
+TASK 14 — CLIENT / TRANSLATOR UI UX
+PRIORITY P1
+DEPENDENCY TASK 3 + TASK 6 + TASK 7
+CHỈ LÀM SAU KHI BACKEND ỔN.
+14.1 CLIENT
+Flow:
+Đăng Job
+→ lịch từng ngày
+→ preview
+→ submit
+→ chờ Admin
+→ nhận Proposal
+→ chọn PDV
+→ Contract
+→ Payment.
+14.2 TRANSLATOR
+Dashboard:
+Việc phù hợp
+Lịch hôm nay
+Proposal
+Contract
+Profile
+Certificate
+Message.
+14.3 UI STATES
+Mỗi page có:
+Loading
+Empty
+Error
+Success.
+Không blank page.
+Buttons:
+Disable khi submitting.
+Không cho double-click tạo duplicate.
+==================================================
+TASK 15 — FINAL SAFETY AUDIT
+PRIORITY P0
+DEPENDENCY ALL
+KHÔNG TEST PRODUCTION THỰC TẾ.
+Chỉ static/code validation.
+15.1 PYTHON
+compile Python.
+15.2 ROUTE
+Kiểm tra:
+url_for()
+→ route tồn tại.
+Template link:
+→ route tồn tại.
+Form:
+→ POST endpoint tồn tại.
+15.3 DATABASE
+Model:
+→ migration.
+FK:
+→ delete strategy.
+15.4 ADMIN
+Mọi POST admin:
+permission + CSRF.
+15.5 SCHEDULING
+JobSchedule
+→ booking
+→ TranslatorSchedule.
+15.6 500 SEARCH
+Tìm:
+UndefinedColumn
+UndefinedTable
+ForeignKeyViolation
+IntegrityError
+BuildError
+TemplateNotFound.
+Không có error nào được che bằng:
+except Exception:
+pass
+hoặc fake success.
+15.7 PRODUCTION CONFIG
+Không production fallback:
+sqlite:///:memory:
+nếu PostgreSQL config thiếu.
+Supabase PostgreSQL là production DB.
+==================================================
+TASK 16 — DEPLOYMENT READINESS
+PRIORITY P0
+DEPENDENCY TASK 15
+KHÔNG DEPLOY.
+Chỉ báo cáo readiness.
+Kiểm tra:
+vercel.json
+api/index.py
+app.py
+requirements.txt
+Python version
+DATABASE_URL
+CRON_SECRET
+Supabase configuration.
+Migration list:
+migration admin_role
+migration expires_at
+migration JobSchedule
+migration notification FK
+các migration khác nếu Task 1 phát hiện.
+Không chạy migration production.
+==================================================
+E. CHECKPOINT SAU MỖI TASK
+Sau mỗi Task, ANTIGRAVITY PHẢI DỪNG.
+Output:
+TASK:
+...
+FILES MODIFIED:
+...
+FILES CREATED:
+...
+MODELS MODIFIED:
+...
+ROUTES MODIFIED:
+...
+DATABASE MIGRATION:
+...
+STATIC CHECK:
+PASS / FAIL / NOT RUN
+REGRESSION RISK:
+LOW / MEDIUM / HIGH
+OUT OF SCOPE ISSUES:
+...
+PRODUCTION ACTION REQUIRED:
+...
+KHÔNG commit.
+KHÔNG push.
+==================================================
+F. ĐIỀU KIỆN DỪNG KHẨN CẤP
+Nếu thay đổi của Task tạo ra:
+migration conflict
+existing data incompatibility
+FK conflict chưa rõ
+route conflict
+circular import
+production config conflict
+→ STOP.
+Không tự đoán.
+Báo:
+BLOCKED:
+<lý do>
+và đề xuất cách xử lý ở Task riêng.
+==================================================
+G. THỨ TỰ THỰC HIỆN CHÍNH THỨC
+PHASE 0
+TASK 0
+↓
+PHASE 1
+TASK 1
+↓
+PHASE 2
+TASK 2
+↓
+PHASE 3
+TASK 3
+↓
+PHASE 4
+TASK 4
+↓
+PHASE 5
+TASK 5
+↓
+PHASE 6
+TASK 6
+↓
+PHASE 7
+TASK 7
+↓
+PHASE 8
+TASK 8
+↓
+PHASE 9
+TASK 9
+↓
+PHASE 10
+TASK 10
+↓
+PHASE 11
+TASK 11
+↓
+PHASE 12
+TASK 12
+↓
+PHASE 13
+TASK 13
+↓
+PHASE 14
+TASK 14
+↓
+PHASE 15
+TASK 15
+↓
+PHASE 16
+TASK 16
+==================================================
+H. CÁC LỖI HIỆN TẠI VÀ TASK SỬA
+LỖI:
+Multi-day không có giờ từng ngày
+→ TASK 2 + 3 + 4 + 5.
+LỖI:
+Ngày giờ không hợp lệ
+→ TASK 2 + 3.
+LỖI:
+Không chỉnh được giờ từng ngày
+→ TASK 3.
+LỖI:
+Khách không đăng Job ổn định
+→ TASK 3.
+LỖI:
+Job detail không mở được
+→ TASK 4 + 6.
+LỖI:
+PDV không xem được Job
+→ TASK 6.
+LỖI:
+Lịch PDV trống
+→ TASK 6.
+LỖI:
+Thiếu upload certificate
+→ TASK 7.
+LỖI:
+Avatar
+→ TASK 7.
+LỖI:
+Chat image
+→ TASK 7.
+LỖI:
+Admin DELETE Job → FK 500
+→ TASK 9.
+LỖI:
+Admin gỡ User
+→ TASK 9.
+LỖI:
+Admin duyệt Job
+→ TASK 10.
+LỖI:
+Admin permission/CSRF chưa enforce
+→ TASK 8.
+LỖI:
+Admin UX
+→ TASK 11 + 14.
+==================================================
+I. KHÔNG ĐƯỢC THAY ĐỔI CÁC PHẦN SAU NẾU KHÔNG LIÊN QUAN
+KHÔNG tự ý sửa:
+authentication KH/PDV
+matching algorithm
+translation
+chat text logic
+proposal business logic
+payment business logic
+UI layout không liên quan
+existing schedule anti-double-booking
+PostgreSQL exclusion constraint
+existing legacy Job fields.
+Chỉ sửa khi Task yêu cầu trực tiếp.
+==================================================
+J. QUY TẮC DATABASE QUAN TRỌNG NHẤT
+Production = Supabase PostgreSQL.
+KHÔNG:
+db.drop_all()
+KHÔNG:
+DROP TABLE
+KHÔNG:
+DELETE FROM user
+KHÔNG:
+DELETE FROM job
+để "fix lỗi".
+Với dữ liệu marketplace:
+REMOVE ≠ DELETE.
+USER SUSPEND/BAN ≠ DELETE.
+JOB REMOVE ≠ DELETE.
+Giữ historical data.
+==================================================
+K. KẾT QUẢ CUỐI CÙNG MONG MUỐN
+CLIENT
+KH
+→ tạo Job
+→ chọn nhiều ngày
+→ chỉnh giờ từng ngày
+→ submit
+→ xem Job detail.
+TRANSLATOR
+→ xem Job
+→ gửi Proposal
+→ xem lịch
+→ có Calendar
+→ quản lý Certificate
+→ Chat + image.
+BOOKING
+→ nhiều ngày
+→ mỗi ngày có giờ riêng
+→ conflict check từng ngày
+→ buffer
+→ reservation
+→ expiry
+→ payment
+→ active.
+ADMIN
+→ Admin login riêng
+→ RBAC
+→ CSRF
+→ Dashboard
+→ Translator verification
+→ Job approval
+→ User moderation
+→ Job remove
+→ Contract
+→ Schedule
+→ Payment
+→ Report
+→ Audit Log.
+DATABASE
+→ Supabase PostgreSQL
+→ migration controlled
+→ không schema drift
+→ không FK 500 do workflow thông thường.
+DEPLOYMENT
+→ không fallback production sang SQLite
+→ không migration runtime
+→ Vercel config ổn định.
+==================================================
+FINAL RULE
+MỖI TASK LỚN CHỈ THỰC HIỆN PHẦN ĐƯỢC GIAO.
+KHÔNG đoán.
+KHÔNG mở rộng scope.
+KHÔNG rewrite.
+KHÔNG commit.
+KHÔNG push.
+Nếu code hiện tại khác với mô tả:
+→ ưu tiên code thực tế.
+→ báo discrepancy.
+→ không tự chọn một kiến trúc mới nếu chưa cần.
+Mục tiêu là:
+SỬA TỪNG PHẦN
+→ GIỮ PHẦN ĐÃ CHẠY
+→ KHÔNG TẠO REGRESSION
+→ KHÔNG GÂY 500
+→ DỄ REVIEW
+→ DỄ ROLLBACK.  Trước khi chạy hãy thông báo đã hiểu master plan và dựa vào master plan này để làm gốc cho đợt chỉnh sửa này
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-06T20:20:10+07:00.
+
+The user's current state is as follows:
+Active Document: c:\Users\ASUS\Desktop\Bài tập nhóm\viet-translate\full_safe_migration.sql (LANGUAGE_SQL)
+Cursor is on line: 1
+Other open documents:
+- c:\Users\ASUS\Desktop\Bài tập nhóm\viet-translate\templates\book_service.html (LANGUAGE_HTML)
+- c:\Users\ASUS\Desktop\Bài tập nhóm\viet-translate\templates\admin_audit.html (LANGUAGE_HTML)
+- c:\Users\ASUS\Desktop\Bài tập nhóm\viet-translate\templates\admin_proposals.html (LANGUAGE_HTML)
+- c:\Users\ASUS\Desktop\Bài tập nhóm\viet-translate\templates\admin_jobs.html (LANGUAGE_HTML)
+- c:\Users\ASUS\Desktop\Bài tập nhóm\viet-translate\full_safe_migration.sql (LANGUAGE_SQL)
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Claude Sonnet 4.6 (Thinking). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

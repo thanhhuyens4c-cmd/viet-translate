@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -619,6 +619,40 @@ def save_user_avatar(file, user_id, current_avatar=None):
         print(f"[AVATAR UPLOAD ERROR] {e}", file=sys.stderr)
         return False, 'flash.avatar_upload_failed'
 
+def allowed_certificate_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'pdf'}
+
+def save_certificate_file(file, user_id):
+    """Lưu tệp chứng chỉ được tải lên và trả về (thành_công, tên_file_hoặc_mã_lỗi)."""
+    if not file or not file.filename:
+        return False, 'File không hợp lệ'
+    if not allowed_certificate_file(file.filename):
+        return False, 'Chỉ chấp nhận file PDF, PNG, JPG, JPEG'
+
+    try:
+        file.seek(0, os.SEEK_END)
+        size = file.tell()
+        file.seek(0)
+    except Exception:
+        size = 0
+    if size > 10 * 1024 * 1024:
+        return False, 'File chứng chỉ không được vượt quá 10MB'
+
+    import time
+    clean_uid = str(user_id).replace('mongo:', 'm_')
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"cert_u{clean_uid}_{int(time.time())}.{ext}"
+    folder = os.path.join(app.root_path, 'static', 'uploads', 'certificates')
+    os.makedirs(folder, exist_ok=True)
+    filepath = os.path.join(folder, filename)
+
+    try:
+        file.save(filepath)
+        return True, filename
+    except Exception as e:
+        print(f"[CERT UPLOAD ERROR] {e}", file=sys.stderr)
+        return False, 'Lỗi hệ thống khi lưu file chứng chỉ'
+
 def delete_user_avatar(current_avatar):
     """Xóa file ảnh đại diện cũ nếu là ảnh do người dùng tải lên."""
     if not current_avatar:
@@ -963,7 +997,7 @@ def index():
         TranslatorProfile.rating.desc()).limit(4).all()
     if not top_translators:
         top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
-    latest_jobs = Job.query.filter_by(status='open', is_flagged=False).order_by(Job.created_at.desc()).limit(4).all()
+    latest_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).order_by(Job.created_at.desc()).limit(4).all()
     return render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
 
 @app.route('/about')
@@ -1264,8 +1298,49 @@ def account_profile():
             profile.languages = request.form.get('languages', '').strip()
             profile.badges = request.form.get('badges', '').strip()
             profile.response_time = request.form.get('response_time', '< 1 giờ').strip()
+
+            # Upload chứng chỉ (nếu có)
+            cert_files = request.files.getlist('certificate_files')
+            new_certs = []
+            for file in cert_files:
+                if file and file.filename:
+                    ok, res = save_certificate_file(file, user.id)
+                    if ok:
+                        new_certs.append(res)
+                    else:
+                        flash(f"Lỗi tải chứng chỉ {file.filename}: {res}", 'warning')
+            
+            if new_certs:
+                existing_certs = profile.certificates.split(',') if profile.certificates else []
+                existing_certs.extend(new_certs)
+                profile.certificates = ','.join(existing_certs)
+
             db.session.commit()
             flash(_t('flash.translator_profile_updated'), 'success')
+
+        elif action == 'remove_certificate' and user.role == 'translator':
+            filename = request.form.get('filename')
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+            profile = user.profile
+            if profile and profile.certificates and filename:
+                certs = profile.certificates.split(',')
+                if filename in certs:
+                    certs.remove(filename)
+                    profile.certificates = ','.join(certs)
+                    db.session.commit()
+                    # Xóa file vật lý
+                    filepath = os.path.join(app.root_path, 'static', 'uploads', 'certificates', filename)
+                    if os.path.exists(filepath):
+                        try:
+                            os.remove(filepath)
+                        except OSError:
+                            pass
+                    if is_ajax:
+                        return jsonify({'success': True})
+                    flash('Đã xóa chứng chỉ', 'success')
+            if is_ajax:
+                return jsonify({'success': False, 'message': 'Không tìm thấy chứng chỉ'}), 400
+            return redirect(url_for('account_profile'))
 
         elif action == 'translator_preference' and user.role == 'translator':
             pref = user.preference
@@ -1498,6 +1573,22 @@ def account_history():
         contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
     return render_template('account_history.html', user=user, contracts=contracts)
 
+@app.route('/my-schedule')
+@login_required
+def my_schedule():
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        flash('Bạn không có quyền truy cập trang này', 'error')
+        return redirect(url_for('index'))
+    
+    # Lấy các lịch sắp tới của phiên dịch viên
+    schedules = TranslatorSchedule.query.filter(
+        TranslatorSchedule.translator_id == user.id,
+        TranslatorSchedule.status != 'cancelled'
+    ).order_by(TranslatorSchedule.scheduled_date.asc(), TranslatorSchedule.start_time.asc()).all()
+    
+    return render_template('translator_schedule.html', user=user, schedules=schedules)
+
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
 @app.route('/translator')
@@ -1548,7 +1639,7 @@ def debug_index():
             TranslatorProfile.rating.desc()).limit(4).all()
         if not top_translators:
             top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
-        latest_jobs = Job.query.filter_by(status='open', is_flagged=False).order_by(Job.created_at.desc()).limit(4).all()
+        latest_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).order_by(Job.created_at.desc()).limit(4).all()
         html = render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
         return jsonify({'status': 'ok', 'html_length': len(html)})
     except Exception as e:
@@ -1998,6 +2089,33 @@ def post_job():
         deadline_str = request.form.get('deadline')
         deadline = datetime.strptime(deadline_str, '%Y-%m-%d').date() if deadline_str else None
 
+        # ── Collect Multi-day Schedule ──────────────────────────────
+        scheduled_dates = request.form.getlist('scheduled_date[]')
+        start_times = request.form.getlist('start_time[]')
+        end_times = request.form.getlist('end_time[]')
+
+        entries = []
+        for d, st, et in zip(scheduled_dates, start_times, end_times):
+            if d or st or et: # Bỏ qua các dòng trống hoàn toàn
+                entries.append({
+                    'scheduled_date': d,
+                    'start_time': st,
+                    'end_time': et
+                })
+
+        # Validate schedule
+        from models import validate_schedule_entries
+        is_valid, errors = validate_schedule_entries(entries)
+        if not is_valid:
+            for err in errors:
+                flash(err['message'], 'error')
+            return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data=request.form)
+
+        # Fallback for legacy fields (lấy ngày đầu tiên)
+        legacy_date = entries[0]['scheduled_date'] if entries else ''
+        legacy_start = entries[0]['start_time'] if entries else ''
+        legacy_end = entries[0]['end_time'] if entries else ''
+
         job = Job(
             hirer_id=session['user_id'],
             title=request.form.get('title'),
@@ -2010,13 +2128,32 @@ def post_job():
             budget_type=request.form.get('budget_type'),
             budget_min=int(request.form.get('budget_min') or 0),
             budget_max=int(request.form.get('budget_max') or 0) or None,
-            event_date=request.form.get('event_date', ''),
-            event_time_start=request.form.get('event_time_start', ''),
-            event_time_end=request.form.get('event_time_end', ''),
+            event_date=legacy_date,
+            event_time_start=legacy_start,
+            event_time_end=legacy_end,
             event_location=request.form.get('event_location', ''),
-            deadline=deadline
+            deadline=deadline,
+            status='pending'
         )
         db.session.add(job)
+        db.session.flush() # Để lấy job.id
+
+        # Lưu chi tiết vào JobSchedule
+        from models import JobSchedule
+        from services.schedule import _parse_time
+        for entry in entries:
+            parsed_date = datetime.strptime(entry['scheduled_date'].strip(), '%Y-%m-%d').date()
+            parsed_start = _parse_time(entry['start_time'].strip())
+            parsed_end = _parse_time(entry['end_time'].strip())
+            if parsed_date and parsed_start and parsed_end:
+                js = JobSchedule(
+                    job_id=job.id,
+                    scheduled_date=parsed_date,
+                    start_time=parsed_start,
+                    end_time=parsed_end
+                )
+                db.session.add(js)
+
         db.session.commit()
 
         # Notify matching translators (safe, won't block job creation if fails)
@@ -2025,7 +2162,8 @@ def post_job():
 
         flash(_t('flash.job_posted'), 'success')
         return redirect(url_for('job_detail', job_id=job.id))
-    return render_template('post_job.html', LANGUAGES=LANGUAGES)
+        
+    return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data={})
 
 @app.route('/jobs')
 def job_list():
@@ -2035,7 +2173,7 @@ def job_list():
     page = request.args.get('page', 1, type=int)
     per_page = 10
 
-    query = Job.query.filter_by(status='open', is_flagged=False)
+    query = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None))
     if lang:
         safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
         query = query.filter(db.or_(Job.source_lang.ilike(f'%{safe_lang}%'), Job.target_lang.ilike(f'%{safe_lang}%')))
@@ -2079,28 +2217,20 @@ def job_detail(job_id):
             return redirect(url_for('job_detail', job_id=job.id))
 
         # ── 3. Schedule conflict check ────────────────────────────────────────
-        from services.schedule import (
-            parse_job_datetime, is_schedule_complete,
-            check_translator_schedule_conflict, ScheduleCheckError
-        )
+        from services.schedule import check_job_schedule_conflicts
+
         try:
-            parsed = parse_job_datetime(job)
-            if is_schedule_complete(parsed):
-                result = check_translator_schedule_conflict(
-                    translator_id=session['user_id'],
-                    scheduled_date=parsed['date'],
-                    start_time=parsed['start_time'],
-                    end_time=parsed['end_time'],
-                )
-                if result['conflict']:
-                    flash(
-                        f'Bạn đã có lịch công việc khác trong khoảng thời gian này '
-                        f'({result["start_time"]}–{result["end_time"]}). '
-                        f'Vui lòng kiểm tra lịch của bạn.',
-                        'error'
-                    )
-                    return render_template('job_detail.html', job=job, form_data=request.form)
-        except ScheduleCheckError as e:
+            result = check_job_schedule_conflicts(job, session['user_id'])
+            if result.get('has_schedule') and not result.get('available'):
+                # Tìm ngày đầu tiên bị trùng để báo lỗi
+                for day in result.get('days', []):
+                    if not day.get('available'):
+                        flash(f'Bạn đã có lịch công việc khác vào ngày {day["date_display"]} '
+                              f'({day["conflict_start"]}–{day["conflict_end"]}). '
+                              f'Vui lòng kiểm tra lịch của bạn.', 'error')
+                        break
+                return render_template('job_detail.html', job=job, form_data=request.form)
+        except Exception as e:
             flash(str(e), 'error')
             return render_template('job_detail.html', job=job, form_data=request.form)
 
@@ -2175,35 +2305,26 @@ def job_detail(job_id):
 @login_required
 def api_schedule_check(job_id):
     """Frontend pre-check: returns whether the logged-in translator has a
-    schedule conflict with this job's date/time.  Backend still re-validates
+    schedule conflict with this job's dates/times. Backend still re-validates
     at proposal submission — this is for UI feedback only.
     """
-    from services.schedule import (
-        parse_job_datetime, is_schedule_complete,
-        check_translator_schedule_conflict,
-    )
+    from services.schedule import check_job_schedule_conflicts
+    
     job = Job.query.get_or_404(job_id)
-    parsed = parse_job_datetime(job)
+    result = check_job_schedule_conflicts(job, session['user_id'])
 
-    if not is_schedule_complete(parsed):
-        # Job has no fixed time → no conflict possible
+    if not result['has_schedule']:
         return jsonify({'available': True, 'reason': 'no_schedule'})
 
-    result = check_translator_schedule_conflict(
-        translator_id=session['user_id'],
-        scheduled_date=parsed['date'],
-        start_time=parsed['start_time'],
-        end_time=parsed['end_time'],
-    )
-
-    if result['conflict']:
-        return jsonify({
-            'available': False,
-            'conflict_start': result['start_time'],
-            'conflict_end': result['end_time'],
-            'message': result['message'],
-        })
-    return jsonify({'available': True})
+    # result trả về dạng:
+    # {
+    #     'available': bool,
+    #     'has_schedule': True,
+    #     'days': [
+    #         { 'date': '...', 'date_display': '...', 'available': bool, 'message': '...', 'conflict_start': '...', 'conflict_end': '...' }
+    #     ]
+    # }
+    return jsonify(result)
 
 # ─── CONTRACT / BUSINESS PROCESS ───────────────────────────────────────────────
 
@@ -2704,13 +2825,14 @@ def admin_logout():
 # ─── ADMIN ROUTES ───────────────────────────────────────────────────────────────
 
 @app.route('/admin')
-@admin_required
+@admin_login_required
+@require_permission('view_dashboard')
 def admin_dashboard():
     stats = {
         'total_users': User.query.filter_by(is_admin=False).count(),
         'total_translators': TranslatorProfile.query.count(),
         'pending_verify': TranslatorProfile.query.filter_by(is_verified=False).count(),
-        'open_jobs': Job.query.filter_by(status='open', is_flagged=False).count(),
+        'open_jobs': Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).count(),
         'flagged_jobs': Job.query.filter_by(is_flagged=True).count(),
         'active_contracts': Contract.query.filter_by(status='in_progress').count(),
         'completed_contracts': Contract.query.filter_by(status='completed').count(),
@@ -2720,21 +2842,26 @@ def admin_dashboard():
     return render_template('admin_dashboard.html', stats=stats, recent_users=recent_users, recent_jobs=recent_jobs)
 
 @app.route('/admin/jobs')
-@admin_required
+@admin_login_required
+@require_permission('view_jobs')
 def admin_jobs():
     status_filter = request.args.get('status', 'all')
     query = Job.query
     if status_filter == 'flagged':
         query = query.filter_by(is_flagged=True)
     elif status_filter == 'open':
-        query = query.filter_by(status='open', is_flagged=False)
+        query = query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None))
+    elif status_filter == 'pending':
+        query = query.filter(Job.status == 'pending', db.or_(Job.is_flagged == False, Job.is_flagged == None))
     elif status_filter == 'completed':
         query = query.filter_by(status='completed')
     jobs = query.order_by(Job.created_at.desc()).all()
     return render_template('admin_jobs.html', jobs=jobs, status_filter=status_filter)
 
 @app.route('/admin/jobs/<int:job_id>/flag', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('flag_job')
 def admin_flag_job(job_id):
     job = Job.query.get_or_404(job_id)
     job.is_flagged = not job.is_flagged
@@ -2750,10 +2877,52 @@ def admin_flag_job(job_id):
     flash(f'{action_text} bài đăng "{job.title}".', 'success')
     return redirect(url_for('admin_jobs'))
 
+@app.route('/admin/jobs/<int:job_id>/approve', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('approve_job')
+def admin_approve_job(job_id):
+    job = Job.query.get_or_404(job_id)
+    if job.status == 'pending':
+        job.status = 'open'
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS.get('UPDATE_JOB_STATUS', 'UPDATE_JOB_STATUS'),
+            target_type='job',
+            target_id=job.id,
+            description=f'Phê duyệt job "{job.title}" (ID={job.id})',
+        )
+        db.session.commit()
+        flash('Đã phê duyệt bài đăng thành công.', 'success')
+    else:
+        flash('Bài đăng không ở trạng thái chờ duyệt.', 'warning')
+    return redirect(url_for('admin_jobs'))
+
 @app.route('/admin/jobs/<int:job_id>/delete', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('reject_job')
 def admin_delete_job(job_id):
     job = Job.query.get_or_404(job_id)
+    
+    # 1. Kiểm tra dependency quan trọng: Hợp đồng
+    from models import Contract
+    contracts = Contract.query.filter_by(job_id=job.id).all()
+    if contracts:
+        flash('Không thể xóa vĩnh viễn bài đăng đã có hợp đồng. Vui lòng sử dụng "Gắn cờ/Ẩn".', 'error')
+        return redirect(url_for('admin_jobs'))
+        
+    # 2. Xử lý dependencies phụ
+    from models import Notification, TranslatorSchedule, Proposal, Report, JobSchedule
+    
+    # SET NULL cho các lịch sử (không xóa lịch sử)
+    Notification.query.filter_by(related_job_id=job.id).update({'related_job_id': None})
+    Report.query.filter_by(related_job_id=job.id).update({'related_job_id': None})
+    TranslatorSchedule.query.filter_by(job_id=job.id).update({'job_id': None})
+    
+    # Xóa dọn dẹp các data ăn theo
+    Proposal.query.filter_by(job_id=job.id).delete()
+    JobSchedule.query.filter_by(job_id=job.id).delete()
+    
     _audit_log(
         action=ADMIN_AUDIT_ACTIONS['DELETE_JOB'],
         target_type='job',
@@ -2762,11 +2931,12 @@ def admin_delete_job(job_id):
     )
     db.session.delete(job)
     db.session.commit()
-    flash('Đã xoá vĩnh viễn bài đăng.', 'success')
+    flash('Đã xoá vĩnh viễn bài đăng an toàn.', 'success')
     return redirect(url_for('admin_jobs'))
 
 @app.route('/admin/users')
-@admin_required
+@admin_login_required
+@require_permission('view_users')
 def admin_users():
     role_filter = request.args.get('role', 'all')
     query = User.query.filter_by(is_admin=False)
@@ -2778,7 +2948,9 @@ def admin_users():
     return render_template('admin_users.html', users=users, role_filter=role_filter)
 
 @app.route('/admin/users/<int:user_id>/toggle-active', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('lock_user')
 def admin_toggle_user(user_id):
     user = User.query.get_or_404(user_id)
     user.is_active = not user.is_active
@@ -2795,7 +2967,8 @@ def admin_toggle_user(user_id):
     return redirect(url_for('admin_users'))
 
 @app.route('/admin/translators')
-@admin_required
+@admin_login_required
+@require_permission('view_translators')
 def admin_translators():
     show = request.args.get('show', 'pending')
     if show == 'verified':
@@ -2805,7 +2978,9 @@ def admin_translators():
     return render_template('admin_translators.html', profiles=profiles, show=show)
 
 @app.route('/admin/translators/<int:profile_id>/verify', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('verify_translator')
 def admin_verify_translator(profile_id):
     profile = TranslatorProfile.query.get_or_404(profile_id)
     action = request.form.get('action')
@@ -2823,7 +2998,8 @@ def admin_verify_translator(profile_id):
     return redirect(url_for('admin_translators'))
 
 @app.route('/admin/reports')
-@admin_required
+@admin_login_required
+@require_permission('view_reports')
 def admin_reports():
     status_filter = request.args.get('status', 'new')
     query = Report.query
@@ -2834,7 +3010,9 @@ def admin_reports():
     return render_template('admin_reports.html', reports=reports, status_filter=status_filter)
 
 @app.route('/admin/reports/<int:report_id>/<action>', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_update_report(report_id, action):
     report = Report.query.get_or_404(report_id)
     
@@ -2871,7 +3049,8 @@ def admin_update_report(report_id, action):
     return redirect(url_for('admin_reports'))
 
 @app.route('/admin/proposals')
-@admin_required
+@admin_login_required
+@require_permission('view_proposals')
 def admin_proposals():
     status_filter = request.args.get('status', 'all')
     query = Proposal.query
@@ -2882,7 +3061,8 @@ def admin_proposals():
     return render_template('admin_proposals.html', proposals=proposals, status_filter=status_filter)
 
 @app.route('/admin/contracts')
-@admin_required
+@admin_login_required
+@require_permission('view_contracts')
 def admin_contracts():
     status_filter = request.args.get('status', 'all')
     query = Contract.query
@@ -2893,7 +3073,8 @@ def admin_contracts():
     return render_template('admin_contracts.html', contracts=contracts, status_filter=status_filter)
 
 @app.route('/admin/schedules')
-@admin_required
+@admin_login_required
+@require_permission('view_schedules')
 def admin_schedules():
     status_filter = request.args.get('status', 'all')
     contract_id = request.args.get('contract_id', type=int)
@@ -2907,7 +3088,8 @@ def admin_schedules():
     return render_template('admin_schedules.html', schedules=schedules, status_filter=status_filter, contract_id=contract_id)
 
 @app.route('/admin/reviews')
-@admin_required
+@admin_login_required
+@require_permission('view_reviews')
 def admin_reviews():
     show_filter = request.args.get('show', 'all')
     query = Review.query
@@ -2920,7 +3102,9 @@ def admin_reviews():
     return render_template('admin_reviews.html', reviews=reviews, show=show_filter)
 
 @app.route('/admin/reviews/<int:review_id>/toggle', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_toggle_review(review_id):
     r = Review.query.get_or_404(review_id)
     r.is_hidden = not r.is_hidden
@@ -2940,7 +3124,8 @@ def admin_toggle_review(review_id):
     return redirect(url_for('admin_reviews'))
 
 @app.route('/admin/payments')
-@admin_required
+@admin_login_required
+@require_permission('view_payments')
 def admin_payments():
     status_filter = request.args.get('status', 'all')
     query = PaymentTransaction.query
@@ -2951,7 +3136,9 @@ def admin_payments():
     return render_template('admin_payments.html', payments=payments, status_filter=status_filter)
 
 @app.route('/admin/payments/<int:payment_id>/refund', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('refund_payment')
 def admin_refund_payment(payment_id):
     p = PaymentTransaction.query.get_or_404(payment_id)
     if p.status != 'escrow_pending' and p.status != 'completed':
@@ -2974,7 +3161,8 @@ def admin_refund_payment(payment_id):
     return redirect(url_for('admin_payments'))
 
 @app.route('/admin/notifications')
-@admin_required
+@admin_login_required
+@require_permission('view_notifications')
 def admin_notifications():
     show_filter = request.args.get('show', 'all')
     query = AdminNotification.query
@@ -2985,7 +3173,9 @@ def admin_notifications():
     return render_template('admin_notifications.html', notifications=notifications, show=show_filter)
 
 @app.route('/admin/notifications/<int:notif_id>/read', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_notifications_read(notif_id):
     n = AdminNotification.query.get_or_404(notif_id)
     n.is_read = True
@@ -2993,14 +3183,17 @@ def admin_notifications_read(notif_id):
     return redirect(url_for('admin_notifications'))
 
 @app.route('/admin/notifications/read-all', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_notifications_mark_all():
     AdminNotification.query.filter_by(is_read=False).update({'is_read': True})
     db.session.commit()
     return redirect(url_for('admin_notifications'))
 
 @app.route('/admin/audit')
-@admin_required
+@admin_login_required
+@require_permission('view_audit_logs')
 def admin_audit_logs():
     action_filter = request.args.get('action', 'all')
     query = AdminAuditLog.query
@@ -3035,7 +3228,8 @@ def admin_audit_logs():
     return render_template('admin_audit.html', logs=logs, action_filter=action_filter)
 
 @app.route('/admin/admins')
-@admin_required
+@admin_login_required
+@require_permission('view_dashboard')
 def admin_admins():
     # Only super_admin or users with manage_admins can see all details easily
     # But let's allow all admins to view the list, just restrict actions in UI
@@ -3043,7 +3237,9 @@ def admin_admins():
     return render_template('admin_admins.html', admins=admins)
 
 @app.route('/admin/admins/add', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_add_admin():
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
@@ -3081,7 +3277,9 @@ def admin_add_admin():
     return redirect(url_for('admin_admins'))
 
 @app.route('/admin/admins/<int:admin_id>/toggle', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_toggle_admin_status(admin_id):
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
@@ -3100,7 +3298,8 @@ def admin_toggle_admin_status(admin_id):
     return redirect(url_for('admin_admins'))
 
 @app.route('/admin/search')
-@admin_required
+@admin_login_required
+@require_permission('view_dashboard')
 def admin_search():
     q = request.args.get('q', '').strip()
     results = {'users': [], 'jobs': [], 'contracts': []}

@@ -189,7 +189,9 @@ def get_recommended_jobs_for_translator(user_id, limit=10, lang='vi'):
     if not translator or translator.role != 'translator' or not translator.is_active:
         return []
         
-    open_jobs = Job.query.filter_by(status='open', is_flagged=False).all()
+    # Lấy các việc đang mở, hỗ trợ fallback NULL cho PostgreSQL
+    from app import db
+    open_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).all()
     
     scored_jobs = []
     for job in open_jobs:
