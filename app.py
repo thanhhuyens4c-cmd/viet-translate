@@ -2190,6 +2190,17 @@ def job_list():
 @app.route('/job/<int:job_id>', methods=['GET', 'POST'])
 def job_detail(job_id):
     job = Job.query.get_or_404(job_id)
+
+    # ── 0. Access Control ─────────────────────────────────────────────────
+    user = get_current_user()
+    is_owner = user and (user.id == job.hirer_id)
+    is_admin_user = session.get(ADMIN_SESSION_KEY) is not None
+
+    if job.is_flagged or job.status == 'pending':
+        if not (is_owner or is_admin_user):
+            flash('Bài đăng này đang chờ duyệt hoặc đã bị khoá.', 'warning')
+            return redirect(url_for('index'))
+
     if request.method == 'POST':
         # ── 1. Login & Role guard ─────────────────────────────────────────────
         user = get_current_user()
