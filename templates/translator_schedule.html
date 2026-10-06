@@ -30,7 +30,7 @@
                     </a>
                     <a href="{{ url_for('my_schedule') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 bg-brand-50 text-brand-700 font-bold rounded-xl text-xs sm:text-sm">
                         <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                        Lịch làm việc
+                        {{ t('nav.my_schedule') }}
                     </a>
                 </nav>
             </div>
@@ -41,7 +41,7 @@
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
                 <h1 class="text-lg font-bold mb-6 text-slate-900 flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                    Lịch làm việc của tôi
+                    {{ t('nav.my_schedule') }}
                 </h1>
 
                 {% if not schedules %}

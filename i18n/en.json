@@ -19,7 +19,12 @@
     "lang_en": "English",
     "default_title": "VietTranslate | Professional Language Services Marketplace",
     "messages_tooltip": "Messages",
-    "notifications_tooltip": "Notifications"
+    "notifications_tooltip": "Notifications",
+    "my_jobs": "My Jobs",
+    "find_jobs": "Find Work",
+    "recommended_jobs": "Recommended Jobs",
+    "my_services": "My Services",
+    "my_schedule": "My Schedule"
   },
   "footer": {
     "tagline": "Modern language connection platform. Trust in every connection, excellence in every experience between clients and professional language experts.",
