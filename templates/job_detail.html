@@ -391,8 +391,7 @@
                 btn.classList.replace('bg-brand-600', 'bg-slate-400');
                 btn.classList.remove('hover:bg-brand-700');
 
-                fetch(`/ api / jobs / {{ job.id }
-                        }/invite/${ translatorId }`, { method: 'POST' })
+                fetch(`/api/jobs/{{ job.id }}/invite/${translatorId}`, { method: 'POST' })
                     .then(r => r.json())
                     .then(data => {
                         if (data.status === 'success') {
