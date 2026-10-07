@@ -20,59 +20,6 @@ def get_locale():
 def _t(key, **kwargs):
     return t_lookup(key, lang=get_locale(), **kwargs)
 
-# ─── MONGODB (dùng khi deploy trên Vercel) ────────────────────────────────────
-MONGO_URI = os.getenv("MONGO_URI")
-_mongo_users = None  # lazy-init collection
-
-def get_mongo_users():
-    """Trả về MongoDB users collection nếu MONGO_URI được cấu hình."""
-    global _mongo_users
-    if _mongo_users is None and MONGO_URI:
-        try:
-            from pymongo import MongoClient
-            client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-            _mongo_users = client["viettranslate_db"]["users"]
-        except Exception as e:
-            print(f"[MongoDB] Không thể kết nối: {e}")
-    return _mongo_users
-
-def mongo_register_user(username, email, hashed_password, phone, role):
-    """Đăng ký tài khoản mới vào MongoDB. Trả về (success, message)."""
-    col = get_mongo_users()
-    if col is None:
-        return False, "MongoDB chưa được cấu hình."
-    if col.find_one({"email": email}):
-        return False, "Email đã được sử dụng."
-    col.insert_one({
-        "name": username,
-        "email": email,
-        "password_hash": hashed_password,
-        "phone": phone,
-        "role": role,
-        "is_admin": False,
-        "is_active": True,
-        "created_at": datetime.utcnow(),
-    })
-    return True, "Đăng ký thành công!"
-
-def mongo_find_user_by_email(email):
-    """Tìm user theo email trong MongoDB. Trả về dict hoặc None."""
-    col = get_mongo_users()
-    if col is None:
-        return None
-    return col.find_one({"email": email})
-
-def mongo_find_user_by_id(user_id):
-    """Tìm user theo _id string trong MongoDB. Trả về dict hoặc None."""
-    col = get_mongo_users()
-    if col is None:
-        return None
-    try:
-        from bson import ObjectId
-        return col.find_one({"_id": ObjectId(user_id)})
-    except Exception:
-        return None
-
 # ─── LANGUAGE LANDING PAGE CONFIGURATION ──────────────────────────────────────
 
 LANGUAGE_PAGES = {
@@ -511,22 +458,17 @@ if database_url:
     elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 else:
-    if os.environ.get('VERCEL') == '1':
-        # Vercel: filesystem ephemeral — BẮT BUỘC dùng DATABASE_URL hoặc MONGO_URI
-        if not os.getenv("MONGO_URI"):
-            error_msg = "[CRITICAL] Chạy trên Vercel nhưng DATABASE_URL (và MONGO_URI) chưa được cấu hình! Không dùng SQLite memory trong production để tránh mất dữ liệu."
-            print(error_msg, file=sys.stderr)
-            raise RuntimeError(error_msg)
-        # Nếu có MONGO_URI nhưng thiếu DATABASE_URL (chỉ dùng MongoDB):
-        database_url = 'sqlite:///:memory:'
-        _is_memory_db = True
-    elif os.environ.get('RENDER'):
-        # Chạy trên Render nhưng không có DATABASE_URL
-        print("[DB WARNING] Chạy trên Render nhưng DATABASE_URL chưa được cấu hình!", file=sys.stderr)
-        print("[DB WARNING] Hãy vào Render Dashboard → Environment → thêm DATABASE_URL hoặc MONGO_URI", file=sys.stderr)
-        # Vẫn dùng SQLite nhưng đây là ephemeral trên Render!
-        database_url = 'sqlite:///' + os.path.join(basedir, 'instance', 'database.db')
-        print("[DB WARNING] Render filesystem là ephemeral — dữ liệu sẽ mất khi redeploy!", file=sys.stderr)
+    if os.environ.get('VERCEL') == '1' or os.environ.get('RENDER'):
+        # TASK 10: Production (Vercel/Render) — BẮT BUỘC có DATABASE_URL trỏ tới Supabase PostgreSQL.
+        # Không fallback sang SQLite memory trong production.
+        _platform = 'Vercel' if os.environ.get('VERCEL') else 'Render'
+        error_msg = (
+            f"[CRITICAL] Chạy trên {_platform} nhưng DATABASE_URL chưa được cấu hình! "
+            "Database production phải là Supabase PostgreSQL. "
+            "Hãy vào Dashboard → Environment Variables → thêm DATABASE_URL."
+        )
+        print(error_msg, file=sys.stderr)
+        raise RuntimeError(error_msg)
     else:
         # Local development: dùng SQLite file cục bộ
         db_path = os.path.join(basedir, 'instance', 'database.db')
@@ -597,7 +539,7 @@ def save_user_avatar(file, user_id, current_avatar=None):
         return False, 'flash.avatar_file_too_large'
 
     import time
-    clean_uid = str(user_id).replace('mongo:', 'm_')
+    clean_uid = str(user_id)
     ext = file.filename.rsplit('.', 1)[1].lower()
     filename = f"avatar_u{clean_uid}_{int(time.time())}.{ext}"
     folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join('static', 'uploads', 'avatars'))
@@ -639,7 +581,7 @@ def save_certificate_file(file, user_id):
         return False, 'File chứng chỉ không được vượt quá 10MB'
 
     import time
-    clean_uid = str(user_id).replace('mongo:', 'm_')
+    clean_uid = str(user_id)
     ext = file.filename.rsplit('.', 1)[1].lower()
     filename = f"cert_u{clean_uid}_{int(time.time())}.{ext}"
     folder = os.path.join(app.root_path, 'static', 'uploads', 'certificates')
@@ -896,40 +838,22 @@ def vnd_filter(value):
     except (ValueError, TypeError):
         return value
 
-class SimpleMongoUser:
-    """Wrapper nhẹ để templates có thể dùng current_user.name, .role, v.v. với MongoDB user."""
-    def __init__(self, data: dict):
-        self.id = f"mongo:{data['_id']}"
-        self.name = data.get('name', '')
-        self.email = data.get('email', '')
-        self.role = data.get('role', '')
-        self.phone = data.get('phone', '')
-        self.is_admin = data.get('is_admin', False)
-        self.is_active = data.get('is_active', True)
-        self.avatar = data.get('avatar', None)
-        self.profile = None  # Không dùng SQLAlchemy relationship
-
-    @property
-    def avatar_url(self):
-        if self.avatar:
-            if self.avatar.startswith('http://') or self.avatar.startswith('https://') or self.avatar.startswith('/'):
-                return self.avatar
-            return f'/static/uploads/avatars/{self.avatar}'
-        return None
-
+# TASK 5 + TASK 9: get_current_user và inject_globals dùng SQL only.
+# Legacy Auth object đã được loại bỏ.
 
 def get_current_user():
     """Trả về User object của người đang đăng nhập từ session hiện tại.
-    KHÔNG dùng User.query.first(), ID mặc định, hoặc dữ liệu hard-code.
+    SQL only.
+    TASK 9: Nếu session có user_id không phải integer -> clear session.
     Trả về None nếu chưa đăng nhập hoặc user không còn tồn tại.
     """
     uid = session.get('user_id')
     if not uid:
         return None
-    if isinstance(uid, str) and uid.startswith('mongo:'):
-        mongo_id = uid[len('mongo:'):]
-        mongo_data = mongo_find_user_by_id(mongo_id)
-        return SimpleMongoUser(mongo_data) if mongo_data else None
+    # TASK 9: Clear invalid/legacy session và yêu cầu login lại
+    if not isinstance(uid, int):
+        session.clear()
+        return None
     try:
         return User.query.get(uid)
     except SQLAlchemyError as e:
@@ -939,27 +863,25 @@ def get_current_user():
 
 @app.context_processor
 def inject_globals():
+    # TASK 5: context processor dùng SQL only.
+    # TASK 9: Nếu session không hợp lệ → clear, user sẽ thấy màn hình login.
     user = None
     uid = session.get('user_id')
     if uid:
-        try:
-            if isinstance(uid, str) and uid.startswith('mongo:'):
-                # MongoDB user: dựng dữ liệu đã lưu trong session (tránh query lại)
-                mongo_id = uid[len('mongo:'):]
-                mongo_data = mongo_find_user_by_id(mongo_id)
-                if mongo_data:
-                    user = SimpleMongoUser(mongo_data)
-                else:
-                    session.pop('user_id', None)
-            else:
+        # TASK 9: Clear legacy/invalid session
+        if not isinstance(uid, int):
+            session.clear()
+            uid = None
+        else:
+            try:
                 user = User.query.get(uid)
                 if not user:
                     session.pop('user_id', None)
-        except SQLAlchemyError as e:
-            print(f"[AUTH SQL GLOBALS ERROR] {e}")
-            # Do not pop session on transient DB locks to prevent random logout
-        except Exception as e:
-            print(f"[AUTH GLOBALS ERROR] {e}")
+            except SQLAlchemyError as e:
+                print(f"[AUTH SQL GLOBALS ERROR] {e}")
+                # Do not pop session on transient DB locks to prevent random logout
+            except Exception as e:
+                print(f"[AUTH GLOBALS ERROR] {e}")
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
     if current_lang not in ('vi', 'en'):
         current_lang = 'vi'
@@ -1012,36 +934,12 @@ def payment_info():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # Login dùng SQL only.
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
 
         try:
-            # ── Thử MongoDB trước (khi deploy trên Vercel) ──
-            if MONGO_URI:
-                mongo_user = mongo_find_user_by_email(email)
-                if mongo_user:
-                    if not mongo_user.get('is_active', True):
-                        flash(_t('flash.account_locked'), 'error')
-                        return render_template('login.html', email=email)
-                    if check_password_hash(mongo_user['password_hash'], password):
-                        # Lưu mongo _id dạng string vào session với prefix để phân biệt
-                        session.clear()
-                        session.permanent = True
-                        session['user_id'] = f"mongo:{mongo_user['_id']}"
-                        session['user_name'] = mongo_user.get('name', '')
-                        session['user_role'] = mongo_user.get('role', '')
-                        session['is_admin'] = mongo_user.get('is_admin', False)
-                        flash(_t('flash.login_success'), 'success')
-                        if mongo_user.get('is_admin'):
-                            return redirect(url_for('admin_dashboard'))
-                        return redirect(url_for('index'))
-                    else:
-                        flash(_t('flash.invalid_password'), 'error')
-                        return render_template('login.html', email=email)
-                # Nếu không tìm thấy trong MongoDB thì fallback xuống SQLite bên dưới
-    
-            # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
             user = User.query.filter_by(email=email).first()
             if user:
                 if not user.is_active:
@@ -1050,8 +948,9 @@ def login():
                 if check_password_hash(user.password_hash, password):
                     session.clear()
                     session.permanent = True
-                    session['user_id'] = user.id
+                    session['user_id'] = user.id  # SQL integer ID
                     flash(_t('flash.login_success'), 'success')
+                    # TASK 4A: Role redirect
                     if user.is_admin:
                         return redirect(url_for('admin_dashboard'))
                     return redirect(url_for('index'))
@@ -1074,12 +973,14 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # Register dùng SQL only.
+    # Đăng ký phải atomic: User + Profile; nếu profile fail → rollback User.
     if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        phone = request.form.get('phone')
-        role = request.form.get('role')
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        phone = request.form.get('phone', '').strip()
+        role = request.form.get('role', '')
 
         if role not in ('hirer', 'translator'):
             flash(_t('flash.invalid_role'), 'error')
@@ -1090,42 +991,48 @@ def register():
             flash(_t('flash.invalid_email'), 'error')
             return redirect(url_for('register'))
 
-        hashed_pw = generate_password_hash(password)
+        if not password or len(password) < 6:
+            flash(_t('flash.password_too_short'), 'error')
+            return redirect(url_for('register'))
 
-        # ── Dùng MongoDB khi MONGO_URI được cấu hình (Vercel) ──
-        if MONGO_URI:
-            success, message = mongo_register_user(
-                username=name,
-                email=email,
-                hashed_password=hashed_pw,
-                phone=phone,
-                role=role,
-            )
-            if success:
-                flash(_t('flash.register_success'), 'success')
-                return redirect(url_for('login'))
-            else:
-                flash(message, 'error')
-                return redirect(url_for('register'))
-
-        # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
         if User.query.filter_by(email=email).first():
             flash(_t('flash.email_exists'), 'error')
             return redirect(url_for('register'))
 
-        new_user = User(name=name, email=email,
-                        password_hash=hashed_pw,
-                        phone=phone, role=role)
-        db.session.add(new_user)
-        db.session.commit()
+        hashed_pw = generate_password_hash(password)
 
-        if role == 'translator':
-            profile = TranslatorProfile(user_id=new_user.id)
-            db.session.add(profile)
+        try:
+            new_user = User(
+                name=name,
+                email=email,
+                password_hash=hashed_pw,
+                phone=phone,
+                role=role,
+            )
+            db.session.add(new_user)
+            db.session.flush()  # Lấy new_user.id trước khi tạo profile
+
+            # Tạo profile ngay trong cùng transaction (atomic)
+            if role == 'translator':
+                profile = TranslatorProfile(user_id=new_user.id)
+                db.session.add(profile)
+            elif role == 'hirer':
+                hirer_profile = HirerProfile(user_id=new_user.id)
+                db.session.add(hirer_profile)
+
             db.session.commit()
-
-        flash(_t('flash.register_success'), 'success')
-        return redirect(url_for('login'))
+            flash(_t('flash.register_success'), 'success')
+            return redirect(url_for('login'))
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            print(f"[REGISTER SQL ERROR] {e}")
+            flash(_t('flash.system_overload'), 'error')
+            return redirect(url_for('register'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"[REGISTER ERROR] {e}")
+            flash(_t('flash.db_error'), 'error')
+            return redirect(url_for('register'))
     return render_template('register.html')
 
 @app.route('/logout')
@@ -1139,84 +1046,17 @@ def logout():
 @app.route('/account', methods=['GET', 'POST'])
 @login_required
 def account_profile():
-    uid = session['user_id']
+    # TASK 6: Account dùng SQL only.
+    # TASK 9: Legacy session sẽ bị login_required redirect vì get_current_user() trả về None.
+    uid = session.get('user_id')
 
-    # MongoDB user
-    if isinstance(uid, str) and uid.startswith('mongo:'):
-        mongo_id = uid[len('mongo:'):]
-        mongo_data = mongo_find_user_by_id(mongo_id)
-        if not mongo_data:
-            flash(_t('flash.account_not_found'), 'error')
-            return redirect(url_for('index'))
-        user = SimpleMongoUser(mongo_data)
+    # TASK 9: Guard — nếu session không phải số nguyên (cũ/lỗi) → clear và redirect login
+    if uid and not isinstance(uid, int):
+        session.clear()
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
 
-        if request.method == 'POST':
-            action = request.form.get('action', 'basic')
-            col = get_mongo_users()
-            if col is None:
-                flash(_t('flash.mongo_error'), 'error')
-                return redirect(url_for('account_profile'))
-
-            from bson import ObjectId
-            if action == 'basic':
-                col.update_one(
-                    {"_id": ObjectId(mongo_id)},
-                    {"$set": {
-                        "name": request.form.get('name', user.name).strip(),
-                        "phone": request.form.get('phone', user.phone or '').strip(),
-                    }}
-                )
-                session['user_name'] = request.form.get('name', user.name).strip()
-                flash(_t('flash.profile_updated'), 'success')
-
-            elif action == 'change_password':
-                old_pw = request.form.get('old_password', '')
-                new_pw = request.form.get('new_password', '')
-                confirm_pw = request.form.get('confirm_password', '')
-                if not check_password_hash(mongo_data['password_hash'], old_pw):
-                    flash(_t('flash.old_password_incorrect'), 'error')
-                elif new_pw != confirm_pw:
-                    flash(_t('flash.new_password_mismatch'), 'error')
-                elif len(new_pw) < 6:
-                    flash(_t('flash.password_too_short'), 'error')
-                else:
-                    col.update_one(
-                        {"_id": ObjectId(mongo_id)},
-                        {"$set": {"password_hash": generate_password_hash(new_pw)}}
-                    )
-                    flash(_t('flash.password_changed'), 'success')
-
-            elif action == 'upload_avatar':
-                file = request.files.get('avatar')
-                is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
-                ok, res = save_user_avatar(file, user.id, user.avatar)
-                if not ok:
-                    msg = _t(res)
-                    if is_ajax:
-                        return jsonify({'success': False, 'message': msg}), 400
-                    flash(msg, 'error')
-                    return redirect(url_for('account_profile'))
-                col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": res}})
-                user.avatar = res
-                msg = _t('flash.avatar_updated')
-                if is_ajax:
-                    return jsonify({'success': True, 'avatar_url': user.avatar_url, 'message': msg})
-                flash(msg, 'success')
-
-            elif action == 'remove_avatar':
-                is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
-                delete_user_avatar(user.avatar)
-                col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": None}})
-                user.avatar = None
-                msg = _t('flash.avatar_removed')
-                if is_ajax:
-                    return jsonify({'success': True, 'avatar_url': None, 'initial': (user.name or 'U')[0].upper(), 'message': msg})
-                flash(msg, 'success')
-
-            return redirect(url_for('account_profile'))
-        return render_template('account_profile.html', user=user)
-
-    # SQLite user
+    # SQL user
     user = User.query.get(uid)
     if not user:
         flash(_t('flash.account_not_found'), 'error')
@@ -1391,37 +1231,20 @@ def account_profile():
 @app.route('/account/avatar/upload', methods=['POST'])
 @login_required
 def upload_avatar_endpoint():
-    """Endpoint riêng biệt hỗ trợ tải ảnh đại diện qua AJAX hoặc form POST."""
-    uid = session['user_id']
+    """Endpoint riêng biệt hỗ trợ tải ảnh đại diện qua AJAX hoặc form POST.
+    TASK 7: Avatar upload dùng SQL only.
+    """
+    uid = session.get('user_id')
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
     file = request.files.get('avatar')
 
-    if isinstance(uid, str) and uid.startswith('mongo:'):
-        mongo_id = uid[len('mongo:'):]
-        mongo_data = mongo_find_user_by_id(mongo_id)
-        if not mongo_data:
-            if is_ajax:
-                return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
-            flash(_t('flash.account_not_found'), 'error')
-            return redirect(url_for('account_profile'))
-        user = SimpleMongoUser(mongo_data)
-        ok, res = save_user_avatar(file, user.id, user.avatar)
-        if not ok:
-            msg = _t(res)
-            if is_ajax:
-                return jsonify({'success': False, 'message': msg}), 400
-            flash(msg, 'error')
-            return redirect(url_for('account_profile'))
-        col = get_mongo_users()
-        if col is not None:
-            from bson import ObjectId
-            col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": res}})
-        user.avatar = res
-        msg = _t('flash.avatar_updated')
+    # TASK 9: Guard legacy/invalid session
+    if uid and not isinstance(uid, int):
+        session.clear()
         if is_ajax:
-            return jsonify({'success': True, 'avatar_url': user.avatar_url, 'message': msg})
-        flash(msg, 'success')
-        return redirect(url_for('account_profile'))
+            return jsonify({'success': False, 'message': _t('flash.login_required')}), 401
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
 
     user = User.query.get(uid)
     if not user:
@@ -1459,30 +1282,19 @@ def upload_avatar_endpoint():
 @app.route('/account/avatar/remove', methods=['POST'])
 @login_required
 def remove_avatar_endpoint():
-    """Endpoint gỡ ảnh đại diện tùy chỉnh trở về ảnh mặc định."""
-    uid = session['user_id']
+    """Endpoint gỡ ảnh đại diện tùy chỉnh trở về ảnh mặc định.
+    TASK 7: Avatar remove dùng SQL only.
+    """
+    uid = session.get('user_id')
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
 
-    if isinstance(uid, str) and uid.startswith('mongo:'):
-        mongo_id = uid[len('mongo:'):]
-        mongo_data = mongo_find_user_by_id(mongo_id)
-        if not mongo_data:
-            if is_ajax:
-                return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
-            flash(_t('flash.account_not_found'), 'error')
-            return redirect(url_for('account_profile'))
-        user = SimpleMongoUser(mongo_data)
-        delete_user_avatar(user.avatar)
-        col = get_mongo_users()
-        if col is not None:
-            from bson import ObjectId
-            col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": None}})
-        user.avatar = None
-        msg = _t('flash.avatar_removed')
+    # TASK 9: Guard legacy/invalid session
+    if uid and not isinstance(uid, int):
+        session.clear()
         if is_ajax:
-            return jsonify({'success': True, 'avatar_url': user.avatar_url, 'initial': (user.name or 'U')[0].upper(), 'message': msg})
-        flash(msg, 'success')
-        return redirect(url_for('account_profile'))
+            return jsonify({'success': False, 'message': _t('flash.login_required')}), 401
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
 
     user = User.query.get(uid)
     if not user:
