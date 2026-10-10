@@ -9,6 +9,7 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file upload
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
+    PRIVATE_STORAGE_FOLDER = os.getenv('PRIVATE_STORAGE_FOLDER', os.path.join('instance', 'storage', 'private_verifications'))
 
 class DevelopmentConfig(Config):
     """Development configuration"""
@@ -19,19 +20,22 @@ class DevelopmentConfig(Config):
     )
 
 class ProductionConfig(Config):
-    """Production configuration"""
+    """Production configuration — Supabase PostgreSQL only."""
     DEBUG = False
 
-    # Try Supabase PostgreSQL first
+    # Supabase PostgreSQL—primary database
     SUPABASE_URL = os.getenv('SUPABASE_URL')
     SUPABASE_KEY = os.getenv('SUPABASE_KEY')
     SUPABASE_DB_URL = os.getenv('SUPABASE_DB_URL')
 
-    if SUPABASE_DB_URL:
-        SQLALCHEMY_DATABASE_URI = SUPABASE_DB_URL
+    # DATABASE_URL takes priority; SUPABASE_DB_URL is a documented alias.
+    # TASK 11: Không fallback SQLite. Nếu thiếu → app sẽ raise RuntimeError khi khởi động.
+    _db_url = os.getenv('DATABASE_URL') or os.getenv('SUPABASE_DB_URL')
+    if _db_url:
+        SQLALCHEMY_DATABASE_URI = _db_url
     else:
-        # Fallback to MongoDB if Supabase not configured
-        SQLALCHEMY_DATABASE_URI = os.getenv('MONGO_URI', 'sqlite:///instance/database.db')
+        # Fallback — sẽ bị ghi đè bởi logic fail-fast trong app.py nếu chạy trên Vercel/Render
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///instance/database.db'
 
 class TestingConfig(Config):
     """Testing configuration"""

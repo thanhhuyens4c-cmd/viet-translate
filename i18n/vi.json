@@ -19,7 +19,12 @@
     "lang_en": "English",
     "default_title": "VietTranslate | Nền Tảng Kết Nối Phiên Dịch Chuyên Nghiệp",
     "messages_tooltip": "Tin nhắn",
-    "notifications_tooltip": "Thông báo"
+    "notifications_tooltip": "Thông báo",
+    "my_jobs": "Việc làm của tôi",
+    "find_jobs": "Tìm việc",
+    "recommended_jobs": "Việc phù hợp",
+    "my_services": "Dịch vụ của tôi",
+    "my_schedule": "Lịch làm việc"
   },
   "footer": {
     "tagline": "Nền tảng kết nối ngôn ngữ hiện đại. Uy tín trong từng kết nối, chất lượng trong từng trải nghiệm giữa khách hàng và phiên dịch viên chuyên nghiệp.",
@@ -503,7 +508,21 @@
     "notif_new_messages": "Tin nhắn mới",
     "notif_new_reviews": "Đánh giá mới",
     "notif_contracts": "Cập nhật hợp đồng",
-    "save_preferences_btn": "Lưu cài đặt"
+    "save_preferences_btn": "Lưu cài đặt",
+    "heading_avatar": "Ảnh đại diện tài khoản",
+    "avatar_subtitle": "Tải lên ảnh chân dung rõ nét để tăng độ tin cậy và chuyên nghiệp",
+    "btn_upload_photo": "Tải ảnh mới lên",
+    "btn_change_photo": "Đổi ảnh khác",
+    "btn_remove_photo": "Gỡ ảnh hiện tại",
+    "avatar_guidelines": "Hỗ trợ định dạng JPG, PNG, WEBP, GIF. Dung lượng tối đa 5MB.",
+    "custom_avatar_badge": "Ảnh tùy chỉnh",
+    "default_avatar_badge": "Ảnh mặc định",
+    "select_photo_prompt": "Nhấn để chọn ảnh từ máy tính",
+    "modal_avatar_title": "Cập nhật ảnh đại diện",
+    "modal_avatar_preview": "Xem trước ảnh đại diện",
+    "btn_save_avatar": "Lưu ảnh đại diện",
+    "uploading_avatar": "Đang tải ảnh lên...",
+    "confirm_remove_avatar": "Bạn có chắc chắn muốn gỡ ảnh đại diện này?"
   },
   "common": {
     "all": "Tất cả",
@@ -555,7 +574,12 @@
     "already_applied": "Bạn đã gửi đề xuất cho công việc này rồi.",
     "missing_proposal_fields": "Không được để trống Giá đề xuất và Thời gian hoàn thành.",
     "proposal_sent": "Gửi đề xuất thành công!",
-    "message_sent": "Đã gửi tin nhắn!"
+    "message_sent": "Đã gửi tin nhắn!",
+    "avatar_updated": "Cập nhật ảnh đại diện thành công!",
+    "avatar_removed": "Đã gỡ ảnh đại diện thành công!",
+    "avatar_invalid_file": "Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WEBP, GIF)!",
+    "avatar_file_too_large": "Kích thước tệp vượt quá giới hạn 5MB!",
+    "avatar_upload_failed": "Có lỗi khi tải ảnh lên máy chủ, vui lòng thử lại!"
   },
   "auto": {
     "chờ_escrow": "Chờ Escrow",

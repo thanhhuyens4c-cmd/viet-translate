@@ -56,6 +56,47 @@ def _parse_date(value) -> date | None:
     return None
 
 
+def parse_date_range(value):
+    """
+    Parse a date string that may be a single date or a date range.
+
+    Supports:
+      - Single date: "2024-11-30"  → [date(2024, 11, 30)]
+      - Date range:  "2024-11-30 to 2024-12-02"  → [date(11/30), date(12/1), date(12/2)]
+
+    Returns:
+        list[date] – one entry per day in the range (inclusive).
+        Empty list if parsing fails entirely.
+    """
+    if value is None:
+        return []
+    raw = str(value).strip()
+    if not raw:
+        return []
+
+    # Check for range separator " to " (used by flatpickr range mode)
+    if ' to ' in raw:
+        parts = raw.split(' to ', 1)
+        start_date = _parse_date(parts[0].strip())
+        end_date = _parse_date(parts[1].strip())
+        if start_date and end_date and end_date >= start_date:
+            from datetime import timedelta
+            days = []
+            current = start_date
+            while current <= end_date:
+                days.append(current)
+                current += timedelta(days=1)
+            return days
+        elif start_date:
+            # End date invalid, return at least the start
+            return [start_date]
+        return []
+
+    # Single date
+    d = _parse_date(raw)
+    return [d] if d else []
+
+
 def _parse_time(value) -> time | None:
     """Try to parse *value* into a time. Returns None on failure."""
     if value is None:
@@ -268,3 +309,166 @@ def check_translator_schedule_conflict(
         if isinstance(exc, ScheduleCheckError):
             raise
         raise ScheduleCheckError("Không thể xác minh lịch của phiên dịch viên.") from exc
+
+
+# ─── MULTI-DAY BRIDGE FUNCTIONS (TASK 2) ──────────────────────────────────────
+# Các hàm này kết nối JobSchedule model mới với hạ tầng conflict checking hiện có.
+# parse_job_datetime() (legacy) được GIỮ NGUYÊN để backward compatibility.
+
+def parse_job_all_schedule_entries(job):
+    """
+    Trả về danh sách parsed schedule entries cho một Job.
+
+    Ưu tiên:
+    1. JobSchedule entries (multi-day với giờ riêng từng ngày)
+    2. Fallback: legacy fields (event_date, event_time_start, event_time_end)
+
+    Mỗi entry là dict:
+        {
+            'date':       date object,
+            'start_time': time object,
+            'end_time':   time object,
+            'date_str':   'YYYY-MM-DD' (string),
+            'date_display': 'DD/MM/YYYY' (string),
+        }
+
+    Chỉ trả về entries có đủ date + start + end hợp lệ (start < end).
+    Không raise exception — trả về [] nếu không có dữ liệu.
+
+    Đây là hàm trung tâm cho:
+    - TASK 4: schedule-check API (per-day conflict check)
+    - TASK 5: multi-day booking reservation
+    - TASK 6: job_detail hiển thị lịch
+    """
+    try:
+        from models import get_job_schedule_entries
+        raw_entries = get_job_schedule_entries(job)
+    except Exception as exc:
+        logger.exception("parse_job_all_schedule_entries: get_job_schedule_entries failed for job_id=%s", getattr(job, 'id', '?'))
+        raw_entries = []
+
+    parsed_entries = []
+
+    if raw_entries:
+        # JobSchedule entries hoặc legacy-converted entries
+        for entry in raw_entries:
+            raw_date_val = entry.get('scheduled_date')
+            raw_start_val = entry.get('start_time')
+            raw_end_val = entry.get('end_time')
+
+            d = _parse_date(raw_date_val)
+            t_start = _parse_time(raw_start_val)
+            t_end = _parse_time(raw_end_val)
+
+            # Chỉ thêm entry nếu đủ thông tin và hợp lệ
+            if d and t_start and t_end and t_end > t_start:
+                parsed_entries.append({
+                    'date': d,
+                    'start_time': t_start,
+                    'end_time': t_end,
+                    'date_str': d.strftime('%Y-%m-%d'),
+                    'date_display': d.strftime('%d/%m/%Y'),
+                })
+        return parsed_entries
+
+    # Fallback tuyệt đối: dùng parse_job_datetime() cũ cho job chỉ có 1 ngày legacy
+    try:
+        parsed = parse_job_datetime(job)
+        if is_schedule_complete(parsed):
+            d = parsed['date']
+            parsed_entries.append({
+                'date': d,
+                'start_time': parsed['start_time'],
+                'end_time': parsed['end_time'],
+                'date_str': d.strftime('%Y-%m-%d'),
+                'date_display': d.strftime('%d/%m/%Y'),
+            })
+    except ScheduleCheckError:
+        pass
+    except Exception as exc:
+        logger.warning("parse_job_all_schedule_entries fallback failed for job_id=%s: %s", getattr(job, 'id', '?'), exc)
+
+    return parsed_entries
+
+
+def check_job_schedule_conflicts(job, translator_id):
+    """
+    Kiểm tra conflict cho TẤT CẢ các ngày của một Job với lịch của translator.
+
+    Sử dụng parse_job_all_schedule_entries() để lấy danh sách ngày (JobSchedule ưu tiên, legacy fallback).
+
+    Returns:
+        dict:
+            {
+                'available': bool,          # True nếu tất cả ngày đều ok
+                'days': [                   # Chi tiết từng ngày
+                    {
+                        'date': 'YYYY-MM-DD',
+                        'date_display': 'DD/MM/YYYY',
+                        'available': bool,
+                        'message': str | None,    # None nếu available
+                        'conflict_start': str | None,
+                        'conflict_end': str | None,
+                    },
+                    ...
+                ],
+                'has_schedule': bool,       # False nếu job không có lịch cố định
+            }
+
+    Không raise exception — trả về {'available': True, 'has_schedule': False} nếu không có lịch.
+    Dùng cho TASK 4 schedule-check API.
+    """
+    entries = parse_job_all_schedule_entries(job)
+
+    if not entries:
+        return {'available': True, 'has_schedule': False, 'days': []}
+
+    all_available = True
+    day_results = []
+
+    for entry in entries:
+        try:
+            conflict_result = check_translator_schedule_conflict(
+                translator_id=translator_id,
+                scheduled_date=entry['date'],
+                start_time=entry['start_time'],
+                end_time=entry['end_time'],
+            )
+        except ScheduleCheckError as exc:
+            # Lỗi check → coi như conflict để an toàn
+            day_results.append({
+                'date': entry['date_str'],
+                'date_display': entry['date_display'],
+                'available': False,
+                'message': str(exc),
+                'conflict_start': None,
+                'conflict_end': None,
+            })
+            all_available = False
+            continue
+
+        if conflict_result.get('conflict'):
+            all_available = False
+            day_results.append({
+                'date': entry['date_str'],
+                'date_display': entry['date_display'],
+                'available': False,
+                'message': conflict_result.get('message', 'Lịch bị trùng.'),
+                'conflict_start': conflict_result.get('start_time'),
+                'conflict_end': conflict_result.get('end_time'),
+            })
+        else:
+            day_results.append({
+                'date': entry['date_str'],
+                'date_display': entry['date_display'],
+                'available': True,
+                'message': None,
+                'conflict_start': None,
+                'conflict_end': None,
+            })
+
+    return {
+        'available': all_available,
+        'has_schedule': True,
+        'days': day_results,
+    }

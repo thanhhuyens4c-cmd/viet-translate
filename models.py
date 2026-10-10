@@ -49,6 +49,7 @@ class User(db.Model):
     admin_role = db.Column(db.String(50), nullable=True) # 'super_admin', 'moderator', 'finance'
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    avatar = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     profile = db.relationship('TranslatorProfile', backref='user', uselist=False, cascade='all, delete-orphan')
@@ -61,6 +62,11 @@ class User(db.Model):
 
     @property
     def avatar_url(self):
+        if self.avatar:
+            if self.avatar.startswith('http://') or self.avatar.startswith('https://') or self.avatar.startswith('/'):
+                return self.avatar
+            return f'/static/uploads/avatars/{self.avatar}'
+
         email_map = {
             'trans_kr@test.com': '/static/avatars/avatar_dung.jpg',
             'trans_ru@test.com': '/static/avatars/avatar_ha.jpg',
@@ -91,6 +97,13 @@ class User(db.Model):
             return name_map[self.name.strip().lower()]
         return None
 
+    @property
+    def latest_verification(self):
+        """Trả về yêu cầu xác minh mới nhất của người dùng (nếu có)."""
+        if hasattr(self, 'verifications') and self.verifications:
+            return self.verifications[0]
+        return None
+
 
 class TranslatorProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -104,12 +117,18 @@ class TranslatorProfile(db.Model):
     total_jobs = db.Column(db.Integer, default=0)
     response_time = db.Column(db.String(50), default='2 giờ')
     is_verified = db.Column(db.Boolean, default=False)
+    certificates = db.Column(db.Text)
 
     services = db.relationship('Service', backref='profile', lazy=True)
 
     @property
     def avatar_url(self):
         return self.user.avatar_url if self.user else None
+
+    @property
+    def latest_verification(self):
+        """Trả về yêu cầu xác minh mới nhất của phiên dịch viên."""
+        return self.user.latest_verification if self.user else None
 
 
 class TranslatorPreference(db.Model):
@@ -188,7 +207,6 @@ class Job(db.Model):
     budget_min = db.Column(db.Integer)
     budget_max = db.Column(db.Integer)
     event_date = db.Column(db.String(100))
-    extra_dates = db.Column(db.String(200))  # các ngày bổ sung (YYYY-MM-DD, cách nhau bởi dấu phẩy); event_date là ngày đầu tiên
     event_time_start = db.Column(db.String(10))
     event_time_end = db.Column(db.String(10))
     event_location = db.Column(db.String(200))
@@ -199,6 +217,7 @@ class Job(db.Model):
 
     proposals = db.relationship('Proposal', backref='job', lazy=True, cascade='all, delete-orphan')
     contract = db.relationship('Contract', backref='job', uselist=False, cascade='all, delete-orphan')
+    schedules = db.relationship('JobSchedule', backref='job', lazy=True, cascade='all, delete-orphan', order_by='JobSchedule.scheduled_date')
 
     @property
     def display_category_group(self):
@@ -239,6 +258,175 @@ class Job(db.Model):
     @property
     def applicant_count(self):
         return Proposal.query.filter_by(job_id=self.id).count()
+
+
+# ─── JOB SCHEDULE MODEL (TASK 1 / TASK 2) ────────────────────────────────────
+
+class JobSchedule(db.Model):
+    """
+    Lưu lịch làm việc chi tiết cho từng ngày của một Job.
+    Mỗi ngày = một bản ghi, với giờ bắt đầu/kết thúc riêng.
+
+    Backward compatibility:
+    - Nếu Job có JobSchedule entries → dùng JobSchedule.
+    - Nếu không có → fallback về legacy fields (event_date, event_time_start, event_time_end).
+    """
+    __tablename__ = 'job_schedule'
+
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(
+        db.Integer,
+        db.ForeignKey('job.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+    scheduled_date = db.Column(db.Date, nullable=False)
+    start_time = db.Column(db.String(10), nullable=False)   # "HH:MM"
+    end_time = db.Column(db.String(10), nullable=False)     # "HH:MM"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        """Serialize sang dict để dùng trong API / template."""
+        return {
+            'id': self.id,
+            'job_id': self.job_id,
+            'scheduled_date': self.scheduled_date.strftime('%Y-%m-%d') if self.scheduled_date else None,
+            'scheduled_date_display': self.scheduled_date.strftime('%d/%m/%Y') if self.scheduled_date else None,
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+        }
+
+
+# ─── SCHEDULE HELPERS (TASK 1) ────────────────────────────────────────────────
+
+def get_job_schedule_entries(job):
+    """
+    Trả về danh sách schedule entries cho một Job.
+
+    Ưu tiên:
+    1. JobSchedule entries (multi-day với giờ riêng)
+    2. Fallback: legacy fields (event_date, event_time_start, event_time_end)
+
+    Returns:
+        list[dict] với keys: scheduled_date (date), start_time (str), end_time (str),
+                              scheduled_date_display (str)
+        Trả về list rỗng nếu không có dữ liệu hợp lệ.
+    """
+    # Ưu tiên JobSchedule entries
+    if job.schedules:
+        return [s.to_dict() for s in sorted(job.schedules, key=lambda s: s.scheduled_date)]
+
+    # Fallback: legacy fields
+    event_date = getattr(job, 'event_date', None)
+    event_time_start = getattr(job, 'event_time_start', None)
+    event_time_end = getattr(job, 'event_time_end', None)
+
+    if not event_date:
+        return []
+
+    # Parse date range ("2024-11-30 to 2024-12-02" hoặc single date)
+    try:
+        from services.schedule import parse_date_range
+        dates = parse_date_range(event_date)
+    except Exception:
+        return []
+
+    if not dates:
+        return []
+
+    entries = []
+    for d in dates:
+        entries.append({
+            'id': None,
+            'job_id': job.id,
+            'scheduled_date': d.strftime('%Y-%m-%d'),
+            'scheduled_date_display': d.strftime('%d/%m/%Y'),
+            'start_time': event_time_start or '',
+            'end_time': event_time_end or '',
+            'is_legacy': True,
+        })
+    return entries
+
+
+def validate_schedule_entries(entries):
+    """
+    Validate danh sách schedule entries từ form hoặc API.
+
+    Args:
+        entries: list[dict] với keys: scheduled_date (str), start_time (str), end_time (str)
+
+    Returns:
+        (is_valid: bool, errors: list[dict])
+        errors: list[{'index': int, 'field': str, 'message': str}]
+
+    Raises không có exception — luôn trả về tuple.
+    """
+    from datetime import datetime, date as date_type
+
+    if not entries:
+        return False, [{'index': 0, 'field': 'entries', 'message': 'Phải có ít nhất một ngày làm việc.'}]
+
+    errors = []
+    seen_dates = set()
+    DATE_FMTS = ['%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y']
+    TIME_FMTS = ['%H:%M', '%H:%M:%S']
+
+    def _parse_date(val):
+        for fmt in DATE_FMTS:
+            try:
+                return datetime.strptime(str(val).strip(), fmt).date()
+            except ValueError:
+                continue
+        return None
+
+    def _parse_time(val):
+        for fmt in TIME_FMTS:
+            try:
+                return datetime.strptime(str(val).strip(), fmt).time()
+            except ValueError:
+                continue
+        return None
+
+    for i, entry in enumerate(entries):
+        raw_date = (entry.get('scheduled_date') or '').strip()
+        raw_start = (entry.get('start_time') or '').strip()
+        raw_end = (entry.get('end_time') or '').strip()
+
+        # Validate date
+        parsed_date = _parse_date(raw_date) if raw_date else None
+        if not raw_date:
+            errors.append({'index': i, 'field': 'scheduled_date', 'message': f'Ngày {i+1} chưa được chọn.'})
+        elif parsed_date is None:
+            errors.append({'index': i, 'field': 'scheduled_date', 'message': f'Ngày {i+1} không hợp lệ.'})
+        elif parsed_date < datetime.utcnow().date():
+            errors.append({'index': i, 'field': 'scheduled_date', 'message': f'Ngày {i+1} không được nằm trong quá khứ.'})
+        elif raw_date in seen_dates or (parsed_date and parsed_date.strftime('%Y-%m-%d') in seen_dates):
+            errors.append({'index': i, 'field': 'scheduled_date', 'message': f'Ngày {i+1} đã bị trùng với một ngày khác.'})
+        else:
+            if parsed_date:
+                seen_dates.add(parsed_date.strftime('%Y-%m-%d'))
+
+        # Validate start_time
+        parsed_start = _parse_time(raw_start) if raw_start else None
+        if not raw_start:
+            errors.append({'index': i, 'field': 'start_time', 'message': f'Ngày {i+1} chưa có giờ bắt đầu.'})
+        elif parsed_start is None:
+            errors.append({'index': i, 'field': 'start_time', 'message': f'Giờ bắt đầu ngày {i+1} không hợp lệ.'})
+
+        # Validate end_time
+        parsed_end = _parse_time(raw_end) if raw_end else None
+        if not raw_end:
+            errors.append({'index': i, 'field': 'end_time', 'message': f'Ngày {i+1} chưa có giờ kết thúc.'})
+        elif parsed_end is None:
+            errors.append({'index': i, 'field': 'end_time', 'message': f'Giờ kết thúc ngày {i+1} không hợp lệ.'})
+
+        # Validate start < end
+        if parsed_start and parsed_end and parsed_end <= parsed_start:
+            errors.append({'index': i, 'field': 'end_time', 'message': f'Ngày {i+1}: Giờ kết thúc phải sau giờ bắt đầu.'})
+
+    is_valid = len(errors) == 0
+    return is_valid, errors
 
 
 class Proposal(db.Model):
@@ -290,6 +478,7 @@ class Message(db.Model):
     contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False)
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    image_url = db.Column(db.Text, nullable=True)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -306,6 +495,7 @@ class DirectMessage(db.Model):
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    image_url = db.Column(db.Text, nullable=True)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -363,7 +553,10 @@ NOTIFICATION_TYPES = {
     'CONTRACT_CREATED': 'CONTRACT_CREATED',
     'PAYMENT': 'PAYMENT',
     'CONTRACT_COMPLETED': 'CONTRACT_COMPLETED',
-    'NEW_REVIEW': 'NEW_REVIEW'
+    'NEW_REVIEW': 'NEW_REVIEW',
+    'VERIFICATION_SUBMITTED': 'VERIFICATION_SUBMITTED',
+    'VERIFICATION_APPROVED': 'VERIFICATION_APPROVED',
+    'VERIFICATION_REJECTED': 'VERIFICATION_REJECTED'
 }
 
 
@@ -373,7 +566,7 @@ SCHEDULE_STATUS = ('reserved', 'active', 'completed', 'cancelled')
 class TranslatorSchedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
-    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True, unique=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True)
     job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)
 
@@ -391,7 +584,7 @@ class TranslatorSchedule(db.Model):
     expires_at = db.Column(db.DateTime, nullable=True, index=True)
 
     translator = db.relationship('User', backref=db.backref('schedules', lazy=True))
-    contract = db.relationship('Contract', backref=db.backref('schedule', uselist=False))
+    contract = db.relationship('Contract')
 
 
 # ─── REPORT MODEL (TASK 11) ────────────────────────────────────────────────────
@@ -588,3 +781,172 @@ class AdminAuditLog(db.Model):
         )
         db.session.add(entry)
         return entry
+
+
+# ─── TRANSLATOR VERIFICATION MODEL ────────────────────────────────────────────
+
+class TranslatorVerification(db.Model):
+    """
+    Hồ sơ xác minh năng lực và danh tính của phiên dịch viên.
+    Lưu trữ tài liệu CV, bằng cấp/chứng chỉ, kinh nghiệm và trạng thái xét duyệt của Admin.
+    """
+    __tablename__ = 'translator_verification'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+
+    # Tài liệu đính kèm
+    cv_filename = db.Column(db.String(255), nullable=True)
+    cv_url = db.Column(db.String(500), nullable=True)
+    certificate_filename = db.Column(db.String(255), nullable=True)
+    certificate_url = db.Column(db.String(500), nullable=True)
+    id_card_filename = db.Column(db.String(255), nullable=True)
+    id_card_url = db.Column(db.String(500), nullable=True)
+
+    # Thông tin chuyên môn
+    certificate_type = db.Column(db.String(100), nullable=True)  # IELTS, JLPT, HSK, TOPIK, Bằng ĐH, ...
+    certificate_name = db.Column(db.String(255), nullable=True)  # Điểm / Chi tiết (VD: IELTS 8.0, JLPT N1)
+    primary_language = db.Column(db.String(100), nullable=True)  # Ngôn ngữ thế mạnh
+    experience_years = db.Column(db.Integer, default=0)
+    notes = db.Column(db.Text, nullable=True)                    # Lời nhắn / mô tả kinh nghiệm gửi Admin
+
+    # Tiến trình biểu mẫu nhiều bước & Dữ liệu nháp
+    current_step = db.Column(db.Integer, default=1)
+    draft_data = db.Column(db.Text, nullable=True)
+
+    # Bước 1: Thông tin cá nhân
+    full_name = db.Column(db.String(100), nullable=True)
+    phone = db.Column(db.String(20), nullable=True)
+    gender = db.Column(db.String(20), nullable=True)
+    dob = db.Column(db.String(20), nullable=True)
+    location = db.Column(db.String(100), nullable=True)
+    bio = db.Column(db.Text, nullable=True)
+
+    # Bước 2: Ngôn ngữ & Chiều phiên dịch
+    source_language = db.Column(db.String(100), nullable=True)
+    target_language = db.Column(db.String(100), nullable=True)
+    interpreting_direction = db.Column(db.String(50), nullable=True)
+    language_proficiency = db.Column(db.String(50), nullable=True)
+
+    # Bước 3: Lĩnh vực chuyên môn & Hình thức phiên dịch
+    specializations = db.Column(db.Text, nullable=True)
+    interpreting_types = db.Column(db.Text, nullable=True)
+
+    # Bước 4: Học vấn & Chứng chỉ
+    education_level = db.Column(db.String(100), nullable=True)
+    university = db.Column(db.String(255), nullable=True)
+    major = db.Column(db.String(255), nullable=True)
+    cert_year = db.Column(db.Integer, nullable=True)
+
+    # Bước 5: Kinh nghiệm nghề nghiệp
+    current_position = db.Column(db.String(255), nullable=True)
+    notable_clients = db.Column(db.Text, nullable=True)
+    featured_projects = db.Column(db.Text, nullable=True)
+
+    # Trạng thái xét duyệt: 'draft', 'pending', 'approved', 'rejected'
+    status = db.Column(db.String(20), default='draft', index=True)
+    rejection_reason = db.Column(db.Text, nullable=True)
+
+    # Xét duyệt bởi Admin
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('verifications', lazy=True, cascade='all, delete-orphan', order_by='desc(TranslatorVerification.created_at)'))
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref=db.backref('reviewed_verifications', lazy=True))
+
+    def get_draft_dict(self):
+        """Trả về dictionary chứa dữ liệu nháp của tất cả các bước."""
+        data = {}
+        if self.draft_data:
+            try:
+                data = json.loads(self.draft_data)
+            except Exception:
+                data = {}
+        
+        field_names = [
+            'full_name', 'phone', 'gender', 'dob', 'location', 'bio',
+            'source_language', 'target_language', 'interpreting_direction', 'language_proficiency',
+            'specializations', 'interpreting_types',
+            'education_level', 'university', 'major', 'certificate_type', 'certificate_name', 'cert_year',
+            'experience_years', 'current_position', 'notable_clients', 'featured_projects', 'notes'
+        ]
+        for f in field_names:
+            if f not in data or data[f] is None or data[f] == '':
+                val = getattr(self, f, None)
+                if val is not None:
+                    data[f] = val
+
+        if 'current_step' not in data:
+            data['current_step'] = self.current_step or 1
+
+        return data
+
+
+# ─── VERIFICATION DOCUMENT MODEL (PRIVATE STORAGE) ────────────────────────────
+
+class VerificationDocument(db.Model):
+    """
+    Tài liệu minh chứng cho hồ sơ xác minh phiên dịch viên.
+    Lưu trữ riêng tư (Private Storage), hỗ trợ siêu dữ liệu (metadata),
+    kiểm tra quyền truy cập nghiêm ngặt và theo dõi trạng thái thẩm định.
+    """
+    __tablename__ = 'verification_document'
+
+    id = db.Column(db.Integer, primary_key=True)
+    verification_id = db.Column(db.Integer, db.ForeignKey('translator_verification.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+
+    # Loại tài liệu chính sách: 'cv', 'certificate', 'id_card', 'diploma', 'recommendation'
+    document_type = db.Column(db.String(50), nullable=False, index=True)
+
+    # Tên tệp gốc & tên tệp an toàn trong private storage
+    original_filename = db.Column(db.String(255), nullable=False)
+    stored_filename = db.Column(db.String(255), nullable=False, unique=True, index=True)
+
+    # Nhà cung cấp lưu trữ ('local_private' hoặc 'supabase_private')
+    storage_provider = db.Column(db.String(50), default='local_private')
+    storage_path = db.Column(db.String(500), nullable=False)
+
+    # Metadata tệp
+    file_size = db.Column(db.Integer, nullable=False, default=0)  # bytes
+    mime_type = db.Column(db.String(100), nullable=False)
+    file_extension = db.Column(db.String(20), nullable=False)
+    file_hash = db.Column(db.String(64), nullable=True)
+
+    # Trạng thái thẩm định: 'uploaded', 'approved', 'rejected', 'replaced'
+    status = db.Column(db.String(30), default='uploaded', index=True)
+    review_notes = db.Column(db.Text, nullable=True)
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+
+    # Đánh dấu tệp hiện thời
+    is_active = db.Column(db.Boolean, default=True, index=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    verification = db.relationship('TranslatorVerification', backref=db.backref('documents', lazy=True, cascade='all, delete-orphan', order_by='desc(VerificationDocument.created_at)'))
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('uploaded_verification_documents', lazy=True))
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref=db.backref('reviewed_verification_documents', lazy=True))
+
+    def to_dict(self):
+        """Chuyển đổi thành dictionary cho JSON response."""
+        return {
+            'id': self.id,
+            'verification_id': self.verification_id,
+            'document_type': self.document_type,
+            'original_filename': self.original_filename,
+            'file_size': self.file_size,
+            'mime_type': self.mime_type,
+            'file_extension': self.file_extension,
+            'status': self.status,
+            'review_notes': self.review_notes,
+            'reviewed_at': self.reviewed_at.strftime('%d/%m/%Y %H:%M') if self.reviewed_at else None,
+            'is_active': self.is_active,
+            'created_at': self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else None,
+            'can_preview': self.file_extension in ('pdf', 'jpg', 'jpeg', 'png', 'webp')
+        }

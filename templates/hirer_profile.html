@@ -5,11 +5,24 @@
 {% block content %}
 <div class="mesh-hero-bg border-b border-slate-200/70 py-12 md:py-16">
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-    <div class="w-24 h-24 mx-auto bg-gradient-to-br from-brand-600 to-indigo-600 rounded-3xl flex items-center justify-center text-white text-4xl font-extrabold shadow-md mb-6 transform -rotate-3 hover:rotate-0 transition duration-300">
-      {% if profile and profile.logo %}
-      <img src="{{ profile.logo }}" alt="{{ user.name }}" class="w-full h-full object-cover rounded-3xl">
-      {% else %}
-      {{ (profile.company if profile and profile.is_business and profile.company else user.name)[:1]|upper }}
+    {% set hirer_avatar = user.avatar_url or (profile.logo if profile and profile.logo else None) %}
+    <div class="relative w-24 h-24 mx-auto mb-6 group">
+      <div class="w-full h-full rounded-3xl overflow-hidden shadow-lg border-2 border-white/90 bg-slate-100 flex items-center justify-center">
+        {% if hirer_avatar %}
+        <img src="{{ hirer_avatar }}" alt="{{ user.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover">
+        {% endif %}
+        <div style="{% if hirer_avatar %}display:none;{% else %}display:flex;{% endif %}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 flex items-center justify-center text-white text-4xl font-extrabold transform -rotate-3 hover:rotate-0 transition duration-300">
+          {{ user.name[:1]|upper }}
+        </div>
+      </div>
+      {% if current_user and current_user.id == user.id %}
+      <a href="{{ url_for('account_profile') }}" title="{{ t('account_profile_page.btn_change_photo') }}"
+        class="absolute -bottom-1 -right-1 p-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-md border-2 border-white transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </a>
       {% endif %}
     </div>
 

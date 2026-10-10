@@ -274,19 +274,19 @@
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'translator_list' %}active text-brand-600 font-bold{% endif %}">{{
                         t('nav.find_translators') }}</a>
                     <a href="{{ url_for('account_history') }}"
-                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_history' %}active text-brand-600 font-bold{% endif %}">Việc
-                        làm của tôi</a>
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_history' %}active text-brand-600 font-bold{% endif %}">{{
+                        t('nav.my_jobs') }}</a>
                     {% elif current_user and current_user.role == 'translator' %}
                     <a href="{{ url_for('job_list') }}"
-                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and not request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">Tìm
-                        việc</a>
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and not request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">{{
+                        t('nav.find_jobs') }}</a>
                     <a href="{{ url_for('job_list', recommended=1) }}"
-                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">Việc
-                        phù hợp</a>
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">{{
+                        t('nav.recommended_jobs') }}</a>
                     <a href="{{ url_for('account_profile') }}"
-                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_profile' %}active text-brand-600 font-bold{% endif %}">Dịch
-                        vụ của tôi</a>
-                    <a href="#" class="nav-item hover:text-brand-600 py-1">Lịch làm việc</a>
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_profile' %}active text-brand-600 font-bold{% endif %}">{{
+                        t('nav.my_services') }}</a>
+                    <a href="{{ url_for('my_schedule') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.my_schedule') }}</a>
                     {% else %}
                     <!-- Guest -->
                     <a href="{{ url_for('translator_list') }}"
@@ -372,8 +372,13 @@
                                 <button
                                     class="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-full pl-2 pr-3 py-1 transition">
                                     <div
-                                        class="w-7 h-7 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 text-white text-xs font-bold flex items-center justify-center shadow-xs">
-                                        {{ current_user.name[:1] | upper if current_user.name else 'U' }}
+                                        class="w-7 h-7 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 text-white text-xs font-bold flex items-center justify-center shadow-xs overflow-hidden">
+                                        {% if current_user.avatar_url %}
+                                        <img src="{{ current_user.avatar_url }}" alt="{{ current_user.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover">
+                                        {% endif %}
+                                        <span style="{% if current_user.avatar_url %}display:none;{% else %}display:flex;{% endif %}" class="w-full h-full items-center justify-center">
+                                            {{ current_user.name[:1] | upper if current_user.name else 'U' }}
+                                        </span>
                                     </div>
                                     <span
                                         class="hidden sm:block text-xs font-semibold text-slate-700 max-w-[90px] truncate">
