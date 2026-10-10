@@ -48,32 +48,34 @@
                     </span>
                 </div>
 
-                {% if job.status == 'pending_review' %}
-                <div class="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium">
-                    ⏳ {{ 'Job đã gửi, đang chờ admin duyệt. Job sẽ hiển thị trên trang chính sau khi được duyệt.' if current_lang == 'vi' else 'Job submitted and awaiting admin approval. It will appear publicly once approved.' }}
-                </div>
-                {% elif job.status == 'rejected' %}
-                <div class="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm font-medium">
-                    {{ 'Job chưa được duyệt. Vui lòng đăng lại với nội dung chỉnh sửa.' if current_lang == 'vi' else 'This job was not approved. Please submit a revised job.' }}
-                </div>
-                {% endif %}
                 <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-6">
                     {{ job.title }}
                 </h1>
 
-                {% if job.event_date or job.event_location %}
-                <div
-                    class="bg-slate-50 rounded-xl p-4 border border-slate-200/70 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
-                    {% if job.event_date %}
+                {% if job.event_date or job.event_location or job.schedules %}
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/70 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
+                    {% if job.schedules %}
+                    <div class="flex items-start gap-2">
+                        <span class="text-base mt-0.5">📅</span>
+                        <div>
+                            <span>{{ t('job_detail_page.time_label') }}</span>
+                            <ul class="mt-1 space-y-1">
+                                {% for sched in job.schedules %}
+                                <li><strong class="text-slate-800 font-semibold">{{ sched.scheduled_date.strftime('%d/%m/%Y') if sched.scheduled_date else '' }}</strong> ({{ sched.start_time }} - {{ sched.end_time }})</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% elif job.event_date %}
                     <div class="flex items-center gap-2">
                         <span class="text-base">📅</span>
-                        <span>{{ t('job_detail_page.time_label') }} <strong class="text-slate-800 font-semibold">{{
-                                job.event_date }}</strong></span>
+                        <span>{{ t('job_detail_page.time_label') }} <strong class="text-slate-800 font-semibold">{{ job.event_date }}</strong></span>
                     </div>
                     {% endif %}
+
                     {% if job.event_location %}
-                    <div class="flex items-center gap-2">
-                        <span class="text-base">📍</span>
+                    <div class="flex items-start gap-2">
+                        <span class="text-base mt-0.5">📍</span>
                         <span>{{ t('job_detail_page.location_label') }} <strong class="text-slate-800 font-semibold">{{
                                 job.event_location }}</strong></span>
                     </div>
@@ -247,10 +249,21 @@
                                 badge.textContent = "{{ t('job_detail_page.schedule_available') }}";
                                 badge.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
                             } else {
-                                badge.innerHTML = "{{ t('job_detail_page.schedule_conflict_prefix') }} "
-                                    + `(${data.conflict_start}–${data.conflict_end}). `
-                                    + "{{ t('job_detail_page.schedule_conflict_suffix') }}";
-                                badge.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
+                                let conflictMsg = "<div>⚠️ <strong>" + "{{ t('job_detail_page.schedule_conflict_prefix') }}" + "</strong><ul class='mt-1 ml-4 list-disc text-xs font-normal space-y-1'>";
+                                if (data.days && data.days.length > 0) {
+                                    data.days.forEach(day => {
+                                        if (!day.available) {
+                                            conflictMsg += `<li><span class='font-bold'>${day.date_display}:</span> ${day.message}</li>`;
+                                        }
+                                    });
+                                } else {
+                                    conflictMsg += `<li>${data.message || 'Lịch bị trùng'}</li>`;
+                                }
+                                conflictMsg += "</ul></div>";
+                                
+                                badge.innerHTML = conflictMsg;
+                                badge.classList.remove('flex', 'items-center', 'gap-2'); // Đổi sang block hiển thị list tốt hơn
+                                badge.classList.add('bg-red-50', 'text-red-800', 'border-red-200', 'block');
                                 btn.classList.replace('bg-brand-600', 'bg-slate-400');
                                 btn.classList.remove('hover:bg-brand-700');
 

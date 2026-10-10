@@ -34,7 +34,7 @@
     </div>
 
     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-10">
-        <form method="POST" action="{{ url_for('post_job') }}" class="space-y-8" id="post-job-form">
+        <form method="POST" action="{{ url_for('post_job') }}" class="space-y-8">
             
             <!-- Step 1: Cơ bản -->
             <div class="border-b border-slate-100 pb-8">
@@ -171,46 +171,16 @@
 
                     <!-- Lịch trình & Địa điểm -->
                     <div class="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 space-y-4">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">{{ t('post_job_page.schedule_section_title') }}</h3>
-
-                        <div>
-                            <label class="block text-slate-600 font-medium mb-1.5 text-xs">
-                                {{ t('post_job_page.event_date_picker_label') }}
-                            </label>
-                            <div class="relative">
-                                <input type="text" id="event-date-display" placeholder="{{ t('post_job_page.date_picker_placeholder') }}"
-                                    class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white cursor-pointer"
-                                    readonly>
-                                <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                <input type="hidden" name="event_date" id="event-date-hidden">
-                            </div>
-                            <div id="extra-dates-list" class="space-y-2 mt-2"></div>
-                            <button type="button" id="add-day-btn" onclick="addExtraDate()" class="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 border border-brand-200 bg-white hover:bg-brand-50 px-3 py-1.5 rounded-lg transition cursor-pointer">
-                                <span class="text-base leading-none">+</span> {{ 'Thêm ngày' if current_lang == 'vi' else 'Add day' }}
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">{{ t('post_job_page.schedule_section_title') }}</h3>
+                            <button type="button" onclick="addScheduleRow()" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                {{ 'Thêm ngày' if current_lang == 'vi' else 'Add day' }}
                             </button>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-slate-600 font-medium mb-1.5 text-xs">{{ t('post_job_page.time_start_label') }}</label>
-                                <div class="relative">
-                                    <input type="text" id="time-start-input" placeholder="--:--"
-                                        class="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white text-center cursor-pointer"
-                                        readonly>
-                                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    <input type="hidden" name="event_time_start" id="event-time-start-hidden">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-slate-600 font-medium mb-1.5 text-xs">{{ t('post_job_page.time_end_label') }}</label>
-                                <div class="relative">
-                                    <input type="text" id="time-end-input" placeholder="--:--"
-                                        class="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white text-center cursor-pointer"
-                                        readonly>
-                                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    <input type="hidden" name="event_time_end" id="event-time-end-hidden">
-                                </div>
-                            </div>
+                        <div id="schedule-container" class="space-y-3">
+                            <!-- Các ngày làm việc sẽ được thêm bằng Javascript ở đây -->
                         </div>
 
                         <div>
@@ -224,7 +194,7 @@
             </div>
             
             <div class="flex justify-end pt-6 border-t border-slate-100">
-                <button type="submit" id="submit-job-btn" class="bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 px-8 rounded-xl transition shadow-sm text-xs sm:text-sm">
+                <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-sm text-xs sm:text-sm">
                     {{ t('post_job_page.submit_btn') }}
                 </button>
             </div>
@@ -235,76 +205,97 @@
 
 {% block scripts %}
 <script>
-flatpickr('#event-date-display', {
-    {% if current_lang == 'vi' %}locale: 'vn',{% endif %}
-    minDate: 'today',
-    dateFormat: 'Y-m-d',
-    altInput: true,
-    altFormat: 'D, d/m/Y',
-    onChange: function(sel, str) {
-        document.getElementById('event-date-hidden').value = str;
-    }
-});
+let scheduleRowCount = 0;
 
-function addExtraDate() {
-    const list = document.getElementById('extra-dates-list');
-    const row = document.createElement('div');
-    row.className = 'flex items-center gap-2';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.name = 'extra_dates';
-    input.readOnly = true;
-    input.placeholder = "{{ t('post_job_page.date_picker_placeholder') }}";
-    input.className = 'w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white cursor-pointer';
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.textContent = '✕';
-    remove.className = 'text-slate-400 hover:text-red-500 font-bold px-2 cursor-pointer';
-    remove.onclick = function() { row.remove(); };
-    row.appendChild(input);
-    row.appendChild(remove);
-    list.appendChild(row);
-    const fp = flatpickr(input, {
+function addScheduleRow() {
+    scheduleRowCount++;
+    const idx = scheduleRowCount; // chỉ số riêng của dòng này, tránh callback ghi nhầm vào dòng mới nhất
+    const rowId = 'schedule-row-' + scheduleRowCount;
+    const container = document.getElementById('schedule-container');
+    
+    const rowHtml = `
+        <div id="${rowId}" class="flex flex-col sm:flex-row gap-3 p-3 bg-white border border-slate-200 rounded-xl relative group">
+            <div class="flex-1">
+                <label class="block text-slate-600 font-medium mb-1 text-[10px] uppercase">{{ 'Ngày' if current_lang == 'vi' else 'Date' }} <span class="text-red-500">*</span></label>
+                <div class="relative">
+                    <input type="text" id="date-display-${scheduleRowCount}" placeholder="{{ t('post_job_page.date_picker_placeholder') }}" class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer bg-slate-50" readonly required>
+                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <input type="hidden" name="scheduled_date[]" id="date-hidden-${scheduleRowCount}">
+                </div>
+            </div>
+            <div class="w-full sm:w-28">
+                <label class="block text-slate-600 font-medium mb-1 text-[10px] uppercase">{{ 'Bắt đầu' if current_lang == 'vi' else 'Start' }} <span class="text-red-500">*</span></label>
+                <div class="relative">
+                    <input type="text" id="time-start-${scheduleRowCount}" placeholder="--:--" class="w-full pl-8 pr-2 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer bg-slate-50 text-center" readonly required>
+                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <input type="hidden" name="start_time[]" id="time-start-hidden-${scheduleRowCount}">
+                </div>
+            </div>
+            <div class="w-full sm:w-28">
+                <label class="block text-slate-600 font-medium mb-1 text-[10px] uppercase">{{ 'Kết thúc' if current_lang == 'vi' else 'End' }} <span class="text-red-500">*</span></label>
+                <div class="relative">
+                    <input type="text" id="time-end-${scheduleRowCount}" placeholder="--:--" class="w-full pl-8 pr-2 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer bg-slate-50 text-center" readonly required>
+                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <input type="hidden" name="end_time[]" id="time-end-hidden-${scheduleRowCount}">
+                </div>
+            </div>
+            <div class="flex items-end pb-0.5">
+                <button type="button" onclick="removeScheduleRow('${rowId}')" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Xóa">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', rowHtml);
+    
+    // Init flatpickr for new row
+    flatpickr('#date-display-' + idx, {
         {% if current_lang == 'vi' %}locale: 'vn',{% endif %}
         minDate: 'today',
         dateFormat: 'Y-m-d',
         altInput: true,
         altFormat: 'D, d/m/Y',
-        altInputClass: input.className
+        onChange: function(sel, str) {
+            document.getElementById('date-hidden-' + idx).value = str;
+        }
     });
-    fp.open();
+
+    flatpickr('#time-start-' + idx, {
+        enableTime: true,
+        noCalendar: true,
+        dateFormat: 'H:i',
+        time_24hr: true,
+        minuteIncrement: 15,
+        defaultHour: 8,
+        onChange: function(sel, str) {
+            document.getElementById('time-start-hidden-' + idx).value = str;
+        }
+    });
+
+    flatpickr('#time-end-' + idx, {
+        enableTime: true,
+        noCalendar: true,
+        dateFormat: 'H:i',
+        time_24hr: true,
+        minuteIncrement: 15,
+        defaultHour: 17,
+        onChange: function(sel, str) {
+            document.getElementById('time-end-hidden-' + idx).value = str;
+        }
+    });
 }
 
-// Chống gửi trùng: khoá nút sau lần bấm đầu
-document.getElementById('post-job-form').addEventListener('submit', function() {
-    const btn = document.getElementById('submit-job-btn');
-    if (btn.disabled) return;
-    setTimeout(function() { btn.disabled = true; }, 0);
-});
-
-flatpickr('#time-start-input', {
-    enableTime: true,
-    noCalendar: true,
-    dateFormat: 'H:i',
-    time_24hr: true,
-    minuteIncrement: 15,
-    defaultHour: 8,
-    onChange: function(sel, str) {
-        document.getElementById('event-time-start-hidden').value = str;
+function removeScheduleRow(rowId) {
+    const row = document.getElementById(rowId);
+    if (row) {
+        row.remove();
+        // Giữ lại ít nhất 1 dòng
+        if (document.getElementById('schedule-container').children.length === 0) {
+            addScheduleRow();
+        }
     }
-});
-
-flatpickr('#time-end-input', {
-    enableTime: true,
-    noCalendar: true,
-    dateFormat: 'H:i',
-    time_24hr: true,
-    minuteIncrement: 15,
-    defaultHour: 17,
-    onChange: function(sel, str) {
-        document.getElementById('event-time-end-hidden').value = str;
-    }
-});
+}
 
 const serviceData = {% if current_lang == 'en' %}true{% else %}false{% endif %} ? {
     translation: {
@@ -425,6 +416,8 @@ function syncRangeInputs() {
 // Initialize on load
 document.addEventListener('DOMContentLoaded', function() {
     updateServiceTypes();
+    // Khởi tạo dòng đầu tiên
+    addScheduleRow();
 });
 </script>
 {% endblock %}
