@@ -1087,6 +1087,713 @@ def index():
     latest_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).order_by(Job.created_at.desc()).limit(4).all()
     return render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
 
+
+@app.route('/interpreter/dashboard')
+@login_required
+def interpreter_dashboard():
+    """Trang Tổng quan dành riêng cho phiên dịch viên."""
+    from datetime import date as date_cls, timedelta
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
+    if user.role != 'translator':
+        return redirect(url_for('index'))
+
+    uid = user.id
+
+    # ── 1. Hồ sơ & xác minh ──────────────────────────────────────────────────
+    profile = user.profile
+    preference = getattr(user, 'preference', None)
+
+    # Tiêu chí hoàn thiện hồ sơ có căn cứ rõ ràng từ các trường dữ liệu thực tế:
+    # 1. Họ và tên: 15% (user.name)
+    # 2. Số điện thoại: 10% (user.phone)
+    # 3. Tiêu đề chuyên môn: 15% (profile.title)
+    # 4. Ngôn ngữ thông thạo: 20% (profile.languages)
+    # 5. Bằng cấp / Chứng chỉ: 15% (profile.badges)
+    # 6. Giới thiệu bản thân: 15% (profile.bio)
+    # 7. Cài đặt nhận việc / Dịch vụ: 10% (preference.service_types hoặc profile.services)
+    profile_completeness = 0
+    profile_missing = []
+
+    # 1. Họ và tên
+    if user.name and user.name.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Họ và tên')
+
+    # 2. Số điện thoại
+    if user.phone and user.phone.strip():
+        profile_completeness += 10
+    else:
+        profile_missing.append('Số điện thoại')
+
+    # 3. Tiêu đề chuyên môn
+    if profile and profile.title and profile.title.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Tiêu đề chuyên môn')
+
+    # 4. Ngôn ngữ thông thạo
+    if profile and profile.languages and profile.languages.strip():
+        profile_completeness += 20
+    else:
+        profile_missing.append('Ngôn ngữ thông thạo')
+
+    # 5. Bằng cấp / Chứng chỉ (căn cứ kiểm duyệt xác minh)
+    if profile and profile.badges and profile.badges.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Bằng cấp / Chứng chỉ')
+
+    # 6. Giới thiệu bản thân
+    if profile and profile.bio and profile.bio.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Giới thiệu bản thân')
+
+    # 7. Cài đặt nhận việc / Dịch vụ
+    has_services = False
+    if profile and getattr(profile, 'services', None) and len(profile.services) > 0:
+        has_services = True
+    elif preference and getattr(preference, 'service_types', None) and preference.service_types.strip():
+        has_services = True
+
+    if has_services:
+        profile_completeness += 10
+    else:
+        profile_missing.append('Dịch vụ / Cài đặt nhận việc')
+
+    # Xác định trạng thái xác minh thực tế:
+    if not profile:
+        verification_status = {
+            'code': 'no_profile',
+            'label': 'Chưa tạo hồ sơ',
+            'color': 'slate',
+            'badge_bg': 'bg-slate-100',
+            'badge_text': 'text-slate-600',
+            'badge_border': 'border-slate-200',
+            'tooltip': 'Chưa có thông tin hồ sơ phiên dịch viên.',
+            'action_hint': 'Vui lòng khởi tạo hồ sơ cá nhân.',
+        }
+    elif profile.is_verified:
+        verification_status = {
+            'code': 'verified',
+            'label': 'Đã xác minh',
+            'color': 'emerald',
+            'badge_bg': 'bg-emerald-50',
+            'badge_text': 'text-emerald-700',
+            'badge_border': 'border-emerald-200',
+            'tooltip': 'Hồ sơ và chứng chỉ đã được Ban quản trị VietTranslate kiểm duyệt & chứng nhận.',
+            'action_hint': 'Hồ sơ đã được cấp huy hiệu uy tín.',
+        }
+    elif profile.badges and profile.badges.strip():
+        verification_status = {
+            'code': 'pending',
+            'label': 'Đang chờ duyệt',
+            'color': 'blue',
+            'badge_bg': 'bg-blue-50',
+            'badge_text': 'text-blue-700',
+            'badge_border': 'border-blue-200',
+            'tooltip': 'Bạn đã cung cấp chứng chỉ. Hồ sơ đang trong danh sách chờ Ban quản trị xét duyệt.',
+            'action_hint': 'Đang chờ Ban quản trị duyệt chứng chỉ.',
+        }
+    else:
+        verification_status = {
+            'code': 'unverified',
+            'label': 'Chưa xác minh',
+            'color': 'amber',
+            'badge_bg': 'bg-amber-50',
+            'badge_text': 'text-amber-700',
+            'badge_border': 'border-amber-200',
+            'tooltip': 'Chưa nộp chứng chỉ. Nhấn để bổ sung chứng chỉ (IELTS, JLPT, HSK...) và gửi duyệt.',
+            'action_hint': 'Cần bổ sung chứng chỉ để xác minh.',
+        }
+
+    # ── 2. Thống kê công việc (3 chỉ số cốt lõi và dữ liệu hợp đồng) ─────────
+    today = date_cls.today()
+
+    # Chỉ số 1: Số đơn ứng tuyển đang chờ (chỉ tính status == 'pending' của Interpreter)
+    proposals_all = Proposal.query.filter_by(translator_id=uid).all()
+    proposals_pending = [p for p in proposals_all if p.status == 'pending']
+    proposals_accepted = [p for p in proposals_all if p.status == 'accepted']
+    pending_proposals_count = len(proposals_pending)
+
+    # Chỉ số 2: Số ca làm sắp tới (ca có lịch hợp lệ: scheduled_date >= today, status in ('reserved', 'active'))
+    # Đảm bảo không tính ca đã hủy hoặc đã hoàn thành
+    all_schedules = TranslatorSchedule.query.filter_by(translator_id=uid).all()
+    upcoming_schedules_all = [
+        s for s in all_schedules
+        if s.scheduled_date and s.scheduled_date >= today and s.status in ('reserved', 'active')
+    ]
+    scheduled_contract_ids = {s.contract_id for s in upcoming_schedules_all if s.contract_id}
+
+    # Hợp đồng của interpreter
+    contracts_all = Contract.query.filter_by(translator_id=uid).all()
+    contracts_active = [c for c in contracts_all if c.status in ('escrow_held', 'in_progress', 'active')]
+    contracts_done = [c for c in contracts_all if c.status == 'completed']
+    contracts_pending_payment = [c for c in contracts_all if c.status == 'escrow_pending']
+
+    # Bổ sung các hợp đồng đang thực hiện có lịch làm mà chưa gắn TranslatorSchedule (tránh đếm trùng)
+    extra_active_contracts = [c for c in contracts_active if c.id not in scheduled_contract_ids]
+    upcoming_shifts_count = len(upcoming_schedules_all) + len(extra_active_contracts)
+
+    # Chỉ số 3: Số ca làm đã hoàn thành (chỉ tính ca/hợp đồng đã có trạng thái hoàn thành hợp lệ)
+    # Tránh đếm trùng cùng một ca khi có cả contract_id và schedule hoàn thành
+    completed_contract_ids = {c.id for c in contracts_done}
+    standalone_completed_schedules = [
+        s for s in all_schedules
+        if s.status == 'completed' and (not s.contract_id or s.contract_id not in completed_contract_ids)
+    ]
+    completed_shifts_count = len(contracts_done) + len(standalone_completed_schedules)
+
+    job_stats = {
+        'pending_proposals':  pending_proposals_count,
+        'upcoming_shifts':    upcoming_shifts_count,
+        'completed_shifts':   completed_shifts_count,
+        'total_contracts':    len(contracts_all),
+        'active_contracts':   len(contracts_active),
+        'completed':          len(contracts_done),
+        'accepted_proposals': len(proposals_accepted),
+        'rating':             profile.rating if profile else 0.0,
+        'total_reviews':      profile.total_reviews if profile else 0,
+    }
+
+    # ── 3. Thống kê thu nhập (từ contracts completed có agreed_price) ─────────
+    import calendar
+    first_of_month = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+    end_of_month = today.replace(day=last_day)
+    period_label = f"Tháng {today.month:02d}/{today.year}"
+    period_range = f"01/{today.month:02d} - {last_day:02d}/{today.month:02d}/{today.year}"
+
+    # 1. Thu nhập trong kỳ hiện tại: Hợp đồng hoàn tất (nghiệm thu giải ngân) trong tháng hiện tại
+    monthly_contracts = [
+        c for c in contracts_done
+        if c.updated_at and c.updated_at.date() >= first_of_month and c.updated_at.date() <= end_of_month
+    ]
+    monthly_earned = sum(c.agreed_price for c in monthly_contracts if c.agreed_price)
+
+    # 2. Thu nhập đã thanh toán: Tổng các khoản thực sự đã thanh toán (nghiệm thu/giải ngân tích lũy)
+    total_earned = sum(c.agreed_price for c in contracts_done if c.agreed_price)
+
+    # 3. Khoản thu nhập đang chờ xử lý:
+    # - Tiền đang giữ an toàn trong Escrow cho các hợp đồng đang thực hiện (in_progress, active, escrow_held)
+    pending_payout = sum(c.agreed_price for c in contracts_active if c.agreed_price)
+    # - Khoản chờ khách nạp tiền ký quỹ Escrow (escrow_pending)
+    escrow_pending_amount = sum(c.agreed_price for c in contracts_pending_payment if c.agreed_price)
+
+    income_stats = {
+        'total_earned':              total_earned,
+        'monthly_earned':            monthly_earned,
+        'pending_payout':            pending_payout,
+        'escrow_pending_amount':     escrow_pending_amount,
+        'period_label':              period_label,
+        'period_range':              period_range,
+        'period_start':              f"01/{today.month:02d}/{today.year}",
+        'period_end':                f"{last_day:02d}/{today.month:02d}/{today.year}",
+        'monthly_contracts_count':   len(monthly_contracts),
+        'completed_contracts_count': len(contracts_done),
+        'active_contracts_count':    len(contracts_active),
+        'escrow_pending_count':      len(contracts_pending_payment),
+    }
+
+    # ── 4. Ca làm sắp tới (Sắp xếp tăng dần theo thời điểm bắt đầu) ────────
+    from datetime import datetime as dt_cls, time as time_cls
+    from services.schedule import _parse_date, _parse_time
+    now = dt_cls.now()
+    now_time = now.time()
+
+    WEEKDAYS_VN = {
+        0: 'Thứ Hai',
+        1: 'Thứ Ba',
+        2: 'Thứ Tư',
+        3: 'Thứ Năm',
+        4: 'Thứ Sáu',
+        5: 'Thứ Bảy',
+        6: 'Chủ Nhật'
+    }
+
+    upcoming_shifts_list = []
+    seen_contract_ids = set()
+
+    # Nguồn 1: Các lịch đặt trong TranslatorSchedule (status reserved hoặc active)
+    for sch in upcoming_schedules_all:
+        if not sch.scheduled_date:
+            continue
+        # Bỏ qua ca đã qua trong ngày hôm nay nếu end_time đã kết thúc và không còn active
+        if sch.scheduled_date == today and sch.end_time and sch.end_time < now_time and sch.status != 'active':
+            continue
+
+        c = sch.contract
+        j = sch.job or (c.job if c else None)
+        s = sch.service or (c.service if c else None)
+
+        if c:
+            seen_contract_ids.add(c.id)
+
+        # Tiêu đề ca làm việc
+        title = None
+        if j and j.title:
+            title = j.title
+        elif s and s.name:
+            title = s.name
+        elif c:
+            title = f"Hợp đồng phiên dịch #{c.id}"
+        else:
+            title = f"Ca phiên dịch #{sch.id}"
+
+        # Hình thức làm việc & Địa điểm
+        raw_location = (c.location if c and c.location else (j.event_location if j and j.event_location else '')).strip()
+        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+        work_mode = {
+            'type': 'onsite' if is_onsite else 'online',
+            'label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
+            'location': raw_location if is_onsite else 'Online / Từ xa'
+        }
+
+        # Trạng thái ca làm việc
+        is_active_now = (sch.status == 'active' or (sch.scheduled_date == today and sch.start_time and sch.start_time <= now_time and sch.end_time and sch.end_time >= now_time))
+        if is_active_now:
+            status_meta = {
+                'code': 'active',
+                'label': 'Đang diễn ra',
+                'badge_bg': 'bg-emerald-50',
+                'badge_text': 'text-emerald-700',
+                'badge_border': 'border-emerald-200',
+                'dot_color': 'bg-emerald-500 animate-pulse'
+            }
+        elif sch.status == 'active':
+            status_meta = {
+                'code': 'confirmed',
+                'label': 'Đã xác nhận',
+                'badge_bg': 'bg-blue-50',
+                'badge_text': 'text-blue-700',
+                'badge_border': 'border-blue-200',
+                'dot_color': 'bg-blue-500'
+            }
+        else:
+            status_meta = {
+                'code': 'reserved',
+                'label': 'Chờ bắt đầu',
+                'badge_bg': 'bg-amber-50',
+                'badge_text': 'text-amber-700',
+                'badge_border': 'border-amber-200',
+                'dot_color': 'bg-amber-500'
+            }
+
+        # Nhãn thời gian tương đối
+        delta_days = (sch.scheduled_date - today).days
+        if delta_days == 0:
+            relative_badge = 'Hôm nay'
+            badge_color = 'bg-rose-50 text-rose-700 border-rose-200'
+        elif delta_days == 1:
+            relative_badge = 'Ngày mai'
+            badge_color = 'bg-amber-50 text-amber-700 border-amber-200'
+        elif delta_days <= 3:
+            relative_badge = f'Trong {delta_days} ngày'
+            badge_color = 'bg-blue-50 text-blue-700 border-blue-200'
+        else:
+            relative_badge = WEEKDAYS_VN.get(sch.scheduled_date.weekday(), f'+{delta_days} ngày')
+            badge_color = 'bg-slate-100 text-slate-700 border-slate-200'
+
+        start_str = sch.start_time.strftime('%H:%M') if sch.start_time else ''
+        end_str = sch.end_time.strftime('%H:%M') if sch.end_time else ''
+        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoạt')
+
+        if c:
+            detail_url = url_for('transaction_detail', contract_id=c.id)
+        elif j:
+            detail_url = url_for('job_detail', job_id=j.id)
+        else:
+            detail_url = url_for('account_history')
+
+        client_name = c.hirer.name if (c and c.hirer) else (j.hirer.name if (j and j.hirer) else None)
+        category_name = j.display_category_text() if j else (s.name if s else 'Phiên dịch')
+
+        upcoming_shifts_list.append({
+            'id': sch.id,
+            'contract_id': c.id if c else None,
+            'job_id': j.id if j else None,
+            'title': title,
+            'scheduled_date': sch.scheduled_date,
+            'date_display': sch.scheduled_date.strftime('%d/%m/%Y'),
+            'day_of_week': WEEKDAYS_VN.get(sch.scheduled_date.weekday(), ''),
+            'relative_badge': relative_badge,
+            'badge_color': badge_color,
+            'start_time': sch.start_time or time_cls(0, 0),
+            'time_display': time_display,
+            'work_mode': work_mode,
+            'status': status_meta,
+            'detail_url': detail_url,
+            'client_name': client_name,
+            'category_name': category_name,
+            'price': c.agreed_price if c else None
+        })
+
+    # Nguồn 2: Bổ sung các hợp đồng đang thực hiện có lịch làm mà chưa tạo TranslatorSchedule
+    for c in contracts_active + contracts_pending_payment:
+        if c.id in seen_contract_ids:
+            continue
+        raw_d = _parse_date(c.scheduled_date)
+        if not raw_d or raw_d < today:
+            continue
+
+        start_t = _parse_time(c.scheduled_time_start)
+        end_t = _parse_time(c.scheduled_time_end)
+
+        if raw_d == today and end_t and end_t < now_time:
+            continue
+
+        seen_contract_ids.add(c.id)
+        j = c.job
+        s = c.service
+        title = j.title if (j and j.title) else (s.name if (s and s.name) else f"Hợp đồng phiên dịch #{c.id}")
+
+        raw_location = (c.location or (j.event_location if j else '') or '').strip()
+        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+        work_mode = {
+            'type': 'onsite' if is_onsite else 'online',
+            'label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
+            'location': raw_location if is_onsite else 'Online / Từ xa'
+        }
+
+        if c.status in ('in_progress', 'active', 'escrow_held'):
+            status_meta = {
+                'code': 'confirmed',
+                'label': 'Đang thực hiện (Escrow)',
+                'badge_bg': 'bg-emerald-50',
+                'badge_text': 'text-emerald-700',
+                'badge_border': 'border-emerald-200',
+                'dot_color': 'bg-emerald-500'
+            }
+        else:
+            status_meta = {
+                'code': 'pending_escrow',
+                'label': 'Chờ ký quỹ Escrow',
+                'badge_bg': 'bg-amber-50',
+                'badge_text': 'text-amber-700',
+                'badge_border': 'border-amber-200',
+                'dot_color': 'bg-amber-500'
+            }
+
+        delta_days = (raw_d - today).days
+        if delta_days == 0:
+            relative_badge = 'Hôm nay'
+            badge_color = 'bg-rose-50 text-rose-700 border-rose-200'
+        elif delta_days == 1:
+            relative_badge = 'Ngày mai'
+            badge_color = 'bg-amber-50 text-amber-700 border-amber-200'
+        elif delta_days <= 3:
+            relative_badge = f'Trong {delta_days} ngày'
+            badge_color = 'bg-blue-50 text-blue-700 border-blue-200'
+        else:
+            relative_badge = WEEKDAYS_VN.get(raw_d.weekday(), f'+{delta_days} ngày')
+            badge_color = 'bg-slate-100 text-slate-700 border-slate-200'
+
+        start_str = start_t.strftime('%H:%M') if start_t else (c.scheduled_time_start or '')
+        end_str = end_t.strftime('%H:%M') if end_t else (c.scheduled_time_end or '')
+        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoạt')
+
+        upcoming_shifts_list.append({
+            'id': c.id,
+            'contract_id': c.id,
+            'job_id': j.id if j else None,
+            'title': title,
+            'scheduled_date': raw_d,
+            'date_display': raw_d.strftime('%d/%m/%Y'),
+            'day_of_week': WEEKDAYS_VN.get(raw_d.weekday(), ''),
+            'relative_badge': relative_badge,
+            'badge_color': badge_color,
+            'start_time': start_t or time_cls(0, 0),
+            'time_display': time_display,
+            'work_mode': work_mode,
+            'status': status_meta,
+            'detail_url': url_for('transaction_detail', contract_id=c.id),
+            'client_name': c.hirer.name if c.hirer else None,
+            'category_name': j.display_category_text() if j else 'Phiên dịch',
+            'price': c.agreed_price
+        })
+
+    # Sắp xếp tăng dần theo thời gian bắt đầu
+    upcoming_shifts_list.sort(key=lambda x: (x['scheduled_date'], x['start_time'] or time_cls(0, 0)))
+    total_upcoming_shifts = len(upcoming_shifts_list)
+    upcoming_shifts = upcoming_shifts_list[:6]
+    upcoming_schedules = upcoming_shifts
+
+    # ── 5. Việc làm đề xuất (dùng matching service hiện có) ──────────────────
+    has_profile_languages = bool(
+        (profile and profile.languages and profile.languages.strip()) or
+        (preference and preference.languages and preference.languages.strip()) or
+        (preference and getattr(preference, 'language_pairs', None) and preference.language_pairs.strip())
+    )
+
+    recommended_jobs = []
+    try:
+        from services.matching import get_recommended_jobs_for_translator
+        current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+        recommended_raw = get_recommended_jobs_for_translator(uid, 6, current_lang)
+        if recommended_raw:
+            job_ids = [r['job_id'] for r in recommended_raw]
+            jobs_map = {j.id: j for j in Job.query.filter(Job.id.in_(job_ids)).all()}
+            for r in recommended_raw:
+                j = jobs_map.get(r['job_id'])
+                if j and j.status == 'open' and not j.is_flagged:
+                    loc = (j.event_location or '').strip()
+                    is_onsite = bool(loc and not any(k in loc.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+
+                    recommended_jobs.append({
+                        'job': j,
+                        'match_score': r.get('match_score', 0),
+                        'reasons': r.get('reasons', []),
+                        'is_matched': True,
+                        'work_mode_label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
+                        'work_mode_type': 'onsite' if is_onsite else 'online',
+                        'location_display': loc if is_onsite else 'Online / Từ xa',
+                        'applicant_count': j.applicant_count,
+                        'category_text': j.display_category_text(current_lang),
+                    })
+    except Exception as e:
+        print(f"[interpreter_dashboard] recommended jobs error: {e}")
+        recommended_jobs = []
+
+    # ── 6. Việc cần xử lý (Tasks & Action Items) ─────────────────────────────
+    action_items = []
+
+    # 1. Phản hồi lời mời làm việc từ khách hàng (Ưu tiên cao nhất)
+    try:
+        invitation_notifs = Notification.query.filter_by(
+            user_id=uid,
+            type='JOB_INVITATION'
+        ).order_by(Notification.created_at.desc()).all()
+
+        for notif in invitation_notifs:
+            if notif.related_job_id:
+                inv_job = Job.query.get(notif.related_job_id)
+                if inv_job and inv_job.status == 'open' and not inv_job.is_flagged:
+                    has_applied = Proposal.query.filter_by(job_id=inv_job.id, translator_id=uid).first()
+                    if not has_applied:
+                        action_items.append({
+                            'id': f"invitation_{inv_job.id}",
+                            'type': 'job_invitation',
+                            'title': f"Phản hồi lời mời: {inv_job.title}",
+                            'description': f"Khách hàng {inv_job.hirer.name if inv_job.hirer else ''} đã gửi lời mời bạn tham gia phiên dịch ({inv_job.source_lang} → {inv_job.target_lang}). Hãy xem mô tả và gửi báo giá.",
+                            'status_label': 'Chờ phản hồi',
+                            'priority_label': 'Khẩn cấp',
+                            'priority_badge': 'bg-rose-50 text-rose-700 border-rose-200',
+                            'icon_type': 'invitation',
+                            'url': url_for('job_detail', job_id=inv_job.id),
+                            'action_text': 'Phản hồi lời mời →',
+                        })
+    except Exception as e:
+        print(f"[interpreter_dashboard] invitation action error: {e}")
+
+    # 2. Hoàn thiện hồ sơ cá nhân (Nếu profile_completeness < 100%)
+    if profile_completeness < 100:
+        missing_str = ', '.join(profile_missing) if profile_missing else 'thông tin cần thiết'
+        action_items.append({
+            'id': 'profile_incomplete',
+            'type': 'profile_completion',
+            'title': 'Hoàn thiện hồ sơ cá nhân',
+            'description': f"Hồ sơ hiện đạt {profile_completeness}%. Bạn cần bổ sung: {missing_str} để tăng uy tín và cơ hội nhận việc.",
+            'status_label': f"Còn thiếu ({profile_completeness}%)",
+            'priority_label': 'Quan trọng',
+            'priority_badge': 'bg-amber-50 text-amber-700 border-amber-200',
+            'icon_type': 'profile',
+            'url': url_for('account_profile'),
+            'action_text': 'Hoàn thiện hồ sơ →',
+        })
+
+    # 3. Bổ sung chứng chỉ xác minh hồ sơ (Nếu chưa nộp chứng chỉ)
+    if verification_status and verification_status.get('code') in ('unverified', 'no_profile'):
+        action_items.append({
+            'id': 'profile_verification',
+            'type': 'verification',
+            'title': 'Bổ sung chứng chỉ để xác minh hồ sơ',
+            'description': 'Bạn chưa nộp chứng chỉ ngoại ngữ. Hãy bổ sung bằng cấp/chứng chỉ (IELTS, JLPT, HSK...) để được Ban quản trị duyệt cấp huy hiệu uy tín.',
+            'status_label': 'Chưa xác minh',
+            'priority_label': 'Khuyên dùng',
+            'priority_badge': 'bg-blue-50 text-blue-700 border-blue-200',
+            'icon_type': 'verification',
+            'url': url_for('account_verification'),
+            'action_text': 'Nộp chứng chỉ →',
+        })
+
+    # 4. Hợp đồng đang thực hiện cần bàn giao / tiến độ
+    for c in contracts_active:
+        job_title = c.job.title if c.job else (c.service.name if c.service else f"Hợp đồng #{c.id}")
+        price_str = f"{c.agreed_price:,} VND".replace(',', '.') if c.agreed_price else ""
+        action_items.append({
+            'id': f"contract_{c.id}",
+            'type': 'contract_in_progress',
+            'title': f"Bàn giao & Thực hiện: {job_title}",
+            'description': f"Hợp đồng trị giá {price_str} đang được Escrow bảo chứng. Vui lòng theo dõi tiến độ, trao đổi với khách và hoàn tất ca dịch.",
+            'status_label': 'Đang thực hiện',
+            'priority_label': 'Cần bàn giao',
+            'priority_badge': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            'icon_type': 'contract',
+            'url': url_for('transaction_detail', contract_id=c.id),
+            'action_text': 'Vào phòng làm việc →',
+        })
+
+    # 5. Hợp đồng chờ khách nạp Escrow
+    for c in contracts_pending_payment:
+        job_title = c.job.title if c.job else (c.service.name if c.service else f"Hợp đồng #{c.id}")
+        action_items.append({
+            'id': f"escrow_{c.id}",
+            'type': 'escrow_pending',
+            'title': f"Theo dõi nạp ký quỹ: {job_title}",
+            'description': "Đề xuất đã được khách chấp thuận nhưng chưa hoàn tất nạp tiền vào Escrow. Lưu ý chỉ bắt đầu phiên dịch khi tiền đã vào Escrow an toàn.",
+            'status_label': 'Chờ khách nạp tiền',
+            'priority_label': 'Lưu ý',
+            'priority_badge': 'bg-amber-50 text-amber-700 border-amber-200',
+            'icon_type': 'escrow',
+            'url': url_for('transaction_detail', contract_id=c.id),
+            'action_text': 'Chi tiết hợp đồng →',
+        })
+
+    # ── 7. Thông báo gần đây (5 thông báo mới nhất) ──────────────────────────
+    recent_notifications_raw = Notification.query.filter_by(user_id=uid).order_by(
+        Notification.created_at.desc()
+    ).limit(5).all()
+
+    unread_notifications_count = Notification.query.filter_by(
+        user_id=uid, is_read=False
+    ).count()
+
+    from datetime import datetime as dt_cls
+    now_dt = dt_cls.utcnow()
+
+    recent_notifications = []
+    for n in recent_notifications_raw:
+        # Xác định target_url an toàn và chuẩn xác
+        target_url = None
+        if n.url and n.url.strip() and n.url != '#':
+            target_url = n.url.strip()
+        elif n.related_contract_id:
+            target_url = url_for('transaction_detail', contract_id=n.related_contract_id)
+        elif n.related_job_id:
+            target_url = url_for('job_detail', job_id=n.related_job_id)
+        elif n.type in ('CONTRACT_CREATED', 'CONTRACT_COMPLETED', 'PAYMENT'):
+            target_url = url_for('account_history')
+        elif n.type == 'NEW_MESSAGE':
+            target_url = url_for('messages_page')
+        elif n.type in ('JOB_MATCH', 'JOB_INVITATION', 'JOB_APPLICATION'):
+            target_url = url_for('job_list')
+        else:
+            target_url = url_for('notifications_page')
+
+        # Thời gian tương đối
+        time_ago_str = ""
+        if n.created_at:
+            delta_seconds = int((now_dt - n.created_at).total_seconds())
+            if delta_seconds < 60:
+                time_ago_str = "Vừa xong"
+            elif delta_seconds < 3600:
+                time_ago_str = f"{max(1, delta_seconds // 60)} phút trước"
+            elif delta_seconds < 86400:
+                time_ago_str = f"{delta_seconds // 3600} giờ trước"
+            elif delta_seconds < 172800:
+                time_ago_str = "Hôm qua"
+            else:
+                time_ago_str = n.created_at.strftime('%d/%m/%Y %H:%M')
+
+        # Phân loại và icon/badge meta
+        ntype = n.type or ''
+        if 'INVITATION' in ntype:
+            cat_label = 'Lời mời việc'
+            icon_kind = 'invitation'
+            cat_badge = 'bg-rose-50 text-rose-700 border-rose-200'
+            icon_bg = 'bg-rose-100 text-rose-600'
+        elif 'MATCH' in ntype:
+            cat_label = 'Việc phù hợp'
+            icon_kind = 'match'
+            cat_badge = 'bg-blue-50 text-blue-700 border-blue-200'
+            icon_bg = 'bg-blue-100 text-blue-600'
+        elif 'PROPOSAL_ACCEPTED' in ntype:
+            cat_label = 'Đã chấp thuận'
+            icon_kind = 'accepted'
+            cat_badge = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            icon_bg = 'bg-emerald-100 text-emerald-600'
+        elif 'PROPOSAL_REJECTED' in ntype:
+            cat_label = 'Từ chối'
+            icon_kind = 'rejected'
+            cat_badge = 'bg-slate-100 text-slate-700 border-slate-200'
+            icon_bg = 'bg-slate-100 text-slate-600'
+        elif 'CONTRACT' in ntype:
+            cat_label = 'Hợp đồng'
+            icon_kind = 'contract'
+            cat_badge = 'bg-indigo-50 text-indigo-700 border-indigo-200'
+            icon_bg = 'bg-indigo-100 text-indigo-600'
+        elif 'PAYMENT' in ntype:
+            cat_label = 'Ký quỹ / Tiền'
+            icon_kind = 'payment'
+            cat_badge = 'bg-amber-50 text-amber-700 border-amber-200'
+            icon_bg = 'bg-amber-100 text-amber-600'
+        elif 'MESSAGE' in ntype:
+            cat_label = 'Tin nhắn'
+            icon_kind = 'message'
+            cat_badge = 'bg-purple-50 text-purple-700 border-purple-200'
+            icon_bg = 'bg-purple-100 text-purple-600'
+        elif 'REVIEW' in ntype:
+            cat_label = 'Đánh giá'
+            icon_kind = 'review'
+            cat_badge = 'bg-amber-50 text-amber-700 border-amber-200'
+            icon_bg = 'bg-amber-100 text-amber-600'
+        else:
+            cat_label = 'Hệ thống'
+            icon_kind = 'bell'
+            cat_badge = 'bg-slate-100 text-slate-700 border-slate-200'
+            icon_bg = 'bg-slate-100 text-slate-600'
+
+        recent_notifications.append({
+            'id': n.id,
+            'type': n.type,
+            'title': n.title,
+            'message': n.message,
+            'is_read': n.is_read,
+            'created_at': n.created_at,
+            'created_at_display': n.created_at.strftime('%d/%m/%Y %H:%M') if n.created_at else '',
+            'time_ago': time_ago_str,
+            'target_url': target_url,
+            'cat_label': cat_label,
+            'icon_kind': icon_kind,
+            'cat_badge': cat_badge,
+            'icon_bg': icon_bg,
+        })
+
+    return render_template(
+        'interpreter_dashboard.html',
+        user=user,
+        profile=profile,
+        profile_completeness=profile_completeness,
+        profile_missing=profile_missing,
+        verification_status=verification_status,
+        job_stats=job_stats,
+        income_stats=income_stats,
+        upcoming_schedules=upcoming_schedules,
+        upcoming_shifts=upcoming_shifts,
+        total_upcoming_shifts=total_upcoming_shifts,
+        recommended_jobs=recommended_jobs,
+        has_profile_languages=has_profile_languages,
+        action_items=action_items,
+        recent_notifications=recent_notifications,
+        unread_notifications_count=unread_notifications_count,
+        today=today,
+    )
+
+@app.route('/account/verification')
+@login_required
+def account_verification():
+    """Điều hướng đến khu vực quản lý hồ sơ và chứng chỉ xác minh của phiên dịch viên."""
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
+    if user.role != 'translator':
+        flash('Chức năng xác minh hồ sơ chỉ dành cho phiên dịch viên.', 'info')
+        return redirect(url_for('account_profile'))
+    return redirect(url_for('account_profile', tab='translator'))
+
 @app.route('/about')
 def about():
     return render_template('about.html')
@@ -1118,6 +1825,8 @@ def login():
                     # TASK 4A: Role redirect
                     if user.is_admin:
                         return redirect(url_for('admin_dashboard'))
+                    if user.role == 'translator':
+                        return redirect(url_for('interpreter_dashboard'))
                     return redirect(url_for('index'))
                 else:
                     flash(_t('flash.invalid_password'), 'error')
@@ -2056,15 +2765,68 @@ def get_job_applicant_count(job_id):
 @app.route('/account/history')
 @login_required
 def account_history():
+    from datetime import date as date_cls
+    import calendar
     user = get_current_user()
     if not user:
         flash(_t('flash.account_not_found'), 'error')
         return redirect(url_for('index'))
+
+    status_filter = request.args.get('status')
+    prop_filter = request.args.get('prop_status')
+    period_filter = request.args.get('period')
+
+    today = date_cls.today()
+    first_of_month = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+    end_of_month = today.replace(day=last_day)
+    period_label = f"Tháng {today.month:02d}/{today.year}"
+
     if user.role == 'hirer':
-        contracts = Contract.query.filter_by(hirer_id=user.id).order_by(Contract.created_at.desc()).all()
+        query = Contract.query.filter_by(hirer_id=user.id)
+        if status_filter:
+            query = query.filter_by(status=status_filter)
+        if period_filter == 'current_month':
+            query = query.filter(Contract.created_at >= first_of_month)
+        contracts = query.order_by(Contract.created_at.desc()).all()
+        proposals = []
     else:
-        contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
-    return render_template('account_history.html', user=user, contracts=contracts)
+        query = Contract.query.filter_by(translator_id=user.id)
+        if status_filter:
+            if status_filter in ('in_progress', 'active', 'escrow_held'):
+                query = query.filter(Contract.status.in_(['in_progress', 'active', 'escrow_held']))
+            else:
+                query = query.filter_by(status=status_filter)
+
+        if period_filter == 'current_month':
+            # Với hợp đồng đã hoàn tất, kỳ thống kê căn cứ vào ngày hoàn tất (updated_at)
+            if status_filter == 'completed':
+                query = query.filter(Contract.updated_at >= first_of_month)
+            else:
+                query = query.filter(
+                    db.or_(Contract.updated_at >= first_of_month, Contract.created_at >= first_of_month)
+                )
+
+        contracts = query.order_by(Contract.created_at.desc()).all()
+
+        prop_query = Proposal.query.filter_by(translator_id=user.id)
+        if prop_filter:
+            prop_query = prop_query.filter_by(status=prop_filter)
+        proposals = prop_query.order_by(Proposal.created_at.desc()).all()
+
+    filtered_income_total = sum(c.agreed_price for c in contracts if c.agreed_price)
+
+    return render_template(
+        'account_history.html',
+        user=user,
+        contracts=contracts,
+        proposals=proposals,
+        status_filter=status_filter,
+        prop_filter=prop_filter,
+        period_filter=period_filter,
+        period_label=period_label,
+        filtered_income_total=filtered_income_total
+    )
 
 @app.route('/my-schedule')
 @login_required
@@ -2671,9 +3433,21 @@ def job_list():
     budget = request.args.get('budget', '')
     sort = request.args.get('sort', 'newest')
     page = request.args.get('page', 1, type=int)
+    recommended = request.args.get('recommended')
     per_page = 10
 
     query = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None))
+
+    user = get_current_user()
+    if recommended and user and user.role == 'translator':
+        from services.matching import get_recommended_jobs_for_translator
+        current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+        rec_list = get_recommended_jobs_for_translator(user.id, 50, current_lang)
+        rec_ids = [r['job_id'] for r in rec_list]
+        if rec_ids:
+            query = query.filter(Job.id.in_(rec_ids))
+        else:
+            query = query.filter(Job.id == -1)
     if lang:
         safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
         query = query.filter(db.or_(Job.source_lang.ilike(f'%{safe_lang}%'), Job.target_lang.ilike(f'%{safe_lang}%')))
@@ -2685,7 +3459,7 @@ def job_list():
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     return render_template('job_list.html', jobs=pagination.items, pagination=pagination,
-                           lang_filter=lang, LANGUAGES=LANGUAGES)
+                           lang_filter=lang, LANGUAGES=LANGUAGES, is_recommended=bool(recommended))
 
 @app.route('/job/<int:job_id>', methods=['GET', 'POST'])
 def job_detail(job_id):

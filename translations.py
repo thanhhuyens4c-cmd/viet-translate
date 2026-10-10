@@ -916,6 +916,21 @@ TRANSLATIONS = {
             'nhắn_tin_trao_đổi_tr': 'Nhắn tin trao đổi trực tiếp',
             'phiên_dịch_viên_chuy': 'Phiên dịch viên chuyên nghiệp',
         },
+
+        # ─── Matching Reasons ───
+        'match_reasons': {
+            'exact_language_pair': 'Đúng chính xác cặp ngôn ngữ',
+            'reverse_language_pair': 'Cặp ngôn ngữ đảo chiều',
+            'partial_language': 'Trùng một trong hai ngôn ngữ',
+            'language_match': 'Khớp ngôn ngữ chuyên môn',
+            'exact_job_type': 'Đúng loại hình dịch vụ mong muốn',
+            'group_match': 'Cùng nhóm dịch vụ phiên dịch',
+            'experience_match': 'Hồ sơ có đánh giá & kinh nghiệm tốt',
+            'remote_work': 'Làm việc từ xa (Online)',
+            'location_match': 'Địa điểm làm việc phù hợp',
+            'budget_match': 'Mức thù lao đáp ứng kỳ vọng',
+            'schedule_free': 'Lịch trống không bị trùng',
+        },
     },
 
     'en': {
@@ -1815,6 +1830,21 @@ TRANSLATIONS = {
             'phiên_dịch_viên_chưa': 'No fixed packages listed yet.',
             'nhắn_tin_trao_đổi_tr': 'Message Directly',
             'phiên_dịch_viên_chuy': 'Professional Interpreter',
+        },
+
+        # ─── Matching Reasons ───
+        'match_reasons': {
+            'exact_language_pair': 'Exact language pair match',
+            'reverse_language_pair': 'Reverse language pair match',
+            'partial_language': 'Partial language match',
+            'language_match': 'Fluent language match',
+            'exact_job_type': 'Preferred service type match',
+            'group_match': 'Matching service group',
+            'experience_match': 'High rating & verified experience',
+            'remote_work': 'Remote work (Online)',
+            'location_match': 'Matching work location',
+            'budget_match': 'Meets budget expectations',
+            'schedule_free': 'Schedule available without conflict',
         },
     }
 }
