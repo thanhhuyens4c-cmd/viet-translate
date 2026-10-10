@@ -595,6 +595,51 @@ def save_certificate_file(file, user_id):
         print(f"[CERT UPLOAD ERROR] {e}", file=sys.stderr)
         return False, 'Lỗi hệ thống khi lưu file chứng chỉ'
 
+def allowed_verification_doc(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'pdf', 'webp'}
+
+def save_verification_doc(file, user_id):
+    """Lưu tệp xác minh doanh nghiệp/HR (ĐKKD, Thẻ NV, Hợp đồng lao động)."""
+    if not file or not file.filename:
+        return False, 'File không hợp lệ'
+    if not allowed_verification_doc(file.filename):
+        return False, 'Chỉ chấp nhận file PDF, PNG, JPG, JPEG, WEBP'
+
+    try:
+        file.seek(0, os.SEEK_END)
+        size = file.tell()
+        file.seek(0)
+    except Exception:
+        size = 0
+    if size > 15 * 1024 * 1024:
+        return False, 'File tài liệu không được vượt quá 15MB'
+
+    import time
+    clean_uid = str(user_id)
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"verify_hirer_u{clean_uid}_{int(time.time())}.{ext}"
+    folder = os.path.join(app.root_path, 'static', 'uploads', 'verifications')
+    os.makedirs(folder, exist_ok=True)
+    filepath = os.path.join(folder, filename)
+
+    try:
+        file.save(filepath)
+        return True, filename
+    except Exception as e:
+        print(f"[VERIFY DOC UPLOAD ERROR] {e}", file=sys.stderr)
+        return False, 'Lỗi hệ thống khi lưu file xác minh'
+
+def delete_verification_doc(filename):
+    """Xóa file tài liệu xác minh cũ."""
+    if not filename:
+        return
+    filepath = os.path.join(app.root_path, 'static', 'uploads', 'verifications', filename)
+    if os.path.exists(filepath):
+        try:
+            os.remove(filepath)
+        except OSError:
+            pass
+
 def delete_user_avatar(current_avatar):
     """Xóa file ảnh đại diện cũ nếu là ảnh do người dùng tải lên."""
     if not current_avatar:
@@ -670,9 +715,44 @@ def _init_db():
                         conn.commit()
                     except Exception:
                         conn.execute(text('ALTER TABLE user ADD COLUMN avatar VARCHAR(255)'))
-                        conn.commit()
+    # Tự động đồng bộ các cột xác minh trong hirer_profile nếu chưa tồn tại
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if 'hirer_profile' in inspector.get_table_names():
+            hp_cols = [c['name'] for c in inspector.get_columns('hirer_profile')]
+            new_hp_cols = [
+                ('hirer_type', 'VARCHAR(30)'),
+                ('tax_code', 'VARCHAR(50)'),
+                ('company_size', 'VARCHAR(50)'),
+                ('industry', 'VARCHAR(100)'),
+                ('website', 'VARCHAR(255)'),
+                ('corporate_email', 'VARCHAR(120)'),
+                ('hotline', 'VARCHAR(50)'),
+                ('hr_name', 'VARCHAR(100)'),
+                ('hr_title', 'VARCHAR(100)'),
+                ('hr_phone', 'VARCHAR(20)'),
+                ('hr_zalo', 'VARCHAR(20)'),
+                ('verification_doc', 'VARCHAR(255)'),
+                ('verification_status', 'VARCHAR(30)'),
+                ('verified_at', 'TIMESTAMP'),
+                ('verification_notes', 'TEXT'),
+            ]
+            with db.engine.connect() as conn:
+                for col_name, col_type in new_hp_cols:
+                    if col_name not in hp_cols:
+                        try:
+                            conn.execute(text(f'ALTER TABLE "hirer_profile" ADD COLUMN {col_name} {col_type}'))
+                            conn.commit()
+                        except Exception:
+                            try:
+                                conn.execute(text(f'ALTER TABLE hirer_profile ADD COLUMN {col_name} {col_type}'))
+                                conn.commit()
+                            except Exception:
+                                pass
     except Exception:
         pass
+
 
     try:
         # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
@@ -1207,6 +1287,59 @@ def account_profile():
             profile.location = request.form.get('location', '').strip()
             db.session.commit()
             flash(_t('flash.hirer_profile_updated'), 'success')
+
+        elif action == 'hirer_verify' and user.role == 'hirer':
+            profile = user.hirer_profile
+            if not profile:
+                profile = HirerProfile(user_id=user.id)
+                db.session.add(profile)
+
+            profile.hirer_type = request.form.get('hirer_type', 'business').strip()
+            profile.company = request.form.get('company', profile.company or '').strip()
+            profile.title = request.form.get('title', profile.title or '').strip()
+            profile.location = request.form.get('location', profile.location or '').strip()
+            profile.tax_code = request.form.get('tax_code', '').strip()
+            profile.company_size = request.form.get('company_size', '').strip()
+            profile.industry = request.form.get('industry', '').strip()
+            profile.website = request.form.get('website', '').strip()
+            profile.corporate_email = request.form.get('corporate_email', '').strip()
+            profile.hotline = request.form.get('hotline', '').strip()
+            profile.hr_name = request.form.get('hr_name', '').strip()
+            profile.hr_title = request.form.get('hr_title', '').strip()
+            profile.hr_phone = request.form.get('hr_phone', '').strip()
+            profile.hr_zalo = request.form.get('hr_zalo', '').strip()
+
+            # Upload tài liệu xác minh (ĐKKD / Thẻ nhân viên / Giấy giới thiệu)
+            doc_file = request.files.get('verification_doc')
+            if doc_file and doc_file.filename:
+                ok, res = save_verification_doc(doc_file, user.id)
+                if ok:
+                    if profile.verification_doc:
+                        delete_verification_doc(profile.verification_doc)
+                    profile.verification_doc = res
+                else:
+                    flash(f"Tài liệu xác minh: {res}", 'warning')
+
+            # Đánh dấu trạng thái xác minh thành công
+            profile.verification_status = 'verified'
+            profile.verified_at = datetime.utcnow()
+            db.session.commit()
+            flash('Xác minh hồ sơ thành công! Huy hiệu Tích Xanh Doanh nghiệp / HR đã được kích hoạt trên trang của bạn.', 'success')
+            return redirect(url_for('account_profile') + '#verify')
+
+        elif action == 'remove_verification_doc' and user.role == 'hirer':
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+            profile = user.hirer_profile
+            if profile and profile.verification_doc:
+                delete_verification_doc(profile.verification_doc)
+                profile.verification_doc = None
+                db.session.commit()
+                if is_ajax:
+                    return jsonify({'success': True})
+                flash('Đã xóa tài liệu xác minh.', 'success')
+            if is_ajax:
+                return jsonify({'success': False, 'message': 'Không tìm thấy tài liệu'}), 400
+            return redirect(url_for('account_profile') + '#verify')
 
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')

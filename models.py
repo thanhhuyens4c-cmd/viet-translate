@@ -141,6 +141,39 @@ class HirerProfile(db.Model):
     location = db.Column(db.String(100))
     rating = db.Column(db.Float, default=0.0)
 
+    # Verification fields
+    hirer_type = db.Column(db.String(30), default='business')  # 'business' | 'individual'
+    tax_code = db.Column(db.String(50), nullable=True)  # Mã số thuế
+    company_size = db.Column(db.String(50), nullable=True)  # '1-10', '10-50', '50-200', '200+'
+    industry = db.Column(db.String(100), nullable=True)  # Lĩnh vực hoạt động
+    website = db.Column(db.String(255), nullable=True)  # Website / Fanpage / LinkedIn
+    corporate_email = db.Column(db.String(120), nullable=True)  # Email doanh nghiệp
+    hotline = db.Column(db.String(50), nullable=True)  # Hotline / SĐT bàn
+    hr_name = db.Column(db.String(100), nullable=True)  # Họ tên người liên hệ / HR
+    hr_title = db.Column(db.String(100), nullable=True)  # Chức vụ người liên hệ
+    hr_phone = db.Column(db.String(20), nullable=True)  # SĐT người liên hệ
+    hr_zalo = db.Column(db.String(20), nullable=True)  # Zalo người liên hệ
+    verification_doc = db.Column(db.String(255), nullable=True)  # File giấy tờ ĐKKD / Thẻ NV
+    verification_status = db.Column(db.String(30), default='unverified')  # 'unverified', 'pending', 'verified'
+    verified_at = db.Column(db.DateTime, nullable=True)
+    verification_notes = db.Column(db.Text, nullable=True)
+
+    @property
+    def is_verified(self):
+        return self.verification_status == 'verified'
+
+    @property
+    def is_pending(self):
+        return self.verification_status == 'pending'
+
+    @property
+    def doc_url(self):
+        if self.verification_doc:
+            if self.verification_doc.startswith('http') or self.verification_doc.startswith('/'):
+                return self.verification_doc
+            return f'/static/uploads/verifications/{self.verification_doc}'
+        return None
+
 
 class Service(db.Model):
     id = db.Column(db.Integer, primary_key=True)

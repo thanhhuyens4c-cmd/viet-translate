@@ -72,6 +72,19 @@
                             class="mt-2.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
                             {{ t('account_profile_page.verified_badge') }}
                         </span>
+                        {% elif user.role == 'hirer' %}
+                            {% if user.hirer_profile and user.hirer_profile.is_verified %}
+                            <span
+                                class="mt-2.5 inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
+                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                {{ t('account_profile_page.hirer_verified_badge') }}
+                            </span>
+                            {% else %}
+                            <button type="button" onclick="switchTab('hirer_verify')"
+                                class="mt-2.5 inline-flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-700 text-[11px] font-bold px-3 py-1 rounded-full border border-amber-200/70 transition cursor-pointer">
+                                🛡️ Xác minh ngay
+                            </button>
+                            {% endif %}
                         {% endif %}
                     </div>
 
@@ -112,6 +125,16 @@
                             {{ t('account_profile_page.nav_public_page') }}
                         </a>
                         {% endif %}
+                        {% if user.role == 'hirer' %}
+                        <a href="{{ url_for('hirer_profile', hirer_id=user.id) }}" target="_blank"
+                            class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            {{ t('account_profile_page.nav_public_page') }}
+                        </a>
+                        {% endif %}
                     </nav>
                 </div>
             </aside>
@@ -136,6 +159,17 @@
                     <button
                         class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold"
                         onclick="switchTab('hirer')">{{ t('auto.hồ_sơ_công_ty') }}</button>
+                    <button
+                        class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold flex items-center gap-1.5"
+                        onclick="switchTab('hirer_verify')">
+                        <span>🛡️</span>
+                        <span>{{ t('account_profile_page.tab_hirer_verify') }}</span>
+                        {% if user.hirer_profile and user.hirer_profile.is_verified %}
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        {% else %}
+                        <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                        {% endif %}
+                    </button>
                     <button
                         class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold"
                         onclick="switchTab('preferences')">{{ t('account_profile_page.tab_preferences') }}</button>
@@ -540,6 +574,248 @@
                         </form>
                     </div>
                 </div>
+
+                <!-- Tab Hirer Verification -->
+                <div id="tab-hirer_verify" class="tab-panel">
+                    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-slate-100">
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                    <span class="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-base shrink-0">🛡️</span>
+                                    <span>Xác minh hồ sơ Doanh nghiệp & HR</span>
+                                </h2>
+                                <p class="text-xs text-slate-500 mt-1">Xác thực danh tính để nhận <strong>Tích Xanh Uy Tín</strong>, tăng gấp đôi số lượng ứng viên chất lượng.</p>
+                            </div>
+                            <div>
+                                {% if user.hirer_profile and user.hirer_profile.is_verified %}
+                                <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-bold shadow-xs">
+                                    <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                    ĐÃ XÁC MINH CHÍNH THỨC
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-bold shadow-xs">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                                    CHƯA XÁC MINH
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Status Highlight Banner -->
+                        {% if user.hirer_profile and user.hirer_profile.is_verified %}
+                        <div class="mb-8 p-5 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/10 rounded-2xl border border-emerald-200/80 flex items-start gap-3.5">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            </div>
+                            <div class="text-xs sm:text-sm">
+                                <h3 class="font-bold text-emerald-900 mb-0.5">Hồ sơ của bạn đã hoàn tất xác minh</h3>
+                                <p class="text-emerald-800/90 leading-relaxed">
+                                    Huy hiệu <strong>Tích Xanh Doanh nghiệp</strong> đang được kích hoạt và hiển thị bên cạnh tên của bạn trên tất cả các tin tuyển dụng và trang hồ sơ.
+                                    {% if user.hirer_profile.verified_at %}
+                                    <span class="block text-[11px] text-emerald-700 font-medium mt-1">Xác minh ngày: {{ user.hirer_profile.verified_at.strftime('%d/%m/%Y') }}</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="mb-8 p-5 bg-gradient-to-r from-brand-50 via-indigo-50/50 to-blue-50 rounded-2xl border border-brand-200/70 flex items-start gap-3.5">
+                            <div class="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            </div>
+                            <div class="text-xs sm:text-sm">
+                                <h3 class="font-bold text-slate-900 mb-1">Vì sao nên xác minh hồ sơ?</h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-slate-600 text-xs mt-2">
+                                    <div class="flex items-center gap-1.5"><span class="text-emerald-600 font-bold">✓</span> Tăng 80% phản hồi từ phiên dịch viên</div>
+                                    <div class="flex items-center gap-1.5"><span class="text-emerald-600 font-bold">✓</span> Ưu tiên vị trí hiển thị bài đăng</div>
+                                    <div class="flex items-center gap-1.5"><span class="text-emerald-600 font-bold">✓</span> Huy hiệu Tích Xanh Doanh nghiệp</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <form method="POST" action="{{ url_for('account_profile') }}" enctype="multipart/form-data" class="space-y-6">
+                            <input type="hidden" name="action" value="hirer_verify">
+
+                            <!-- Section 1: Loại hình nhà tuyển dụng -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2.5">Loại hình tổ chức / Nhà tuyển dụng <span class="text-rose-500">*</span></label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <label class="relative flex items-center p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition {% if not user.hirer_profile or user.hirer_profile.hirer_type != 'individual' %}border-brand-500 bg-brand-50/50 text-brand-900 font-bold{% endif %}">
+                                        <input type="radio" name="hirer_type" value="business" class="text-brand-600 focus:ring-brand-500 mr-3" {% if not user.hirer_profile or user.hirer_profile.hirer_type != 'individual' %}checked{% endif %}>
+                                        <div>
+                                            <span class="block text-xs sm:text-sm font-bold">🏢 Doanh nghiệp / Tổ chức</span>
+                                            <span class="block text-[11px] text-slate-500 font-normal">Công ty TNHH, Cổ phần, Tập đoàn, Doanh nghiệp FDI, Cơ quan</span>
+                                        </div>
+                                    </label>
+                                    <label class="relative flex items-center p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition {% if user.hirer_profile and user.hirer_profile.hirer_type == 'individual' %}border-brand-500 bg-brand-50/50 text-brand-900 font-bold{% endif %}">
+                                        <input type="radio" name="hirer_type" value="individual" class="text-brand-600 focus:ring-brand-500 mr-3" {% if user.hirer_profile and user.hirer_profile.hirer_type == 'individual' %}checked{% endif %}>
+                                        <div>
+                                            <span class="block text-xs sm:text-sm font-bold">👤 Nhà tuyển dụng / HR cá nhân</span>
+                                            <span class="block text-[11px] text-slate-500 font-normal">Chuyên viên tuyển dụng tự do, Chủ dự án, Cá nhân thuê phiên dịch</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Section 2: Thông tin pháp lý & Doanh nghiệp -->
+                            <div class="pt-4 border-t border-slate-100">
+                                <h3 class="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                                    <span>1. Thông tin doanh nghiệp & tổ chức</span>
+                                </h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="space-y-1.5 sm:col-span-2">
+                                        <label class="block text-xs font-bold text-slate-700">Tên đầy đủ công ty / Tổ chức <span class="text-rose-500">*</span></label>
+                                        <input type="text" name="company" required
+                                            value="{{ user.hirer_profile.company if user.hirer_profile and user.hirer_profile.company else '' }}"
+                                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                            placeholder="VD: Công ty TNHH Giải Pháp Công Nghệ Toàn Cầu">
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-bold text-slate-700">Mã số thuế / Mã số doanh nghiệp</label>
+                                        <input type="text" name="tax_code"
+                                            value="{{ user.hirer_profile.tax_code if user.hirer_profile and user.hirer_profile.tax_code else '' }}"
+                                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                            placeholder="VD: 0101234567">
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-bold text-slate-700">Quy mô nhân sự</label>
+                                        <select name="company_size" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+                                            <option value="">-- Chọn quy mô công ty --</option>
+                                            <option value="1-10" {% if user.hirer_profile and user.hirer_profile.company_size == '1-10' %}selected{% endif %}>Dưới 10 nhân sự (Startup / Nhóm)</option>
+                                            <option value="10-50" {% if user.hirer_profile and user.hirer_profile.company_size == '10-50' %}selected{% endif %}>10 - 50 nhân sự (Vừa & nhỏ)</option>
+                                            <option value="50-200" {% if user.hirer_profile and user.hirer_profile.company_size == '50-200' %}selected{% endif %}>50 - 200 nhân sự (Doanh nghiệp vừa)</option>
+                                            <option value="200+" {% if user.hirer_profile and user.hirer_profile.company_size == '200+' %}selected{% endif %}>Trên 200 nhân sự (Tập đoàn / Lớn)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-bold text-slate-700">Lĩnh vực hoạt động chính</label>
+                                        <input type="text" name="industry"
+                                            value="{{ user.hirer_profile.industry if user.hirer_profile and user.hirer_profile.industry else '' }}"
+                                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                            placeholder="VD: Thương mại, Xuất nhập khẩu, Y tế, CNTT, Sự kiện...">
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-bold text-slate-700">Trụ sở / Địa bàn chính</label>
+                                        <input type="text" name="location"
+                                            value="{{ user.hirer_profile.location if user.hirer_profile and user.hirer_profile.location else '' }}"
+                                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                            placeholder="VD: Quận 1, TP. Hồ Chí Minh">
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-bold text-slate-700">Website / LinkedIn / Fanpage</label>
+                                        <input type="url" name="website"
+                                            value="{{ user.hirer_profile.website if user.hirer_profile and user.hirer_profile.website else '' }}"
+                                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                            placeholder="https://company.com">
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-bold text-slate-700">Email doanh nghiệp (Corporate Email)</label>
+                                        <input type="email" name="corporate_email"
+                                            value="{{ user.hirer_profile.corporate_email if user.hirer_profile and user.hirer_profile.corporate_email else '' }}"
+                                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                            placeholder="contact@company.com">
+                                    </div>
+
+                                    <div class="space-y-1.5 sm:col-span-2">
+                                        <label class="block text-xs font-bold text-slate-700">Hotline / Số điện thoại cố định</label>
+                                        <input type="text" name="hotline"
+                                            value="{{ user.hirer_profile.hotline if user.hirer_profile and user.hirer_profile.hotline else '' }}"
+                                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                            placeholder="VD: (028) 3822 1234">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Section 3: Người đại diện tuyển dụng / HR -->
+                            <div class="pt-4 border-t border-slate-100">
+                                <h3 class="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                                    <span>2. Đại diện tuyển dụng / Người phụ trách (HR)</span>
+                                </h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-bold text-slate-700">Họ và tên người phụ trách</label>
+                                        <input type="text" name="hr_name"
+                                            value="{{ user.hirer_profile.hr_name if user.hirer_profile and user.hirer_profile.hr_name else user.name }}"
+                                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                            placeholder="VD: Nguyễn Văn A">
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-bold text-slate-700">Chức vụ / Vị trí</label>
+                                        <input type="text" name="hr_title"
+                                            value="{{ user.hirer_profile.hr_title if user.hirer_profile and user.hirer_profile.hr_title else (user.hirer_profile.title if user.hirer_profile else '') }}"
+                                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                            placeholder="VD: HR Manager / Giám đốc dự án">
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-bold text-slate-700">Số điện thoại di động</label>
+                                        <input type="text" name="hr_phone"
+                                            value="{{ user.hirer_profile.hr_phone if user.hirer_profile and user.hirer_profile.hr_phone else (user.phone or '') }}"
+                                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                            placeholder="VD: 0987654321">
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-bold text-slate-700">Số Zalo liên hệ</label>
+                                        <input type="text" name="hr_zalo"
+                                            value="{{ user.hirer_profile.hr_zalo if user.hirer_profile and user.hirer_profile.hr_zalo else (user.phone or '') }}"
+                                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                            placeholder="VD: 0987654321">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Section 4: Tài liệu xác thực (Tùy chọn) -->
+                            <div class="pt-4 border-t border-slate-100">
+                                <h3 class="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                    <span>3. Giấy tờ & Tài liệu xác thực (Tùy chọn tải lên)</span>
+                                </h3>
+                                <p class="text-xs text-slate-500 mb-3">Tải lên Giấy chứng nhận ĐKKD, Thẻ nhân viên hoặc Giấy giới thiệu để tăng độ tin cậy tối đa.</p>
+
+                                {% if user.hirer_profile and user.hirer_profile.verification_doc %}
+                                <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 mb-3">
+                                    <div class="flex items-center gap-2.5 overflow-hidden">
+                                        <span class="text-lg">📄</span>
+                                        <div class="truncate">
+                                            <a href="{{ user.hirer_profile.doc_url }}" target="_blank" class="text-xs sm:text-sm font-bold text-brand-600 hover:text-brand-700 underline truncate block">
+                                                {{ user.hirer_profile.verification_doc }}
+                                            </a>
+                                            <span class="text-[11px] text-slate-400">Đã tải lên hệ thống</span>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="removeVerificationDoc()" class="text-xs text-rose-600 hover:text-rose-700 font-semibold px-2.5 py-1 rounded-lg hover:bg-rose-50 transition shrink-0">
+                                        Xóa file
+                                    </button>
+                                </div>
+                                {% endif %}
+
+                                <div>
+                                    <input type="file" name="verification_doc" accept=".pdf,.png,.jpg,.jpeg,.webp" class="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 transition cursor-pointer">
+                                    <p class="text-[11px] text-slate-400 mt-1">Định dạng hỗ trợ: PDF, PNG, JPG, JPEG, WEBP (Tối đa 15MB).</p>
+                                </div>
+                            </div>
+
+                            <!-- Buttons -->
+                            <div class="pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-3">
+                                <button type="submit"
+                                    class="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-xl text-xs sm:text-sm shadow-md shadow-emerald-600/20 transition transform hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                    <span>Xác minh & Kích hoạt Tích Xanh</span>
+                                </button>
+                                <span class="text-[11px] text-slate-400 text-center sm:text-left">
+                                    🔒 Thông tin của bạn được bảo mật tuyệt đối theo chính sách quyền riêng tư.
+                                </span>
+                            </div>
+                        </form>
+                    </div>
+                </div>
                 {% endif %}
 
                 <!-- Tab 3/4: Bảo mật -->
@@ -692,10 +968,24 @@
             b.classList.add('text-slate-600', 'hover:bg-slate-50');
         });
 
-        document.getElementById('tab-' + tab).classList.add('active');
-        event.target.classList.add('active');
-        event.target.classList.remove('text-slate-600', 'hover:bg-slate-50');
+        const panel = document.getElementById('tab-' + tab);
+        if (panel) panel.classList.add('active');
+
+        // Tìm button tương ứng để active
+        const btns = document.querySelectorAll('.tab-btn');
+        btns.forEach(b => {
+            if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${tab}'`)) {
+                b.classList.add('active');
+                b.classList.remove('text-slate-600', 'hover:bg-slate-50');
+            }
+        });
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.location.hash === '#verify') {
+            switchTab('hirer_verify');
+        }
+    });
 
     function updateLangField() {
         const checks = document.querySelectorAll('input[name="lang_checks"]:checked');
@@ -981,6 +1271,18 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
             body: new URLSearchParams({ action: 'remove_certificate', filename: filename })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if(data.success) location.reload();
+            else alert(data.message || 'Có lỗi xảy ra');
+        })
+    function removeVerificationDoc() {
+        if(!confirm('Bạn có chắc chắn muốn xóa tài liệu xác minh này?')) return;
+        fetch("{{ url_for('account_profile') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams({ action: 'remove_verification_doc' })
         })
         .then(r => r.json())
         .then(data => {
