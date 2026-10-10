@@ -15,9 +15,10 @@ def create_contract_booking(
     hirer_id,
     translator_id,
     agreed_price,
-    scheduled_date,
-    start_time,
-    end_time,
+    scheduled_date=None,
+    start_time=None,
+    end_time=None,
+    daily_schedules=None,
     location=None,
     job_id=None,
     service_id=None,
@@ -55,6 +56,16 @@ def create_contract_booking(
             if existing:
                 raise BookingConflictError("Công việc này đã được tạo hợp đồng.")
 
+        if daily_schedules and not scheduled_date:
+            if len(daily_schedules) == 1:
+                scheduled_date = str(daily_schedules[0].get('date', ''))
+            else:
+                scheduled_date = f"{daily_schedules[0].get('date', '')} to {daily_schedules[-1].get('date', '')}"
+        if daily_schedules and not start_time:
+            start_time = str(daily_schedules[0].get('start_time', ''))
+        if daily_schedules and not end_time:
+            end_time = str(daily_schedules[0].get('end_time', ''))
+
         contract = Contract(
             job_id=job_id,
             proposal_id=proposal_id,
@@ -62,9 +73,9 @@ def create_contract_booking(
             hirer_id=hirer_id,
             translator_id=translator.id,
             agreed_price=agreed_price,
-            scheduled_date=scheduled_date,
-            scheduled_time_start=start_time,
-            scheduled_time_end=end_time,
+            scheduled_date=scheduled_date or '',
+            scheduled_time_start=start_time or '',
+            scheduled_time_end=end_time or '',
             location=location or '',
             status='escrow_pending'
         )
@@ -89,17 +100,17 @@ def create_contract_booking(
                             service_id=service_id
                         )
             else:
-                # Direct booking without job
-                if scheduled_date and start_time and end_time:
-                    reserve_slot(
-                        translator_id=translator.id,
-                        scheduled_date=scheduled_date,
-                        start_time=start_time,
-                        end_time=end_time,
-                        contract_id=contract.id,
-                        job_id=job_id,
-                        service_id=service_id
-                    )
+                # Direct booking without job — supports daily_schedules
+                reserve_slot(
+                    translator_id=translator.id,
+                    scheduled_date=scheduled_date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    daily_schedules=daily_schedules,
+                    contract_id=contract.id,
+                    job_id=job_id,
+                    service_id=service_id
+                )
         except SlotTakenError as e:
             db.session.rollback()
             raise BookingConflictError(str(e))

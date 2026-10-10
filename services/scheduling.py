@@ -91,9 +91,10 @@ def release_expired(commit=True):
 
 def reserve_slot(
     translator_id, 
-    scheduled_date, 
-    start_time, 
-    end_time, 
+    scheduled_date=None, 
+    start_time=None, 
+    end_time=None, 
+    daily_schedules=None,
     contract_id=None,
     job_id=None,
     service_id=None,
@@ -103,41 +104,54 @@ def reserve_slot(
     """
     Giữ chỗ (reserve) một hoặc nhiều slot cho phiên dịch viên.
     
-    Hỗ trợ cả ngày đơn lẻ ("2024-12-01") và khoảng ngày ("2024-12-01 to 2024-12-03").
-    Khi đặt nhiều ngày, mỗi ngày sẽ tạo một bản ghi TranslatorSchedule riêng biệt
-    với cùng khung giờ start_time / end_time.
+    Hỗ trợ:
+      - daily_schedules: list các dict [{'date': ..., 'start_time': ..., 'end_time': ...}, ...]
+        cho phép cấu hình giờ làm việc chi tiết cho từng ngày riêng biệt.
+      - Hoặc scheduled_date (ngày đơn lẻ hoặc khoảng ngày) kèm start_time, end_time chung.
     
     Returns:
         TranslatorSchedule hoặc list[TranslatorSchedule] – bản ghi lịch đã tạo.
-        Trả về đối tượng đơn nếu chỉ 1 ngày, trả về list nếu nhiều ngày.
-    
-    Raises:
-        SlotTakenError nếu trùng lịch.
-        SchedulingError nếu dữ liệu không hợp lệ.
     """
     # 1. Giải phóng reservation cũ trước khi kiểm tra (tránh false positive)
     _release_expired_schedules()
     
-    # 2. Parse thời gian
-    parsed_start = _parse_time(start_time)
-    parsed_end = _parse_time(end_time)
-    
-    if not parsed_start or not parsed_end:
-        raise SchedulingError("Thời gian đặt lịch không hợp lệ hoặc bị thiếu.")
-    
-    if parsed_end <= parsed_start:
-        raise SchedulingError("Thời gian kết thúc phải sau thời gian bắt đầu.")
-    
-    # 3. Parse ngày (hỗ trợ date range)
-    date_list = parse_date_range(scheduled_date)
-    if not date_list:
-        # Fallback: thử parse như single date cũ
-        from services.schedule import _parse_date
-        single_date = _parse_date(scheduled_date)
-        if single_date:
-            date_list = [single_date]
-        else:
+    # 2. Chuẩn bị danh sách (date_obj, start_time_obj, end_time_obj)
+    schedule_items = []
+    from services.schedule import _parse_date
+
+    if daily_schedules:
+        for item in daily_schedules:
+            d_raw = item.get('date')
+            s_raw = item.get('start_time')
+            e_raw = item.get('end_time')
+            d_obj = _parse_date(d_raw)
+            s_obj = _parse_time(s_raw)
+            e_obj = _parse_time(e_raw)
+            if not d_obj or not s_obj or not e_obj:
+                raise SchedulingError("Thời gian đặt lịch không hợp lệ hoặc bị thiếu.")
+            if e_obj <= s_obj:
+                raise SchedulingError(f"Ngày {d_obj.strftime('%d/%m/%Y')}: Giờ kết thúc phải sau giờ bắt đầu.")
+            schedule_items.append((d_obj, s_obj, e_obj))
+    else:
+        parsed_start = _parse_time(start_time)
+        parsed_end = _parse_time(end_time)
+        if not parsed_start or not parsed_end:
             raise SchedulingError("Thời gian đặt lịch không hợp lệ hoặc bị thiếu.")
+        if parsed_end <= parsed_start:
+            raise SchedulingError("Thời gian kết thúc phải sau thời gian bắt đầu.")
+
+        date_list = parse_date_range(scheduled_date)
+        if not date_list:
+            single_date = _parse_date(scheduled_date)
+            if single_date:
+                date_list = [single_date]
+            else:
+                raise SchedulingError("Thời gian đặt lịch không hợp lệ hoặc bị thiếu.")
+        for d in date_list:
+            schedule_items.append((d, parsed_start, parsed_end))
+
+    if not schedule_items:
+        raise SchedulingError("Thời gian đặt lịch không hợp lệ hoặc bị thiếu.")
 
     try:
         # 4. Sử dụng row-level locking để ngăn chặn race condition trên cấp ứng dụng.
@@ -153,17 +167,16 @@ def reserve_slot(
                 return existing[0] if len(existing) == 1 else existing
 
         # 5. Kiểm tra overlap cho TẤT CẢ các ngày trước khi tạo bản ghi
-        for single_date in date_list:
+        for single_date, s_time, e_time in schedule_items:
             conflict_result = check_translator_schedule_conflict(
                 translator_id=translator_id,
                 scheduled_date=single_date,
-                start_time=parsed_start,
-                end_time=parsed_end,
+                start_time=s_time,
+                end_time=e_time,
                 buffer_before_minutes=buffer_before_minutes,
                 buffer_after_minutes=buffer_after_minutes
             )
             if conflict_result.get('conflict'):
-                # Thêm thông tin ngày bị trùng để user biết rõ
                 conflict_date_str = single_date.strftime('%d/%m/%Y')
                 msg = conflict_result.get('message', "Lịch bị trùng với một booking khác.")
                 raise SlotTakenError(f"Ngày {conflict_date_str}: {msg}")
@@ -172,15 +185,15 @@ def reserve_slot(
         now = datetime.utcnow()
         created_schedules = []
         
-        for single_date in date_list:
+        for single_date, s_time, e_time in schedule_items:
             schedule = TranslatorSchedule(
                 translator_id=translator_id,
                 contract_id=contract_id,
                 job_id=job_id,
                 service_id=service_id,
                 scheduled_date=single_date,
-                start_time=parsed_start,
-                end_time=parsed_end,
+                start_time=s_time,
+                end_time=e_time,
                 buffer_before_minutes=buffer_before_minutes,
                 buffer_after_minutes=buffer_after_minutes,
                 status='reserved',

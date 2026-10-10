@@ -398,6 +398,17 @@
                                         <div class="px-4 py-2.5 border-b border-slate-100 bg-slate-50/60">
                                             <p class="font-bold text-slate-900 truncate">{{ current_user.name }}</p>
                                             <p class="text-slate-400 truncate">{{ current_user.email }}</p>
+                                            {% if current_user.role == 'hirer' %}
+                                                {% if current_user.hirer_profile and current_user.hirer_profile.is_verified %}
+                                                <span class="inline-flex items-center gap-1 text-[10px] text-emerald-600 font-bold mt-1">
+                                                    ✓ Doanh nghiệp đã xác minh
+                                                </span>
+                                                {% else %}
+                                                <a href="{{ url_for('account_profile') }}#verify" class="inline-flex items-center gap-1 text-[10px] text-amber-600 hover:text-amber-700 font-bold mt-1">
+                                                    🛡️ Xác minh hồ sơ →
+                                                </a>
+                                                {% endif %}
+                                            {% endif %}
                                         </div>
                                         <a href="{{ url_for('account_profile') }}"
                                             class="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 transition">
@@ -540,6 +551,26 @@
             </div>
         </div>
     </header>
+
+    <!-- Hirer Verification Encouragement Banner -->
+    {% if current_user and current_user.role == 'hirer' and (not current_user.hirer_profile or not current_user.hirer_profile.is_verified) and request.endpoint not in ['account_profile', 'login', 'register'] %}
+    <div id="hirer-verify-banner" class="bg-gradient-to-r from-brand-700 via-indigo-700 to-brand-800 text-white py-2 px-4 shadow-xs relative transition-all">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs sm:text-sm">
+            <div class="flex items-center gap-2.5 text-center sm:text-left">
+                <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-white/20 text-white text-xs font-bold shrink-0">🛡️</span>
+                <span>
+                    <strong>Xác minh hồ sơ nhà tuyển dụng:</strong> Nhận huy hiệu <strong>Tích Xanh</strong> để tăng 80% phản hồi từ các phiên dịch viên hàng đầu!
+                </span>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+                <a href="{{ url_for('account_profile') }}#verify" class="px-3 py-1 bg-white text-brand-700 hover:bg-brand-50 font-bold rounded-lg text-xs shadow-xs transition transform hover:scale-105">
+                    Xác minh ngay →
+                </a>
+                <button type="button" onclick="document.getElementById('hirer-verify-banner').style.display='none';" class="text-white/70 hover:text-white text-base leading-none p-1 cursor-pointer" title="Đóng">&times;</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
