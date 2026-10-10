@@ -1164,113 +1164,362 @@
                         </div>
                         {% endif %}
 
-                        <!-- Form Nộp / Cập Nhật Hồ Sơ Xác Minh -->
-                        {% if not user.profile or not user.profile.is_verified or (user.latest_verification and user.latest_verification.status == 'rejected') %}
-                        <form method="POST" action="{{ url_for('submit_verification') }}" enctype="multipart/form-data" class="space-y-6 pt-2">
-                            
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <!-- CV File (Bắt buộc) -->
-                                <div class="p-4 border-2 border-dashed border-slate-200 hover:border-brand-500 rounded-2xl bg-slate-50/50 transition">
-                                    <label class="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center justify-between">
-                                        <span>1. Sơ yếu lý lịch (CV) <span class="text-rose-500">*</span></span>
-                                        <span class="text-[10px] text-slate-400 font-normal">PDF, DOC, DOCX (Tối đa 10MB)</span>
-                                    </label>
-                                    <input type="file" name="cv_file" accept=".pdf,.doc,.docx" {% if not user.latest_verification or not user.latest_verification.cv_url %}required{% endif %}
-                                        class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer mt-2">
-                                    {% if user.latest_verification and user.latest_verification.cv_filename %}
-                                    <p class="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1">
-                                        <span>Đã nộp trước đó:</span>
-                                        <a href="{{ user.latest_verification.cv_url }}" target="_blank" class="font-medium text-brand-600 hover:underline truncate max-w-[200px]">{{ user.latest_verification.cv_filename }}</a>
-                                    </p>
-                                    {% endif %}
+                        <!-- KHU VỰC QUẢN LÝ TÀI LIỆU MINH CHỨNG (SECURE DOCUMENT VAULT) -->
+                        <div class="border-t border-slate-200/80 pt-6 space-y-6">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                                        <h3 class="text-sm sm:text-base font-bold text-slate-900">Quản Lý Tài Liệu Minh Chứng Năng Lực</h3>
+                                        <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 flex items-center gap-1 shadow-2xs">
+                                            <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v4a1 1 0 102 0V7z" clip-rule="evenodd"/></svg>
+                                            Vùng lưu trữ riêng tư (Private Storage)
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-1">Đính kèm CV, bằng cấp, chứng chỉ ngoại ngữ và giấy tờ định danh. Toàn bộ tệp được mã hóa và bảo mật nghiêm ngặt.</p>
                                 </div>
-
-                                <!-- Chứng chỉ / Bằng cấp -->
-                                <div class="p-4 border-2 border-dashed border-slate-200 hover:border-brand-500 rounded-2xl bg-slate-50/50 transition">
-                                    <label class="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center justify-between">
-                                        <span>2. Bản Scan / Ảnh Chứng Chỉ Ngoại Ngữ</span>
-                                        <span class="text-[10px] text-slate-400 font-normal">PDF, JPG, PNG (Tối đa 10MB)</span>
-                                    </label>
-                                    <input type="file" name="certificate_file" accept=".pdf,.jpg,.jpeg,.png,.webp"
-                                        class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer mt-2">
-                                    {% if user.latest_verification and user.latest_verification.certificate_filename %}
-                                    <p class="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1">
-                                        <span>Chứng chỉ hiện tại:</span>
-                                        <a href="{{ user.latest_verification.certificate_url }}" target="_blank" class="font-medium text-brand-600 hover:underline truncate max-w-[200px]">{{ user.latest_verification.certificate_filename }}</a>
-                                    </p>
-                                    {% endif %}
+                                <div class="text-[11px] text-slate-500 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl shrink-0">
+                                    Dung lượng tối đa: <strong class="text-slate-800">10 MB / tệp</strong>
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Loại chứng chỉ</label>
-                                    <select name="certificate_type" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                                        {% set cur_ct = user.latest_verification.certificate_type if user.latest_verification else '' %}
-                                        <option value="IELTS" {% if cur_ct == 'IELTS' %}selected{% endif %}>IELTS (Tiếng Anh)</option>
-                                        <option value="TOEIC" {% if cur_ct == 'TOEIC' %}selected{% endif %}>TOEIC / VSTEP</option>
-                                        <option value="JLPT" {% if cur_ct == 'JLPT' %}selected{% endif %}>JLPT (Tiếng Nhật: N1, N2)</option>
-                                        <option value="TOPIK" {% if cur_ct == 'TOPIK' %}selected{% endif %}>TOPIK (Tiếng Hàn: Topik 4, 5, 6)</option>
-                                        <option value="HSK" {% if cur_ct == 'HSK' %}selected{% endif %}>HSK (Tiếng Trung: HSK 5, 6)</option>
-                                        <option value="DELF/DALF" {% if cur_ct == 'DELF/DALF' %}selected{% endif %}>DELF / DALF (Tiếng Pháp)</option>
-                                        <option value="TestDaF/Goethe" {% if cur_ct == 'TestDaF/Goethe' %}selected{% endif %}>TestDaF / Goethe (Tiếng Đức)</option>
-                                        <option value="ТРКИ" {% if cur_ct == 'ТРКИ' %}selected{% endif %}>ТРКИ (Tiếng Nga)</option>
-                                        <option value="University_Degree" {% if cur_ct == 'University_Degree' %}selected{% endif %}>Bằng Cử Nhân / Thạc Sĩ Ngôn Ngữ</option>
-                                        <option value="Other" {% if cur_ct == 'Other' %}selected{% endif %}>Chứng chỉ / Bằng cấp khác</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Điểm số / Tên chi tiết</label>
-                                    <input type="text" name="certificate_name" value="{{ user.latest_verification.certificate_name if user.latest_verification else '' }}"
-                                        placeholder="VD: IELTS 8.0, JLPT N1, HSK 6"
-                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Kinh nghiệm phiên dịch (Năm)</label>
-                                    <input type="number" name="experience_years" min="0" max="50" value="{{ user.latest_verification.experience_years if user.latest_verification else '2' }}"
-                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                            <!-- Cảnh báo & Nguyên tắc xác minh -->
+                            <div class="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 text-xs text-blue-900 flex items-start gap-3">
+                                <svg class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <div class="space-y-1">
+                                    <p class="font-bold text-blue-950">Chính sách bảo mật & thẩm định tài liệu:</p>
+                                    <p class="text-blue-800 leading-relaxed">
+                                        • <strong>Lưu trữ riêng tư:</strong> Tài liệu không lưu trong thư mục công cộng. Chỉ có bạn và Ban quản trị mới có quyền xem hoặc tải xuống.<br>
+                                        • <strong>Nguyên tắc thẩm định:</strong> <span class="font-bold text-rose-700">Tải lên thành công KHÔNG đồng nghĩa tài liệu đã được xác minh.</span> Trạng thái xác minh chỉ có hiệu lực sau khi Ban quản trị hoàn tất xét duyệt chính thức.
+                                    </p>
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Ngôn ngữ thế mạnh chính</label>
-                                    <select name="primary_language" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                                        {% set cur_pl = user.latest_verification.primary_language if user.latest_verification else (user.profile.languages.split(',')[0] if user.profile and user.profile.languages else '') %}
-                                        {% for lang in LANGUAGES %}
-                                        <option value="{{ lang.name_vi }}" {% if cur_pl == lang.name_vi %}selected{% endif %}>{{ lang.flag }} {{ lang.name_vi }}</option>
+                            <!-- Danh Sách Tài Liệu Đã Tải Lên -->
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                        <span>Tài liệu minh chứng hiện có</span>
+                                        <span id="doc-count-badge" class="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">
+                                            {{ (verification_documents | length) if verification_documents else (1 if (user.latest_verification and user.latest_verification.cv_url) else 0) }}
+                                        </span>
+                                    </h4>
+                                </div>
+
+                                <div id="document-list-container" class="space-y-2.5">
+                                    {% set has_docs = false %}
+                                    {% if verification_documents and (verification_documents | length > 0) %}
+                                        {% set has_docs = true %}
+                                        {% for doc in verification_documents %}
+                                        <div class="p-3.5 sm:p-4 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 transition shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3" id="doc-card-{{ doc.id }}">
+                                            <div class="flex items-start gap-3 min-w-0">
+                                                <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold {% if doc.file_extension == 'pdf' %}bg-rose-50 text-rose-700 border border-rose-200/80{% elif doc.file_extension in ('doc', 'docx') %}bg-blue-50 text-blue-700 border border-blue-200/80{% else %}bg-purple-50 text-purple-700 border border-purple-200/80{% endif %}">
+                                                    {{ doc.file_extension.upper() }}
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <div class="flex flex-wrap items-center gap-2">
+                                                        <span class="text-xs font-bold text-slate-900 truncate max-w-[240px] sm:max-w-xs">{{ doc.original_filename }}</span>
+                                                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                                            {% if doc.document_type == 'cv' %}Sơ yếu lý lịch (CV)
+                                                            {% elif doc.document_type == 'certificate' %}Bằng cấp / Chứng chỉ
+                                                            {% elif doc.document_type == 'id_card' %}Căn cước công dân (CCCD)
+                                                            {% elif doc.document_type == 'diploma' %}Bằng tốt nghiệp ĐH/CĐ
+                                                            {% elif doc.document_type == 'recommendation' %}Thư giới thiệu / Hợp đồng
+                                                            {% else %}{{ doc.document_type.upper() }}{% endif %}
+                                                        </span>
+                                                    </div>
+                                                    <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mt-1">
+                                                        <span>{{ doc.file_size | filesizeformat if doc.file_size else 'Đã lưu' }}</span>
+                                                        <span>•</span>
+                                                        <span>{{ doc.created_at.strftime('%d/%m/%Y %H:%M') if doc.created_at else '' }}</span>
+                                                    </div>
+                                                    {% if doc.review_notes %}
+                                                    <p class="text-[11px] text-rose-700 bg-rose-50 border border-rose-200/70 rounded-lg px-2.5 py-1 mt-1.5 font-medium">
+                                                        <strong>Đánh giá:</strong> {{ doc.review_notes }}
+                                                    </p>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+
+                                            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                                                <!-- Trạng thái đánh giá tài liệu -->
+                                                <div>
+                                                    {% if doc.status == 'approved' %}
+                                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80">
+                                                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                                        Đạt yêu cầu
+                                                    </span>
+                                                    {% elif doc.status == 'rejected' %}
+                                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200/80">
+                                                        <svg class="w-3.5 h-3.5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                        Cần bổ sung
+                                                    </span>
+                                                    {% else %}
+                                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200/80" title="Tài liệu đã lưu trên hệ thống, đang chờ Ban quản trị duyệt.">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                                        Đã lưu (Chờ duyệt)
+                                                    </span>
+                                                    {% endif %}
+                                                </div>
+
+                                                <!-- Các thao tác -->
+                                                {% if doc.file_extension in ('pdf', 'jpg', 'jpeg', 'png', 'webp') %}
+                                                <a href="/account/verification/documents/{{ doc.id }}/view" target="_blank"
+                                                    class="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 transition" title="Xem trước tài liệu">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                                </a>
+                                                {% endif %}
+
+                                                <a href="/account/verification/documents/{{ doc.id }}/download"
+                                                    class="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 transition" title="Tải xuống tệp">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                                </a>
+
+                                                {% if not user.latest_verification or user.latest_verification.status in ('draft', 'rejected', 'needs_revision', 'not_started', None) %}
+                                                <button type="button" onclick="replaceVerificationDoc('{{ doc.document_type }}')"
+                                                    class="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-amber-600 hover:bg-slate-50 transition" title="Thay thế tệp này">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                                </button>
+
+                                                <button type="button" onclick="deleteVerificationDoc({{ doc.id }}, '{{ doc.original_filename }}')"
+                                                    class="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-rose-600 hover:bg-slate-50 transition" title="Xóa tài liệu">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
                                         {% endfor %}
-                                    </select>
+                                    {% elif user.latest_verification and user.latest_verification.cv_url %}
+                                        {% set has_docs = true %}
+                                        <div class="p-3.5 sm:p-4 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs">DOC</div>
+                                                <div>
+                                                    <span class="text-xs font-bold text-slate-900">{{ user.latest_verification.cv_filename or 'Sơ yếu lý lịch (CV)' }}</span>
+                                                    <p class="text-[11px] text-slate-500">Đã lưu trong hồ sơ</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <a href="{{ user.latest_verification.cv_url }}" target="_blank" class="text-xs font-bold text-brand-600 hover:underline">Tải xuống</a>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if not has_docs %}
+                                    <div id="no-docs-placeholder" class="p-6 border-2 border-dashed border-slate-200 rounded-2xl text-center bg-slate-50/50">
+                                        <svg class="w-10 h-10 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                        <p class="text-xs font-medium text-slate-600">Chưa có tài liệu minh chứng nào trong hồ sơ.</p>
+                                        <p class="text-[11px] text-slate-400 mt-0.5">Vui lòng chọn loại tài liệu bên dưới và tải lên bản scan / tài liệu của bạn.</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Khu vực tải lên / thay thế tài liệu -->
+                            {% set is_pending = user.latest_verification and user.latest_verification.status == 'pending' %}
+                            {% set is_approved = user.profile and user.profile.is_verified %}
+                            
+                            {% if is_pending %}
+                            <div class="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-4 text-xs text-amber-900 flex items-center gap-3">
+                                <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                <p><strong>Khóa chỉnh sửa:</strong> Hồ sơ đang trong trạng thái <strong>Chờ Ban quản trị duyệt</strong>. Bạn tạm thời không thể thay thế hoặc tải thêm tài liệu mới trong quá trình thẩm định.</p>
+                            </div>
+                            {% elif is_approved %}
+                            <div class="bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-4 text-xs text-emerald-900 flex items-center gap-3">
+                                <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                <p><strong>Đã xác minh:</strong> Hồ sơ của bạn đã được thẩm định thành công. Nếu bạn cần cập nhật thêm chứng chỉ mới, vui lòng liên hệ Ban quản trị để yêu cầu mở lại đợt thẩm định.</p>
+                            </div>
+                            {% else %}
+                            <div id="doc-upload-box" class="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-5 sm:p-6 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <h4 id="doc-upload-heading" class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                        <span>Tải Lên Hoặc Thay Thế Tài Liệu Minh Chứng</span>
+                                    </h4>
+                                    <span class="text-[10px] text-slate-400 font-medium">Kiểm tra chữ ký máy chủ</span>
                                 </div>
 
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                                        <span>Giấy tờ tùy thân / CCCD</span>
-                                        <span class="text-[10px] text-slate-400 font-normal">Tùy chọn (Bảo mật 100%)</span>
-                                    </label>
-                                    <input type="file" name="id_card_file" accept=".pdf,.jpg,.jpeg,.png,.webp"
-                                        class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <!-- Chọn loại tài liệu -->
+                                    <div>
+                                        <label class="block text-xs font-bold text-slate-700 mb-1">Loại tài liệu được phép <span class="text-rose-500">*</span></label>
+                                        <select id="doc-type-select" onchange="onDocTypeChange(this.value)"
+                                            class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white font-medium cursor-pointer">
+                                            <option value="cv" selected>Sơ yếu lý lịch (CV / Resume) — Bắt buộc</option>
+                                            <option value="certificate">Bằng cấp / Chứng chỉ ngoại ngữ</option>
+                                            <option value="id_card">Căn cước công dân / Hộ chiếu (CCCD)</option>
+                                            <option value="diploma">Bằng tốt nghiệp Đại học / Cao đẳng</option>
+                                            <option value="recommendation">Thư giới thiệu / Hợp đồng tiêu biểu</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Thẻ chính sách của loại tài liệu -->
+                                    <div id="policy-info-card" class="p-3 bg-white border border-slate-200/80 rounded-xl text-xs space-y-1">
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-bold text-slate-800" id="policy-doc-title">Sơ yếu lý lịch (CV / Resume)</span>
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-50 text-brand-700" id="policy-allowed-exts">PDF, DOC, DOCX</span>
+                                        </div>
+                                        <p class="text-[11px] text-slate-500" id="policy-doc-desc">Bản tóm tắt học vấn, chứng chỉ và kinh nghiệm dự án dịch thuật.</p>
+                                        <p class="text-[10px] text-slate-400">Giới hạn dung lượng: <span class="font-semibold text-slate-600">Tối đa 10 MB</span></p>
+                                    </div>
+                                </div>
+
+                                <!-- Dropzone chọn tệp -->
+                                <div id="doc-dropzone" onclick="document.getElementById('doc-file-input').click()"
+                                    class="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-6 text-center cursor-pointer bg-white transition hover:bg-brand-50/20 group">
+                                    <input type="file" id="doc-file-input" onchange="onDocFileSelected(this)" class="hidden" accept=".pdf,.doc,.docx">
+                                    <div id="dropzone-prompt" class="space-y-2">
+                                        <div class="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto group-hover:scale-110 transition">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                        </div>
+                                        <p class="text-xs font-bold text-slate-700">Kéo thả tệp vào đây hoặc <span class="text-brand-600 underline">bấm để chọn tệp</span></p>
+                                        <p class="text-[11px] text-slate-400" id="dropzone-ext-hint">Định dạng hỗ trợ: PDF, DOC, DOCX (Tối đa 10 MB)</p>
+                                    </div>
+
+                                    <!-- Tệp đã chọn -->
+                                    <div id="dropzone-selected" class="hidden flex items-center justify-between p-3 bg-brand-50/60 border border-brand-200/80 rounded-xl text-left">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0 text-xs font-bold" id="selected-file-icon">
+                                                FILE
+                                            </div>
+                                            <div class="truncate">
+                                                <p class="text-xs font-bold text-slate-900 truncate" id="selected-filename">ten_file.pdf</p>
+                                                <p class="text-[11px] text-slate-500" id="selected-filesize">0 KB</p>
+                                            </div>
+                                        </div>
+                                        <button type="button" onclick="event.stopPropagation(); clearSelectedDocFile()" class="p-1 hover:bg-brand-100 rounded text-slate-500 hover:text-rose-600 transition" title="Hủy chọn">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Tiến trình tải lên (Progress Bar) -->
+                                <div id="doc-upload-progress-box" class="hidden space-y-1.5">
+                                    <div class="flex items-center justify-between text-xs">
+                                        <span class="font-bold text-slate-700 flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-brand-600 animate-ping"></span>
+                                            <span id="doc-progress-status">Đang tải lên và mã hóa bảo mật...</span>
+                                        </span>
+                                        <span id="doc-progress-percent" class="font-bold text-brand-600">0%</span>
+                                    </div>
+                                    <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                                        <div id="doc-progress-bar" class="h-full bg-gradient-to-r from-brand-500 to-indigo-600 rounded-full transition-all duration-150" style="width: 0%"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Thông báo lỗi chi tiết -->
+                                <div id="doc-upload-error" class="hidden p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2.5">
+                                    <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <div class="flex-grow">
+                                        <strong class="font-bold">Lỗi tải lên:</strong>
+                                        <span id="doc-upload-error-msg" class="block mt-0.5 leading-relaxed">Thông báo lỗi chi tiết</span>
+                                    </div>
+                                </div>
+
+                                <!-- Thông báo thành công -->
+                                <div id="doc-upload-success" class="hidden p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-start gap-2.5">
+                                    <svg class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    <div class="flex-grow">
+                                        <strong class="font-bold text-emerald-950">Tải lên thành công!</strong>
+                                        <span id="doc-upload-success-msg" class="block mt-0.5 leading-relaxed">Tài liệu đã được lưu trữ an toàn trong hồ sơ.</span>
+                                        <span class="block text-[11px] text-emerald-700 mt-1 italic">Lưu ý: Tài liệu đang ở trạng thái Chờ thẩm định, chưa phải là Đã xác minh.</span>
+                                    </div>
+                                </div>
+
+                                <!-- Nút Tải lên -->
+                                <div class="flex items-center justify-end gap-3 pt-2">
+                                    <button type="button" id="doc-upload-btn" onclick="submitDocUpload()"
+                                        class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm rounded-xl transition shadow-md shadow-brand-500/20 flex items-center gap-2 cursor-pointer">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                        <span id="doc-upload-btn-text">Bắt đầu tải lên tài liệu</span>
+                                    </button>
                                 </div>
                             </div>
+                            {% endif %}
 
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Ghi chú hoặc lời nhắn gửi Ban quản trị</label>
-                                <textarea name="notes" rows="3" placeholder="Nêu tóm tắt các dự án dịch thuật tiêu biểu, giải thưởng hoặc thông tin liên hệ bổ sung..."
-                                    class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 leading-relaxed">{{ user.latest_verification.notes if user.latest_verification else '' }}</textarea>
-                            </div>
+                            <!-- Form Gửi Hồ Sơ Xét Duyệt Tới Admin (Khi đã chuẩn bị xong tài liệu) -->
+                            {% if not user.profile or not user.profile.is_verified or (user.latest_verification and user.latest_verification.status == 'rejected') %}
+                            <div class="border-t border-slate-200/80 pt-6 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h4 class="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider">Thông Tin Thẩm Định & Gửi Xét Duyệt</h4>
+                                        <p class="text-[11px] text-slate-500 mt-0.5">Điền thông tin năng lực ngoại ngữ và gửi toàn bộ hồ sơ kèm tài liệu tới Ban quản trị.</p>
+                                    </div>
+                                </div>
 
-                            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
-                                <span class="text-[11px] text-slate-400">VietTranslate cam kết bảo mật toàn bộ dữ liệu giấy tờ cá nhân theo chính sách quyền riêng tư.</span>
-                                <button type="submit"
-                                    class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    <span>{% if user.latest_verification and user.latest_verification.status == 'rejected' %}{{ t('account_profile_page.resubmit_verification_btn') }}{% else %}{{ t('account_profile_page.submit_verification_btn') }}{% endif %}</span>
-                                </button>
+                                <form method="POST" action="{{ url_for('submit_verification') }}" class="space-y-5">
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Loại chứng chỉ</label>
+                                            <select name="certificate_type" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
+                                                {% set cur_ct = user.latest_verification.certificate_type if user.latest_verification else '' %}
+                                                <option value="IELTS" {% if cur_ct == 'IELTS' %}selected{% endif %}>IELTS (Tiếng Anh)</option>
+                                                <option value="TOEIC" {% if cur_ct == 'TOEIC' %}selected{% endif %}>TOEIC / VSTEP</option>
+                                                <option value="JLPT" {% if cur_ct == 'JLPT' %}selected{% endif %}>JLPT (Tiếng Nhật: N1, N2)</option>
+                                                <option value="TOPIK" {% if cur_ct == 'TOPIK' %}selected{% endif %}>TOPIK (Tiếng Hàn: Topik 4, 5, 6)</option>
+                                                <option value="HSK" {% if cur_ct == 'HSK' %}selected{% endif %}>HSK (Tiếng Trung: HSK 5, 6)</option>
+                                                <option value="DELF/DALF" {% if cur_ct == 'DELF/DALF' %}selected{% endif %}>DELF / DALF (Tiếng Pháp)</option>
+                                                <option value="TestDaF/Goethe" {% if cur_ct == 'TestDaF/Goethe' %}selected{% endif %}>TestDaF / Goethe (Tiếng Đức)</option>
+                                                <option value="ТРКИ" {% if cur_ct == 'ТРКИ' %}selected{% endif %}>ТРКИ (Tiếng Nga)</option>
+                                                <option value="University_Degree" {% if cur_ct == 'University_Degree' %}selected{% endif %}>Bằng Cử Nhân / Thạc Sĩ Ngôn Ngữ</option>
+                                                <option value="Other" {% if cur_ct == 'Other' %}selected{% endif %}>Chứng chỉ / Bằng cấp khác</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Điểm số / Tên chi tiết</label>
+                                            <input type="text" name="certificate_name" value="{{ user.latest_verification.certificate_name if user.latest_verification else '' }}"
+                                                placeholder="VD: IELTS 8.0, JLPT N1, HSK 6"
+                                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Kinh nghiệm phiên dịch (Năm)</label>
+                                            <input type="number" name="experience_years" min="0" max="50" value="{{ user.latest_verification.experience_years if user.latest_verification else '2' }}"
+                                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Ngôn ngữ thế mạnh chính</label>
+                                            <select name="primary_language" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
+                                                {% set cur_pl = user.latest_verification.primary_language if user.latest_verification else (user.profile.languages.split(',')[0] if user.profile and user.profile.languages else '') %}
+                                                {% for lang in LANGUAGES %}
+                                                <option value="{{ lang.name_vi }}" {% if cur_pl == lang.name_vi %}selected{% endif %}>{{ lang.flag }} {{ lang.name_vi }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Tài liệu đã liên kết</label>
+                                            <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-center justify-between">
+                                                <span>Số lượng tài liệu đính kèm:</span>
+                                                <strong class="text-brand-700 font-bold" id="linked-docs-count">
+                                                    {{ (verification_documents | length) if verification_documents else (1 if (user.latest_verification and user.latest_verification.cv_url) else 0) }} tệp
+                                                </strong>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Ghi chú hoặc lời nhắn gửi Ban quản trị</label>
+                                        <textarea name="notes" rows="3" placeholder="Nêu tóm tắt các dự án dịch thuật tiêu biểu, giải thưởng hoặc thông tin liên hệ bổ sung..."
+                                            class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white leading-relaxed">{{ user.latest_verification.notes if user.latest_verification else '' }}</textarea>
+                                    </div>
+
+                                    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                                        <span class="text-[11px] text-slate-400">VietTranslate cam kết bảo mật toàn bộ dữ liệu giấy tờ cá nhân theo chính sách quyền riêng tư.</span>
+                                        <button type="submit"
+                                            class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-2 cursor-pointer">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            <span>{% if user.latest_verification and user.latest_verification.status == 'rejected' %}{{ t('account_profile_page.resubmit_verification_btn') }}{% else %}{{ t('account_profile_page.submit_verification_btn') }}{% endif %}</span>
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
-                        </form>
-                        {% endif %}
+                            {% endif %}
+                        </div>
 
                     </div>
                 </div>
@@ -1923,6 +2172,249 @@
             else alert(data.message || 'Có lỗi xảy ra');
         })
         .catch(e => alert('Lỗi mạng, vui lòng thử lại'));
+    }
+
+    // ─── TRANSLATOR VERIFICATION DOCUMENTS MANAGEMENT ───────────────────────────
+    const VERIFICATION_POLICIES = {
+        'cv': {
+            name: 'Sơ yếu lý lịch (CV / Resume)',
+            desc: 'Bản tóm tắt học vấn, chứng chỉ và kinh nghiệm dự án dịch thuật.',
+            exts: 'PDF, DOC, DOCX',
+            accept: '.pdf,.doc,.docx',
+            maxMb: 10
+        },
+        'certificate': {
+            name: 'Bằng cấp / Chứng chỉ ngoại ngữ',
+            desc: 'Bản scan hoặc ảnh chụp chứng chỉ (IELTS, JLPT, HSK, TOPIK, DELF, TestDaF...).',
+            exts: 'PDF, JPG, PNG, WEBP',
+            accept: '.pdf,.jpg,.jpeg,.png,.webp',
+            maxMb: 10
+        },
+        'id_card': {
+            name: 'Căn cước công dân / Hộ chiếu (CCCD)',
+            desc: 'Tài liệu định danh cá nhân để xác minh danh tính. Được lưu trữ riêng tư tuyệt đối.',
+            exts: 'PDF, JPG, PNG, WEBP',
+            accept: '.pdf,.jpg,.jpeg,.png,.webp',
+            maxMb: 10
+        },
+        'diploma': {
+            name: 'Bằng tốt nghiệp Đại học / Cao đẳng',
+            desc: 'Văn bằng cử nhân/thạc sĩ chuyên ngành biên phiên dịch hoặc ngoại ngữ.',
+            exts: 'PDF, JPG, PNG, WEBP',
+            accept: '.pdf,.jpg,.jpeg,.png,.webp',
+            maxMb: 10
+        },
+        'recommendation': {
+            name: 'Thư giới thiệu / Hợp đồng tiêu biểu',
+            desc: 'Hợp đồng, thư giới thiệu hoặc xác nhận kinh nghiệm từ các đối tác, khách hàng.',
+            exts: 'PDF, DOC, DOCX',
+            accept: '.pdf,.doc,.docx',
+            maxMb: 10
+        }
+    };
+
+    function onDocTypeChange(type) {
+        const policy = VERIFICATION_POLICIES[type] || VERIFICATION_POLICIES['cv'];
+        const titleEl = document.getElementById('policy-doc-title');
+        const extsEl = document.getElementById('policy-allowed-exts');
+        const descEl = document.getElementById('policy-doc-desc');
+        const hintEl = document.getElementById('dropzone-ext-hint');
+        const inputEl = document.getElementById('doc-file-input');
+
+        if (titleEl) titleEl.textContent = policy.name;
+        if (extsEl) extsEl.textContent = policy.exts;
+        if (descEl) descEl.textContent = policy.desc;
+        if (hintEl) hintEl.textContent = `Định dạng hỗ trợ: ${policy.exts} (Tối đa ${policy.maxMb} MB)`;
+        if (inputEl) inputEl.accept = policy.accept;
+        clearDocErrors();
+    }
+
+    function onDocFileSelected(input) {
+        clearDocErrors();
+        if (!input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        const type = document.getElementById('doc-type-select').value;
+        const policy = VERIFICATION_POLICIES[type] || VERIFICATION_POLICIES['cv'];
+
+        if (file.size > policy.maxMb * 1024 * 1024) {
+            showDocError(`Kích thước tệp ${(file.size / (1024 * 1024)).toFixed(2)} MB vượt quá giới hạn tối đa cho phép (${policy.maxMb} MB).`);
+            input.value = '';
+            return;
+        }
+
+        const promptEl = document.getElementById('dropzone-prompt');
+        const selectedEl = document.getElementById('dropzone-selected');
+        const nameEl = document.getElementById('selected-filename');
+        const sizeEl = document.getElementById('selected-filesize');
+        const iconEl = document.getElementById('selected-file-icon');
+
+        if (promptEl) promptEl.classList.add('hidden');
+        if (selectedEl) selectedEl.classList.remove('hidden');
+        if (nameEl) nameEl.textContent = file.name;
+        if (sizeEl) sizeEl.textContent = formatBytes(file.size);
+        if (iconEl) {
+            const ext = file.name.split('.').pop().toUpperCase();
+            iconEl.textContent = ext.substring(0, 4);
+        }
+    }
+
+    function clearSelectedDocFile() {
+        const input = document.getElementById('doc-file-input');
+        if (input) input.value = '';
+        const promptEl = document.getElementById('dropzone-prompt');
+        const selectedEl = document.getElementById('dropzone-selected');
+        if (promptEl) promptEl.classList.remove('hidden');
+        if (selectedEl) selectedEl.classList.add('hidden');
+        clearDocErrors();
+    }
+
+    function clearDocErrors() {
+        const errBox = document.getElementById('doc-upload-error');
+        const succBox = document.getElementById('doc-upload-success');
+        const progBox = document.getElementById('doc-upload-progress-box');
+        if (errBox) errBox.classList.add('hidden');
+        if (succBox) succBox.classList.add('hidden');
+        if (progBox) progBox.classList.add('hidden');
+    }
+
+    function showDocError(msg) {
+        const errBox = document.getElementById('doc-upload-error');
+        const errMsg = document.getElementById('doc-upload-error-msg');
+        if (errBox && errMsg) {
+            errMsg.textContent = msg;
+            errBox.classList.remove('hidden');
+        }
+    }
+
+    function formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function replaceVerificationDoc(docType) {
+        const select = document.getElementById('doc-type-select');
+        if (select) {
+            select.value = docType;
+            onDocTypeChange(docType);
+        }
+        const uploadBox = document.getElementById('doc-upload-box');
+        if (uploadBox) {
+            uploadBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            uploadBox.classList.add('ring-2', 'ring-brand-500');
+            setTimeout(() => uploadBox.classList.remove('ring-2', 'ring-brand-500'), 1500);
+        }
+    }
+
+    function deleteVerificationDoc(docId, docName) {
+        if (!confirm(`Bạn có chắc chắn muốn xóa tài liệu "${docName}" khỏi hồ sơ?`)) return;
+        fetch(`/account/verification/documents/${docId}/delete`, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const card = document.getElementById(`doc-card-${docId}`);
+                if (card) {
+                    card.classList.add('opacity-0', 'transition', 'duration-300');
+                    setTimeout(() => card.remove(), 300);
+                }
+                setTimeout(() => location.reload(), 500);
+            } else {
+                alert(data.message || 'Không thể xóa tài liệu.');
+            }
+        })
+        .catch(err => {
+            alert('Lỗi kết nối máy chủ khi xóa tài liệu.');
+        });
+    }
+
+    function submitDocUpload() {
+        clearDocErrors();
+        const fileInput = document.getElementById('doc-file-input');
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+            showDocError('Vui lòng chọn một tệp tài liệu trước khi bấm tải lên.');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const docType = document.getElementById('doc-type-select').value;
+        const uploadBtn = document.getElementById('doc-upload-btn');
+        const btnText = document.getElementById('doc-upload-btn-text');
+        const progBox = document.getElementById('doc-upload-progress-box');
+        const progBar = document.getElementById('doc-progress-bar');
+        const progPercent = document.getElementById('doc-progress-percent');
+        const progStatus = document.getElementById('doc-progress-status');
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('document_type', docType);
+
+        uploadBtn.disabled = true;
+        btnText.textContent = 'Đang tải lên...';
+        progBox.classList.remove('hidden');
+        progBar.style.width = '0%';
+        progPercent.textContent = '0%';
+        progStatus.textContent = 'Đang tải lên và mã hóa bảo mật...';
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/account/verification/documents/upload', true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 90);
+                progBar.style.width = percent + '%';
+                progPercent.textContent = percent + '%';
+                if (percent >= 85) {
+                    progStatus.textContent = 'Đang kiểm tra chữ ký nhị phân ở máy chủ...';
+                }
+            }
+        };
+
+        xhr.onload = function() {
+            uploadBtn.disabled = false;
+            btnText.textContent = 'Bắt đầu tải lên tài liệu';
+
+            try {
+                const res = JSON.parse(xhr.responseText);
+                if (xhr.status === 200 && res.success) {
+                    progBar.style.width = '100%';
+                    progPercent.textContent = '100%';
+                    progStatus.textContent = 'Hoàn tất lưu trữ riêng tư!';
+
+                    const succBox = document.getElementById('doc-upload-success');
+                    const succMsg = document.getElementById('doc-upload-success-msg');
+                    if (succBox && succMsg) {
+                        succMsg.textContent = res.message || 'Đã tải lên và lưu trữ an toàn tài liệu minh chứng.';
+                        succBox.classList.remove('hidden');
+                    }
+
+                    clearSelectedDocFile();
+                    setTimeout(() => {
+                        window.location.href = window.location.pathname + '?tab=verification';
+                    }, 1200);
+                } else {
+                    progBox.classList.add('hidden');
+                    showDocError(res.message || 'Lỗi tải lên tài liệu từ máy chủ.');
+                }
+            } catch (e) {
+                progBox.classList.add('hidden');
+                showDocError('Phản hồi từ máy chủ không hợp lệ: ' + xhr.responseText.substring(0, 100));
+            }
+        };
+
+        xhr.onerror = function() {
+            uploadBtn.disabled = false;
+            btnText.textContent = 'Bắt đầu tải lên tài liệu';
+            progBox.classList.add('hidden');
+            showDocError('Lỗi kết nối mạng trong quá trình tải lên. Vui lòng thử lại.');
+        };
+
+        xhr.send(formData);
     }
 </script>
 {% endblock %}

@@ -4,17 +4,183 @@ import time
 import secrets
 import re
 import json
+import hashlib
+import zipfile
+import io
+import mimetypes
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from flask import current_app
 
 from models import (
-    db, User, TranslatorProfile, TranslatorVerification,
+    db, User, TranslatorProfile, TranslatorVerification, VerificationDocument,
     AdminNotification, Notification, ADMIN_AUDIT_ACTIONS, AdminAuditLog
 )
 
+# ─── POLICY CẤU HÌNH CÁC LOẠI TÀI LIỆU MINH CHỨNG ĐƯỢC PHÉP ───────────────────
+
+DOCUMENT_POLICIES = {
+    'cv': {
+        'code': 'cv',
+        'name': 'Sơ yếu lý lịch (CV / Resume)',
+        'description': 'Bản tóm tắt học vấn, chứng chỉ và kinh nghiệm dự án dịch thuật.',
+        'required': True,
+        'allowed_extensions': {'pdf', 'doc', 'docx'},
+        'allowed_mimes': {
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        },
+        'max_size_bytes': 10 * 1024 * 1024,  # 10MB
+        'max_size_mb': 10,
+        'magic_types': {'pdf', 'doc', 'docx'}
+    },
+    'certificate': {
+        'code': 'certificate',
+        'name': 'Bằng cấp / Chứng chỉ ngoại ngữ',
+        'description': 'Bản scan hoặc ảnh chụp chứng chỉ (IELTS, JLPT, HSK, TOPIK, DELF, TestDaF...).',
+        'required': False,
+        'allowed_extensions': {'pdf', 'jpg', 'jpeg', 'png', 'webp'},
+        'allowed_mimes': {
+            'application/pdf',
+            'image/jpeg',
+            'image/png',
+            'image/webp'
+        },
+        'max_size_bytes': 10 * 1024 * 1024,  # 10MB
+        'max_size_mb': 10,
+        'magic_types': {'pdf', 'jpeg', 'png', 'webp'}
+    },
+    'id_card': {
+        'code': 'id_card',
+        'name': 'Căn cước công dân / Hộ chiếu (CCCD)',
+        'description': 'Tài liệu định danh cá nhân để xác minh danh tính. Được lưu trữ riêng tư tuyệt đối.',
+        'required': False,
+        'allowed_extensions': {'pdf', 'jpg', 'jpeg', 'png', 'webp'},
+        'allowed_mimes': {
+            'application/pdf',
+            'image/jpeg',
+            'image/png',
+            'image/webp'
+        },
+        'max_size_bytes': 10 * 1024 * 1024,  # 10MB
+        'max_size_mb': 10,
+        'magic_types': {'pdf', 'jpeg', 'png', 'webp'}
+    },
+    'diploma': {
+        'code': 'diploma',
+        'name': 'Bằng tốt nghiệp Đại học / Cao đẳng',
+        'description': 'Văn bằng cử nhân/thạc sĩ chuyên ngành biên phiên dịch hoặc ngoại ngữ.',
+        'required': False,
+        'allowed_extensions': {'pdf', 'jpg', 'jpeg', 'png', 'webp'},
+        'allowed_mimes': {
+            'application/pdf',
+            'image/jpeg',
+            'image/png',
+            'image/webp'
+        },
+        'max_size_bytes': 10 * 1024 * 1024,  # 10MB
+        'max_size_mb': 10,
+        'magic_types': {'pdf', 'jpeg', 'png', 'webp'}
+    },
+    'recommendation': {
+        'code': 'recommendation',
+        'name': 'Thư giới thiệu / Hợp đồng dự án tiêu biểu',
+        'description': 'Hợp đồng, thư giới thiệu hoặc xác nhận kinh nghiệm từ các đối tác, khách hàng.',
+        'required': False,
+        'allowed_extensions': {'pdf', 'doc', 'docx'},
+        'allowed_mimes': {
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        },
+        'max_size_bytes': 10 * 1024 * 1024,  # 10MB
+        'max_size_mb': 10,
+        'magic_types': {'pdf', 'doc', 'docx'}
+    }
+}
+
 ALLOWED_VERIFICATION_EXTENSIONS = {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'}
 MAX_VERIFICATION_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+
+def get_document_type_label(doc_type):
+    """Lấy tên hiển thị tiếng Việt của loại tài liệu."""
+    policy = DOCUMENT_POLICIES.get(doc_type)
+    return policy['name'] if policy else str(doc_type).upper()
+
+
+def format_file_size(size_bytes):
+    """Định dạng dung lượng tệp cho giao diện."""
+    if not size_bytes or size_bytes <= 0:
+        return '0 KB'
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    else:
+        return f"{size_bytes / (1024 * 1024):.2f} MB"
+
+
+def detect_file_type_from_bytes(data: bytes):
+    """
+    Xác định loại tệp thực tế dựa trên magic bytes (chữ ký nhị phân ở cấp máy chủ).
+    Không tin tưởng vào phần mở rộng do người dùng gửi lên.
+    """
+    if not data or len(data) < 4:
+        return None
+    # 1. PDF: %PDF-
+    if data.startswith(b'%PDF-'):
+        return 'pdf'
+    # 2. PNG: \x89PNG\r\n\x1a\n
+    if data.startswith(b'\x89PNG\r\n\x1a\n'):
+        return 'png'
+    # 3. JPEG: \xff\xd8\xff
+    if data.startswith(b'\xff\xd8\xff'):
+        return 'jpeg'
+    # 4. WEBP: RIFF....WEBP
+    if data[:4] == b'RIFF' and len(data) >= 12 and data[8:12] == b'WEBP':
+        return 'webp'
+    # 5. Legacy DOC (OLE Compound File)
+    if data.startswith(b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'):
+        return 'doc'
+    # 6. Modern DOCX (Zip container containing Word XML)
+    if data.startswith(b'PK\x03\x04'):
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                names = z.namelist()
+                if '[Content_Types].xml' in names or any(n.startswith('word/') for n in names):
+                    return 'docx'
+        except Exception:
+            return None
+    return None
+
+
+def get_private_verification_folder():
+    """
+    Trả về đường dẫn thư mục lưu trữ riêng tư (Private Storage Folder).
+    Nằm hoàn toàn ngoài thư mục static công khai.
+    """
+    configured = None
+    try:
+        configured = current_app.config.get('PRIVATE_STORAGE_FOLDER')
+    except RuntimeError:
+        pass
+    if not configured:
+        configured = os.environ.get('PRIVATE_STORAGE_FOLDER')
+    if not configured:
+        if os.environ.get('VERCEL') == '1':
+            configured = '/tmp/private_verifications'
+        else:
+            basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            configured = os.path.join(basedir, 'instance', 'storage', 'private_verifications')
+
+    try:
+        os.makedirs(configured, exist_ok=True)
+    except OSError:
+        configured = '/tmp/private_verifications'
+        os.makedirs(configured, exist_ok=True)
+    return configured
 
 
 def allowed_verification_file(filename):
@@ -22,79 +188,287 @@ def allowed_verification_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_VERIFICATION_EXTENSIONS
 
 
-def get_verification_upload_folder():
-    """Trả về thư mục lưu trữ tài liệu xác minh cục bộ."""
-    if os.environ.get('VERCEL') == '1':
-        folder = '/tmp/verifications'
-    else:
-        folder = os.path.join('static', 'uploads', 'verifications')
-    try:
-        os.makedirs(folder, exist_ok=True)
-    except OSError:
-        folder = '/tmp'
-    return folder
+def can_user_access_document(user, document):
+    """
+    Kiểm tra quyền truy cập (xem / tải xuống) tài liệu xác minh:
+    - Quản trị viên (admin): Được phép
+    - Chính chủ sở hữu tài liệu (user.id == document.user_id): Được phép
+    - Người khác: Từ chối (403)
+    """
+    if not user:
+        return False, 'Vui lòng đăng nhập để truy cập tài liệu.'
+    if getattr(user, 'role', '') == 'admin':
+        return True, None
+    if document.user_id == user.id:
+        return True, None
+    return False, 'Bạn không có quyền truy cập hoặc xem tài liệu riêng tư này.'
 
 
-def save_verification_file(file_storage, user_id, doc_type='doc'):
+def can_user_modify_verification_documents(user, verification):
     """
-    Lưu tệp tài liệu xác minh (CV, chứng chỉ, CCCD).
-    Ưu tiên lưu trữ an toàn, hỗ trợ Supabase Storage nếu khả dụng hoặc local file.
-    Trả về: (thành_công, tên_file, url, thông_báo_lỗi)
+    Kiểm tra xem người dùng có quyền tải lên / thay thế / xóa tài liệu
+    dựa trên trạng thái hiện tại của hồ sơ xác minh:
+    - Cho phép khi hồ sơ ở trạng thái 'draft', 'rejected', 'needs_revision', 'not_started' hoặc chưa có hồ sơ.
+    - Chặn khi hồ sơ ở trạng thái 'pending' (đang được thẩm định) để bảo đảm tính toàn vẹn.
+    - Chặn khi hồ sơ ở trạng thái 'approved' (đã duyệt thành công).
     """
+    if not user or user.role != 'translator':
+        return False, 'Chỉ phiên dịch viên mới có thể quản lý tài liệu xác minh.'
+    if not verification:
+        return True, None
+    if verification.user_id != user.id and getattr(user, 'role', '') != 'admin':
+        return False, 'Bạn không thể thao tác trên hồ sơ của người khác.'
+
+    st = getattr(verification, 'status', 'draft') or 'draft'
+    if st == 'pending':
+        return False, 'Hồ sơ đang trong quá trình Ban quản trị thẩm định. Bạn không thể thay đổi tài liệu vào lúc này.'
+    if st == 'approved':
+        return False, 'Hồ sơ đã được phê duyệt xác minh chính thức. Tài liệu không thể tự ý thay đổi.'
+
+    return True, None
+
+
+def save_private_document(file_storage, user, doc_type, verification=None):
+    """
+    Lưu tài liệu minh chứng vào vùng lưu trữ riêng tư (Private Storage).
+    Thực hiện kiểm tra nghiêm ngặt:
+    - Kiểm tra loại tài liệu theo chính sách
+    - Kiểm tra trạng thái hồ sơ xác minh
+    - Kiểm tra loại tệp thực tế qua chữ ký nhị phân (magic bytes)
+    - Kiểm tra kích thước tệp thực tế
+    - Lưu metadata vào bảng VerificationDocument
+    - Đánh dấu tài liệu cũ cùng loại là 'replaced'
+    - Tuyệt đối không coi việc tải lên thành công là đã xác minh
+    Trả về: (thành_công: bool, document: VerificationDocument, lỗi: str)
+    """
+    if not user or user.role != 'translator':
+        return False, None, 'Chỉ tài khoản phiên dịch viên mới có quyền tải lên tài liệu minh chứng.'
+
+    doc_type = (doc_type or '').strip().lower()
+    # Chuẩn hóa alias cũ nếu có
+    if doc_type in ('cert', 'certificate_file'):
+        doc_type = 'certificate'
+    elif doc_type in ('idcard', 'id_card_file'):
+        doc_type = 'id_card'
+    elif doc_type in ('cv_file',):
+        doc_type = 'cv'
+
+    policy = DOCUMENT_POLICIES.get(doc_type)
+    if not policy:
+        return False, None, f"Loại tài liệu '{doc_type}' không nằm trong chính sách hỗ trợ của VietTranslate."
+
+    # Lấy hoặc tạo hồ sơ xác minh
+    if not verification:
+        verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+        if not verification:
+            verification = TranslatorVerification(user_id=user.id, status='draft', current_step=1)
+            db.session.add(verification)
+            db.session.flush()
+
+    can_mod, mod_err = can_user_modify_verification_documents(user, verification)
+    if not can_mod:
+        return False, None, mod_err
+
     if not file_storage or not file_storage.filename:
-        return False, None, None, 'Tệp tải lên không hợp lệ.'
+        return False, None, 'Vui lòng chọn tệp tài liệu để tải lên.'
 
-    if not allowed_verification_file(file_storage.filename):
-        return False, None, None, 'Định dạng tệp không được hỗ trợ. Vui lòng chọn PDF, DOC, DOCX, JPG hoặc PNG.'
+    raw_filename = file_storage.filename.strip()
+    if '.' not in raw_filename:
+        return False, None, 'Tệp tải lên thiếu phần mở rộng (extension).'
 
+    ext = raw_filename.rsplit('.', 1)[1].lower()
+    if ext not in policy['allowed_extensions']:
+        allowed_str = ', '.join([e.upper() for e in sorted(policy['allowed_extensions'])])
+        return False, None, f"Định dạng .{ext} không được hỗ trợ cho {policy['name']}. Vui lòng chọn tệp: {allowed_str}."
+
+    # Đọc dữ liệu nhị phân để kiểm tra dung lượng và chữ ký magic bytes
     try:
-        file_storage.seek(0, os.SEEK_END)
-        size = file_storage.tell()
+        file_bytes = file_storage.read()
         file_storage.seek(0)
-    except Exception:
-        size = 0
+    except Exception as e:
+        return False, None, f"Lỗi đọc nội dung tệp: {str(e)}"
 
-    if size > MAX_VERIFICATION_FILE_SIZE:
-        return False, None, None, 'Kích thước tệp vượt quá giới hạn cho phép (tối đa 10MB).'
+    size = len(file_bytes)
+    if size == 0:
+        return False, None, 'Tệp tải lên rỗng (0 bytes). Vui lòng chọn tệp có nội dung.'
 
-    ext = file_storage.filename.rsplit('.', 1)[1].lower()
-    clean_uid = str(user_id).replace('mongo:', 'm_')
-    random_suffix = secrets.token_hex(4)
-    filename = f"{doc_type}_u{clean_uid}_{int(time.time())}_{random_suffix}.{ext}"
+    if size > policy['max_size_bytes']:
+        max_mb = policy['max_size_mb']
+        curr_mb = size / (1024 * 1024)
+        return False, None, f"Kích thước tệp ({curr_mb:.2f} MB) vượt quá giới hạn cho phép ({max_mb} MB)."
 
-    # Kiểm tra Supabase Storage (nếu được cấu hình bucket 'verifications')
-    supabase_uploaded = False
-    supabase_url = None
+    # KIỂM TRA CHỮ KÝ TỆP THỰC TẾ TRÊN MÁY CHỦ (MAGIC BYTES)
+    detected_type = detect_file_type_from_bytes(file_bytes)
+    if not detected_type:
+        return False, None, f"Nội dung tệp thực tế không phải là định dạng an toàn hợp lệ (không vượt qua kiểm tra chữ ký nhị phân)."
+
+    # Đối chiếu detected_type với chính sách
+    type_matches = False
+    if detected_type in policy['magic_types']:
+        type_matches = True
+    elif detected_type == 'jpeg' and ('jpg' in policy['magic_types'] or 'jpeg' in policy['magic_types']):
+        type_matches = True
+
+    if not type_matches:
+        return False, None, f"Nội dung tệp thực tế ({detected_type.upper()}) không khớp với loại tài liệu yêu cầu hoặc phần mở rộng .{ext}."
+
+    # Xác định MIME type
+    mime_type = mimetypes.guess_type(raw_filename)[0] or 'application/octet-stream'
+    if detected_type == 'pdf':
+        mime_type = 'application/pdf'
+    elif detected_type in ('jpeg', 'jpg'):
+        mime_type = 'image/jpeg'
+    elif detected_type == 'png':
+        mime_type = 'image/png'
+    elif detected_type == 'webp':
+        mime_type = 'image/webp'
+    elif detected_type == 'docx':
+        mime_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    elif detected_type == 'doc':
+        mime_type = 'application/msword'
+
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+
+    # Sinh tên tệp ngẫu nhiên bảo mật (tránh lộ danh tính hoặc số CCCD)
+    unique_token = secrets.token_hex(16)
+    stored_filename = f"pdoc_{doc_type}_{unique_token}.{ext}"
+
+    # Kiểm tra Supabase Storage nếu cấu hình bucket private
+    supabase_stored = False
+    supabase_key_path = None
     try:
         from supabase_client import get_supabase_client
         sb = get_supabase_client()
         if sb:
-            file_bytes = file_storage.read()
-            file_storage.seek(0)
-            res = sb.storage.from_('verifications').upload(
-                path=filename,
+            res = sb.storage.from_('verification_documents').upload(
+                path=stored_filename,
                 file=file_bytes,
-                file_options={"content-type": file_storage.mimetype}
+                file_options={"content-type": mime_type}
             )
             if res:
-                supabase_url = sb.storage.from_('verifications').get_public_url(filename)
-                supabase_uploaded = True
-    except Exception as e:
-        # Fallback về lưu local
-        supabase_uploaded = False
+                supabase_stored = True
+                supabase_key_path = f"verification_documents/{stored_filename}"
+    except Exception:
+        supabase_stored = False
 
-    # Lưu bản copy cục bộ để đảm bảo phục vụ được ngay cả khi offline
-    upload_folder = get_verification_upload_folder()
-    local_path = os.path.join(upload_folder, filename)
+    # Luôn lưu vào Private Local Storage (ngoài static)
+    private_folder = get_private_verification_folder()
+    local_path = os.path.join(private_folder, stored_filename)
     try:
-        file_storage.save(local_path)
+        with open(local_path, 'wb') as f:
+            f.write(file_bytes)
     except Exception as e:
-        print(f"[VERIFICATION UPLOAD ERROR] Local save failed: {e}", file=sys.stderr)
-        if not supabase_uploaded:
-            return False, None, None, 'Không thể lưu tệp trên máy chủ. Vui lòng thử lại.'
+        print(f"[PRIVATE STORAGE ERROR] Failed to write file: {e}", file=sys.stderr)
+        if not supabase_stored:
+            return False, None, 'Không thể lưu trữ tệp trên vùng an toàn máy chủ. Vui lòng thử lại.'
 
-    final_url = supabase_url if supabase_uploaded else f"/static/uploads/verifications/{filename}"
-    return True, filename, final_url, None
+    # Đánh dấu các tài liệu cũ của cùng doc_type là 'replaced' và is_active=False
+    existing_active = VerificationDocument.query.filter_by(
+        verification_id=verification.id,
+        document_type=doc_type,
+        is_active=True
+    ).all()
+    for old_doc in existing_active:
+        old_doc.is_active = False
+        old_doc.status = 'replaced'
+        old_doc.updated_at = datetime.utcnow()
+
+    # Tạo bản ghi mới cho VerificationDocument
+    # LƯU Ý: Trạng thái mặc định là 'uploaded' - TUYỆT ĐỐI CHƯA PHẢI LÀ 'approved' HAY 'verified'
+    new_doc = VerificationDocument(
+        verification_id=verification.id,
+        user_id=user.id,
+        document_type=doc_type,
+        original_filename=raw_filename,
+        stored_filename=stored_filename,
+        storage_provider='supabase_private' if supabase_stored else 'local_private',
+        storage_path=supabase_key_path if supabase_stored else local_path,
+        file_size=size,
+        mime_type=mime_type,
+        file_extension=ext,
+        file_hash=file_hash,
+        status='uploaded',
+        is_active=True,
+        created_at=datetime.utcnow()
+    )
+    db.session.add(new_doc)
+    db.session.flush()
+
+    # Đồng bộ tương thích ngược vào TranslatorVerification
+    doc_download_url = f"/account/verification/documents/{new_doc.id}/download"
+    if doc_type == 'cv':
+        verification.cv_filename = raw_filename
+        verification.cv_url = doc_download_url
+    elif doc_type == 'certificate':
+        verification.certificate_filename = raw_filename
+        verification.certificate_url = doc_download_url
+    elif doc_type == 'id_card':
+        verification.id_card_filename = raw_filename
+        verification.id_card_url = doc_download_url
+
+    verification.updated_at = datetime.utcnow()
+    db.session.commit()
+
+    return True, new_doc, None
+
+
+def save_verification_file(file_storage, user_id, doc_type='doc'):
+    """
+    Hàm wrapper tương thích ngược: chuyển hướng toàn bộ quá trình lưu
+    sang hệ thống Private Storage an toàn.
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return False, None, None, 'Không tìm thấy người dùng.'
+    # Chuẩn hóa loại doc_type
+    dt = 'cv' if doc_type == 'cv' else ('certificate' if doc_type in ('cert', 'certificate') else ('id_card' if doc_type in ('idcard', 'id_card') else 'cv'))
+    ok, doc, err = save_private_document(file_storage, user, doc_type=dt)
+    if not ok:
+        return False, None, None, err
+    download_url = f"/account/verification/documents/{doc.id}/download"
+    return True, doc.original_filename, download_url, None
+
+
+def delete_private_document(doc_id, user):
+    """
+    Xóa tài liệu minh chứng khi hồ sơ còn ở trạng thái nháp hoặc cần sửa.
+    """
+    doc = VerificationDocument.query.get(doc_id)
+    if not doc:
+        return False, 'Không tìm thấy tài liệu.'
+
+    can_access, acc_err = can_user_access_document(user, doc)
+    if not can_access:
+        return False, acc_err
+
+    verification = doc.verification
+    can_mod, mod_err = can_user_modify_verification_documents(user, verification)
+    if not can_mod:
+        return False, mod_err
+
+    doc.is_active = False
+    doc.status = 'deleted'
+
+    if doc.storage_path and os.path.exists(doc.storage_path):
+        try:
+            os.remove(doc.storage_path)
+        except OSError:
+            pass
+
+    if verification:
+        download_marker = f"/account/verification/documents/{doc.id}/"
+        if verification.cv_url and download_marker in verification.cv_url:
+            verification.cv_url = None
+            verification.cv_filename = None
+        if verification.certificate_url and download_marker in verification.certificate_url:
+            verification.certificate_url = None
+            verification.certificate_filename = None
+        if verification.id_card_url and download_marker in verification.id_card_url:
+            verification.id_card_url = None
+            verification.id_card_filename = None
+
+    db.session.commit()
+    return True, 'Đã xóa tài liệu minh chứng thành công.'
 
 
 def submit_verification_request(user, form_data, files):
@@ -122,31 +496,25 @@ def submit_verification_request(user, form_data, files):
     # Xử lý tệp CV
     cv_file = files.get('cv_file')
     if cv_file and cv_file.filename:
-        ok, fname, furl, err = save_verification_file(cv_file, user.id, doc_type='cv')
+        ok, doc, err = save_private_document(cv_file, user, doc_type='cv', verification=verification)
         if not ok:
             return False, err
-        verification.cv_filename = fname
-        verification.cv_url = furl
     elif is_new or not verification.cv_url:
         return False, 'Vui lòng tải lên sơ yếu lý lịch (CV) định dạng PDF hoặc Word.'
 
     # Xử lý tệp Chứng chỉ
     cert_file = files.get('certificate_file')
     if cert_file and cert_file.filename:
-        ok, fname, furl, err = save_verification_file(cert_file, user.id, doc_type='cert')
+        ok, doc, err = save_private_document(cert_file, user, doc_type='certificate', verification=verification)
         if not ok:
             return False, err
-        verification.certificate_filename = fname
-        verification.certificate_url = furl
 
     # Xử lý tệp CCCD / Giấy tờ tùy thân (Tùy chọn)
     id_card_file = files.get('id_card_file')
     if id_card_file and id_card_file.filename:
-        ok, fname, furl, err = save_verification_file(id_card_file, user.id, doc_type='idcard')
+        ok, doc, err = save_private_document(id_card_file, user, doc_type='id_card', verification=verification)
         if not ok:
             return False, err
-        verification.id_card_filename = fname
-        verification.id_card_url = furl
 
     # Các thông tin biểu mẫu
     verification.certificate_type = form_data.get('certificate_type', '').strip()
@@ -207,6 +575,13 @@ def review_verification_request(verification_id, admin_user, action, reason=None
         if profile:
             profile.is_verified = True
 
+        # Đồng bộ trạng thái đánh giá tài liệu minh chứng
+        for doc in verification.documents:
+            if doc.is_active:
+                doc.status = 'approved'
+                doc.reviewed_by = admin_user.id if admin_user else None
+                doc.reviewed_at = now
+
         # Gửi thông báo cho phiên dịch viên
         try:
             notif = Notification(
@@ -244,6 +619,14 @@ def review_verification_request(verification_id, admin_user, action, reason=None
         verification.rejection_reason = rejection_reason
         if profile:
             profile.is_verified = False
+
+        # Đồng bộ trạng thái đánh giá tài liệu minh chứng
+        for doc in verification.documents:
+            if doc.is_active:
+                doc.status = 'rejected'
+                doc.review_notes = rejection_reason
+                doc.reviewed_by = admin_user.id if admin_user else None
+                doc.reviewed_at = now
 
         # Gửi thông báo cho phiên dịch viên kèm lý do
         try:

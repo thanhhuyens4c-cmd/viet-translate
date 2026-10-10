@@ -859,3 +859,70 @@ class TranslatorVerification(db.Model):
             data['current_step'] = self.current_step or 1
 
         return data
+
+
+# ─── VERIFICATION DOCUMENT MODEL (PRIVATE STORAGE) ────────────────────────────
+
+class VerificationDocument(db.Model):
+    """
+    Tài liệu minh chứng cho hồ sơ xác minh phiên dịch viên.
+    Lưu trữ riêng tư (Private Storage), hỗ trợ siêu dữ liệu (metadata),
+    kiểm tra quyền truy cập nghiêm ngặt và theo dõi trạng thái thẩm định.
+    """
+    __tablename__ = 'verification_document'
+
+    id = db.Column(db.Integer, primary_key=True)
+    verification_id = db.Column(db.Integer, db.ForeignKey('translator_verification.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+
+    # Loại tài liệu chính sách: 'cv', 'certificate', 'id_card', 'diploma', 'recommendation'
+    document_type = db.Column(db.String(50), nullable=False, index=True)
+
+    # Tên tệp gốc & tên tệp an toàn trong private storage
+    original_filename = db.Column(db.String(255), nullable=False)
+    stored_filename = db.Column(db.String(255), nullable=False, unique=True, index=True)
+
+    # Nhà cung cấp lưu trữ ('local_private' hoặc 'supabase_private')
+    storage_provider = db.Column(db.String(50), default='local_private')
+    storage_path = db.Column(db.String(500), nullable=False)
+
+    # Metadata tệp
+    file_size = db.Column(db.Integer, nullable=False, default=0)  # bytes
+    mime_type = db.Column(db.String(100), nullable=False)
+    file_extension = db.Column(db.String(20), nullable=False)
+    file_hash = db.Column(db.String(64), nullable=True)
+
+    # Trạng thái thẩm định: 'uploaded', 'approved', 'rejected', 'replaced'
+    status = db.Column(db.String(30), default='uploaded', index=True)
+    review_notes = db.Column(db.Text, nullable=True)
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+
+    # Đánh dấu tệp hiện thời
+    is_active = db.Column(db.Boolean, default=True, index=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    verification = db.relationship('TranslatorVerification', backref=db.backref('documents', lazy=True, cascade='all, delete-orphan', order_by='desc(VerificationDocument.created_at)'))
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('uploaded_verification_documents', lazy=True))
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref=db.backref('reviewed_verification_documents', lazy=True))
+
+    def to_dict(self):
+        """Chuyển đổi thành dictionary cho JSON response."""
+        return {
+            'id': self.id,
+            'verification_id': self.verification_id,
+            'document_type': self.document_type,
+            'original_filename': self.original_filename,
+            'file_size': self.file_size,
+            'mime_type': self.mime_type,
+            'file_extension': self.file_extension,
+            'status': self.status,
+            'review_notes': self.review_notes,
+            'reviewed_at': self.reviewed_at.strftime('%d/%m/%Y %H:%M') if self.reviewed_at else None,
+            'is_active': self.is_active,
+            'created_at': self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else None,
+            'can_preview': self.file_extension in ('pdf', 'jpg', 'jpeg', 'png', 'webp')
+        }

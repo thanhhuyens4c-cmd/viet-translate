@@ -9,6 +9,7 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file upload
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
+    PRIVATE_STORAGE_FOLDER = os.getenv('PRIVATE_STORAGE_FOLDER', os.path.join('instance', 'storage', 'private_verifications'))
 
 class DevelopmentConfig(Config):
     """Development configuration"""

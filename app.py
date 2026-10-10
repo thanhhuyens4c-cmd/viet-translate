@@ -1,6 +1,6 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -512,6 +512,16 @@ try:
 except OSError:
     AVATAR_UPLOAD_FOLDER = '/tmp'
 app.config['AVATAR_UPLOAD_FOLDER'] = AVATAR_UPLOAD_FOLDER
+
+# Thư mục lưu trữ tài liệu riêng tư (Private Storage - Hoàn toàn ngoài static webroot)
+PRIVATE_STORAGE_FOLDER = os.getenv('PRIVATE_STORAGE_FOLDER', os.path.join(basedir, 'instance', 'storage', 'private_verifications'))
+if os.environ.get('VERCEL') == '1' or _is_memory_db:
+    PRIVATE_STORAGE_FOLDER = '/tmp/private_verifications'
+try:
+    os.makedirs(PRIVATE_STORAGE_FOLDER, exist_ok=True)
+except OSError:
+    PRIVATE_STORAGE_FOLDER = '/tmp/private_verifications'
+app.config['PRIVATE_STORAGE_FOLDER'] = PRIVATE_STORAGE_FOLDER
 
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'zip', 'rar', 'png', 'jpg', 'jpeg'}
 ALLOWED_AVATAR_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
@@ -1339,6 +1349,8 @@ def account_profile():
 
     profile_completion = None
     unread_notifs_count = 0
+    verification_documents = []
+    from services.verification import DOCUMENT_POLICIES
     if getattr(user, 'role', '') == 'translator':
         from models import Notification
         try:
@@ -1346,6 +1358,8 @@ def account_profile():
         except Exception:
             unread_notifs_count = 0
         profile_completion = compute_profile_completion(user)
+        if user.latest_verification:
+            verification_documents = [d for d in user.latest_verification.documents if d.is_active]
 
     return render_template(
         'account_profile.html',
@@ -1353,7 +1367,9 @@ def account_profile():
         LANGUAGES=get_localized_languages(current_lang),
         active_tab=active_tab,
         profile_completion=profile_completion,
-        unread_notifs_count=unread_notifs_count
+        unread_notifs_count=unread_notifs_count,
+        verification_documents=verification_documents,
+        DOCUMENT_POLICIES=DOCUMENT_POLICIES
     )
 
 
@@ -1374,6 +1390,220 @@ def submit_verification():
     else:
         flash(msg, 'error')
     return redirect(url_for('account_profile') + '?tab=verification')
+
+
+# ─── TRANSLATOR VERIFICATION DOCUMENTS (PRIVATE STORAGE & RBAC) ───────────────
+
+@app.route('/account/verification/documents/upload', methods=['POST'])
+@login_required
+def upload_verification_document():
+    """
+    Endpoint tải lên tài liệu minh chứng cho hồ sơ xác minh phiên dịch viên.
+    Hỗ trợ cả tải lên qua AJAX (tiến trình thời gian thực) và form submit thông thường.
+    Kiểm tra quyền, kiểm tra chính sách loại tài liệu, chữ ký nhị phân (magic bytes)
+    và dung lượng thực tế ở cấp máy chủ.
+    Tài liệu được lưu trữ tại vùng riêng tư an toàn (Private Storage).
+    LƯU Ý: Tải lên thành công KHÔNG đồng nghĩa tài liệu đã được xác minh.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'message': 'Không tìm thấy thông tin tài khoản.'}), 401
+        flash('Không tìm thấy thông tin tài khoản.', 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        msg = 'Chỉ tài khoản phiên dịch viên mới có quyền tải lên tài liệu minh chứng.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'message': msg}), 403
+        flash(msg, 'error')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import save_private_document
+
+    file = request.files.get('file') or request.files.get('document_file')
+    doc_type = request.form.get('document_type') or request.form.get('doc_type')
+
+    ok, doc, err = save_private_document(file, user, doc_type=doc_type)
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+
+    if not ok:
+        if is_ajax:
+            return jsonify({'success': False, 'message': err}), 400
+        flash(err, 'error')
+        return redirect(url_for('account_profile') + '?tab=verification')
+
+    success_msg = f'Đã tải lên và lưu trữ an toàn tài liệu minh chứng "{doc.original_filename}".'
+    notice_msg = 'Lưu ý: Tài liệu đang ở trạng thái Chờ thẩm định, chưa phải là Đã xác minh.'
+
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': success_msg,
+            'notice': notice_msg,
+            'document': doc.to_dict()
+        }), 200
+
+    flash(f"{success_msg} ({notice_msg})", 'success')
+    return redirect(url_for('account_profile') + '?tab=verification')
+
+
+@app.route('/account/verification/documents/<int:doc_id>/download')
+@login_required
+def download_verification_document(doc_id):
+    """
+    Endpoint tải xuống tài liệu minh chứng.
+    Kiểm tra nghiêm ngặt quyền truy cập ở backend (RBAC):
+    - Chỉ Chủ sở hữu hoặc Quản trị viên (Admin) mới có quyền tải xuống.
+    - Người khác nhận mã lỗi 403 Forbidden.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        abort(401)
+
+    doc = VerificationDocument.query.get_or_404(doc_id)
+
+    from services.verification import can_user_access_document, get_private_verification_folder
+    can_access, err = can_user_access_document(user, doc)
+    if not can_access:
+        abort(403)
+
+    file_path = doc.storage_path
+    if not file_path or not os.path.isabs(file_path):
+        file_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+
+    if not os.path.exists(file_path):
+        fallback_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+        if os.path.exists(fallback_path):
+            file_path = fallback_path
+        else:
+            abort(404)
+
+    response = send_file(
+        file_path,
+        as_attachment=True,
+        download_name=doc.original_filename,
+        mimetype=doc.mime_type or 'application/octet-stream'
+    )
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Content-Security-Policy'] = "default-src 'none'"
+    response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+    return response
+
+
+@app.route('/account/verification/documents/<int:doc_id>/view')
+@login_required
+def view_verification_document(doc_id):
+    """
+    Endpoint xem trước tài liệu minh chứng (PDF hoặc ảnh).
+    Kiểm tra nghiêm ngặt quyền truy cập ở backend (RBAC).
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        abort(401)
+
+    doc = VerificationDocument.query.get_or_404(doc_id)
+
+    from services.verification import can_user_access_document, get_private_verification_folder
+    can_access, err = can_user_access_document(user, doc)
+    if not can_access:
+        abort(403)
+
+    file_path = doc.storage_path
+    if not file_path or not os.path.isabs(file_path):
+        file_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+
+    if not os.path.exists(file_path):
+        fallback_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+        if os.path.exists(fallback_path):
+            file_path = fallback_path
+        else:
+            abort(404)
+
+    response = send_file(
+        file_path,
+        as_attachment=False,
+        download_name=doc.original_filename,
+        mimetype=doc.mime_type or 'application/octet-stream'
+    )
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+    return response
+
+
+@app.route('/account/verification/documents/<int:doc_id>/delete', methods=['POST'])
+@login_required
+def delete_verification_document_endpoint(doc_id):
+    """
+    Endpoint xóa/hủy tài liệu minh chứng nháp.
+    Chỉ cho phép khi hồ sơ ở trạng thái được phép chỉnh sửa.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        abort(401)
+
+    from services.verification import delete_private_document
+    ok, msg = delete_private_document(doc_id, user)
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
+    if not ok:
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=verification')
+
+    if is_ajax:
+        return jsonify({'success': True, 'message': msg}), 200
+
+    flash(msg, 'success')
+    return redirect(url_for('account_profile') + '?tab=verification')
+
+
+@app.route('/api/account/verification/documents', methods=['GET'])
+@login_required
+def get_verification_documents_api():
+    """
+    API trả về danh sách các tài liệu minh chứng của phiên dịch viên hiện tại,
+    kèm chính sách tải tệp và trạng thái hồ sơ.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    from services.verification import DOCUMENT_POLICIES
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+
+    docs = []
+    if verification:
+        docs = [d.to_dict() for d in verification.documents if d.is_active]
+
+    policies_data = {}
+    for k, p in DOCUMENT_POLICIES.items():
+        policies_data[k] = {
+            'code': p['code'],
+            'name': p['name'],
+            'description': p['description'],
+            'required': p['required'],
+            'allowed_extensions': list(sorted(p['allowed_extensions'])),
+            'max_size_mb': p['max_size_mb']
+        }
+
+    status = verification.status if verification else 'not_started'
+    can_modify = status in ('draft', 'rejected', 'needs_revision', 'not_started', None)
+
+    return jsonify({
+        'success': True,
+        'verification_status': status,
+        'can_modify': can_modify,
+        'documents': docs,
+        'policies': policies_data
+    })
 
 
 @app.route('/account/verification/form', methods=['GET', 'POST'])
