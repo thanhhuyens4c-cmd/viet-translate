@@ -82,6 +82,19 @@
 
 {% block content %}
 
+<!-- Breadcrumb -->
+<div class="bg-white border-b border-slate-200/70 py-3">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav class="flex items-center gap-2 text-xs font-medium text-slate-500">
+      <a href="{{ url_for('index') }}" class="hover:text-brand-600 transition">{{ t('job_detail_page.breadcrumb_home') if t('job_detail_page.breadcrumb_home') else 'Trang chủ' }}</a>
+      <span class="text-slate-300">/</span>
+      <a href="{{ url_for('my_jobs') }}" class="hover:text-brand-600 transition">Công việc</a>
+      <span class="text-slate-300">/</span>
+      <span class="text-brand-600 font-bold">Tìm việc</span>
+    </nav>
+  </div>
+</div>
+
 <!-- Header -->
 <div class="mesh-hero-bg border-b border-slate-200/70 py-6 md:py-8">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
@@ -119,50 +132,146 @@
           </button>
         </div>
 
-        <!-- Ngôn ngữ -->
+        <!-- 1. Ngôn ngữ nguồn & đích -->
         <div class="jf-sec">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_lang') }}</h4>
-          <div class="space-y-1" id="lang-desk">
-            {% set langs = [
-              ('Tiếng Anh', 'English' if current_lang == 'en' else 'Tiếng Anh'),
-              ('Tiếng Nhật', 'Japanese' if current_lang == 'en' else 'Tiếng Nhật'),
-              ('Tiếng Hàn', 'Korean' if current_lang == 'en' else 'Tiếng Hàn'),
-              ('Tiếng Trung', 'Chinese' if current_lang == 'en' else 'Tiếng Trung'),
-              ('Tiếng Pháp', 'French' if current_lang == 'en' else 'Tiếng Pháp'),
-              ('Tiếng Đức', 'German' if current_lang == 'en' else 'Tiếng Đức'),
-              ('Tiếng Nga', 'Russian' if current_lang == 'en' else 'Tiếng Nga'),
-              ('Tiếng Thái', 'Thai' if current_lang == 'en' else 'Tiếng Thái'),
-              ('Tiếng Bồ Đào Nha', 'Portuguese' if current_lang == 'en' else 'Tiếng Bồ Đào Nha'),
-              ('Tiếng Tây Ban Nha', 'Spanish' if current_lang == 'en' else 'Tiếng Tây Ban Nha')
-            ] %}
-            {% for name, display_name in langs %}
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Cặp ngôn ngữ</h4>
+          <div class="space-y-2.5">
             <div>
-              <input type="checkbox" class="jf-cb jf-lang"
-                id="ld-{{ loop.index }}" value="{{ name }}">
-              <label for="ld-{{ loop.index }}" class="jf-label">
-                <span class="jf-box"></span>
-                <span class="text-xs">{{ display_name }}</span>
-              </label>
+              <label for="jf-src-lang" class="block text-[11px] font-semibold text-slate-600 mb-1">Ngôn ngữ nguồn</label>
+              <select id="jf-src-lang" onchange="applyFilters()" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <option value="">Tất cả ngôn ngữ nguồn</option>
+                <option value="tiếng việt">Tiếng Việt</option>
+                <option value="tiếng anh">Tiếng Anh</option>
+                <option value="tiếng nhật">Tiếng Nhật</option>
+                <option value="tiếng hàn">Tiếng Hàn</option>
+                <option value="tiếng trung">Tiếng Trung</option>
+                <option value="tiếng pháp">Tiếng Pháp</option>
+                <option value="tiếng đức">Tiếng Đức</option>
+                <option value="tiếng nga">Tiếng Nga</option>
+                <option value="tiếng thái">Tiếng Thái</option>
+                <option value="tiếng bồ đào nha">Tiếng Bồ Đào Nha</option>
+                <option value="tiếng tây ban nha">Tiếng Tây Ban Nha</option>
+              </select>
             </div>
-            {% endfor %}
+            <div>
+              <label for="jf-tgt-lang" class="block text-[11px] font-semibold text-slate-600 mb-1">Ngôn ngữ đích</label>
+              <select id="jf-tgt-lang" onchange="applyFilters()" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <option value="">Tất cả ngôn ngữ đích</option>
+                <option value="tiếng việt">Tiếng Việt</option>
+                <option value="tiếng anh">Tiếng Anh</option>
+                <option value="tiếng nhật">Tiếng Nhật</option>
+                <option value="tiếng hàn">Tiếng Hàn</option>
+                <option value="tiếng trung">Tiếng Trung</option>
+                <option value="tiếng pháp">Tiếng Pháp</option>
+                <option value="tiếng đức">Tiếng Đức</option>
+                <option value="tiếng nga">Tiếng Nga</option>
+                <option value="tiếng thái">Tiếng Thái</option>
+                <option value="tiếng bồ đào nha">Tiếng Bồ Đào Nha</option>
+                <option value="tiếng tây ban nha">Tiếng Tây Ban Nha</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        <!-- Mức giá -->
+        <!-- 2. Chuyên ngành & Loại dịch vụ -->
+        <div class="jf-sec mt-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Chuyên ngành & Dịch vụ</h4>
+          <div class="space-y-2.5">
+            <div>
+              <label for="jf-specialization" class="block text-[11px] font-semibold text-slate-600 mb-1">Lĩnh vực / Chuyên ngành</label>
+              <select id="jf-specialization" onchange="applyFilters()" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <option value="">Tất cả lĩnh vực</option>
+                <option value="legal">⚖️ Pháp lý / Hợp đồng / Luật</option>
+                <option value="business">💼 Kinh doanh / Thương mại / Marketing</option>
+                <option value="tech">⚙️ Kỹ thuật / Công nghệ / IT</option>
+                <option value="medical">🏥 Y tế / Dược phẩm / Sức khỏe</option>
+                <option value="finance">💰 Tài chính / Ngân hàng / Kế toán</option>
+                <option value="cultural">🎨 Văn hóa / Du lịch / Giáo dục</option>
+              </select>
+            </div>
+            <div>
+              <label for="jf-cat-group" class="block text-[11px] font-semibold text-slate-600 mb-1">Nhóm dịch vụ</label>
+              <select id="jf-cat-group" onchange="applyFilters()" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <option value="">Tất cả nhóm</option>
+                <option value="translation">Dịch thuật (Văn bản/Tài liệu)</option>
+                <option value="interpretation_other">Phiên dịch & Dịch vụ khác</option>
+              </select>
+            </div>
+            <div>
+              <label for="jf-service-type" class="block text-[11px] font-semibold text-slate-600 mb-1">Loại hình chi tiết</label>
+              <select id="jf-service-type" onchange="applyFilters()" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                <option value="">Tất cả loại hình</option>
+                <option value="conference">Hội nghị / Cabin</option>
+                <option value="meeting">Họp / Đàm phán</option>
+                <option value="business">Kinh doanh / Thương mại</option>
+                <option value="escort">Tháp tùng đoàn</option>
+                <option value="event">Sự kiện / Triển lãm</option>
+                <option value="travel">Du lịch</option>
+                <option value="document_translation">Dịch tài liệu / Hợp đồng</option>
+                <option value="website_translation">Dịch Website / Phần mềm</option>
+                <option value="proofreading">Hiệu đính / Soát lỗi</option>
+                <option value="other_interpretation">Dịch vụ khác</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Hình thức làm việc -->
+        <div class="jf-sec mt-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Hình thức làm việc</h4>
+          <div class="space-y-1">
+            <div>
+              <input type="radio" class="jf-rb jf-work-mode" id="wmd-all" name="wmd-desk" value="" checked>
+              <label for="wmd-all" class="jf-label">
+                <span class="jf-dot"></span><span class="text-xs">Tất cả hình thức</span>
+              </label>
+            </div>
+            <div>
+              <input type="radio" class="jf-rb jf-work-mode" id="wmd-online" name="wmd-desk" value="online">
+              <label for="wmd-online" class="jf-label">
+                <span class="jf-dot"></span><span class="text-xs">🌐 Trực tuyến (Online / Từ xa)</span>
+              </label>
+            </div>
+            <div>
+              <input type="radio" class="jf-rb jf-work-mode" id="wmd-offline" name="wmd-desk" value="offline">
+              <label for="wmd-offline" class="jf-label">
+                <span class="jf-dot"></span><span class="text-xs">🏢 Trực tiếp (Tại địa điểm)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Khu vực -->
+        <div class="jf-sec mt-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Khu vực địa điểm</h4>
+          <select id="jf-location" onchange="applyFilters()" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            <option value="">Tất cả khu vực</option>
+            <option value="hà nội">Hà Nội</option>
+            <option value="hồ chí minh">TP. Hồ Chí Minh</option>
+            <option value="đà nẵng">Đà Nẵng</option>
+            <option value="bình dương">Bình Dương</option>
+            <option value="đồng nai">Đồng Nai</option>
+            <option value="vũng tàu">Bà Rịa - Vũng Tàu</option>
+          </select>
+        </div>
+
+        <!-- 5. Mức giá / Thù lao -->
         <div class="jf-sec mt-3">
           <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_budget') }}</h4>
           <div class="space-y-1">
             {% set prices = [
+              ('Tất cả mức giá', ''),
               (t('job_list_page.budget_under_1m'), 'p1'),
               ('500,000 – 1,000,000 VND', 'p2'),
               ('1,000,000 – 3,000,000 VND', 'p3'),
               ('3,000,000 – 5,000,000 VND', 'p4'),
-              ('Trên 5,000,000 VND' if current_lang == 'vi' else 'Over 5,000,000 VND', 'p5')
+              ('Trên 5,000,000 VND' if current_lang == 'vi' else 'Over 5,000,000 VND', 'p5'),
+              ('Thương lượng / Thỏa thuận', 'nego')
             ] %}
             {% for label, val in prices %}
             <div>
               <input type="radio" class="jf-rb jf-price"
-                id="pd-{{ loop.index }}" name="price-d" value="{{ val }}">
+                id="pd-{{ loop.index }}" name="price-d" value="{{ val }}" {% if val == '' %}checked{% endif %}>
               <label for="pd-{{ loop.index }}" class="jf-label">
                 <span class="jf-dot"></span><span class="text-xs">{{ label }}</span>
               </label>
@@ -171,27 +280,56 @@
           </div>
         </div>
 
-        <!-- Ngày đăng -->
+        <!-- 6. Thời gian thực hiện & Hạn nộp -->
         <div class="jf-sec mt-3">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_time') }}</h4>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Thời gian thực hiện</h4>
           <div class="space-y-1">
-            {% set dates = [
-              (t('job_list_page.time_today'), '1'),
-              (t('job_list_page.time_3days'), '3'),
-              (t('job_list_page.time_7days'), '7'),
-              (t('job_list_page.time_30days'), '30'),
-              (t('job_list_page.time_all'), '0')
-            ] %}
-            {% for label, val in dates %}
             <div>
-              <input type="radio" class="jf-rb jf-date"
-                id="dd-{{ loop.index }}" name="date-d" value="{{ val }}">
-              <label for="dd-{{ loop.index }}" class="jf-label">
-                <span class="jf-dot"></span><span class="text-xs">{{ label }}</span>
+              <input type="radio" class="jf-rb jf-event-time" id="etd-all" name="event-time-d" value="" checked>
+              <label for="etd-all" class="jf-label">
+                <span class="jf-dot"></span><span class="text-xs">Tất cả thời điểm</span>
               </label>
             </div>
-            {% endfor %}
+            <div>
+              <input type="radio" class="jf-rb jf-event-time" id="etd-7" name="event-time-d" value="upcoming_7">
+              <label for="etd-7" class="jf-label">
+                <span class="jf-dot"></span><span class="text-xs">📅 Diễn ra trong 7 ngày tới</span>
+              </label>
+            </div>
+            <div>
+              <input type="radio" class="jf-rb jf-event-time" id="etd-30" name="event-time-d" value="upcoming_30">
+              <label for="etd-30" class="jf-label">
+                <span class="jf-dot"></span><span class="text-xs">📅 Diễn ra trong 30 ngày tới</span>
+              </label>
+            </div>
+            <div>
+              <input type="radio" class="jf-rb jf-event-time" id="etd-has" name="event-time-d" value="has_date">
+              <label for="etd-has" class="jf-label">
+                <span class="jf-dot"></span><span class="text-xs">📅 Có ngày diễn ra cụ thể</span>
+              </label>
+            </div>
           </div>
+
+          <div class="mt-3 pt-2.5 border-t border-slate-100">
+            <label for="jf-date-posted" class="block text-[11px] font-semibold text-slate-600 mb-1">Thời gian đăng tin</label>
+            <select id="jf-date-posted" onchange="applyFilters()" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-1.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              <option value="0">Tất cả thời gian đăng</option>
+              <option value="1">Trong 24 giờ qua</option>
+              <option value="3">Trong 3 ngày qua</option>
+              <option value="7">Trong 7 ngày qua</option>
+              <option value="30">Trong 30 ngày qua</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Nút áp dụng & Xóa trên Desktop -->
+        <div class="mt-5 pt-3 border-t border-slate-100 flex gap-2">
+          <button onclick="applyFilters()" class="flex-1 py-2 px-3 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl transition shadow-xs text-center">
+            Áp dụng bộ lọc
+          </button>
+          <button onclick="clearFilters()" class="py-2 px-3 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition text-center">
+            Xóa lọc
+          </button>
         </div>
 
       </div>
@@ -207,11 +345,11 @@
             {{ t('job_list_page.showing_count') }} <span id="jf-count">{{ jobs|length }}</span> {{ t('job_list_page.open_jobs_label') }}
           </p>
           <!-- Search input -->
-          <form id="jf-search-form" class="relative w-full sm:w-64">
+          <form id="jf-search-form" class="relative w-full sm:w-72">
             <input type="text" id="jf-search" oninput="applyFilters()"
               placeholder="{{ t('job_list_page.search_placeholder') }}"
               class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
-            <button type="submit" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-600 transition">
+            <button type="submit" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-600 transition" aria-label="Tìm kiếm">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </button>
           </form>
@@ -235,6 +373,7 @@
             <select id="jf-sort" onchange="applyFilters()"
               class="text-xs font-semibold border-slate-200 rounded-xl px-3 py-2 border text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50/80 cursor-pointer">
               <option value="newest">{{ t('job_list_page.sort_newest') }}</option>
+              <option value="event_asc">Ngày diễn ra gần nhất</option>
               <option value="budget_desc">{{ t('job_list_page.sort_budget_desc') }}</option>
               <option value="budget_asc">{{ t('job_list_page.sort_budget_asc') }}</option>
               <option value="proposals_asc">{{ t('job_list_page.sort_proposals_asc') }}</option>
@@ -255,14 +394,24 @@
       </div>
       {% endif %}
 
-      <!-- Job Cards -->
+      <!-- Job Cards Grid -->
       <div id="jf-grid" class="space-y-4">
         {% for job in jobs %}
         <div class="jf-card bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-soft"
           data-title="{{ job.title|lower }}"
           data-desc="{{ job.description|lower }}"
+          data-src-lang="{{ job.source_lang|lower if job.source_lang else '' }}"
+          data-tgt-lang="{{ job.target_lang|lower if job.target_lang else '' }}"
           data-lang="{{ job.source_lang }}|||{{ job.target_lang }}"
           data-budget="{{ job.budget_min if job.budget_min else 0 }}"
+          data-budget-type="{{ job.budget_type or 'negotiable' }}"
+          data-group="{{ job.display_category_group }}"
+          data-service="{{ job.display_service_type }}"
+          data-cat-text="{{ job.display_category_text(current_lang)|lower }}"
+          data-work-mode="{% if job.event_location and ('online' in job.event_location|lower or 'từ xa' in job.event_location|lower) %}online{% elif job.event_location %}offline{% else %}all{% endif %}"
+          data-location="{{ job.event_location|lower if job.event_location else '' }}"
+          data-event-date="{{ job.event_date or '' }}"
+          data-deadline="{{ job.deadline.isoformat() if job.deadline else '' }}"
           data-created="{{ job.created_at.isoformat() if job.created_at else '' }}"
           data-proposals="{{ job.proposals|length }}">
 
@@ -279,6 +428,16 @@
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                   {{ job.proposals|length }} {{ t('job_list_page.applied_count_label') }}
                 </span>
+                {% if job.event_location %}
+                <span class="text-xs text-slate-400">·</span>
+                <span class="text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  {% if 'online' in job.event_location|lower or 'từ xa' in job.event_location|lower %}
+                    <span>🌐</span> Làm việc trực tuyến
+                  {% else %}
+                    <span>📍</span> {{ job.event_location }}
+                  {% endif %}
+                </span>
+                {% endif %}
               </div>
               <h2 class="text-base sm:text-lg font-bold text-slate-900 hover:text-brand-600 transition">
                 <a href="{{ url_for('job_detail', job_id=job.id) }}">{{ job.title }}</a>
@@ -296,24 +455,23 @@
                 <span class="text-[10px] text-slate-400 uppercase font-semibold block">{{ t('job_list_page.budget_range_label') }}</span>
               {% else %}
                 <span class="text-base sm:text-lg font-extrabold text-slate-700">{{ t('job_list_page.negotiable') }}</span>
+                <span class="text-[10px] text-slate-400 uppercase font-semibold block">Thỏa thuận</span>
               {% endif %}
             </div>
           </div>
 
           <p class="text-slate-600 text-xs sm:text-sm line-clamp-2 mb-4 leading-relaxed">{{ job.description }}</p>
 
-          <div class="flex items-center justify-between border-t border-slate-100 pt-3.5 mt-2">
-            <div class="flex items-center gap-3 text-xs text-slate-400">
+          <div class="flex flex-wrap items-center justify-between border-t border-slate-100 pt-3.5 mt-2 gap-2">
+            <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
               <span>{{ t('job_list_page.posted_on') }} {{ job.created_at.strftime('%d/%m/%Y') if job.created_at else '' }}</span>
+              {% if job.event_date %}
               <span>·</span>
-              {% set cnt = job.applicant_count %}
-              {% if cnt > 0 %}
-                <span class="text-indigo-700 font-semibold flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  {{ cnt }} {{ t('job_detail_page.applicants_suffix') }}
-                </span>
-              {% else %}
-                <span class="text-emerald-600 font-semibold">{{ t('job_list_page.no_applicants_yet') }}</span>
+              <span class="text-slate-600 font-medium">📅 Diễn ra: {{ job.event_date }}</span>
+              {% endif %}
+              {% if job.deadline %}
+              <span>·</span>
+              <span class="text-amber-700 font-medium">⏰ Hạn nộp: {{ job.deadline.strftime('%d/%m/%Y') }}</span>
               {% endif %}
             </div>
             
@@ -331,19 +489,34 @@
         {% endfor %}
       </div>
 
+      <!-- Phân trang Pagination -->
+      <div id="jf-pagination" class="flex flex-wrap items-center justify-between gap-4 mt-8 pt-6 border-t border-slate-200/80">
+        <p class="text-xs text-slate-500" id="jf-page-info">
+          Hiển thị 1 - 10 việc làm
+        </p>
+        <div class="flex items-center gap-1.5" id="jf-page-buttons">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
       <!-- Empty state khi filter không có kết quả -->
       <div id="jf-empty" class="text-center py-16 px-4 bg-white rounded-2xl border border-slate-200/90 shadow-soft">
         <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-2xl">
           🔍
         </div>
         <h3 class="text-base font-bold text-slate-900 mb-1.5">{{ t('job_list_page.no_match_title') }}</h3>
-        <p class="text-slate-500 text-xs sm:text-sm max-w-sm mx-auto mb-5 leading-relaxed">
+        <p class="text-slate-500 text-xs sm:text-sm max-w-md mx-auto mb-4 leading-relaxed">
           {{ t('job_list_page.no_match_desc') }}
         </p>
-        <button onclick="clearFilters()"
-          class="text-xs font-bold text-white bg-brand-600 px-5 py-2.5 rounded-xl hover:bg-brand-700 transition shadow-sm">
-          {{ t('job_list_page.reset_all_filters') }}
-        </button>
+        <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200/70 py-2 px-4 rounded-xl inline-block mb-5">
+          💡 Gợi ý: Thử bỏ bớt bộ lọc khu vực, hình thức làm việc hoặc mở rộng khoảng ngân sách để tìm được nhiều cơ hội hơn.
+        </p>
+        <div>
+          <button onclick="clearFilters()"
+            class="text-xs font-bold text-white bg-brand-600 px-5 py-2.5 rounded-xl hover:bg-brand-700 transition shadow-sm">
+            {{ t('job_list_page.reset_all_filters') }}
+          </button>
+        </div>
       </div>
 
     </div>
@@ -366,51 +539,132 @@
     </button>
   </div>
 
-  <div class="px-5 py-4 pb-32">
-    <!-- Ngôn ngữ mobile -->
-    <div class="jf-sec">
-      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_lang') }}</h4>
-      <div class="space-y-1">
-        {% set langs = [
-          ('Tiếng Anh', 'English' if current_lang == 'en' else 'Tiếng Anh'),
-          ('Tiếng Nhật', 'Japanese' if current_lang == 'en' else 'Tiếng Nhật'),
-          ('Tiếng Hàn', 'Korean' if current_lang == 'en' else 'Tiếng Hàn'),
-          ('Tiếng Trung', 'Chinese' if current_lang == 'en' else 'Tiếng Trung'),
-          ('Tiếng Pháp', 'French' if current_lang == 'en' else 'Tiếng Pháp'),
-          ('Tiếng Đức', 'German' if current_lang == 'en' else 'Tiếng Đức'),
-          ('Tiếng Nga', 'Russian' if current_lang == 'en' else 'Tiếng Nga'),
-          ('Tiếng Thái', 'Thai' if current_lang == 'en' else 'Tiếng Thái'),
-          ('Tiếng Bồ Đào Nha', 'Portuguese' if current_lang == 'en' else 'Tiếng Bồ Đào Nha'),
-          ('Tiếng Tây Ban Nha', 'Spanish' if current_lang == 'en' else 'Tiếng Tây Ban Nha')
-        ] %}
-        {% for name, display_name in langs %}
+  <div class="px-5 py-4 pb-32 space-y-4">
+    <!-- Cặp ngôn ngữ mobile -->
+    <div>
+      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Cặp ngôn ngữ</h4>
+      <div class="space-y-2">
         <div>
-          <input type="checkbox" class="jf-cb jf-lang-m"
-            id="lm-{{ loop.index }}" value="{{ name }}">
-          <label for="lm-{{ loop.index }}" class="jf-label">
-            <span class="jf-box"></span>
-            <span class="text-xs">{{ display_name }}</span>
-          </label>
+          <label for="jfm-src-lang" class="block text-[11px] font-semibold text-slate-600 mb-1">Ngôn ngữ nguồn</label>
+          <select id="jfm-src-lang" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50">
+            <option value="">Tất cả ngôn ngữ nguồn</option>
+            <option value="tiếng việt">Tiếng Việt</option>
+            <option value="tiếng anh">Tiếng Anh</option>
+            <option value="tiếng nhật">Tiếng Nhật</option>
+            <option value="tiếng hàn">Tiếng Hàn</option>
+            <option value="tiếng trung">Tiếng Trung</option>
+            <option value="tiếng pháp">Tiếng Pháp</option>
+            <option value="tiếng đức">Tiếng Đức</option>
+            <option value="tiếng nga">Tiếng Nga</option>
+            <option value="tiếng thái">Tiếng Thái</option>
+            <option value="tiếng bồ đào nha">Tiếng Bồ Đào Nha</option>
+            <option value="tiếng tây ban nha">Tiếng Tây Ban Nha</option>
+          </select>
         </div>
-        {% endfor %}
+        <div>
+          <label for="jfm-tgt-lang" class="block text-[11px] font-semibold text-slate-600 mb-1">Ngôn ngữ đích</label>
+          <select id="jfm-tgt-lang" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50">
+            <option value="">Tất cả ngôn ngữ đích</option>
+            <option value="tiếng việt">Tiếng Việt</option>
+            <option value="tiếng anh">Tiếng Anh</option>
+            <option value="tiếng nhật">Tiếng Nhật</option>
+            <option value="tiếng hàn">Tiếng Hàn</option>
+            <option value="tiếng trung">Tiếng Trung</option>
+            <option value="tiếng pháp">Tiếng Pháp</option>
+            <option value="tiếng đức">Tiếng Đức</option>
+            <option value="tiếng nga">Tiếng Nga</option>
+            <option value="tiếng thái">Tiếng Thái</option>
+            <option value="tiếng bồ đào nha">Tiếng Bồ Đào Nha</option>
+            <option value="tiếng tây ban nha">Tiếng Tây Ban Nha</option>
+          </select>
+        </div>
       </div>
     </div>
 
+    <!-- Chuyên ngành & Dịch vụ mobile -->
+    <div>
+      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Chuyên ngành & Dịch vụ</h4>
+      <div class="space-y-2">
+        <select id="jfm-specialization" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50">
+          <option value="">Tất cả lĩnh vực</option>
+          <option value="legal">⚖️ Pháp lý / Hợp đồng / Luật</option>
+          <option value="business">💼 Kinh doanh / Thương mại / Marketing</option>
+          <option value="tech">⚙️ Kỹ thuật / Công nghệ / IT</option>
+          <option value="medical">🏥 Y tế / Dược phẩm / Sức khỏe</option>
+          <option value="finance">💰 Tài chính / Ngân hàng / Kế toán</option>
+          <option value="cultural">🎨 Văn hóa / Du lịch / Giáo dục</option>
+        </select>
+        <select id="jfm-cat-group" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50">
+          <option value="">Tất cả nhóm dịch vụ</option>
+          <option value="translation">Dịch thuật (Văn bản/Tài liệu)</option>
+          <option value="interpretation_other">Phiên dịch & Dịch vụ khác</option>
+        </select>
+        <select id="jfm-service-type" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50">
+          <option value="">Tất cả loại hình chi tiết</option>
+          <option value="conference">Hội nghị / Cabin</option>
+          <option value="meeting">Họp / Đàm phán</option>
+          <option value="business">Kinh doanh / Thương mại</option>
+          <option value="escort">Tháp tùng đoàn</option>
+          <option value="event">Sự kiện / Triển lãm</option>
+          <option value="travel">Du lịch</option>
+          <option value="document_translation">Dịch tài liệu / Hợp đồng</option>
+          <option value="website_translation">Dịch Website / Phần mềm</option>
+          <option value="proofreading">Hiệu đính / Soát lỗi</option>
+          <option value="other_interpretation">Dịch vụ khác</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Hình thức làm việc mobile -->
+    <div>
+      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Hình thức làm việc</h4>
+      <div class="space-y-1">
+        <div>
+          <input type="radio" class="jf-rb jf-work-mode-m" id="wmm-all" name="wmd-mob" value="" checked>
+          <label for="wmm-all" class="jf-label"><span class="jf-dot"></span><span class="text-xs">Tất cả hình thức</span></label>
+        </div>
+        <div>
+          <input type="radio" class="jf-rb jf-work-mode-m" id="wmm-online" name="wmd-mob" value="online">
+          <label for="wmm-online" class="jf-label"><span class="jf-dot"></span><span class="text-xs">🌐 Trực tuyến (Online)</span></label>
+        </div>
+        <div>
+          <input type="radio" class="jf-rb jf-work-mode-m" id="wmm-offline" name="wmd-mob" value="offline">
+          <label for="wmm-offline" class="jf-label"><span class="jf-dot"></span><span class="text-xs">🏢 Trực tiếp (Tại chỗ)</span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Khu vực mobile -->
+    <div>
+      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Khu vực địa điểm</h4>
+      <select id="jfm-location" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50">
+        <option value="">Tất cả khu vực</option>
+        <option value="hà nội">Hà Nội</option>
+        <option value="hồ chí minh">TP. Hồ Chí Minh</option>
+        <option value="đà nẵng">Đà Nẵng</option>
+        <option value="bình dương">Bình Dương</option>
+        <option value="đồng nai">Đồng Nai</option>
+        <option value="vũng tàu">Bà Rịa - Vũng Tàu</option>
+      </select>
+    </div>
+
     <!-- Mức giá mobile -->
-    <div class="jf-sec mt-3">
-      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_budget') }}</h4>
+    <div>
+      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{{ t('job_list_page.filter_budget') }}</h4>
       <div class="space-y-1">
         {% set prices = [
+          ('Tất cả mức giá', ''),
           (t('job_list_page.budget_under_1m'), 'p1'),
           ('500,000 – 1,000,000 VND', 'p2'),
           ('1,000,000 – 3,000,000 VND', 'p3'),
           ('3,000,000 – 5,000,000 VND', 'p4'),
-          ('Trên 5,000,000 VND' if current_lang == 'vi' else 'Over 5,000,000 VND', 'p5')
+          ('Trên 5,000,000 VND' if current_lang == 'vi' else 'Over 5,000,000 VND', 'p5'),
+          ('Thương lượng / Thỏa thuận', 'nego')
         ] %}
         {% for label, val in prices %}
         <div>
           <input type="radio" class="jf-rb jf-price-m"
-            id="pm-{{ loop.index }}" name="price-m" value="{{ val }}">
+            id="pm-{{ loop.index }}" name="price-m" value="{{ val }}" {% if val == '' %}checked{% endif %}>
           <label for="pm-{{ loop.index }}" class="jf-label">
             <span class="jf-dot"></span><span class="text-xs">{{ label }}</span>
           </label>
@@ -419,28 +673,39 @@
       </div>
     </div>
 
-    <!-- Ngày đăng mobile -->
-    <div class="jf-sec mt-3">
-      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_time') }}</h4>
+    <!-- Thời gian thực hiện & Ngày đăng mobile -->
+    <div>
+      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Thời gian thực hiện</h4>
       <div class="space-y-1">
-        {% set dates = [
-          (t('job_list_page.time_today'), '1'),
-          (t('job_list_page.time_3days'), '3'),
-          (t('job_list_page.time_7days'), '7'),
-          (t('job_list_page.time_30days'), '30'),
-          (t('job_list_page.time_all'), '0')
-        ] %}
-        {% for label, val in dates %}
         <div>
-          <input type="radio" class="jf-rb jf-date-m"
-            id="dm-{{ loop.index }}" name="date-m" value="{{ val }}">
-          <label for="dm-{{ loop.index }}" class="jf-label">
-            <span class="jf-dot"></span><span class="text-xs">{{ label }}</span>
-          </label>
+          <input type="radio" class="jf-rb jf-event-time-m" id="etm-all" name="event-time-m" value="" checked>
+          <label for="etm-all" class="jf-label"><span class="jf-dot"></span><span class="text-xs">Tất cả thời điểm</span></label>
         </div>
-        {% endfor %}
+        <div>
+          <input type="radio" class="jf-rb jf-event-time-m" id="etm-7" name="event-time-m" value="upcoming_7">
+          <label for="etm-7" class="jf-label"><span class="jf-dot"></span><span class="text-xs">📅 Diễn ra trong 7 ngày tới</span></label>
+        </div>
+        <div>
+          <input type="radio" class="jf-rb jf-event-time-m" id="etm-30" name="event-time-m" value="upcoming_30">
+          <label for="etm-30" class="jf-label"><span class="jf-dot"></span><span class="text-xs">📅 Diễn ra trong 30 ngày tới</span></label>
+        </div>
+        <div>
+          <input type="radio" class="jf-rb jf-event-time-m" id="etm-has" name="event-time-m" value="has_date">
+          <label for="etm-has" class="jf-label"><span class="jf-dot"></span><span class="text-xs">📅 Có ngày diễn ra cụ thể</span></label>
+        </div>
+      </div>
+      <div class="mt-3 pt-2.5 border-t border-slate-100">
+        <label for="jfm-date-posted" class="block text-[11px] font-semibold text-slate-600 mb-1">Thời gian đăng tin</label>
+        <select id="jfm-date-posted" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50">
+          <option value="0">Tất cả thời gian đăng</option>
+          <option value="1">Trong 24 giờ qua</option>
+          <option value="3">Trong 3 ngày qua</option>
+          <option value="7">Trong 7 ngày qua</option>
+          <option value="30">Trong 30 ngày qua</option>
+        </select>
       </div>
     </div>
+
   </div>
 
   <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-5 py-3.5 flex gap-3 z-10 shadow-lg">
@@ -461,48 +726,75 @@
 <script>
 // Load Recommended Jobs
 {% if current_user.is_authenticated and current_user.role == 'translator' %}
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
     fetch('/api/jobs/recommended?limit=4')
-        .then(r => r.json())
-        .then(jobs => {
+        .then(function(r) { return r.json(); })
+        .then(function(jobs) {
             if (jobs && jobs.length > 0) {
-                document.getElementById('recommended-jobs-section').classList.remove('hidden');
-                const grid = document.getElementById('recommended-jobs-grid');
-                grid.innerHTML = jobs.map(j => `
-                    <div class="bg-white rounded-2xl border border-brand-200 p-4 shadow-sm hover:shadow-md hover:border-brand-300 transition relative overflow-hidden">
-                        <div class="absolute top-0 right-0 bg-brand-50 text-brand-700 text-[10px] font-extrabold px-2 py-1 rounded-bl-xl border-b border-l border-brand-100 flex items-center gap-1 shadow-xs">
-                           ⭐ ${j.match_score}% MATCH
+                var section = document.getElementById('recommended-jobs-section');
+                if (section) section.classList.remove('hidden');
+                var grid = document.getElementById('recommended-jobs-grid');
+                if (grid) {
+                    grid.innerHTML = jobs.map(function(j) {
+                        return `
+                        <div class="bg-white rounded-2xl border border-brand-200/90 p-4 shadow-xs hover:shadow-md hover:border-brand-300 transition relative overflow-hidden flex flex-col">
+                            <div class="absolute top-0 right-0 bg-brand-50 text-brand-700 text-[10px] font-extrabold px-2 py-1 rounded-bl-xl border-b border-l border-brand-100 flex items-center gap-1 shadow-2xs">
+                               ⭐ ${j.match_score}% MATCH
+                            </div>
+                            <div class="flex flex-wrap gap-1.5 mb-2 mt-1">
+                                <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                                  ${j.category_text || j.category_group || 'Dịch vụ'}
+                                </span>
+                                <span class="text-xs text-slate-400">·</span>
+                                <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                  ${j.applicant_count || 0} {{ t('job_list_page.applied_count_label') }}
+                                </span>
+                            </div>
+                            <a href="/job/${j.id}" class="text-sm sm:text-base font-bold text-slate-900 hover:text-brand-600 transition block mb-1">
+                              ${j.title || 'Công việc'}
+                            </a>
+                            <div class="text-[11px] text-slate-500 mb-2 line-clamp-2">${j.match_reason || (j.match_reasons && j.match_reasons.join(', ')) || ''}</div>
+                            <div class="flex items-center justify-between mt-auto pt-2 border-t border-slate-100">
+                                <span class="text-xs font-bold text-slate-900">
+                                    ${j.budget_min ? Number(j.budget_min).toLocaleString('vi-VN') + ' VND' : "{{ t('job_list_page.negotiable') }}"}
+                                </span>
+                                <a href="/job/${j.id}" class="text-[11px] font-bold text-brand-600 hover:text-brand-700 flex items-center gap-0.5">{{ t('job_list_page.view_now') }} &rarr;</a>
+                            </div>
                         </div>
-                        <div class="flex flex-wrap gap-1.5 mb-2 mt-1">
-                            <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                  ${j.category_group}
-                </span>
-                <span class="text-xs text-slate-400">·</span>
-                <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                  ${j.applicant_count} {{ t('job_list_page.applied_count_label') }}
-                </span>
-              </div>
-              <a href="/job/${j.id}" class="text-base sm:text-lg font-bold text-slate-900 hover:text-brand-600 transition block">
-                ${j.title}
-              </a>
-            </div>
-            <div class="text-[11px] text-slate-500 mb-2 line-clamp-2">${j.match_reason}</div>
-                        <div class="flex items-center justify-between mt-auto pt-2 border-t border-slate-100">
-                            <span class="text-xs font-bold text-slate-900">
-                                ${j.budget_min ? Number(j.budget_min).toLocaleString('en-US') + ' VND' : "{{ t('job_list_page.negotiable') }}"}
-                            </span>
-                            <a href="/job/${j.id}" class="text-[11px] font-bold text-brand-600 hover:text-brand-700">{{ t('job_list_page.view_now') }} &rarr;</a>
-                        </div>
-                    </div>
-                `).join('');
+                        `;
+                    }).join('');
+                }
+            } else {
+                var section = document.getElementById('recommended-jobs-section');
+                if (section) section.classList.add('hidden');
             }
         })
-        .catch(console.error);
+        .catch(function(err) {
+            console.warn('Recommended jobs API error:', err);
+            var section = document.getElementById('recommended-jobs-section');
+            if (section) section.classList.add('hidden');
+        });
 });
 {% endif %}
 </script>
+
 <script>
+// Helper to remove Vietnamese tones for natural unaccented search
+function removeVietnameseTones(str) {
+  if (!str) return '';
+  str = str.toLowerCase();
+  str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+  str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+  str = str.replace(/ì|í|ỉ|ĩ|ị/g, "i");
+  str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+  str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+  str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+  str = str.replace(/đ/g, "d");
+  str = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return str.trim();
+}
+
 var PRICE_CFG = {
   p1: { min: 0,       max: 499999   },
   p2: { min: 500000,  max: 1000000  },
@@ -511,160 +803,673 @@ var PRICE_CFG = {
   p5: { min: 5000001, max: Infinity }
 };
 
-function getFilters() {
-  var langD = Array.from(document.querySelectorAll('.jf-lang:checked')).map(function(e){ return e.value.toLowerCase(); });
-  var langM = Array.from(document.querySelectorAll('.jf-lang-m:checked')).map(function(e){ return e.value.toLowerCase(); });
-  var langs = langD.length ? langD : langM;
+var PER_PAGE = 8;
+var currentPage = 1;
+var currentMatchedCards = [];
 
+function getFilters() {
+  // 1. Language
+  var srcD = document.getElementById('jf-src-lang');
+  var srcM = document.getElementById('jfm-src-lang');
+  var srcLang = (srcD && srcD.value) || (srcM && srcM.value) || '';
+
+  var tgtD = document.getElementById('jf-tgt-lang');
+  var tgtM = document.getElementById('jfm-tgt-lang');
+  var tgtLang = (tgtD && tgtD.value) || (tgtM && tgtM.value) || '';
+
+  // 2. Specialization
+  var specD = document.getElementById('jf-specialization');
+  var specM = document.getElementById('jfm-specialization');
+  var specialization = (specD && specD.value) || (specM && specM.value) || '';
+
+  // 3. Category & Service
+  var catGroupD = document.getElementById('jf-cat-group');
+  var catGroupM = document.getElementById('jfm-cat-group');
+  var catGroup = (catGroupD && catGroupD.value) || (catGroupM && catGroupM.value) || '';
+
+  var svcD = document.getElementById('jf-service-type');
+  var svcM = document.getElementById('jfm-service-type');
+  var serviceType = (svcD && svcD.value) || (svcM && svcM.value) || '';
+
+  // 4. Work mode
+  var wmD = document.querySelector('.jf-work-mode:checked');
+  var wmM = document.querySelector('.jf-work-mode-m:checked');
+  var workMode = (wmD && wmD.value) || (wmM && wmM.value) || '';
+
+  // 5. Location
+  var locD = document.getElementById('jf-location');
+  var locM = document.getElementById('jfm-location');
+  var location = (locD && locD.value) || (locM && locM.value) || '';
+
+  // 6. Price
   var priceD = document.querySelector('.jf-price:checked');
   var priceM = document.querySelector('.jf-price-m:checked');
-  var price  = priceD ? priceD.value : (priceM ? priceM.value : null);
+  var price  = (priceD && priceD.value) ? priceD.value : ((priceM && priceM.value) ? priceM.value : '');
 
-  var dateD  = document.querySelector('.jf-date:checked');
-  var dateM  = document.querySelector('.jf-date-m:checked');
-  var days   = dateD ? parseInt(dateD.value) : (dateM ? parseInt(dateM.value) : 0);
+  // 7. Event Execution Time
+  var etD = document.querySelector('.jf-event-time:checked');
+  var etM = document.querySelector('.jf-event-time-m:checked');
+  var eventTime = (etD && etD.value) ? etD.value : ((etM && etM.value) ? etM.value : '');
 
+  // 8. Days posted
+  var postD = document.getElementById('jf-date-posted');
+  var postM = document.getElementById('jfm-date-posted');
+  var days  = postD ? parseInt(postD.value) : (postM ? parseInt(postM.value) : 0);
+
+  // 9. Search keyword
   var searchEl = document.getElementById('jf-search');
-  var query = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  var query = searchEl ? searchEl.value.trim() : '';
 
-  return { langs: langs, price: price, days: days, query: query };
+  // 10. Sort
+  var sortEl = document.getElementById('jf-sort');
+  var sort = sortEl ? sortEl.value : 'newest';
+
+  return {
+    srcLang: srcLang.toLowerCase(),
+    tgtLang: tgtLang.toLowerCase(),
+    specialization: specialization,
+    catGroup: catGroup,
+    serviceType: serviceType,
+    workMode: workMode,
+    location: location.toLowerCase(),
+    price: price,
+    eventTime: eventTime,
+    days: days,
+    query: query,
+    sort: sort
+  };
 }
 
-function applyFilters() {
+function updateURLState(f) {
+  var params = new URLSearchParams();
+  if (f.query) params.set('q', f.query);
+  if (f.srcLang) params.set('src', f.srcLang);
+  if (f.tgtLang) params.set('tgt', f.tgtLang);
+  if (f.specialization) params.set('spec', f.specialization);
+  if (f.catGroup) params.set('group', f.catGroup);
+  if (f.serviceType) params.set('service', f.serviceType);
+  if (f.workMode) params.set('mode', f.workMode);
+  if (f.location) params.set('loc', f.location);
+  if (f.price) params.set('price', f.price);
+  if (f.eventTime) params.set('etime', f.eventTime);
+  if (f.days > 0) params.set('days', f.days);
+  if (f.sort && f.sort !== 'newest') params.set('sort', f.sort);
+  if (currentPage > 1) params.set('p', currentPage);
+
+  var newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+  window.history.replaceState({ path: newUrl }, '', newUrl);
+
+  try {
+    sessionStorage.setItem('vt_job_filter_state', JSON.stringify({
+      filters: f,
+      page: currentPage,
+      scrollY: window.scrollY
+    }));
+  } catch(e) {}
+}
+
+function applyFilters(resetPage) {
+  if (resetPage !== false) {
+    currentPage = 1;
+  }
+
   var f     = getFilters();
   var now   = Date.now();
-  var sort  = document.getElementById('jf-sort').value;
   var cards = Array.from(document.querySelectorAll('.jf-card'));
-  var shown = [];
+  var matched = [];
+
+  // Feedback animation
+  var gridEl = document.getElementById('jf-grid');
+  if (gridEl) {
+    gridEl.style.opacity = '0.7';
+    setTimeout(function() { gridEl.style.opacity = '1'; }, 100);
+  }
 
   cards.forEach(function(card) {
-    var langStr = (card.dataset.lang || '').toLowerCase();
-    var budget  = parseInt(card.dataset.budget) || 0;
-    var created = card.dataset.created;
-    var props   = parseInt(card.dataset.proposals) || 0;
-    var title   = (card.dataset.title || '').toLowerCase();
-    var desc    = (card.dataset.desc || '').toLowerCase();
+    var title     = (card.dataset.title || '').toLowerCase();
+    var desc      = (card.dataset.desc || '').toLowerCase();
+    var srcLang   = (card.dataset.srcLang || '').toLowerCase();
+    var tgtLang   = (card.dataset.tgtLang || '').toLowerCase();
+    var langStr   = (card.dataset.lang || '').toLowerCase();
+    var budget    = parseInt(card.dataset.budget) || 0;
+    var budgetType= (card.dataset.budgetType || '').toLowerCase();
+    var group     = card.dataset.group || '';
+    var service   = card.dataset.service || '';
+    var catText   = (card.dataset.catText || '').toLowerCase();
+    var workMode  = card.dataset.workMode || '';
+    var loc       = (card.dataset.location || '').toLowerCase();
+    var created   = card.dataset.created;
+    var evtDateStr= card.dataset.eventDate || '';
+    var deadline  = card.dataset.deadline || '';
+    var props     = parseInt(card.dataset.proposals) || 0;
 
     var ok = true;
 
-    if (f.langs.length > 0) {
-      var hit = f.langs.some(function(l) { return langStr.includes(l); });
-      if (!hit) ok = false;
+    // 1. Source language
+    if (ok && f.srcLang) {
+      if (!srcLang.includes(f.srcLang) && !langStr.includes(f.srcLang)) ok = false;
     }
 
-    if (ok && f.query) {
-      if (!title.includes(f.query) && !desc.includes(f.query) && !langStr.includes(f.query)) {
+    // 2. Target language
+    if (ok && f.tgtLang) {
+      if (!tgtLang.includes(f.tgtLang) && !langStr.includes(f.tgtLang)) ok = false;
+    }
+
+    // 3. Specialization
+    if (ok && f.specialization) {
+      var allDomainText = title + ' ' + desc + ' ' + catText;
+      var specKeywords = {
+        legal: ['pháp lý', 'hợp đồng', 'luật', 'nda', 'tòa án', 'legal'],
+        business: ['kinh doanh', 'thương mại', 'marketing', 'brochure', 'xuất khẩu', 'doanh nghiệp', 'thị trường', 'đàm phán'],
+        tech: ['kỹ thuật', 'it', 'phần mềm', 'công nghệ', 'dầu khí', 'sản xuất', 'nhà máy', 'bảo trì', 'website', 'tech'],
+        medical: ['y tế', 'dược', 'bệnh viện', 'sức khỏe', 'thuốc', 'lâm sàng', 'medical'],
+        finance: ['tài chính', 'ngân hàng', 'kế toán', 'thuế', 'kiểm toán', 'đầu tư'],
+        cultural: ['văn hóa', 'du lịch', 'giáo dục', 'ẩm thực', 'sự kiện', 'triển lãm', 'thảo luận']
+      };
+      var kws = specKeywords[f.specialization];
+      if (kws) {
+        var specFound = kws.some(function(k) { return allDomainText.includes(k); });
+        if (!specFound) ok = false;
+      }
+    }
+
+    // 4. Category Group
+    if (ok && f.catGroup) {
+      if (group !== f.catGroup) ok = false;
+    }
+
+    // 5. Service Type
+    if (ok && f.serviceType) {
+      if (service !== f.serviceType && !catText.includes(f.serviceType)) ok = false;
+    }
+
+    // 6. Work Mode (online / offline)
+    if (ok && f.workMode) {
+      var isOnline = loc.includes('online') || loc.includes('từ xa') || loc.includes('remote') || workMode === 'online';
+      if (f.workMode === 'online' && !isOnline) ok = false;
+      if (f.workMode === 'offline' && isOnline) ok = false;
+    }
+
+    // 7. Location
+    if (ok && f.location) {
+      if (!loc.includes(f.location)) ok = false;
+    }
+
+    // 8. Price
+    if (ok && f.price) {
+      if (f.price === 'nego') {
+        if (budgetType !== 'negotiable' && budget > 0) ok = false;
+      } else if (PRICE_CFG[f.price]) {
+        var r = PRICE_CFG[f.price];
+        if (budget < r.min || budget > r.max) ok = false;
+      }
+    }
+
+    // 9. Event Execution Time
+    if (ok && f.eventTime) {
+      if (f.eventTime === 'has_date' && !evtDateStr) {
+        ok = false;
+      } else if (evtDateStr) {
+        var eTime = new Date(evtDateStr).getTime();
+        if (!isNaN(eTime)) {
+          var diffDays = (eTime - now) / 86400000;
+          if (f.eventTime === 'upcoming_7' && (diffDays < 0 || diffDays > 7)) ok = false;
+          if (f.eventTime === 'upcoming_30' && (diffDays < 0 || diffDays > 30)) ok = false;
+        } else if (f.eventTime === 'upcoming_7' || f.eventTime === 'upcoming_30') {
+          ok = false;
+        }
+      } else if (f.eventTime === 'upcoming_7' || f.eventTime === 'upcoming_30') {
         ok = false;
       }
     }
 
-    if (ok && f.price && PRICE_CFG[f.price]) {
-      var r = PRICE_CFG[f.price];
-      if (budget < r.min || budget > r.max) ok = false;
+    // 10. Days posted
+    if (ok && f.days > 0 && created) {
+      var diffCreated = (now - new Date(created).getTime()) / 86400000;
+      if (diffCreated > f.days) ok = false;
     }
 
-    if (ok && f.days > 0 && created) {
-      var diff = (now - new Date(created).getTime()) / 86400000;
-      if (diff > f.days) ok = false;
+    // 11. Query text (supports unaccented Vietnamese)
+    if (ok && f.query) {
+      var qRaw = f.query.toLowerCase();
+      var qNorm = removeVietnameseTones(qRaw);
+      var allRaw = (title + ' ' + desc + ' ' + srcLang + ' ' + tgtLang + ' ' + catText + ' ' + loc).toLowerCase();
+      var allNorm = removeVietnameseTones(allRaw);
+      var textMatch = allRaw.includes(qRaw) || allNorm.includes(qNorm);
+      if (!textMatch) ok = false;
     }
 
     if (ok) {
-      card.hidden = false;
-      shown.push({ card: card, budget: budget, created: created, props: props });
-    } else {
-      card.hidden = true;
+      var evtDateVal = evtDateStr ? new Date(evtDateStr).getTime() : Infinity;
+      matched.push({ card: card, budget: budget, created: created, evtDate: evtDateVal, props: props });
     }
   });
 
-  var grid = document.getElementById('jf-grid');
-  shown.sort(function(a, b) {
-    if (sort === 'budget_desc')   return b.budget - a.budget;
-    if (sort === 'budget_asc')    return a.budget - b.budget;
-    if (sort === 'proposals_asc') return a.props  - b.props;
+  // Sort
+  matched.sort(function(a, b) {
+    if (f.sort === 'budget_desc')   return b.budget - a.budget;
+    if (f.sort === 'budget_asc')    return a.budget - b.budget;
+    if (f.sort === 'proposals_asc') return a.props  - b.props;
+    if (f.sort === 'event_asc')     return a.evtDate - b.evtDate;
     return new Date(b.created) - new Date(a.created);
   });
-  shown.forEach(function(item) { grid.appendChild(item.card); });
 
-  document.getElementById('jf-count').textContent = shown.length;
-  document.getElementById('jf-empty').style.display = shown.length === 0 ? 'block' : 'none';
-  grid.style.display = shown.length === 0 ? 'none' : '';
+  currentMatchedCards = matched;
 
-  var active = (f.langs.length > 0 ? 1 : 0) + (f.price ? 1 : 0) + (f.days > 0 ? 1 : 0) + (f.query ? 1 : 0);
+  // Pagination display
+  renderPagination();
+
+  // Toolbar counts & Empty state
+  document.getElementById('jf-count').textContent = matched.length;
+  document.getElementById('jf-empty').style.display = matched.length === 0 ? 'block' : 'none';
+  document.getElementById('jf-grid').style.display = matched.length === 0 ? 'none' : '';
+
+  // Filter badges & Clear button display
+  var active = (f.srcLang ? 1 : 0) + (f.tgtLang ? 1 : 0) + (f.specialization ? 1 : 0) +
+               (f.catGroup ? 1 : 0) + (f.serviceType ? 1 : 0) + (f.workMode ? 1 : 0) +
+               (f.location ? 1 : 0) + (f.price ? 1 : 0) + (f.eventTime ? 1 : 0) +
+               (f.days > 0 ? 1 : 0) + (f.query ? 1 : 0);
+
   var clearD = document.getElementById('jf-clear-d');
   if (clearD) clearD.style.display = active > 0 ? '' : 'none';
+
   var badge = document.getElementById('jf-mob-badge');
   if (badge) {
     badge.textContent = active;
     badge.className   = active > 0 ? 'show' : '';
   }
+
+  // Save URL state
+  updateURLState(f);
+}
+
+function renderPagination() {
+  var total = currentMatchedCards.length;
+  var totalPages = Math.ceil(total / PER_PAGE) || 1;
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  var startIdx = (currentPage - 1) * PER_PAGE;
+  var endIdx   = startIdx + PER_PAGE;
+
+  // Hide all cards first
+  var allCards = document.querySelectorAll('.jf-card');
+  allCards.forEach(function(c) { c.hidden = true; });
+
+  // Reorder and show cards for current page
+  var grid = document.getElementById('jf-grid');
+  currentMatchedCards.forEach(function(item, idx) {
+    if (idx >= startIdx && idx < endIdx) {
+      item.card.hidden = false;
+      grid.appendChild(item.card);
+    }
+  });
+
+  // Page info
+  var pInfo = document.getElementById('jf-page-info');
+  var pContainer = document.getElementById('jf-pagination');
+  if (total === 0) {
+    if (pContainer) pContainer.style.display = 'none';
+    return;
+  }
+  if (pContainer) pContainer.style.display = 'flex';
+
+  var shownStart = total > 0 ? (startIdx + 1) : 0;
+  var shownEnd   = Math.min(endIdx, total);
+  if (pInfo) {
+    pInfo.textContent = 'Hiển thị ' + shownStart + ' - ' + shownEnd + ' trên tổng số ' + total + ' việc làm';
+  }
+
+  // Buttons
+  var pBtns = document.getElementById('jf-page-buttons');
+  if (!pBtns) return;
+  pBtns.innerHTML = '';
+
+  if (totalPages <= 1) return;
+
+  // Prev button
+  var prevBtn = document.createElement('button');
+  prevBtn.innerHTML = '&laquo; Trước';
+  prevBtn.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg border transition ' +
+    (currentPage === 1 ? 'border-slate-100 text-slate-300 cursor-not-allowed' : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-brand-600');
+  prevBtn.disabled = currentPage === 1;
+  prevBtn.onclick = function() {
+    if (currentPage > 1) {
+      currentPage--;
+      renderPagination();
+      updateURLState(getFilters());
+      window.scrollTo({ top: document.getElementById('jf-grid').offsetTop - 100, behavior: 'smooth' });
+    }
+  };
+  pBtns.appendChild(prevBtn);
+
+  // Numbered buttons
+  for (var i = 1; i <= totalPages; i++) {
+    (function(p) {
+      var btn = document.createElement('button');
+      btn.textContent = p;
+      btn.className = 'w-8 h-8 text-xs font-bold rounded-lg transition ' +
+        (p === currentPage ? 'bg-brand-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 border border-slate-200');
+      btn.onclick = function() {
+        currentPage = p;
+        renderPagination();
+        updateURLState(getFilters());
+        window.scrollTo({ top: document.getElementById('jf-grid').offsetTop - 100, behavior: 'smooth' });
+      };
+      pBtns.appendChild(btn);
+    })(i);
+  }
+
+  // Next button
+  var nextBtn = document.createElement('button');
+  nextBtn.innerHTML = 'Sau &raquo;';
+  nextBtn.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg border transition ' +
+    (currentPage === totalPages ? 'border-slate-100 text-slate-300 cursor-not-allowed' : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-brand-600');
+  nextBtn.disabled = currentPage === totalPages;
+  nextBtn.onclick = function() {
+    if (currentPage < totalPages) {
+      currentPage++;
+      renderPagination();
+      updateURLState(getFilters());
+      window.scrollTo({ top: document.getElementById('jf-grid').offsetTop - 100, behavior: 'smooth' });
+    }
+  };
+  pBtns.appendChild(nextBtn);
 }
 
 function clearFilters() {
-  document.querySelectorAll('.jf-lang, .jf-lang-m').forEach(function(e){ e.checked = false; });
-  document.querySelectorAll('.jf-price, .jf-price-m').forEach(function(e){ e.checked = false; });
-  document.querySelectorAll('.jf-date, .jf-date-m').forEach(function(e){ e.checked = false; });
+  // Desktop
+  if (document.getElementById('jf-src-lang')) document.getElementById('jf-src-lang').value = '';
+  if (document.getElementById('jf-tgt-lang')) document.getElementById('jf-tgt-lang').value = '';
+  if (document.getElementById('jf-specialization')) document.getElementById('jf-specialization').value = '';
+  if (document.getElementById('jf-cat-group')) document.getElementById('jf-cat-group').value = '';
+  if (document.getElementById('jf-service-type')) document.getElementById('jf-service-type').value = '';
+  if (document.getElementById('jf-location')) document.getElementById('jf-location').value = '';
+  if (document.getElementById('jf-date-posted')) document.getElementById('jf-date-posted').value = '0';
+
+  var wmdAll = document.getElementById('wmd-all');
+  if (wmdAll) wmdAll.checked = true;
+
+  var priceAll = document.querySelector('.jf-price[value=""]');
+  if (priceAll) priceAll.checked = true;
+
+  var etdAll = document.getElementById('etd-all');
+  if (etdAll) etdAll.checked = true;
+
+  // Mobile
+  if (document.getElementById('jfm-src-lang')) document.getElementById('jfm-src-lang').value = '';
+  if (document.getElementById('jfm-tgt-lang')) document.getElementById('jfm-tgt-lang').value = '';
+  if (document.getElementById('jfm-specialization')) document.getElementById('jfm-specialization').value = '';
+  if (document.getElementById('jfm-cat-group')) document.getElementById('jfm-cat-group').value = '';
+  if (document.getElementById('jfm-service-type')) document.getElementById('jfm-service-type').value = '';
+  if (document.getElementById('jfm-location')) document.getElementById('jfm-location').value = '';
+  if (document.getElementById('jfm-date-posted')) document.getElementById('jfm-date-posted').value = '0';
+
+  var wmmAll = document.getElementById('wmm-all');
+  if (wmmAll) wmmAll.checked = true;
+
+  var priceMAll = document.querySelector('.jf-price-m[value=""]');
+  if (priceMAll) priceMAll.checked = true;
+
+  var etmAll = document.getElementById('etm-all');
+  if (etmAll) etmAll.checked = true;
+
   var searchEl = document.getElementById('jf-search');
   if (searchEl) searchEl.value = '';
-  applyFilters();
+
+  currentPage = 1;
+  applyFilters(true);
 }
 
 function openDrawer() {
-  var dLangs  = document.querySelectorAll('.jf-lang:checked');
-  var dPrice  = document.querySelector('.jf-price:checked');
-  var dDate   = document.querySelector('.jf-date:checked');
-  document.querySelectorAll('.jf-lang-m').forEach(function(e) {
-    var match = Array.from(dLangs).find(function(d){ return d.value === e.value; });
-    e.checked = !!match;
-  });
-  document.querySelectorAll('.jf-price-m').forEach(function(e){
-    e.checked = dPrice && e.value === dPrice.value;
-  });
-  document.querySelectorAll('.jf-date-m').forEach(function(e){
-    e.checked = dDate && e.value === dDate.value;
-  });
+  // Sync Desktop to Mobile
+  var f = getFilters();
+  if (document.getElementById('jfm-src-lang')) document.getElementById('jfm-src-lang').value = f.srcLang;
+  if (document.getElementById('jfm-tgt-lang')) document.getElementById('jfm-tgt-lang').value = f.tgtLang;
+  if (document.getElementById('jfm-specialization')) document.getElementById('jfm-specialization').value = f.specialization;
+  if (document.getElementById('jfm-cat-group')) document.getElementById('jfm-cat-group').value = f.catGroup;
+  if (document.getElementById('jfm-service-type')) document.getElementById('jfm-service-type').value = f.serviceType;
+  if (document.getElementById('jfm-location')) document.getElementById('jfm-location').value = f.location;
+  if (document.getElementById('jfm-date-posted')) document.getElementById('jfm-date-posted').value = f.days;
+
+  var wmMob = document.querySelector('.jf-work-mode-m[value="' + f.workMode + '"]');
+  if (wmMob) wmMob.checked = true;
+
+  var prMob = document.querySelector('.jf-price-m[value="' + f.price + '"]');
+  if (prMob) prMob.checked = true;
+
+  var etMob = document.querySelector('.jf-event-time-m[value="' + f.eventTime + '"]');
+  if (etMob) etMob.checked = true;
+
   document.getElementById('jf-drawer').classList.add('open');
   document.getElementById('jf-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
 
 function closeDrawer() {
-  var mLangs  = document.querySelectorAll('.jf-lang-m:checked');
-  var mPrice  = document.querySelector('.jf-price-m:checked');
-  var mDate   = document.querySelector('.jf-date-m:checked');
-  document.querySelectorAll('.jf-lang').forEach(function(e) {
-    var match = Array.from(mLangs).find(function(m){ return m.value === e.value; });
-    e.checked = !!match;
-  });
-  document.querySelectorAll('.jf-price').forEach(function(e){
-    e.checked = mPrice && e.value === mPrice.value;
-  });
-  document.querySelectorAll('.jf-date').forEach(function(e){
-    e.checked = mDate && e.value === mDate.value;
-  });
+  // Sync Mobile to Desktop
+  var srcM = document.getElementById('jfm-src-lang');
+  var tgtM = document.getElementById('jfm-tgt-lang');
+  var specM= document.getElementById('jfm-specialization');
+  var catM = document.getElementById('jfm-cat-group');
+  var svcM = document.getElementById('jfm-service-type');
+  var locM = document.getElementById('jfm-location');
+  var postM= document.getElementById('jfm-date-posted');
+  var wmM  = document.querySelector('.jf-work-mode-m:checked');
+  var prM  = document.querySelector('.jf-price-m:checked');
+  var etM  = document.querySelector('.jf-event-time-m:checked');
+
+  if (document.getElementById('jf-src-lang') && srcM) document.getElementById('jf-src-lang').value = srcM.value;
+  if (document.getElementById('jf-tgt-lang') && tgtM) document.getElementById('jf-tgt-lang').value = tgtM.value;
+  if (document.getElementById('jf-specialization') && specM) document.getElementById('jf-specialization').value = specM.value;
+  if (document.getElementById('jf-cat-group') && catM) document.getElementById('jf-cat-group').value = catM.value;
+  if (document.getElementById('jf-service-type') && svcM) document.getElementById('jf-service-type').value = svcM.value;
+  if (document.getElementById('jf-location') && locM) document.getElementById('jf-location').value = locM.value;
+  if (document.getElementById('jf-date-posted') && postM) document.getElementById('jf-date-posted').value = postM.value;
+
+  if (wmM) {
+    var wmD = document.querySelector('.jf-work-mode[value="' + wmM.value + '"]');
+    if (wmD) wmD.checked = true;
+  }
+  if (prM) {
+    var prD = document.querySelector('.jf-price[value="' + prM.value + '"]');
+    if (prD) prD.checked = true;
+  }
+  if (etM) {
+    var etD = document.querySelector('.jf-event-time[value="' + etM.value + '"]');
+    if (etD) etD.checked = true;
+  }
+
   document.getElementById('jf-drawer').classList.remove('open');
   document.getElementById('jf-overlay').classList.remove('open');
   document.body.style.overflow = '';
-  applyFilters();
+  applyFilters(true);
+}
+
+function restoreFiltersFromURL() {
+  var urlParams = new URLSearchParams(window.location.search);
+  var hasParam = false;
+
+  // Search query
+  var q = urlParams.get('q');
+  if (q) {
+    var sEl = document.getElementById('jf-search');
+    if (sEl) sEl.value = q;
+    hasParam = true;
+  }
+
+  // Single lang fallback (from ?lang=)
+  var l = urlParams.get('lang');
+  if (l) {
+    var srcEl = document.getElementById('jf-src-lang');
+    if (srcEl) {
+      for (var i = 0; i < srcEl.options.length; i++) {
+        if (srcEl.options[i].value.includes(l.toLowerCase())) {
+          srcEl.selectedIndex = i;
+          break;
+        }
+      }
+    }
+    hasParam = true;
+  }
+
+  // Source lang
+  var src = urlParams.get('src');
+  if (src && document.getElementById('jf-src-lang')) {
+    document.getElementById('jf-src-lang').value = src.toLowerCase();
+    hasParam = true;
+  }
+
+  // Target lang
+  var tgt = urlParams.get('tgt');
+  if (tgt && document.getElementById('jf-tgt-lang')) {
+    document.getElementById('jf-tgt-lang').value = tgt.toLowerCase();
+    hasParam = true;
+  }
+
+  // Specialization
+  var spec = urlParams.get('spec');
+  if (spec && document.getElementById('jf-specialization')) {
+    document.getElementById('jf-specialization').value = spec;
+    hasParam = true;
+  }
+
+  // Category group
+  var group = urlParams.get('group');
+  if (group && document.getElementById('jf-cat-group')) {
+    document.getElementById('jf-cat-group').value = group;
+    hasParam = true;
+  }
+
+  // Service type
+  var service = urlParams.get('service');
+  if (service && document.getElementById('jf-service-type')) {
+    document.getElementById('jf-service-type').value = service;
+    hasParam = true;
+  }
+
+  // Work mode
+  var mode = urlParams.get('mode');
+  if (mode) {
+    var wm = document.querySelector('.jf-work-mode[value="' + mode + '"]');
+    if (wm) wm.checked = true;
+    hasParam = true;
+  }
+
+  // Location
+  var loc = urlParams.get('loc');
+  if (loc && document.getElementById('jf-location')) {
+    document.getElementById('jf-location').value = loc.toLowerCase();
+    hasParam = true;
+  }
+
+  // Price
+  var price = urlParams.get('price');
+  if (price) {
+    var pr = document.querySelector('.jf-price[value="' + price + '"]');
+    if (pr) pr.checked = true;
+    hasParam = true;
+  }
+
+  // Event Time
+  var etime = urlParams.get('etime');
+  if (etime) {
+    var et = document.querySelector('.jf-event-time[value="' + etime + '"]');
+    if (et) et.checked = true;
+    hasParam = true;
+  }
+
+  // Days posted
+  var days = urlParams.get('days');
+  if (days && document.getElementById('jf-date-posted')) {
+    document.getElementById('jf-date-posted').value = days;
+    hasParam = true;
+  }
+
+  // Sort
+  var sort = urlParams.get('sort');
+  if (sort && document.getElementById('jf-sort')) {
+    document.getElementById('jf-sort').value = sort;
+    hasParam = true;
+  }
+
+  // Page
+  var page = parseInt(urlParams.get('p'));
+  if (page && page > 1) {
+    currentPage = page;
+  }
+
+  // Fallback to sessionStorage if no query params and navigating back
+  if (!hasParam) {
+    try {
+      var saved = sessionStorage.getItem('vt_job_filter_state');
+      if (saved) {
+        var parsed = JSON.parse(saved);
+        if (parsed && parsed.filters) {
+          var sf = parsed.filters;
+          if (sf.query && document.getElementById('jf-search')) document.getElementById('jf-search').value = sf.query;
+          if (sf.srcLang && document.getElementById('jf-src-lang')) document.getElementById('jf-src-lang').value = sf.srcLang;
+          if (sf.tgtLang && document.getElementById('jf-tgt-lang')) document.getElementById('jf-tgt-lang').value = sf.tgtLang;
+          if (sf.specialization && document.getElementById('jf-specialization')) document.getElementById('jf-specialization').value = sf.specialization;
+          if (sf.catGroup && document.getElementById('jf-cat-group')) document.getElementById('jf-cat-group').value = sf.catGroup;
+          if (sf.serviceType && document.getElementById('jf-service-type')) document.getElementById('jf-service-type').value = sf.serviceType;
+          if (sf.location && document.getElementById('jf-location')) document.getElementById('jf-location').value = sf.location;
+          if (sf.workMode) {
+            var swm = document.querySelector('.jf-work-mode[value="' + sf.workMode + '"]');
+            if (swm) swm.checked = true;
+          }
+          if (sf.price) {
+            var spr = document.querySelector('.jf-price[value="' + sf.price + '"]');
+            if (spr) spr.checked = true;
+          }
+          if (sf.eventTime) {
+            var set = document.querySelector('.jf-event-time[value="' + sf.eventTime + '"]');
+            if (set) set.checked = true;
+          }
+          if (sf.days > 0 && document.getElementById('jf-date-posted')) {
+            document.getElementById('jf-date-posted').value = sf.days;
+          }
+          if (sf.sort && document.getElementById('jf-sort')) document.getElementById('jf-sort').value = sf.sort;
+          if (parsed.page) currentPage = parsed.page;
+          if (parsed.scrollY) {
+            setTimeout(function() {
+              window.scrollTo({ top: parsed.scrollY, behavior: 'smooth' });
+            }, 100);
+          }
+        }
+      }
+    } catch(e) {}
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  // Check URL query param for lang
-  const urlParams = new URLSearchParams(window.location.search);
-  const langParam = urlParams.get('lang');
-  if (langParam) {
-    document.querySelectorAll('.jf-lang, .jf-lang-m').forEach(function(el) {
-      if (el.value.toLowerCase() === langParam.toLowerCase()) {
-        el.checked = true;
-      }
-    });
-  }
+  restoreFiltersFromURL();
 
-  document.querySelectorAll('.jf-lang, .jf-price, .jf-date').forEach(function(el) {
-    el.addEventListener('change', applyFilters);
+  // Desktop events
+  document.querySelectorAll('.jf-work-mode, .jf-price, .jf-event-time').forEach(function(el) {
+    el.addEventListener('change', function() { applyFilters(true); });
   });
-  document.querySelectorAll('.jf-lang-m, .jf-price-m, .jf-date-m').forEach(function(el) {
-    el.addEventListener('change', applyFilters);
+
+  // Mobile events
+  document.querySelectorAll('.jf-work-mode-m, .jf-price-m, .jf-event-time-m').forEach(function(el) {
+    el.addEventListener('change', function() {
+      // Keep mobile local until Drawer apply
+    });
   });
+
+  // Save scroll position on clicking any job detail link
+  document.addEventListener('click', function(e) {
+    var jobLink = e.target.closest('a[href*="/job/"]');
+    if (jobLink) {
+      try {
+        var saved = sessionStorage.getItem('vt_job_filter_state');
+        var parsed = saved ? JSON.parse(saved) : { filters: getFilters(), page: currentPage };
+        parsed.scrollY = window.scrollY;
+        sessionStorage.setItem('vt_job_filter_state', JSON.stringify(parsed));
+      } catch(err) {}
+    }
+  });
+
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeDrawer();
   });
@@ -673,11 +1478,11 @@ document.addEventListener('DOMContentLoaded', function() {
   if (searchForm) {
     searchForm.addEventListener('submit', function(e) {
       e.preventDefault();
-      applyFilters();
+      applyFilters(true);
     });
   }
   
-  applyFilters();
+  applyFilters(false);
 });
 </script>
 {% endblock %}

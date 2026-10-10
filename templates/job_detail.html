@@ -4,115 +4,262 @@
 
 {% block content %}
 
-<!-- Breadcrumb -->
+<!-- Breadcrumb & Back Action -->
 <div class="bg-white border-b border-slate-200/70 py-3">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <nav class="flex items-center gap-2 text-xs font-medium text-slate-500">
-            <a href="{{ url_for('index') }}" class="hover:text-brand-600">{{ t('job_detail_page.breadcrumb_home') }}</a>
-            <span>/</span>
-            <a href="{{ url_for('job_list') }}" class="hover:text-brand-600">{{ t('job_detail_page.breadcrumb_jobs')
-                }}</a>
-            <span>/</span>
-            <span class="text-slate-900 font-semibold line-clamp-1">{{ job.title }}</span>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <nav class="flex items-center gap-2 text-xs font-medium text-slate-500 min-w-0">
+            <a href="{{ url_for('index') }}" class="hover:text-brand-600 shrink-0">{{ t('job_detail_page.breadcrumb_home') if t('job_detail_page.breadcrumb_home') else 'Trang chủ' }}</a>
+            <span class="text-slate-300">/</span>
+            <a href="{{ url_for('my_jobs') }}" class="hover:text-brand-600 shrink-0">Công việc</a>
+            <span class="text-slate-300">/</span>
+            <a href="{{ url_for('job_list') }}" class="hover:text-brand-600 shrink-0">Tìm việc</a>
+            <span class="text-slate-300">/</span>
+            <span class="text-slate-900 font-semibold truncate">{{ job.title }}</span>
         </nav>
+        <a href="{{ url_for('job_list') }}" onclick="if(document.referrer && document.referrer.indexOf('/jobs') !== -1) { history.back(); return false; }" class="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl transition shrink-0 shadow-2xs">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            <span>Quay lại danh sách</span>
+        </a>
     </div>
 </div>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
     <div class="flex flex-col lg:flex-row gap-8">
 
-        <!-- Job Main Content -->
+        <!-- ═══ CỘT TRÁI: NỘI DUNG CHÍNH CÔNG VIỆC ═══ -->
         <div class="w-full lg:w-2/3 space-y-6">
 
+            <!-- Card thông tin tổng quan -->
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
 
-                <div class="flex flex-wrap items-center gap-2 mb-3">
-                    <span class="text-xs font-bold text-brand-700 bg-brand-50 px-3 py-1 rounded-lg">
-                        {{ lang_name(job.source_lang) }} → {{ lang_name(job.target_lang) }}
-                    </span>
-                    <span
-                        class="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200/60 px-3 py-1 rounded-lg">
-                        {{ job.display_category_text(current_lang) }}
-                    </span>
-                    <span
-                        class="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-3 py-1 rounded-lg flex items-center gap-1">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                <!-- Badges & Action bar -->
+                <div class="flex flex-wrap items-center justify-between gap-2.5 mb-4">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Cặp ngôn ngữ -->
+                        <span class="text-xs font-bold text-brand-700 bg-brand-50 border border-brand-200/60 px-3 py-1 rounded-lg">
+                            {{ lang_name(job.source_lang) }} → {{ lang_name(job.target_lang) }}
+                        </span>
+                        <!-- Chuyên môn / Dịch vụ -->
+                        <span class="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200/70 px-3 py-1 rounded-lg">
+                            {{ job.display_category_text(current_lang) }}
+                        </span>
+                        <!-- Hình thức làm việc -->
+                        {% if job.event_location and ('online' in job.event_location|lower or 'từ xa' in job.event_location|lower) %}
+                        <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-3 py-1 rounded-lg flex items-center gap-1">
+                            <span>🌐</span> Trực tuyến (Online)
+                        </span>
+                        {% else %}
+                        <span class="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200/60 px-3 py-1 rounded-lg flex items-center gap-1">
+                            <span>📍</span> Trực tiếp tại địa điểm
+                        </span>
+                        {% endif %}
+                        <!-- Số lượng ứng viên -->
+                        <span class="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-3 py-1 rounded-lg flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            {{ job.applicant_count }} ứng viên
+                        </span>
+                        <!-- Hạn nộp hồ sơ badge -->
+                        {% if job.deadline %}
+                        <span class="text-xs font-semibold {% if is_expired %}text-red-700 bg-red-50 border border-red-200{% else %}text-amber-700 bg-amber-50 border border-amber-200/70{% endif %} px-3 py-1 rounded-lg flex items-center gap-1">
+                            <span>⏰</span> Hạn nộp: {{ job.deadline.strftime('%d/%m/%Y') }}{% if is_expired %} (Hết hạn){% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Nút Lưu tin nhanh -->
+                    <button id="save-job-btn" onclick="toggleSaveJob({{ job.id }})"
+                        class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition shadow-2xs {% if is_saved %}bg-amber-50 text-amber-700 border-amber-300{% else %}bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900{% endif %}">
+                        <svg id="save-job-icon" class="w-4 h-4 {% if is_saved %}text-amber-500 fill-amber-500{% else %}text-slate-400 fill-none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
                         </svg>
-                        {{ job.applicant_count }} {{ t('auto.ứng_viên') }}
-                        {{ job.applicant_count }} {{ t('job_detail_page.applicants_suffix') }}
-                    </span>
-                    <span class="text-xs text-slate-400 ml-auto">
-                        {{ t('job_detail_page.posted_date') }} {{ job.created_at.strftime('%d/%m/%Y') }}
-                    </span>
+                        <span id="save-job-text">{% if is_saved %}Đã lưu tin{% else %}Lưu tin{% endif %}</span>
+                    </button>
                 </div>
 
-                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-6">
+                <!-- Tiêu đề công việc -->
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-4">
                     {{ job.title }}
                 </h1>
 
-                {% if job.event_date or job.event_location %}
-                <div
-                    class="bg-slate-50 rounded-xl p-4 border border-slate-200/70 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
+                <p class="text-xs text-slate-400 mb-6 flex items-center gap-2">
+                    <span>Đăng ngày: {{ job.created_at.strftime('%d/%m/%Y') }}</span>
+                    <span>·</span>
+                    <span class="capitalize">Trạng thái: <strong class="{% if job.status == 'open' and not is_expired %}text-emerald-600{% else %}text-slate-500{% endif %} font-semibold">{{ 'Đang mở' if job.status == 'open' and not is_expired else ('Hết hạn' if is_expired else 'Đã đóng') }}</strong></span>
+                </p>
+
+                <!-- Bảng tóm tắt thông tin thời gian & địa điểm -->
+                {% if job.event_date or job.event_location or job.event_time_start or job.deadline %}
+                <div class="bg-slate-50 rounded-xl p-4 sm:p-5 border border-slate-200/70 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs text-slate-600">
                     {% if job.event_date %}
-                    <div class="flex items-center gap-2">
-                        <span class="text-base">📅</span>
-                        <span>{{ t('job_detail_page.time_label') }} <strong class="text-slate-800 font-semibold">{{
-                                job.event_date }}</strong></span>
+                    <div class="flex items-start gap-2.5">
+                        <span class="text-base leading-none">📅</span>
+                        <div>
+                            <span class="text-slate-500 block mb-0.5">{{ t('job_detail_page.time_label') }}</span>
+                            <strong class="text-slate-800 font-semibold text-sm">{{ job.event_date }}</strong>
+                            {% if job.event_time_start %}
+                            <span class="text-slate-500 block mt-0.5">Giờ: {{ job.event_time_start }}{% if job.event_time_end %} – {{ job.event_time_end }}{% endif %}</span>
+                            {% endif %}
+                        </div>
                     </div>
                     {% endif %}
+
                     {% if job.event_location %}
-                    <div class="flex items-center gap-2">
-                        <span class="text-base">📍</span>
-                        <span>{{ t('job_detail_page.location_label') }} <strong class="text-slate-800 font-semibold">{{
-                                job.event_location }}</strong></span>
+                    <div class="flex items-start gap-2.5">
+                        <span class="text-base leading-none">📍</span>
+                        <div>
+                            <span class="text-slate-500 block mb-0.5">{{ t('job_detail_page.location_label') }}</span>
+                            <strong class="text-slate-800 font-semibold text-sm">{{ job.event_location }}</strong>
+                        </div>
                     </div>
                     {% endif %}
+
+                    {% if job.deadline %}
+                    <div class="flex items-start gap-2.5">
+                        <span class="text-base leading-none">⏰</span>
+                        <div>
+                            <span class="text-slate-500 block mb-0.5">Hạn nộp hồ sơ</span>
+                            <strong class="font-semibold text-sm {% if is_expired %}text-red-600{% else %}text-slate-800{% endif %}">
+                                {{ job.deadline.strftime('%d/%m/%Y') }}
+                            </strong>
+                            {% if is_expired %}
+                            <span class="text-red-500 font-bold block mt-0.5">(Đã qua hạn nhận đề xuất)</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="flex items-start gap-2.5">
+                        <span class="text-base leading-none">💼</span>
+                        <div>
+                            <span class="text-slate-500 block mb-0.5">Chuyên ngành & Hình thức</span>
+                            <strong class="text-slate-800 font-semibold text-sm">{{ job.display_category_text(current_lang) }}</strong>
+                        </div>
+                    </div>
                 </div>
                 {% endif %}
 
-                <div>
+                <!-- Mô tả công việc -->
+                <div class="mb-8">
                     <h2 class="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-brand-600"></span>
                         {{ t('job_detail_page.desc_heading') }}
                     </h2>
-                    <div class="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
+                    <div class="text-slate-600 text-sm leading-relaxed whitespace-pre-line bg-slate-50/40 p-4 rounded-xl border border-slate-100">
                         {{ job.description }}
                     </div>
                 </div>
+
+                <!-- Yêu cầu năng lực & Hướng dẫn đối với ứng viên -->
+                <div class="pt-5 border-t border-slate-100">
+                    <h3 class="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
+                        <span class="text-brand-600">📋</span> Yêu cầu năng lực ứng viên
+                    </h3>
+                    <ul class="space-y-1.5 text-xs text-slate-600 list-disc list-inside leading-relaxed">
+                        <li>Thành thạo cặp ngôn ngữ <strong>{{ lang_name(job.source_lang) }}</strong> và <strong>{{ lang_name(job.target_lang) }}</strong>.</li>
+                        <li>Có kinh nghiệm phiên dịch hoặc dịch thuật trong lĩnh vực <strong>{{ job.display_category_text(current_lang) }}</strong>.</li>
+                        <li>Đảm bảo không trùng lịch công việc khác trong thời gian diễn ra dự án.</li>
+                        <li>Hồ sơ cá nhân có đầy đủ số điện thoại liên lạc và chứng chỉ / ngôn ngữ chuyên môn hợp lệ.</li>
+                    </ul>
+                </div>
+
             </div>
 
+            <!-- ═══ KHU VỰC ỨNG TUYỂN (BIDDING) ═══ -->
 
+            <!-- 1. Trường hợp: Khách vãng lai chưa đăng nhập -->
+            {% if not current_user %}
+            <div id="proposal-form" class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8 text-center scroll-mt-24">
+                <div class="w-14 h-14 bg-brand-50 text-brand-600 rounded-2xl mx-auto flex items-center justify-center font-bold text-2xl mb-4">
+                    🔐
+                </div>
+                <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-1.5">Đăng nhập để ứng tuyển</h3>
+                <p class="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-5 leading-relaxed">
+                    Bạn cần đăng nhập bằng tài khoản Phiên dịch viên để nộp hồ sơ và gửi mức thù lao đề xuất cho công việc này.
+                </p>
+                <div class="flex items-center justify-center gap-3 flex-wrap">
+                    <a href="{{ url_for('login', next=url_for('job_detail', job_id=job.id)) }}"
+                        class="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm py-2.5 px-6 rounded-xl transition shadow-sm">
+                        Đăng nhập ngay
+                    </a>
+                    <a href="{{ url_for('register') }}"
+                        class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs sm:text-sm py-2.5 px-6 rounded-xl transition">
+                        Đăng ký tài khoản
+                    </a>
+                </div>
+            </div>
 
-            <!-- Bidding Form (If translator) -->
-            {% if current_user and current_user.role == 'translator' and current_user.id != job.hirer_id %}
+            <!-- 2. Trường hợp: Phiên dịch viên -->
+            {% elif current_user.role == 'translator' and current_user.id != job.hirer_id %}
             <div id="proposal-form"
                 class="bg-white rounded-2xl shadow-soft border border-brand-200/80 p-6 sm:p-8 scroll-mt-24">
+
+                <!-- Đã ứng tuyển trước đó -->
                 {% if existing_proposal %}
                 <div class="flex flex-col items-center justify-center text-center py-6">
-                    <div
-                        class="w-16 h-16 bg-brand-50 text-brand-500 rounded-full flex items-center justify-center mb-4">
+                    <div class="w-16 h-16 bg-brand-50 text-brand-600 rounded-full flex items-center justify-center mb-4">
                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-lg font-bold text-slate-800 mb-1">Bạn đã ứng tuyển</h3>
-                    <p class="text-sm text-slate-500">Đề xuất của bạn đang chờ phản hồi từ khách thuê.</p>
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">Bạn đã ứng tuyển công việc này</h3>
+                    <p class="text-xs sm:text-sm text-slate-500 max-w-md mb-3">Đề xuất của bạn đã được gửi thành công và đang ở trạng thái <strong>{{ existing_proposal.status_info.label if existing_proposal.status_info else 'Chờ phản hồi' }}</strong>.</p>
+                    <a href="{{ url_for('applied_jobs') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 border border-brand-200/80 px-3.5 py-2 rounded-xl transition shadow-2xs">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span>Theo dõi trong mục Đang ứng tuyển &rarr;</span>
+                    </a>
                 </div>
+
+                <!-- Job đã đóng -->
                 {% elif job.status != 'open' %}
                 <div class="flex flex-col items-center justify-center text-center py-6">
-                    <div
-                        class="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mb-4">
+                    <div class="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mb-4">
                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                     </div>
                     <h3 class="text-lg font-bold text-slate-800 mb-1">{{ t('job_detail_page.closed_title') }}</h3>
                     <p class="text-sm text-slate-500">{{ t('job_detail_page.closed_desc') }}</p>
                 </div>
+
+                <!-- Hết hạn nhận hồ sơ -->
+                {% elif is_expired %}
+                <div class="flex flex-col items-center justify-center text-center py-6">
+                    <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">Công việc đã hết hạn ứng tuyển</h3>
+                    <p class="text-sm text-slate-500">Hạn nộp hồ sơ đã kết thúc vào ngày {{ job.deadline.strftime('%d/%m/%Y') }}. Vui lòng tham khảo các cơ hội việc làm khác.</p>
+                    <a href="{{ url_for('job_list') }}" class="mt-4 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition">
+                        Tìm việc làm khác
+                    </a>
+                </div>
+
+                <!-- Hồ sơ chưa đủ thông tin bắt buộc -->
+                {% elif profile_incomplete %}
+                <div class="p-6 bg-amber-50 rounded-2xl border border-amber-200">
+                    <div class="flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg shrink-0">
+                            ⚠️
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-amber-900 mb-1">Hồ sơ của bạn chưa đủ thông tin bắt buộc</h3>
+                            <p class="text-xs text-amber-800 mb-3 leading-relaxed">
+                                Để bảo đảm tính chuyên nghiệp và quyền lợi khi nhận việc, hệ thống yêu cầu bạn cập nhật: 
+                                <strong>{{ profile_missing_fields|join(', ') }}</strong> trước khi nộp hồ sơ ứng tuyển.
+                            </p>
+                            <a href="{{ url_for('profile') }}" class="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-xs">
+                                <span>Cập nhật hồ sơ ngay</span>
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form gửi hồ sơ hợp lệ -->
                 {% else %}
                 <h2 class="text-lg font-bold text-slate-900 mb-2 flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-brand-600"></span>
@@ -122,11 +269,10 @@
                     {{ t('job_detail_page.bidding_sub') }}
                 </p>
 
-                <form method="POST" action="{{ url_for('job_detail', job_id=job.id) }}" class="space-y-4">
+                <form id="proposal-actual-form" method="POST" action="{{ url_for('job_detail', job_id=job.id) }}" class="space-y-4" onsubmit="openApplyModal(event)">
                     <div>
                         <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
-                            {{ t('job_detail_page.cover_letter_label') }} <span
-                                class="text-xs text-slate-400 font-normal normal-case">(Không bắt buộc)</span>
+                            {{ t('job_detail_page.cover_letter_label') }} <span class="text-xs text-slate-400 font-normal normal-case">(Không bắt buộc)</span>
                         </label>
                         <textarea name="cover_letter" rows="5"
                             class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50 leading-relaxed"
@@ -134,34 +280,32 @@
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Mức thù lao đề xuất -->
                         <div>
                             <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
                                 {{ t('job_detail_page.rate_label') }} <span class="text-red-500">*</span>
                             </label>
-                            <input type="number" name="price" required
+                            <input type="number" id="proposal-price-input" name="price" required min="10000"
                                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50"
                                 placeholder="{{ t('job_detail_page.rate_placeholder') }}"
-                                value="{{ form_data.get('price', '') if form_data else '' }}">
-                            <input type="number" id="proposal-price-input" name="price" required
-                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50"
-                                placeholder="{{ t('job_detail_page.rate_placeholder') }}"
+                                value="{{ form_data.get('price', '') if form_data else '' }}"
                                 oninput="updateProposalPricePreview(this.value)">
                             <p id="proposal-price-preview" class="text-xs text-brand-700 font-bold mt-1.5 hidden"></p>
                         </div>
+
+                        <!-- Thời gian hoàn thành -->
                         <div>
                             <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
                                 {{ t('job_detail_page.delivery_label') }}
                             </label>
                             <div class="flex gap-4 mb-2">
                                 <label class="flex items-center gap-1.5 text-sm cursor-pointer">
-                                    <input type="radio" name="completion_type" value="duration" {% if not form_data or
-                                        form_data.get('completion_type', 'duration' )=='duration' %}checked{% endif %}
+                                    <input type="radio" name="completion_type" value="duration" {% if not form_data or form_data.get('completion_type', 'duration') == 'duration' %}checked{% endif %}
                                         class="text-brand-600 focus:ring-brand-500" onchange="toggleCompletionType()">
                                     Khoảng thời gian
                                 </label>
                                 <label class="flex items-center gap-1.5 text-sm cursor-pointer">
-                                    <input type="radio" name="completion_type" value="deadline" {% if form_data and
-                                        form_data.get('completion_type')=='deadline' %}checked{% endif %}
+                                    <input type="radio" name="completion_type" value="deadline" {% if form_data and form_data.get('completion_type') == 'deadline' %}checked{% endif %}
                                         class="text-brand-600 focus:ring-brand-500" onchange="toggleCompletionType()">
                                     Ngày cụ thể
                                 </label>
@@ -175,12 +319,8 @@
                                     value="{{ form_data.get('estimated_duration_value', '') if form_data else '' }}">
                                 <select name="estimated_duration_unit"
                                     class="w-1/3 px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50">
-                                    <option value="days" {% if form_data and
-                                        form_data.get('estimated_duration_unit')=='days' %}selected{% endif %}>Ngày
-                                    </option>
-                                    <option value="hours" {% if form_data and
-                                        form_data.get('estimated_duration_unit')=='hours' %}selected{% endif %}>Giờ
-                                    </option>
+                                    <option value="days" {% if form_data and form_data.get('estimated_duration_unit') == 'days' %}selected{% endif %}>Ngày</option>
+                                    <option value="hours" {% if form_data and form_data.get('estimated_duration_unit') == 'hours' %}selected{% endif %}>Giờ</option>
                                 </select>
                             </div>
 
@@ -210,89 +350,14 @@
             </div>
             {% endif %}
 
-            <script>
-                function toggleCompletionType() {
-                    const type = document.querySelector('input[name="completion_type"]:checked').value;
-                    if (type === 'duration') {
-                        document.getElementById('duration_input_group').classList.remove('hidden');
-                        document.getElementById('deadline_input_group').classList.add('hidden');
-                    } else {
-                        document.getElementById('duration_input_group').classList.add('hidden');
-                        document.getElementById('deadline_input_group').classList.remove('hidden');
-                    }
-                }
-
-                (function () {
-                    const badge = document.getElementById('schedule-status');
-                    const btn = document.getElementById('submit-proposal-btn');
-                    if (!badge || !btn) return;
-
-                    fetch('/api/jobs/{{ job.id }}/schedule-check')
-                        .then(r => r.json())
-                        .then(data => {
-                            badge.classList.remove('hidden');
-                            const hint = btn.nextElementSibling;
-                            if (hint) hint.remove();
-
-                            if (data.available) {
-                                badge.textContent = "{{ t('job_detail_page.schedule_available') }}";
-                                badge.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
-                            } else {
-                                badge.innerHTML = "{{ t('job_detail_page.schedule_conflict_prefix') }} "
-                                    + `(${data.conflict_start}–${data.conflict_end}). `
-                                    + "{{ t('job_detail_page.schedule_conflict_suffix') }}";
-                                badge.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
-                                btn.classList.replace('bg-brand-600', 'bg-slate-400');
-                                btn.classList.remove('hover:bg-brand-700');
-
-                                const desktopBtn = document.getElementById('desktop-apply-btn');
-                                if (desktopBtn) {
-                                    desktopBtn.textContent = 'KHÔNG THỂ NHẬN LỊCH';
-                                    desktopBtn.classList.replace('bg-brand-600', 'bg-slate-400');
-                                    desktopBtn.classList.remove('hover:bg-brand-700');
-                                    desktopBtn.removeAttribute('href');
-                                    desktopBtn.style.cursor = 'not-allowed';
-                                    desktopBtn.onclick = (e) => e.preventDefault();
-                                }
-
-                                const mobileBtn = document.getElementById('mobile-apply-btn');
-                                if (mobileBtn) {
-                                    mobileBtn.textContent = 'KHÔNG THỂ NHẬN LỊCH';
-                                    mobileBtn.classList.replace('bg-brand-600', 'bg-slate-400');
-                                    mobileBtn.classList.remove('hover:bg-brand-700');
-                                    mobileBtn.removeAttribute('href');
-                                    mobileBtn.style.cursor = 'not-allowed';
-                                    mobileBtn.onclick = (e) => e.preventDefault();
-                                }
-                            }
-                        })
-                        .catch(() => {
-                            /* pre-check failed silently – backend will still validate */
-                            const hint = btn.nextElementSibling;
-                            if (hint) hint.remove();
-                        });
-                })();
-                function updateProposalPricePreview(val) {
-                    const prev = document.getElementById('proposal-price-preview');
-                    if (!prev) return;
-                    const num = parseFloat(val);
-                    if (!isNaN(num) && num > 0) {
-                        prev.textContent = '≈ ' + Number(num).toLocaleString('en-US') + ' VND';
-                        prev.classList.remove('hidden');
-                    } else {
-                        prev.classList.add('hidden');
-                    }
-                }
-            </script>
-            <!-- List proposals (If hirer) -->
+            <!-- ═══ KHU VỰC KHÁCH THUÊ (QUẢN LÝ ỨNG VIÊN & ĐỀ XUẤT) ═══ -->
             {% if current_user and current_user.id == job.hirer_id %}
 
-            {% if job.status == 'open' %}
+            {% if job.status == 'open' and not is_expired %}
             <!-- Recommended Translators Section -->
             <div id="recommended-translators-container"
                 class="bg-gradient-to-br from-brand-50 to-white rounded-2xl shadow-soft border border-brand-200 p-6 sm:p-8 mb-8 hidden">
-                <h2
-                    class="text-lg font-bold text-brand-900 mb-6 flex items-center gap-2 pb-3 border-b border-brand-100">
+                <h2 class="text-lg font-bold text-brand-900 mb-6 flex items-center gap-2 pb-3 border-b border-brand-100">
                     <span class="text-brand-600">✨</span>
                     {{ t('job_detail_page.matching_translators_heading') }}
                 </h2>
@@ -325,7 +390,7 @@
                                             <div class="flex items-center gap-2">
                                                 <a href="/translator/${t.profile_id}" target="_blank" class="font-bold text-slate-900 text-base hover:text-brand-600 transition">${t.name}</a>
                                                 ${t.is_verified ? '<span class="text-emerald-500" title="{{ t('profile_page.verified') }}"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span>' : ''}
-                                            </div >
+                                            </div>
                                             <p class="text-xs text-slate-500 mt-0.5">${t.title || "{{ t('job_detail_page.default_translator_title') }}"}</p>
 
                                             <div class="flex flex-wrap gap-2 mt-2.5">
@@ -344,59 +409,57 @@
                                             <div class="mt-3 space-y-1">
                                                 ${t.reasons.map(r => `<div class="text-xs text-emerald-700 flex items-center gap-1.5"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>${r}</div>`).join('')}
                                             </div>
-                                        </div >
-                                    </div >
-                                <div class="flex sm:flex-col gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                                    <a href="/translator/${t.profile_id}" target="_blank" class="flex-1 sm:flex-none text-center px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition">
-                                        {{ t('job_detail_page.view_profile_short') }}
-                                    </a>
-                                    <button onclick="inviteTranslator(${t.translator_id}, this)" class="flex-1 sm:flex-none px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
-                                        {{ t('job_detail_page.invite_now_btn') }}
-                                    </button>
+                                        </div>
+                                    </div>
+                                    <div class="flex sm:flex-col gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                                        <a href="/translator/${t.profile_id}" target="_blank" class="flex-1 sm:flex-none text-center px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition">
+                                            {{ t('job_detail_page.view_profile_short') }}
+                                        </a>
+                                        <button onclick="inviteTranslator(${t.translator_id}, this)" class="flex-1 sm:flex-none px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
+                                            {{ t('job_detail_page.invite_now_btn') }}
+                                        </button>
+                                    </div>
                                 </div>
-                                </div >
                                 `).join('');
-                        }
-                    })
-                    .catch(e => console.error('Failed to load recommended translators:', e));
-            })();
+                            }
+                        })
+                        .catch(e => console.error('Failed to load recommended translators:', e));
+                })();
 
-            function inviteTranslator(translatorId, btn) {
-                if (btn.disabled) return;
-                btn.disabled = true;
-                const originalText = btn.innerText;
-                btn.innerText = "{{ t('job_detail_page.inviting_btn') }}";
-                btn.classList.replace('bg-brand-600', 'bg-slate-400');
-                btn.classList.remove('hover:bg-brand-700');
+                function inviteTranslator(translatorId, btn) {
+                    if (btn.disabled) return;
+                    btn.disabled = true;
+                    const originalText = btn.innerText;
+                    btn.innerText = "{{ t('job_detail_page.inviting_btn') }}";
+                    btn.classList.replace('bg-brand-600', 'bg-slate-400');
+                    btn.classList.remove('hover:bg-brand-700');
 
-                fetch(`/ api / jobs / {{ job.id }
-                        }/invite/${ translatorId }`, { method: 'POST' })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            btn.innerText = "{{ t('job_detail_page.invited_btn') }}";
-                            btn.classList.replace('bg-slate-400', 'bg-emerald-600');
-                        } else {
-                            throw new Error('API failed');
-                        }
-                    })
-                    .catch(e => {
-                        btn.disabled = false;
-                        btn.innerText = originalText;
-                        btn.classList.replace('bg-slate-400', 'bg-brand-600');
-                        btn.classList.add('hover:bg-brand-700');
-                        alert("{{ t('job_detail_page.invite_error') }}");
-                    });
-            }
+                    fetch(`/api/jobs/{{ job.id }}/invite/${translatorId}`, { method: 'POST' })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                btn.innerText = "{{ t('job_detail_page.invited_btn') }}";
+                                btn.classList.replace('bg-slate-400', 'bg-emerald-600');
+                            } else {
+                                throw new Error('API failed');
+                            }
+                        })
+                        .catch(e => {
+                            btn.disabled = false;
+                            btn.innerText = originalText;
+                            btn.classList.replace('bg-slate-400', 'bg-brand-600');
+                            btn.classList.add('hover:bg-brand-700');
+                            alert("{{ t('job_detail_page.invite_error') }}");
+                        });
+                }
             </script>
             {% endif %}
 
+            <!-- Danh sách đề xuất đã nhận -->
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-                <h2
-                    class="text-lg font-bold text-slate-900 mb-6 flex items-center justify-between pb-3 border-b border-slate-100">
+                <h2 class="text-lg font-bold text-slate-900 mb-6 flex items-center justify-between pb-3 border-b border-slate-100">
                     <span>{{ t('job_detail_page.received_proposals') }} ({{ job.proposals|length }})</span>
-                    <span class="text-xs font-normal text-slate-400">{{ t('job_detail_page.select_applicant_hint')
-                        }}</span>
+                    <span class="text-xs font-normal text-slate-400">{{ t('job_detail_page.select_applicant_hint') }}</span>
                 </h2>
 
                 <div class="space-y-4">
@@ -414,21 +477,17 @@
                                 </div>
                                 <div>
                                     <a href="{{ url_for('translator_profile', profile_id=proposal.translator.profile.id) }}"
-                                        class="font-bold text-slate-900 text-sm hover:text-brand-600 transition">{{
-                                        proposal.translator.name }}</a>
-                                    <p class="text-xs text-slate-500">{{ proposal.translator.profile.title }}</p>
+                                        class="font-bold text-slate-900 text-sm hover:text-brand-600 transition">{{ proposal.translator.name }}</a>
+                                    <p class="text-xs text-slate-500">{{ proposal.translator.profile.title if proposal.translator.profile else '' }}</p>
                                 </div>
                             </div>
                             <div class="text-left sm:text-right">
-                                <span class="font-extrabold text-brand-700 text-base block">{{ proposal.price|vnd }}
-                                    VND</span>
-                                <span class="text-xs text-slate-400">{{ t('job_detail_page.time_label') }} {{
-                                    proposal.time_estimate }}</span>
+                                <span class="font-extrabold text-brand-700 text-base block">{{ proposal.price|vnd }} VND</span>
+                                <span class="text-xs text-slate-400">{{ t('job_detail_page.time_label') }} {{ proposal.time_estimate }}</span>
                             </div>
                         </div>
 
-                        <p
-                            class="text-xs sm:text-sm text-slate-600 p-3.5 bg-white rounded-xl border border-slate-200/70 whitespace-pre-line leading-relaxed mb-4">
+                        <p class="text-xs sm:text-sm text-slate-600 p-3.5 bg-white rounded-xl border border-slate-200/70 whitespace-pre-line leading-relaxed mb-4">
                             {{ proposal.cover_letter }}
                         </p>
 
@@ -437,17 +496,47 @@
                                 class="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
                                 {{ t('job_detail_page.message_btn') }}
                             </a>
-                            {% if job.status == 'open' %}
-                            <form method="POST" action="{{ url_for('accept_proposal', proposal_id=proposal.id) }}"
-                                class="inline">
-                                <button type="submit"
-                                    class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
-                                    {{ t('job_detail_page.accept_escrow_btn') }}
+                            {% if job.status == 'open' and not is_expired %}
+                            {% if proposal.status == 'selected' %}
+                            <span class="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold">
+                                Đã chọn (Chờ ứng viên xác nhận)
+                            </span>
+                            {% elif proposal.status == 'needs_response' %}
+                            <span class="px-3 py-1.5 bg-purple-50 text-purple-800 border border-purple-200 rounded-xl text-xs font-bold">
+                                Đã yêu cầu bổ sung thông tin
+                            </span>
+                            {% elif proposal.status == 'rejected' %}
+                            <span class="px-3 py-1.5 bg-rose-50 text-rose-800 border border-rose-200 rounded-xl text-xs font-bold">
+                                Đã từ chối
+                            </span>
+                            {% elif proposal.status == 'withdrawn' %}
+                            <span class="px-3 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold">
+                                Ứng viên đã rút đơn
+                            </span>
+                            {% else %}
+                            <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                                <button type="button" onclick="hirerSelectProposal({{ proposal.id }}, this)"
+                                    class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-2xs">
+                                    Chọn ứng viên
                                 </button>
-                            </form>
+                                <button type="button" onclick="hirerRequestInfo({{ proposal.id }}, this)"
+                                    class="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-semibold transition">
+                                    Yêu cầu bổ sung
+                                </button>
+                                <form method="POST" action="{{ url_for('accept_proposal', proposal_id=proposal.id) }}" class="inline">
+                                    <button type="submit"
+                                        class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
+                                        {{ t('job_detail_page.accept_escrow_btn') }}
+                                    </button>
+                                </form>
+                                <button type="button" onclick="hirerRejectProposal({{ proposal.id }}, this)"
+                                    class="px-2.5 py-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold transition" title="Từ chối">
+                                    ✕
+                                </button>
+                            </div>
+                            {% endif %}
                             {% elif proposal.status == 'accepted' %}
-                            <span
-                                class="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold">
+                            <span class="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold">
                                 {{ t('job_detail_page.accepted_badge') }}
                             </span>
                             {% if job.contract %}
@@ -470,166 +559,514 @@
 
         </div>
 
-        <!-- Right Sidebar -->
-        <div class="w-full lg:w-1/3 space-y-6 lg:sticky lg:top-[100px] self-start">
+        <!-- ═══ CỘT PHẢI: SIDEBAR THÔNG TIN & THAO TÁC ═══ -->
+        <div class="w-full lg:w-1/3 space-y-6 lg:sticky lg:top-[90px] self-start">
 
-            <!-- Job Info Card (New) -->
-            <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-soft">
-                <h3 class="font-bold text-slate-900 text-sm tracking-tight mb-4 pb-3 border-b border-slate-100">
-                    Thông tin Job
-                </h3>
-
-                <div class="space-y-4 mb-6 text-sm text-slate-600">
+            <!-- Card tóm tắt thù lao & thông số -->
+            <div class="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200/90 shadow-soft">
+                <div class="text-center pb-5 mb-5 border-b border-slate-100">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        {{ t('job_detail_page.budget_heading') }}
+                    </span>
                     {% if job.budget_type == 'fixed' and job.budget_min %}
-                    <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Ngân sách:</span>
-                        <span class="font-bold text-brand-700">{{ "{:,.0f}".format(job.budget_min) }}đ</span>
-                    </div>
+                    <div class="text-3xl font-extrabold text-brand-700">{{ job.budget_min|vnd }} VND</div>
+                    <div class="text-xs text-slate-400 mt-1 font-medium">{{ t('job_detail_page.fixed_price_sub') }}</div>
                     {% elif job.budget_type == 'range' and job.budget_min and job.budget_max %}
-                    <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Ngân sách:</span>
-                        <span class="font-bold text-brand-700">{{ "{:,.0f}".format(job.budget_min) }} – {{
-                            "{:,.0f}".format(job.budget_max) }}đ</span>
+                    <div class="text-2xl sm:text-3xl font-extrabold text-brand-700">
+                        {{ job.budget_min|vnd }} – {{ job.budget_max|vnd }} VND
                     </div>
+                    <div class="text-xs text-slate-400 mt-1 font-medium">Khoảng ngân sách dự kiến</div>
                     {% else %}
-                    <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Ngân sách:</span>
-                        <span class="font-bold text-slate-800">Thỏa thuận</span>
+                    <div class="text-2xl font-extrabold text-slate-800">Thương lượng / Thỏa thuận</div>
+                    <div class="text-xs text-slate-400 mt-1 font-medium">Thống nhất theo đề xuất</div>
+                    {% endif %}
+                </div>
+
+                <div class="space-y-3 mb-6 text-xs text-slate-600">
+                    {% if job.event_date %}
+                    <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                        <span class="text-slate-500">Thời gian thực hiện:</span>
+                        <span class="font-bold text-slate-800 text-right">{{ job.event_date }}</span>
                     </div>
                     {% endif %}
 
-                    {% if job.event_date %}
-                    <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Thời gian:</span>
-                        <span class="font-medium text-slate-800">{{ job.event_date }}</span>
-                        <!-- Budget Card -->
-                        <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-soft text-center">
-                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{{
-                                t('job_detail_page.budget_heading') }}</span>
-                            {% if job.budget_type == 'fixed' and job.budget_min %}
-                            <div class="text-3xl font-extrabold text-brand-700">{{ job.budget_min|vnd }} VND</div>
-                            <div class="text-xs text-slate-400 mt-1 font-medium">{{ t('job_detail_page.fixed_price_sub')
-                                }}</div>
-                            {% elif job.budget_type == 'range' and job.budget_min and job.budget_max %}
-                            <div class="text-2xl sm:text-3xl font-extrabold text-brand-700">
-                                {{ job.budget_min|vnd }} – {{ job.budget_max|vnd }} VND
-                            </div>
-                            {% endif %}
+                    {% if job.event_location %}
+                    <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                        <span class="text-slate-500">Địa điểm:</span>
+                        <span class="font-semibold text-slate-800 text-right max-w-[60%] truncate" title="{{ job.event_location }}">
+                            {{ job.event_location }}
+                        </span>
+                    </div>
+                    {% endif %}
 
-                            {% if job.event_location %}
-                            <div class="flex justify-between items-center">
-                                <span class="text-slate-500">Địa điểm:</span>
-                                <span class="font-medium text-slate-800 text-right max-w-[60%] line-clamp-2"
-                                    title="{{ job.event_location }}">{{ job.event_location }}</span>
-                            </div>
-                            {% endif %}
+                    {% if job.deadline %}
+                    <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                        <span class="text-slate-500">Hạn nộp hồ sơ:</span>
+                        <span class="font-bold {% if is_expired %}text-red-600{% else %}text-slate-800{% endif %} text-right">
+                            {{ job.deadline.strftime('%d/%m/%Y') }}
+                        </span>
+                    </div>
+                    {% endif %}
 
-                            <div class="flex justify-between items-center">
-                                <span class="text-slate-500">Ứng viên:</span>
-                                <span class="font-medium text-slate-800">{{ job.applicant_count }}</span>
-                            </div>
-                        </div>
-
-                        <!-- Desktop CTA Button -->
-                        {% if current_user and current_user.role == 'translator' and current_user.id != job.hirer_id %}
-                        {% if existing_proposal %}
-                        <button disabled
-                            class="w-full bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed">
-                            ĐÃ ỨNG TUYỂN
-                        </button>
-                        {% elif job.status == 'open' %}
-                        <a href="#proposal-form" id="desktop-apply-btn"
-                            class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm">
-                            ỨNG TUYỂN
-                        </a>
-                        {% else %}
-                        <button disabled
-                            class="w-full bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed">
-                            JOB ĐÃ ĐÓNG
-                        </button>
-                        {% endif %}
-                        {% endif %}
-
-                        {% if not current_user or current_user.role == 'translator' %}
-                        <div class="mt-6 pt-6 border-t border-slate-100">
-                            <p class="text-xs text-slate-500">{{ t('job_detail_page.escrow_guarantee_note') }}</p>
-                        </div>
-                        {% endif %}
+                    <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                        <span class="text-slate-500">Số ứng viên:</span>
+                        <span class="font-bold text-indigo-700 text-right">{{ job.applicant_count }} người</span>
                     </div>
 
-                    <!-- Hirer Info -->
-                    <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-soft">
-                        <h3 class="font-bold text-slate-900 text-sm tracking-tight mb-4 pb-3 border-b border-slate-100">
-                            {{ t('job_detail_page.hirer_info_heading') }}
-                        </h3>
-
-                        <div class="flex items-center gap-3 mb-5">
-                            <div
-                                class="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center font-extrabold text-slate-700 text-base shrink-0">
-                                {{ job.hirer.name[0] | upper }}
-                            </div>
-                            <div>
-                                <div class="font-bold text-slate-900 text-sm">{{ job.hirer.name }}</div>
-                                <div class="text-xs text-emerald-600 flex items-center gap-1 mt-0.5 font-medium">
-                                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    {{ t('job_detail_page.verified_account') }}
-                                </div>
-                                <a href="{{ url_for('hirer_profile', hirer_id=job.hirer.id) }}"
-                                    class="inline-flex mt-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 transition items-center gap-1">
-                                    {{ t('auto.xem_profile') }}
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </a>
-                            </div>
-                        </div>
-
-                        <div
-                            class="bg-slate-50 rounded-xl p-3.5 border border-slate-100 text-xs text-slate-500 space-y-2">
-                            <div class="flex justify-between">
-                                <span>{{ t('job_detail_page.job_status_label') }}</span>
-                                <strong class="text-brand-700 font-semibold uppercase">{{ job.status }}</strong>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>{{ t('job_detail_page.protection_label') }}</span>
-                                <strong class="text-emerald-700 font-semibold">100% Escrow</strong>
-                            </div>
-                        </div>
+                    <div class="flex justify-between items-center py-1">
+                        <span class="text-slate-500">Trạng thái tin:</span>
+                        <span class="font-bold uppercase text-right {% if job.status == 'open' and not is_expired %}text-emerald-700{% else %}text-slate-600{% endif %}">
+                            {{ 'ĐANG MỞ' if job.status == 'open' and not is_expired else ('HẾT HẠN' if is_expired else 'ĐÃ ĐÓNG') }}
+                        </span>
                     </div>
-
                 </div>
 
+                <!-- CTA Actions trên Desktop Sidebar -->
+                <div class="space-y-2.5">
+                    {% if not current_user %}
+                    <a href="{{ url_for('login', next=url_for('job_detail', job_id=job.id)) }}"
+                        class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm text-xs sm:text-sm">
+                        ĐĂNG NHẬP ĐỂ ỨNG TUYỂN
+                    </a>
+                    {% elif current_user.role == 'translator' and current_user.id != job.hirer_id %}
+                        {% if existing_proposal %}
+                        <button disabled class="w-full bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed text-xs sm:text-sm">
+                            ĐÃ ỨNG TUYỂN
+                        </button>
+                        {% elif job.status != 'open' %}
+                        <button disabled class="w-full bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed text-xs sm:text-sm">
+                            JOB ĐÃ ĐÓNG
+                        </button>
+                        {% elif is_expired %}
+                        <button disabled class="w-full bg-red-50 text-red-600 border border-red-200 font-bold py-3 px-4 rounded-xl cursor-not-allowed text-xs sm:text-sm">
+                            HẾT HẠN ỨNG TUYỂN
+                        </button>
+                        {% elif profile_incomplete %}
+                        <a href="{{ url_for('profile') }}"
+                            class="block w-full text-center bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm text-xs sm:text-sm">
+                            HOÀN THIỆN HỒ SƠ ĐỂ ỨNG TUYỂN
+                        </a>
+                        {% else %}
+                        <a href="#proposal-form" id="desktop-apply-btn"
+                            class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm text-xs sm:text-sm">
+                            ỨNG TUYỂN NGAY
+                        </a>
+                        {% endif %}
+                    {% elif current_user.id == job.hirer_id %}
+                    <div class="p-3 bg-brand-50 rounded-xl text-center text-xs font-semibold text-brand-700 border border-brand-200/60">
+                        Bạn là người đăng tin tuyển dụng này
+                    </div>
+                    {% endif %}
+
+                    <!-- Nút Lưu công việc -->
+                    <button id="sidebar-save-btn" onclick="toggleSaveJob({{ job.id }})"
+                        class="w-full py-2.5 px-4 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 {% if is_saved %}bg-amber-50 text-amber-700 border-amber-300{% else %}bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200{% endif %}">
+                        <svg class="w-4 h-4 {% if is_saved %}text-amber-500 fill-amber-500{% else %}text-slate-400 fill-none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+                        </svg>
+                        <span>{% if is_saved %}Đã lưu công việc{% else %}Lưu công việc{% endif %}</span>
+                    </button>
+                </div>
+
+                <div class="mt-5 pt-5 border-t border-slate-100">
+                    <p class="text-[11px] text-slate-400 text-center leading-relaxed">
+                        🛡️ {{ t('job_detail_page.escrow_guarantee_note') }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Card thông tin khách thuê (Hirer Info) -->
+            <div class="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200/90 shadow-soft">
+                <h3 class="font-bold text-slate-900 text-sm tracking-tight mb-4 pb-3 border-b border-slate-100">
+                    {{ t('job_detail_page.hirer_info_heading') }}
+                </h3>
+
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center font-extrabold text-slate-700 text-base shrink-0 border border-slate-200/80">
+                        {{ job.hirer.name[0] | upper if job.hirer and job.hirer.name else 'K' }}
+                    </div>
+                    <div class="min-w-0">
+                        <div class="font-bold text-slate-900 text-sm truncate">{{ job.hirer.name }}</div>
+                        <div class="text-xs text-emerald-600 flex items-center gap-1 mt-0.5 font-medium">
+                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            {{ t('job_detail_page.verified_account') }}
+                        </div>
+                        <a href="{{ url_for('hirer_profile', hirer_id=job.hirer.id) }}"
+                            class="inline-flex mt-1 text-xs font-bold text-brand-600 hover:text-brand-700 transition items-center gap-1">
+                            {{ t('auto.xem_profile') if t('auto.xem_profile') else 'Xem hồ sơ' }} &rarr;
+                        </a>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 text-xs text-slate-500 space-y-1.5">
+                    <div class="flex justify-between">
+                        <span>{{ t('job_detail_page.job_status_label') }}</span>
+                        <strong class="text-brand-700 font-semibold uppercase">{{ job.status }}</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>{{ t('job_detail_page.protection_label') }}</span>
+                        <strong class="text-emerald-700 font-semibold">100% Escrow</strong>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+<!-- ═══ MODAL XÁC NHẬN ỨNG TUYỂN ═══ -->
+<div id="apply-confirm-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" onclick="closeApplyModal()"></div>
+
+    <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+        <div class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-slate-200 p-6 sm:p-7">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
+                    <h3 class="text-base font-bold text-slate-900" id="modal-title">Xác nhận nộp hồ sơ ứng tuyển</h3>
+                </div>
+                <button type="button" onclick="closeApplyModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Tóm tắt thông tin đề xuất -->
+            <div class="space-y-3.5 text-xs sm:text-sm">
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                    <p class="text-xs text-slate-500 mb-0.5">Công việc:</p>
+                    <p class="font-bold text-slate-900 text-sm line-clamp-1">{{ job.title }}</p>
+                    <p class="text-xs text-brand-700 font-semibold mt-1">{{ lang_name(job.source_lang) }} → {{ lang_name(job.target_lang) }}</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="p-3.5 bg-brand-50/50 rounded-xl border border-brand-100">
+                        <span class="text-xs text-slate-500 block mb-0.5">Thù lao bạn đề xuất:</span>
+                        <strong id="modal-summary-price" class="text-brand-700 text-base font-extrabold block">0 VND</strong>
+                    </div>
+                    <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                        <span class="text-xs text-slate-500 block mb-0.5">Thời gian hoàn thành:</span>
+                        <strong id="modal-summary-time" class="text-slate-800 text-sm font-bold block">--</strong>
+                    </div>
+                </div>
+
+                <div id="modal-summary-cover-box" class="p-3 bg-slate-50 rounded-xl border border-slate-100 hidden">
+                    <span class="text-xs text-slate-500 block mb-1">Thư giới thiệu:</span>
+                    <p id="modal-summary-cover" class="text-xs text-slate-700 italic line-clamp-3 whitespace-pre-line"></p>
+                </div>
+
+                <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200/70 text-xs text-emerald-800 flex items-start gap-2">
+                    <svg class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span>Bạn cam kết chịu trách nhiệm về chất lượng dịch vụ và không trùng lặp thời gian làm việc đã xác nhận.</span>
+                </div>
+            </div>
+
+            <div class="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button type="button" onclick="closeApplyModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+                    Chỉnh sửa lại
+                </button>
+                <button type="button" id="modal-confirm-submit-btn" onclick="executeSubmitProposal()" class="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-bold transition shadow-sm flex items-center gap-1.5">
+                    <span>Xác nhận gửi đơn</span>
+                </button>
             </div>
         </div>
+    </div>
+</div>
 
-        <!-- Mobile Fixed CTA -->
-        {% if current_user and current_user.role == 'translator' and current_user.id != job.hirer_id %}
-        <div
-            class="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-50">
-            {% if existing_proposal %}
-            <button disabled
-                class="w-full bg-slate-100 text-slate-500 font-bold py-3.5 px-4 rounded-xl cursor-not-allowed">
-                ĐÃ ỨNG TUYỂN
-            </button>
-            {% elif job.status == 'open' %}
-            <a href="#proposal-form" id="mobile-apply-btn"
-                class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 px-4 rounded-xl transition shadow-sm">
-                ỨNG TUYỂN
-            </a>
-            {% else %}
-            <button disabled
-                class="w-full bg-slate-100 text-slate-500 font-bold py-3.5 px-4 rounded-xl cursor-not-allowed">
-                JOB ĐÃ ĐÓNG
-            </button>
-            {% endif %}
-        </div>
-        <!-- Space for mobile CTA to not overlap footer -->
-        <div class="lg:hidden h-20"></div>
+<!-- ═══ MOBILE FIXED CTA BAR ═══ -->
+<div class="lg:hidden fixed bottom-0 left-0 right-0 p-3.5 bg-white border-t border-slate-200 shadow-[0_-4px_15px_rgba(0,0,0,0.06)] z-40 flex items-center gap-2">
+    <button onclick="toggleSaveJob({{ job.id }})"
+        class="p-3 rounded-xl border transition shrink-0 {% if is_saved %}bg-amber-50 text-amber-700 border-amber-300{% else %}bg-slate-50 text-slate-600 border-slate-200{% endif %}"
+        title="Lưu tin">
+        <svg class="w-5 h-5 {% if is_saved %}text-amber-500 fill-amber-500{% else %}text-slate-400 fill-none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+        </svg>
+    </button>
+
+    {% if not current_user %}
+    <a href="{{ url_for('login', next=url_for('job_detail', job_id=job.id)) }}"
+        class="block flex-1 text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm text-xs">
+        ĐĂNG NHẬP ĐỂ ỨNG TUYỂN
+    </a>
+    {% elif current_user.role == 'translator' and current_user.id != job.hirer_id %}
+        {% if existing_proposal %}
+        <button disabled class="flex-1 bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed text-xs">
+            ĐÃ ỨNG TUYỂN
+        </button>
+        {% elif job.status != 'open' %}
+        <button disabled class="flex-1 bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed text-xs">
+            JOB ĐÃ ĐÓNG
+        </button>
+        {% elif is_expired %}
+        <button disabled class="flex-1 bg-red-50 text-red-600 border border-red-200 font-bold py-3 px-4 rounded-xl cursor-not-allowed text-xs">
+            HẾT HẠN ỨNG TUYỂN
+        </button>
+        {% elif profile_incomplete %}
+        <a href="{{ url_for('profile') }}"
+            class="block flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm text-xs">
+            HOÀN THIỆN HỒ SƠ
+        </a>
+        {% else %}
+        <a href="#proposal-form" id="mobile-apply-btn"
+            class="block flex-1 text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm text-xs">
+            ỨNG TUYỂN NGAY
+        </a>
         {% endif %}
+    {% elif current_user.id == job.hirer_id %}
+    <span class="flex-1 text-center text-xs text-brand-700 font-semibold bg-brand-50 py-3 rounded-xl border border-brand-200/60">
+        Tin tuyển dụng của bạn
+    </span>
+    {% endif %}
+</div>
+<div class="lg:hidden h-20"></div>
 
-        {% endblock %}
+<!-- ═══ SCRIPTS XỬ LÝ GIAO DIỆN & NGHIỆP VỤ ═══ -->
+<script>
+    function toggleCompletionType() {
+        const typeEl = document.querySelector('input[name="completion_type"]:checked');
+        if (!typeEl) return;
+        const type = typeEl.value;
+        const durGroup = document.getElementById('duration_input_group');
+        const deadGroup = document.getElementById('deadline_input_group');
+        if (durGroup && deadGroup) {
+            if (type === 'duration') {
+                durGroup.classList.remove('hidden');
+                deadGroup.classList.add('hidden');
+            } else {
+                durGroup.classList.add('hidden');
+                deadGroup.classList.remove('hidden');
+            }
+        }
+    }
+
+    function updateProposalPricePreview(val) {
+        const prev = document.getElementById('proposal-price-preview');
+        if (!prev) return;
+        const num = parseFloat(val);
+        if (!isNaN(num) && num > 0) {
+            prev.textContent = '≈ ' + Number(num).toLocaleString('vi-VN') + ' VND';
+            prev.classList.remove('hidden');
+        } else {
+            prev.classList.add('hidden');
+        }
+    }
+
+    // Modal kiểm tra & xác nhận ứng tuyển
+    function openApplyModal(e) {
+        if (e) e.preventDefault();
+        const form = document.getElementById('proposal-actual-form');
+        if (!form) return;
+        if (!form.reportValidity()) return;
+
+        const priceInput = document.getElementById('proposal-price-input');
+        const priceVal = priceInput ? priceInput.value : 0;
+        const coverArea = form.querySelector('textarea[name="cover_letter"]');
+        const coverVal = coverArea ? coverArea.value : '';
+        const compRadio = form.querySelector('input[name="completion_type"]:checked');
+        const compType = compRadio ? compRadio.value : 'duration';
+
+        let timeStr = "";
+        if (compType === 'duration') {
+            const dVal = form.querySelector('input[name="estimated_duration_value"]')?.value || '1';
+            const dUnit = form.querySelector('select[name="estimated_duration_unit"]')?.value === 'days' ? 'ngày' : 'giờ';
+            timeStr = `${dVal} ${dUnit}`;
+        } else {
+            const dDate = form.querySelector('input[name="estimated_completion_date"]')?.value;
+            timeStr = dDate ? dDate : "Theo lịch công việc";
+        }
+
+        const sumPrice = document.getElementById('modal-summary-price');
+        const sumTime = document.getElementById('modal-summary-time');
+        const coverBox = document.getElementById('modal-summary-cover-box');
+        const coverEl = document.getElementById('modal-summary-cover');
+
+        if (sumPrice) sumPrice.textContent = Number(priceVal || 0).toLocaleString('vi-VN') + ' VND';
+        if (sumTime) sumTime.textContent = timeStr;
+
+        if (coverVal && coverVal.trim()) {
+            if (coverEl) coverEl.textContent = coverVal.trim();
+            if (coverBox) coverBox.classList.remove('hidden');
+        } else {
+            if (coverBox) coverBox.classList.add('hidden');
+        }
+
+        const modal = document.getElementById('apply-confirm-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeApplyModal() {
+        const modal = document.getElementById('apply-confirm-modal');
+        if (modal) modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    function executeSubmitProposal() {
+        const btn = document.getElementById('modal-confirm-submit-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Đang gửi đơn...`;
+        }
+        const form = document.getElementById('proposal-actual-form');
+        if (form) form.submit();
+    }
+
+    // Toggle Lưu / Bỏ lưu công việc
+    function toggleSaveJob(jobId) {
+        const btn = document.getElementById('save-job-btn');
+        const btnSide = document.getElementById('sidebar-save-btn');
+        const icon = document.getElementById('save-job-icon');
+        const text = document.getElementById('save-job-text');
+
+        fetch('/api/jobs/' + jobId + '/save', { method: 'POST' })
+            .then(r => {
+                if (r.status === 401) {
+                    window.location.href = "{{ url_for('login', next=request.path) }}";
+                    return null;
+                }
+                return r.json();
+            })
+            .then(data => {
+                if (!data) return;
+                if (data.success) {
+                    const isSaved = data.saved;
+                    if (btn) {
+                        btn.className = isSaved
+                            ? "inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition shadow-2xs bg-amber-50 text-amber-700 border-amber-300"
+                            : "inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition shadow-2xs bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900";
+                    }
+                    if (icon) {
+                        icon.setAttribute('class', isSaved ? 'w-4 h-4 text-amber-500 fill-amber-500' : 'w-4 h-4 text-slate-400 fill-none');
+                    }
+                    if (text) {
+                        text.textContent = isSaved ? 'Đã lưu tin' : 'Lưu tin';
+                    }
+                    if (btnSide) {
+                        btnSide.className = isSaved
+                            ? "w-full py-2.5 px-4 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 border-amber-300"
+                            : "w-full py-2.5 px-4 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200";
+                        btnSide.innerHTML = isSaved
+                            ? '<svg class="w-4 h-4 text-amber-500 fill-amber-500 inline mr-1" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg> <span>Đã lưu công việc</span>'
+                            : '<svg class="w-4 h-4 text-slate-400 fill-none inline mr-1" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg> <span>Lưu công việc</span>';
+                    }
+                }
+            })
+            .catch(err => {
+                console.error('Lỗi khi lưu công việc:', err);
+            });
+    }
+
+    // Kiểm tra trùng lịch tự động
+    (function () {
+        const badge = document.getElementById('schedule-status');
+        const btn = document.getElementById('submit-proposal-btn');
+        if (!badge || !btn) return;
+
+        fetch('/api/jobs/{{ job.id }}/schedule-check')
+            .then(r => r.json())
+            .then(data => {
+                badge.classList.remove('hidden');
+                const hint = btn.nextElementSibling;
+                if (hint) hint.remove();
+
+                if (data.available) {
+                    badge.textContent = "{{ t('job_detail_page.schedule_available') if t('job_detail_page.schedule_available') else '✓ Lịch làm việc phù hợp, không bị trùng' }}";
+                    badge.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
+                } else {
+                    badge.innerHTML = "{{ t('job_detail_page.schedule_conflict_prefix') if t('job_detail_page.schedule_conflict_prefix') else '⚠️ Bạn đã có lịch' }} "
+                        + `(${data.conflict_start}–${data.conflict_end}). `
+                        + "{{ t('job_detail_page.schedule_conflict_suffix') if t('job_detail_page.schedule_conflict_suffix') else 'Không thể nhận thêm việc trong khung giờ này.' }}";
+                    badge.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
+                    btn.classList.replace('bg-brand-600', 'bg-slate-400');
+                    btn.classList.remove('hover:bg-brand-700');
+                    btn.disabled = true;
+
+                    const desktopBtn = document.getElementById('desktop-apply-btn');
+                    if (desktopBtn) {
+                        desktopBtn.textContent = 'TRÙNG LỊCH LÀM VIỆC';
+                        desktopBtn.classList.replace('bg-brand-600', 'bg-slate-400');
+                        desktopBtn.classList.remove('hover:bg-brand-700');
+                        desktopBtn.removeAttribute('href');
+                        desktopBtn.style.cursor = 'not-allowed';
+                        desktopBtn.onclick = (e) => e.preventDefault();
+                    }
+
+                    const mobileBtn = document.getElementById('mobile-apply-btn');
+                    if (mobileBtn) {
+                        mobileBtn.textContent = 'TRÙNG LỊCH LÀM VIỆC';
+                        mobileBtn.classList.replace('bg-brand-600', 'bg-slate-400');
+                        mobileBtn.classList.remove('hover:bg-brand-700');
+                        mobileBtn.removeAttribute('href');
+                        mobileBtn.style.cursor = 'not-allowed';
+                        mobileBtn.onclick = (e) => e.preventDefault();
+                    }
+                }
+            })
+            .catch(() => {
+                const hint = btn.nextElementSibling;
+                if (hint) hint.remove();
+            });
+    })();
+
+    // ─── Hirer proposal action handlers ──────────────────────────────────────
+    function hirerSelectProposal(propId, btn) {
+        if (!confirm('Bạn có chắc chắn muốn chọn ứng viên này cho công việc?')) return;
+        btn.disabled = true;
+        fetch('/api/proposals/' + propId + '/select', { method: 'POST' })
+            .then(r => r.json())
+            .then(d => {
+                alert(d.message);
+                window.location.reload();
+            })
+            .catch(() => {
+                btn.disabled = false;
+                alert('Lỗi kết nối.');
+            });
+    }
+
+    function hirerRejectProposal(propId, btn) {
+        const reason = prompt('Nhập lý do từ chối (tùy chọn):');
+        if (reason === null) return;
+        btn.disabled = true;
+        fetch('/api/proposals/' + propId + '/reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason })
+        })
+        .then(r => r.json())
+        .then(d => {
+            alert(d.message);
+            window.location.reload();
+        })
+        .catch(() => {
+            btn.disabled = false;
+            alert('Lỗi kết nối.');
+        });
+    }
+
+    function hirerRequestInfo(propId, btn) {
+        const note = prompt('Nhập nội dung bạn cần ứng viên giải thích / bổ sung:');
+        if (!note) return;
+        btn.disabled = true;
+        fetch('/api/proposals/' + propId + '/request-info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note: note })
+        })
+        .then(r => r.json())
+        .then(d => {
+            alert(d.message);
+            window.location.reload();
+        })
+        .catch(() => {
+            btn.disabled = false;
+            alert('Lỗi kết nối.');
+        });
+    }
+</script>
+
+{% endblock %}

@@ -29,6 +29,7 @@
         </div>
 
         <form method="POST" action="{{ url_for('login') }}" class="space-y-4">
+            <input type="hidden" name="next" value="{{ next_url or request.args.get('next', '') }}">
             <div>
                 <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.email_label') }}</label>
                 <input type="email" name="email" required
