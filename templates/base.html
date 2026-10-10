@@ -280,6 +280,9 @@
                     <a href="{{ url_for('job_list') }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and not request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">Tìm
                         việc</a>
+                    <a href="{{ url_for('my_jobs') }}"
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'my_jobs' %}active text-brand-600 font-bold{% endif %}">Công
+                        việc</a>
                     <a href="{{ url_for('job_list', recommended=1) }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">Việc
                         phù hợp</a>
@@ -298,6 +301,8 @@
                     <a href="{{ url_for('about') }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'about' %}active text-brand-600 font-bold{% endif %}">{{
                         t('nav.about') }}</a>
+                    <a href="{{ url_for('news_list') }}"
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint in ['news_list', 'news_detail'] %}active text-brand-600 font-bold{% endif %}">Tin tức</a>
                     <a href="{{ url_for('payment_info') }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'payment_info' %}active text-brand-600 font-bold{% endif %}">{{
                         t('nav.payment_escrow') }}</a>
@@ -486,6 +491,9 @@
                 <a href="{{ url_for('job_list') }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'job_list' and not request.args.get('recommended') %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Tìm
                     việc</a>
+                <a href="{{ url_for('my_jobs') }}"
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'my_jobs' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Công
+                    việc</a>
                 <a href="{{ url_for('job_list', recommended=1) }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'job_list' and request.args.get('recommended') %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Việc
                     phù hợp</a>
@@ -505,6 +513,8 @@
                 <a href="{{ url_for('about') }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'about' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{
                     t('nav.about') }}</a>
+                <a href="{{ url_for('news_list') }}"
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint in ['news_list', 'news_detail'] %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Tin tức</a>
                 <a href="{{ url_for('payment_info') }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'payment_info' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{
                     t('nav.payment_escrow') }}</a>
@@ -637,6 +647,7 @@
                     <ul class="space-y-2.5 text-sm">
                         <li><a href="{{ url_for('about') }}" class="hover:text-white transition">{{
                                 t('footer.col_support_about') }}</a></li>
+                        <li><a href="{{ url_for('news_list') }}" class="hover:text-white transition">Tin tức ngành phiên dịch</a></li>
                         <li><a href="{{ url_for('payment_info') }}" class="hover:text-white transition">{{
                                 t('footer.col_support_refund') }}</a></li>
                         <li><a href="mailto:support@viettranslate.vn"

@@ -859,6 +859,83 @@ def about():
 def payment_info():
     return render_template('payment_info.html')
 
+# ─── NEWS / TIN TỨC ───────────────────────────────────────────────────────────
+
+from news_data import (
+    CATEGORIES as NEWS_CATEGORIES,
+    POPULAR_TOPICS,
+    get_article_by_slug,
+    get_articles_by_category,
+    get_featured_articles,
+    get_latest_articles,
+    get_popular_articles,
+    get_related_articles,
+    get_category_name as _get_category_name,
+    format_date_news,
+)
+
+@app.route('/tin-tuc')
+def news_list():
+    category = request.args.get('category', 'all')
+    page = request.args.get('page', 1, type=int)
+    per_page = 6
+
+    # Get featured articles (only on first page, all categories)
+    featured = get_featured_articles() if (page == 1 and category in ('all', None, '')) else []
+
+    # Get articles for listing
+    all_articles = get_articles_by_category(category if category != 'all' else None)
+
+    # Exclude featured slugs from latest to avoid duplication
+    featured_slugs = [a['slug'] for a in featured]
+    listing_articles = [a for a in all_articles if a['slug'] not in featured_slugs]
+
+    # Pagination
+    total = len(listing_articles)
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated = listing_articles[start:end]
+    show_more = end < total
+
+    return render_template('news_list.html',
+        categories=NEWS_CATEGORIES,
+        active_category=category,
+        featured_articles=featured,
+        latest_articles=paginated,
+        popular_articles=get_popular_articles(5),
+        popular_topics=POPULAR_TOPICS,
+        current_page=page,
+        show_more=show_more,
+        get_category_name=_get_category_name,
+        format_date=format_date_news,
+    )
+
+
+@app.route('/tin-tuc/<slug>')
+def news_detail(slug):
+    article = get_article_by_slug(slug)
+    if not article:
+        abort(404)
+
+    # Extract TOC from content (h2, h3 with id attributes)
+    import re as _re
+    toc_items = []
+    headings = _re.findall(r'<h([23])\s+id="([^"]+)"[^>]*>([^<]+)</h[23]>', article['content'])
+    for level, hid, text in headings:
+        toc_items.append({'level': int(level), 'id': hid, 'text': text.strip()})
+
+    related = get_related_articles(article, limit=3)
+
+    return render_template('news_detail.html',
+        article=article,
+        toc_items=toc_items,
+        related_articles=related,
+        popular_articles=get_popular_articles(5),
+        popular_topics=POPULAR_TOPICS,
+        get_category_name=_get_category_name,
+        format_date=format_date_news,
+    )
+
 # ─── AUTH ──────────────────────────────────────────────────────────────────────
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -1629,6 +1706,52 @@ def post_job():
         flash(_t('flash.job_posted'), 'success')
         return redirect(url_for('job_detail', job_id=job.id))
     return render_template('post_job.html', LANGUAGES=LANGUAGES)
+
+@app.route('/my-jobs')
+@login_required
+def my_jobs():
+    user = get_current_user()
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('index'))
+
+    filter_type = request.args.get('filter', 'all')
+
+    # Proposals của translator
+    all_proposals = Proposal.query.filter_by(translator_id=user.id).order_by(Proposal.created_at.desc()).all()
+    pending_proposals = [p for p in all_proposals if p.status == 'pending']
+
+    # Contracts của translator
+    all_contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
+    active_statuses = ('escrow_pending', 'escrow_paid', 'in_progress', 'delivered')
+    completed_statuses = ('completed', 'reviewed')
+    active_contracts = [c for c in all_contracts if c.status in active_statuses]
+    completed_contracts = [c for c in all_contracts if c.status in completed_statuses]
+
+    counts = {
+        'all': len(all_proposals) + len(all_contracts),
+        'active': len(active_contracts),
+        'pending': len(pending_proposals),
+        'completed': len(completed_contracts),
+    }
+
+    # Lọc theo filter
+    if filter_type == 'active':
+        pending_proposals = []
+        completed_contracts = []
+    elif filter_type == 'pending':
+        active_contracts = []
+        completed_contracts = []
+    elif filter_type == 'completed':
+        active_contracts = []
+        pending_proposals = []
+
+    return render_template('my_jobs.html',
+        active_contracts=active_contracts,
+        pending_proposals=pending_proposals,
+        completed_contracts=completed_contracts,
+        counts=counts,
+        filter=filter_type)
 
 @app.route('/jobs')
 def job_list():
