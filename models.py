@@ -97,6 +97,13 @@ class User(db.Model):
             return name_map[self.name.strip().lower()]
         return None
 
+    @property
+    def latest_verification(self):
+        """Trả về yêu cầu xác minh mới nhất của người dùng (nếu có)."""
+        if hasattr(self, 'verifications') and self.verifications:
+            return self.verifications[0]
+        return None
+
 
 class TranslatorProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -116,6 +123,11 @@ class TranslatorProfile(db.Model):
     @property
     def avatar_url(self):
         return self.user.avatar_url if self.user else None
+
+    @property
+    def latest_verification(self):
+        """Trả về yêu cầu xác minh mới nhất của phiên dịch viên."""
+        return self.user.latest_verification if self.user else None
 
 
 class TranslatorPreference(db.Model):
@@ -344,7 +356,10 @@ NOTIFICATION_TYPES = {
     'CONTRACT_CREATED': 'CONTRACT_CREATED',
     'PAYMENT': 'PAYMENT',
     'CONTRACT_COMPLETED': 'CONTRACT_COMPLETED',
-    'NEW_REVIEW': 'NEW_REVIEW'
+    'NEW_REVIEW': 'NEW_REVIEW',
+    'VERIFICATION_SUBMITTED': 'VERIFICATION_SUBMITTED',
+    'VERIFICATION_APPROVED': 'VERIFICATION_APPROVED',
+    'VERIFICATION_REJECTED': 'VERIFICATION_REJECTED'
 }
 
 
@@ -569,3 +584,45 @@ class AdminAuditLog(db.Model):
         )
         db.session.add(entry)
         return entry
+
+
+# ─── TRANSLATOR VERIFICATION MODEL ────────────────────────────────────────────
+
+class TranslatorVerification(db.Model):
+    """
+    Hồ sơ xác minh năng lực và danh tính của phiên dịch viên.
+    Lưu trữ tài liệu CV, bằng cấp/chứng chỉ, kinh nghiệm và trạng thái xét duyệt của Admin.
+    """
+    __tablename__ = 'translator_verification'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+
+    # Tài liệu đính kèm
+    cv_filename = db.Column(db.String(255), nullable=True)
+    cv_url = db.Column(db.String(500), nullable=True)
+    certificate_filename = db.Column(db.String(255), nullable=True)
+    certificate_url = db.Column(db.String(500), nullable=True)
+    id_card_filename = db.Column(db.String(255), nullable=True)
+    id_card_url = db.Column(db.String(500), nullable=True)
+
+    # Thông tin chuyên môn
+    certificate_type = db.Column(db.String(100), nullable=True)  # IELTS, JLPT, HSK, TOPIK, Bằng ĐH, ...
+    certificate_name = db.Column(db.String(255), nullable=True)  # Điểm / Chi tiết (VD: IELTS 8.0, JLPT N1)
+    primary_language = db.Column(db.String(100), nullable=True)  # Ngôn ngữ thế mạnh
+    experience_years = db.Column(db.Integer, default=0)
+    notes = db.Column(db.Text, nullable=True)                    # Lời nhắn / mô tả kinh nghiệm gửi Admin
+
+    # Trạng thái xét duyệt: 'pending', 'approved', 'rejected'
+    status = db.Column(db.String(20), default='pending', index=True)
+    rejection_reason = db.Column(db.Text, nullable=True)
+
+    # Xét duyệt bởi Admin
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('verifications', lazy=True, cascade='all, delete-orphan', order_by='desc(TranslatorVerification.created_at)'))
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref=db.backref('reviewed_verifications', lazy=True))

@@ -773,13 +773,16 @@ def inject_admin_badges():
 
     badges = {}
     try:
+        from models import TranslatorVerification
         badges['admin_badge_pending_translators'] = TranslatorProfile.query.filter_by(is_verified=False).count()
+        badges['admin_badge_pending_verifications'] = TranslatorVerification.query.filter_by(status='pending').count()
         badges['admin_badge_flagged_jobs'] = Job.query.filter_by(is_flagged=True).count()
         badges['admin_badge_reports'] = Report.query.filter_by(status='new').count()
         badges['admin_badge_notifications'] = AdminNotification.query.filter_by(is_read=False).count()
     except SQLAlchemyError:
         badges = {
             'admin_badge_pending_translators': 0,
+            'admin_badge_pending_verifications': 0,
             'admin_badge_flagged_jobs': 0,
             'admin_badge_reports': 0,
             'admin_badge_notifications': 0,
@@ -1080,6 +1083,7 @@ def logout():
 # ─── ACCOUNT ───────────────────────────────────────────────────────────────────
 
 @app.route('/account', methods=['GET', 'POST'])
+@app.route('/account/profile', methods=['GET', 'POST'])
 @login_required
 def account_profile():
     uid = session['user_id']
@@ -1286,8 +1290,134 @@ def account_profile():
                 flash(_t('flash.password_changed'), 'success')
 
         return redirect(url_for('account_profile'))
+
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
-    return render_template('account_profile.html', user=user, LANGUAGES=get_localized_languages(current_lang))
+    default_tab = 'overview' if getattr(user, 'role', '') == 'translator' else 'basic'
+    active_tab = request.args.get('tab', default_tab)
+
+    profile_completion = None
+    unread_notifs_count = 0
+    if getattr(user, 'role', '') == 'translator':
+        from models import Notification
+        try:
+            unread_notifs_count = Notification.query.filter_by(user_id=user.id, is_read=False).count()
+        except Exception:
+            unread_notifs_count = 0
+
+        prof = getattr(user, 'profile', None)
+        verif = getattr(user, 'latest_verification', None)
+
+        criteria = [
+            {
+                'key': 'name',
+                'title': 'Họ và tên định danh',
+                'completed': bool(user.name and user.name.strip()),
+                'action_tab': 'basic',
+                'desc': 'Cập nhật họ tên pháp lý chính xác của bạn.'
+            },
+            {
+                'key': 'avatar',
+                'title': 'Ảnh đại diện cá nhân',
+                'completed': bool(user.avatar or user.avatar_url),
+                'action_tab': 'basic',
+                'desc': 'Tải lên ảnh chân dung sắc nét để tăng độ tin cậy với khách hàng.'
+            },
+            {
+                'key': 'phone',
+                'title': 'Số điện thoại liên hệ',
+                'completed': bool(user.phone and user.phone.strip()),
+                'action_tab': 'basic',
+                'desc': 'Cung cấp số điện thoại để nhận thông báo việc làm khẩn.'
+            },
+            {
+                'key': 'title',
+                'title': 'Tiêu đề nghề nghiệp / Chuyên môn',
+                'completed': bool(prof and prof.title and prof.title.strip()),
+                'action_tab': 'translator',
+                'desc': 'Mô tả ngắn gọn vị trí chuyên môn của bạn (VD: Phiên dịch tiếng Hàn TOPIK 6).'
+            },
+            {
+                'key': 'bio',
+                'title': 'Giới thiệu bản thân & Kinh nghiệm',
+                'completed': bool(prof and prof.bio and len(prof.bio.strip()) >= 20),
+                'action_tab': 'translator',
+                'desc': 'Viết đoạn giới thiệu ít nhất 20 ký tự về quá trình làm việc và thế mạnh.'
+            },
+            {
+                'key': 'languages',
+                'title': 'Ngôn ngữ thành thạo',
+                'completed': bool(prof and prof.languages and prof.languages.strip()),
+                'action_tab': 'translator',
+                'desc': 'Lựa chọn các ngôn ngữ bạn có thể đảm nhận ca phiên dịch.'
+            },
+            {
+                'key': 'services',
+                'title': 'Gói dịch vụ & Bảng giá',
+                'completed': bool(prof and getattr(prof, 'services', None) and len(prof.services) > 0),
+                'action_tab': 'translator',
+                'desc': 'Thiết lập bảng giá dịch vụ để khách hàng có thể đặt trực tiếp.'
+            },
+            {
+                'key': 'verification',
+                'title': 'Hồ sơ xác minh & CV',
+                'completed': bool(prof and (prof.is_verified or (verif and verif.status in ('pending', 'approved', 'verified')))),
+                'action_tab': 'verification',
+                'desc': 'Gửi CV và chứng chỉ thẩm định để nhận tích xanh chính thức.'
+            }
+        ]
+
+        completed_count = sum(1 for c in criteria if c['completed'])
+        total_count = len(criteria)
+        percentage = int(round((completed_count / total_count) * 100)) if total_count else 0
+        missing_items = [c for c in criteria if not c['completed']]
+
+        if prof and prof.is_verified:
+            verification_state = 'verified'
+        elif verif:
+            if verif.status in ('approved', 'verified'):
+                verification_state = 'verified'
+            else:
+                verification_state = verif.status
+        else:
+            verification_state = 'not_started'
+
+        profile_completion = {
+            'completed_count': completed_count,
+            'total_count': total_count,
+            'percentage': percentage,
+            'criteria': criteria,
+            'missing_items': missing_items,
+            'verification_state': verification_state,
+            'latest_verification': verif
+        }
+
+    return render_template(
+        'account_profile.html',
+        user=user,
+        LANGUAGES=get_localized_languages(current_lang),
+        active_tab=active_tab,
+        profile_completion=profile_completion,
+        unread_notifs_count=unread_notifs_count
+    )
+
+
+@app.route('/account/verification/submit', methods=['POST'])
+@login_required
+def submit_verification():
+    """Nhận và xử lý hồ sơ xác minh phiên dịch viên (CV, chứng chỉ, thông tin năng lực)."""
+    uid = session['user_id']
+    user = User.query.get(uid)
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import submit_verification_request
+    ok, msg = submit_verification_request(user, request.form, request.files)
+    if ok:
+        flash(msg, 'success')
+    else:
+        flash(msg, 'error')
+    return redirect(url_for('account_profile') + '?tab=verification')
 
 
 @app.route('/account/avatar/upload', methods=['POST'])
@@ -2693,11 +2823,30 @@ def admin_toggle_user(user_id):
 @admin_required
 def admin_translators():
     show = request.args.get('show', 'pending')
+    from models import TranslatorVerification
+    verifications_query = TranslatorVerification.query.order_by(TranslatorVerification.created_at.desc())
+    pending_verifications = TranslatorVerification.query.filter_by(status='pending').order_by(TranslatorVerification.created_at.desc()).all()
+
     if show == 'verified':
         profiles = TranslatorProfile.query.filter_by(is_verified=True).all()
-    else:
+        active_verifications = []
+    elif show == 'all':
+        profiles = TranslatorProfile.query.all()
+        active_verifications = verifications_query.all()
+    elif show == 'rejected':
+        profiles = []
+        active_verifications = TranslatorVerification.query.filter_by(status='rejected').order_by(TranslatorVerification.created_at.desc()).all()
+    else:  # 'pending'
         profiles = TranslatorProfile.query.filter_by(is_verified=False).all()
-    return render_template('admin_translators.html', profiles=profiles, show=show)
+        active_verifications = pending_verifications
+
+    return render_template(
+        'admin_translators.html',
+        profiles=profiles,
+        show=show,
+        verifications=active_verifications,
+        pending_count=len(pending_verifications)
+    )
 
 @app.route('/admin/translators/<int:profile_id>/verify', methods=['POST'])
 @admin_required
@@ -2705,6 +2854,15 @@ def admin_verify_translator(profile_id):
     profile = TranslatorProfile.query.get_or_404(profile_id)
     action = request.form.get('action')
     profile.is_verified = (action == 'verify')
+
+    # Đồng bộ với bản ghi TranslatorVerification nếu có
+    from models import TranslatorVerification
+    verif = TranslatorVerification.query.filter_by(user_id=profile.user_id).order_by(TranslatorVerification.created_at.desc()).first()
+    if verif:
+        verif.status = 'approved' if profile.is_verified else 'rejected'
+        verif.reviewed_at = datetime.utcnow()
+        verif.reviewed_by = session.get('admin_id')
+
     action_key = ADMIN_AUDIT_ACTIONS['VERIFY_TRANSLATOR'] if profile.is_verified else ADMIN_AUDIT_ACTIONS['REJECT_TRANSLATOR']
     msg = 'Đã xác minh' if profile.is_verified else 'Đã từ chối xác minh'
     _audit_log(
@@ -2716,6 +2874,30 @@ def admin_verify_translator(profile_id):
     db.session.commit()
     flash(f'{msg} hồ sơ {profile.user.name}.', 'success')
     return redirect(url_for('admin_translators'))
+
+@app.route('/admin/verifications/<int:verification_id>/<action>', methods=['POST'])
+@admin_required
+def admin_review_verification(verification_id, action):
+    """Phê duyệt hoặc từ chối yêu cầu xác minh của phiên dịch viên."""
+    from services.verification import review_verification_request
+    from admin_auth import get_client_ip
+
+    admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
+    reason = request.form.get('reason', '')
+
+    ok, msg = review_verification_request(
+        verification_id=verification_id,
+        admin_user=admin,
+        action=action,
+        reason=reason,
+        ip_address=get_client_ip(),
+        user_agent=request.headers.get('User-Agent', '')[:512]
+    )
+    if ok:
+        flash(msg, 'success')
+    else:
+        flash(msg, 'error')
+    return redirect(url_for('admin_translators', show='pending' if action == 'reject' else 'verified'))
 
 @app.route('/admin/reports')
 @admin_required
