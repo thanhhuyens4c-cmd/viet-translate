@@ -1080,10 +1080,112 @@ def logout():
     flash(_t('flash.logout_success'), 'success')
     return redirect(url_for('index'))
 
-# ─── ACCOUNT ───────────────────────────────────────────────────────────────────
+# ─── ACCOUNT & PROFILE OVERVIEW ───────────────────────────────────────────────
+
+def compute_profile_completion(user):
+    """Tính toán tiến độ hoàn thiện hồ sơ thực tế của phiên dịch viên dựa trên dữ liệu thực tế."""
+    if not user or getattr(user, 'role', '') != 'translator':
+        return None
+
+    prof = getattr(user, 'profile', None)
+    verif = getattr(user, 'latest_verification', None)
+
+    criteria = [
+        {
+            'key': 'name',
+            'title': 'Họ và tên định danh',
+            'completed': bool(user.name and user.name.strip()),
+            'action_tab': 'basic',
+            'desc': 'Cập nhật họ tên pháp lý chính xác của bạn.'
+        },
+        {
+            'key': 'avatar',
+            'title': 'Ảnh đại diện cá nhân',
+            'completed': bool(user.avatar or user.avatar_url),
+            'action_tab': 'basic',
+            'desc': 'Tải lên ảnh chân dung sắc nét để tăng độ tin cậy với khách hàng.'
+        },
+        {
+            'key': 'phone',
+            'title': 'Số điện thoại liên hệ',
+            'completed': bool(user.phone and user.phone.strip()),
+            'action_tab': 'basic',
+            'desc': 'Cung cấp số điện thoại để nhận thông báo việc làm khẩn.'
+        },
+        {
+            'key': 'title',
+            'title': 'Tiêu đề nghề nghiệp / Chuyên môn',
+            'completed': bool(prof and prof.title and prof.title.strip()),
+            'action_tab': 'translator',
+            'desc': 'Mô tả ngắn gọn vị trí chuyên môn của bạn (VD: Phiên dịch tiếng Hàn TOPIK 6).'
+        },
+        {
+            'key': 'bio',
+            'title': 'Giới thiệu bản thân & Kinh nghiệm',
+            'completed': bool(prof and prof.bio and len(prof.bio.strip()) >= 20),
+            'action_tab': 'translator',
+            'desc': 'Viết đoạn giới thiệu ít nhất 20 ký tự về quá trình làm việc và thế mạnh.'
+        },
+        {
+            'key': 'languages',
+            'title': 'Ngôn ngữ thành thạo',
+            'completed': bool(prof and prof.languages and prof.languages.strip()),
+            'action_tab': 'translator',
+            'desc': 'Lựa chọn các ngôn ngữ bạn có thể đảm nhận ca phiên dịch.'
+        },
+        {
+            'key': 'services',
+            'title': 'Gói dịch vụ & Bảng giá',
+            'completed': bool(prof and getattr(prof, 'services', None) and len(prof.services) > 0),
+            'action_tab': 'translator',
+            'desc': 'Thiết lập bảng giá dịch vụ để khách hàng có thể đặt trực tiếp.'
+        },
+        {
+            'key': 'verification',
+            'title': 'Hồ sơ xác minh & CV',
+            'completed': bool(prof and (prof.is_verified or (verif and verif.status in ('pending', 'approved', 'verified')))),
+            'action_tab': 'verification',
+            'desc': 'Gửi CV và chứng chỉ thẩm định để nhận tích xanh chính thức.'
+        }
+    ]
+
+    completed_count = sum(1 for c in criteria if c['completed'])
+    total_count = len(criteria)
+    percentage = int(round((completed_count / total_count) * 100)) if total_count else 0
+    missing_items = [c for c in criteria if not c['completed']]
+
+    if prof and prof.is_verified:
+        verification_state = 'verified'
+    elif verif:
+        if verif.status in ('approved', 'verified'):
+            verification_state = 'verified'
+        elif verif.status in ('pending', 'in_review'):
+            verification_state = 'pending'
+        elif verif.status in ('needs_revision', 'revision_requested'):
+            verification_state = 'needs_revision'
+        elif verif.status == 'draft':
+            verification_state = 'draft'
+        elif verif.status == 'rejected':
+            verification_state = 'rejected'
+        else:
+            verification_state = verif.status
+    else:
+        verification_state = 'not_started'
+
+    return {
+        'completed_count': completed_count,
+        'total_count': total_count,
+        'percentage': percentage,
+        'criteria': criteria,
+        'missing_items': missing_items,
+        'verification_state': verification_state,
+        'latest_verification': verif
+    }
+
 
 @app.route('/account', methods=['GET', 'POST'])
 @app.route('/account/profile', methods=['GET', 'POST'])
+@app.route('/account/overview', methods=['GET', 'POST'])
 @login_required
 def account_profile():
     uid = session['user_id']
@@ -1161,7 +1263,21 @@ def account_profile():
                 flash(msg, 'success')
 
             return redirect(url_for('account_profile'))
-        return render_template('account_profile.html', user=user)
+
+        current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+        default_tab = 'overview' if getattr(user, 'role', '') == 'translator' else 'basic'
+        if request.path == '/account/overview':
+            default_tab = 'overview'
+        active_tab = request.args.get('tab', default_tab)
+        profile_completion = compute_profile_completion(user)
+        return render_template(
+            'account_profile.html',
+            user=user,
+            LANGUAGES=get_localized_languages(current_lang),
+            active_tab=active_tab,
+            profile_completion=profile_completion,
+            unread_notifs_count=0
+        )
 
     # SQLite user
     user = User.query.get(uid)
@@ -1293,6 +1409,8 @@ def account_profile():
 
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
     default_tab = 'overview' if getattr(user, 'role', '') == 'translator' else 'basic'
+    if request.path == '/account/overview':
+        default_tab = 'overview'
     active_tab = request.args.get('tab', default_tab)
 
     profile_completion = None
@@ -1303,93 +1421,7 @@ def account_profile():
             unread_notifs_count = Notification.query.filter_by(user_id=user.id, is_read=False).count()
         except Exception:
             unread_notifs_count = 0
-
-        prof = getattr(user, 'profile', None)
-        verif = getattr(user, 'latest_verification', None)
-
-        criteria = [
-            {
-                'key': 'name',
-                'title': 'Họ và tên định danh',
-                'completed': bool(user.name and user.name.strip()),
-                'action_tab': 'basic',
-                'desc': 'Cập nhật họ tên pháp lý chính xác của bạn.'
-            },
-            {
-                'key': 'avatar',
-                'title': 'Ảnh đại diện cá nhân',
-                'completed': bool(user.avatar or user.avatar_url),
-                'action_tab': 'basic',
-                'desc': 'Tải lên ảnh chân dung sắc nét để tăng độ tin cậy với khách hàng.'
-            },
-            {
-                'key': 'phone',
-                'title': 'Số điện thoại liên hệ',
-                'completed': bool(user.phone and user.phone.strip()),
-                'action_tab': 'basic',
-                'desc': 'Cung cấp số điện thoại để nhận thông báo việc làm khẩn.'
-            },
-            {
-                'key': 'title',
-                'title': 'Tiêu đề nghề nghiệp / Chuyên môn',
-                'completed': bool(prof and prof.title and prof.title.strip()),
-                'action_tab': 'translator',
-                'desc': 'Mô tả ngắn gọn vị trí chuyên môn của bạn (VD: Phiên dịch tiếng Hàn TOPIK 6).'
-            },
-            {
-                'key': 'bio',
-                'title': 'Giới thiệu bản thân & Kinh nghiệm',
-                'completed': bool(prof and prof.bio and len(prof.bio.strip()) >= 20),
-                'action_tab': 'translator',
-                'desc': 'Viết đoạn giới thiệu ít nhất 20 ký tự về quá trình làm việc và thế mạnh.'
-            },
-            {
-                'key': 'languages',
-                'title': 'Ngôn ngữ thành thạo',
-                'completed': bool(prof and prof.languages and prof.languages.strip()),
-                'action_tab': 'translator',
-                'desc': 'Lựa chọn các ngôn ngữ bạn có thể đảm nhận ca phiên dịch.'
-            },
-            {
-                'key': 'services',
-                'title': 'Gói dịch vụ & Bảng giá',
-                'completed': bool(prof and getattr(prof, 'services', None) and len(prof.services) > 0),
-                'action_tab': 'translator',
-                'desc': 'Thiết lập bảng giá dịch vụ để khách hàng có thể đặt trực tiếp.'
-            },
-            {
-                'key': 'verification',
-                'title': 'Hồ sơ xác minh & CV',
-                'completed': bool(prof and (prof.is_verified or (verif and verif.status in ('pending', 'approved', 'verified')))),
-                'action_tab': 'verification',
-                'desc': 'Gửi CV và chứng chỉ thẩm định để nhận tích xanh chính thức.'
-            }
-        ]
-
-        completed_count = sum(1 for c in criteria if c['completed'])
-        total_count = len(criteria)
-        percentage = int(round((completed_count / total_count) * 100)) if total_count else 0
-        missing_items = [c for c in criteria if not c['completed']]
-
-        if prof and prof.is_verified:
-            verification_state = 'verified'
-        elif verif:
-            if verif.status in ('approved', 'verified'):
-                verification_state = 'verified'
-            else:
-                verification_state = verif.status
-        else:
-            verification_state = 'not_started'
-
-        profile_completion = {
-            'completed_count': completed_count,
-            'total_count': total_count,
-            'percentage': percentage,
-            'criteria': criteria,
-            'missing_items': missing_items,
-            'verification_state': verification_state,
-            'latest_verification': verif
-        }
+        profile_completion = compute_profile_completion(user)
 
     return render_template(
         'account_profile.html',

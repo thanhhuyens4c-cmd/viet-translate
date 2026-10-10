@@ -522,7 +522,7 @@ TRANSLATIONS = {
             'heading_overview': 'Tổng Quan Hồ Sơ & Trạng Thái',
             'btn_start_verification': 'Bắt đầu xác minh',
             'btn_continue_verification': 'Tiếp tục hoàn thiện hồ sơ',
-            'btn_view_verification_status': 'Xem trạng thái chi tiết',
+            'btn_view_verification_status': 'Xem trạng thái xác minh',
             'btn_update_verification': 'Bổ sung hồ sơ ngay',
             'btn_view_public_profile': 'Xem hồ sơ công khai',
             'btn_resubmit_verification': 'Xem lý do & Gửi lại',
