@@ -48,6 +48,15 @@
                     </span>
                 </div>
 
+                {% if job.status == 'pending_review' %}
+                <div class="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium">
+                    ⏳ {{ 'Job đã gửi, đang chờ admin duyệt. Job sẽ hiển thị trên trang chính sau khi được duyệt.' if current_lang == 'vi' else 'Job submitted and awaiting admin approval. It will appear publicly once approved.' }}
+                </div>
+                {% elif job.status == 'rejected' %}
+                <div class="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm font-medium">
+                    {{ 'Job chưa được duyệt. Vui lòng đăng lại với nội dung chỉnh sửa.' if current_lang == 'vi' else 'This job was not approved. Please submit a revised job.' }}
+                </div>
+                {% endif %}
                 <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-6">
                     {{ job.title }}
                 </h1>
@@ -369,8 +378,7 @@
                 btn.classList.replace('bg-brand-600', 'bg-slate-400');
                 btn.classList.remove('hover:bg-brand-700');
 
-                fetch(`/ api / jobs / {{ job.id }
-                        }/invite/${ translatorId }`, { method: 'POST' })
+                fetch(`/api/jobs/{{ job.id }}/invite/${translatorId}`, { method: 'POST' })
                     .then(r => r.json())
                     .then(data => {
                         if (data.status === 'success') {
@@ -502,6 +510,8 @@
                     <div class="flex justify-between items-center">
                         <span class="text-slate-500">Thời gian:</span>
                         <span class="font-medium text-slate-800">{{ job.event_date }}</span>
+                    </div>
+                    {% endif %}
                         <!-- Budget Card -->
                         <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-soft text-center">
                             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{{

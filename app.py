@@ -1601,10 +1601,37 @@ def post_job():
         deadline_str = request.form.get('deadline')
         deadline = datetime.strptime(deadline_str, '%Y-%m-%d').date() if deadline_str else None
 
+        title = (request.form.get('title') or '').strip()
+        description = (request.form.get('description') or '').strip()
+
+        # Chống gửi trùng: job giống hệt đang chờ duyệt thì không tạo thêm
+        duplicate = Job.query.filter_by(
+            hirer_id=session['user_id'], title=title, status='pending_review'
+        ).first()
+        if duplicate:
+            flash(_t('flash.job_duplicate_pending'), 'warning')
+            return redirect(url_for('job_detail', job_id=duplicate.id))
+
+        # Các ngày bổ sung (nút "Thêm ngày"): event_date giữ ngày đầu tiên để các
+        # luồng lịch hiện có vẫn đọc được, ngày còn lại ghi kèm vào mô tả.
+        extra_dates = []
+        for d in request.form.getlist('extra_dates'):
+            d = d.strip()
+            try:
+                datetime.strptime(d, '%Y-%m-%d')
+            except ValueError:
+                continue
+            if d not in extra_dates and d != request.form.get('event_date'):
+                extra_dates.append(d)
+        if extra_dates:
+            label = 'Các ngày diễn ra bổ sung' if get_locale() == 'vi' else 'Additional dates'
+            description += f"\n\n{label}: {', '.join(extra_dates)}"
+
         job = Job(
             hirer_id=session['user_id'],
-            title=request.form.get('title'),
-            description=request.form.get('description'),
+            status='pending_review',
+            title=title,
+            description=description,
             category=request.form.get('category'),
             category_group=request.form.get('category_group'),
             service_type=request.form.get('service_type'),
@@ -1622,11 +1649,8 @@ def post_job():
         db.session.add(job)
         db.session.commit()
 
-        # Notify matching translators (safe, won't block job creation if fails)
-        from services.matching import notify_matching_translators_for_new_job
-        notify_matching_translators_for_new_job(job)
-
-        flash(_t('flash.job_posted'), 'success')
+        # Translators chỉ được thông báo sau khi admin duyệt (xem admin_approve_job)
+        flash(_t('flash.job_submitted_pending'), 'success')
         return redirect(url_for('job_detail', job_id=job.id))
     return render_template('post_job.html', LANGUAGES=LANGUAGES)
 
@@ -1655,6 +1679,10 @@ def job_list():
 @app.route('/job/<int:job_id>', methods=['GET', 'POST'])
 def job_detail(job_id):
     job = Job.query.get_or_404(job_id)
+    if job.status in ('pending_review', 'rejected'):
+        viewer = get_current_user()
+        if not viewer or not (viewer.id == job.hirer_id or viewer.is_admin):
+            abort(404)
     if request.method == 'POST':
         # ── 1. Login & Role guard ─────────────────────────────────────────────
         user = get_current_user()
@@ -2323,12 +2351,59 @@ def admin_jobs():
     query = Job.query
     if status_filter == 'flagged':
         query = query.filter_by(is_flagged=True)
+    elif status_filter == 'pending':
+        query = query.filter_by(status='pending_review')
     elif status_filter == 'open':
         query = query.filter_by(status='open', is_flagged=False)
     elif status_filter == 'completed':
         query = query.filter_by(status='completed')
     jobs = query.order_by(Job.created_at.desc()).all()
-    return render_template('admin_jobs.html', jobs=jobs, status_filter=status_filter)
+    pending_count = Job.query.filter_by(status='pending_review').count()
+    return render_template('admin_jobs.html', jobs=jobs, status_filter=status_filter, pending_count=pending_count)
+
+@app.route('/admin/jobs/<int:job_id>/approve', methods=['POST'])
+@admin_required
+def admin_approve_job(job_id):
+    job = Job.query.get_or_404(job_id)
+    if job.status != 'pending_review':
+        flash('Bài đăng này không ở trạng thái chờ duyệt.', 'warning')
+        return redirect(url_for('admin_jobs'))
+    job.status = 'open'
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['APPROVE_JOB'],
+        target_type='job',
+        target_id=job.id,
+        description=f'Duyệt job "{job.title}" (ID={job.id})',
+    )
+    db.session.commit()
+    create_notification(job.hirer_id, 'job_approved', 'Job đã được duyệt',
+                        f'Job "{job.title}" đã được duyệt và hiển thị trên trang chính.',
+                        url=url_for('job_detail', job_id=job.id), related_job_id=job.id)
+    from services.matching import notify_matching_translators_for_new_job
+    notify_matching_translators_for_new_job(job)
+    flash(f'Đã duyệt bài đăng "{job.title}".', 'success')
+    return redirect(url_for('admin_jobs', status='pending'))
+
+@app.route('/admin/jobs/<int:job_id>/reject', methods=['POST'])
+@admin_required
+def admin_reject_job(job_id):
+    job = Job.query.get_or_404(job_id)
+    if job.status != 'pending_review':
+        flash('Bài đăng này không ở trạng thái chờ duyệt.', 'warning')
+        return redirect(url_for('admin_jobs'))
+    job.status = 'rejected'
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['REJECT_JOB'],
+        target_type='job',
+        target_id=job.id,
+        description=f'Từ chối job "{job.title}" (ID={job.id})',
+    )
+    db.session.commit()
+    create_notification(job.hirer_id, 'job_rejected', 'Job chưa được duyệt',
+                        f'Job "{job.title}" chưa được duyệt. Vui lòng chỉnh sửa và gửi lại.',
+                        url=url_for('job_detail', job_id=job.id), related_job_id=job.id)
+    flash(f'Đã từ chối bài đăng "{job.title}".', 'success')
+    return redirect(url_for('admin_jobs', status='pending'))
 
 @app.route('/admin/jobs/<int:job_id>/flag', methods=['POST'])
 @admin_required

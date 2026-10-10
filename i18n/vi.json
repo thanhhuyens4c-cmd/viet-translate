@@ -410,7 +410,7 @@
     "cat_negotiation": "Phiên dịch Đàm phán thương mại",
     "cat_document": "Biên dịch tài liệu / Hợp đồng",
     "cat_legal": "Phiên dịch Pháp lý / Tòa án",
-    "submit_btn": "Đăng Tin Tuyển Dụng Ngay",
+    "submit_btn": "Gửi duyệt",
     "cancel_btn": "Hủy bỏ"
   },
   "profile_page": {
@@ -549,6 +549,8 @@
     "system_error": "Đã xảy ra lỗi hệ thống, vui lòng thử lại sau.",
     "hirer_only_post": "Chỉ Khách hàng mới có thể đăng công việc.",
     "job_posted": "Đã đăng yêu cầu thành công!",
+    "job_submitted_pending": "Job đã gửi, đang chờ admin duyệt. Vui lòng không gửi lại.",
+    "job_duplicate_pending": "Job này đã được gửi và đang chờ admin duyệt. Vui lòng không gửi trùng.",
     "translator_only_apply": "Chỉ Phiên dịch viên mới có thể ứng tuyển.",
     "job_closed": "Công việc đã đóng, không thể ứng tuyển.",
     "cannot_apply_own_job": "Bạn không thể ứng tuyển công việc của chính mình.",

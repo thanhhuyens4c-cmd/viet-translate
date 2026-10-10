@@ -168,7 +168,8 @@ class Job(db.Model):
     event_time_end = db.Column(db.String(10))
     event_location = db.Column(db.String(200))
     deadline = db.Column(db.Date)
-    status = db.Column(db.String(20), default='open', index=True)
+    # pending_review (awaiting admin) -> open | rejected; then contracted / completed
+    status = db.Column(db.String(20), default='pending_review', index=True)
     is_flagged = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

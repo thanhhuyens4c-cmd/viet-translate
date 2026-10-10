@@ -453,7 +453,7 @@ TRANSLATIONS = {
             'cat_negotiation': 'Phiên dịch Đàm phán thương mại',
             'cat_document': 'Biên dịch tài liệu / Hợp đồng',
             'cat_legal': 'Phiên dịch Pháp lý / Tòa án',
-            'submit_btn': 'Đăng Tin Tuyển Dụng Ngay',
+            'submit_btn': 'Gửi duyệt',
             'cancel_btn': 'Hủy bỏ',
         },
 
@@ -1331,7 +1331,7 @@ TRANSLATIONS = {
             'cat_negotiation': 'Business & Negotiation Interpreting',
             'cat_document': 'Specialized Document Translation',
             'cat_legal': 'Legal & Courtroom Interpreting',
-            'submit_btn': 'Post Job Now',
+            'submit_btn': 'Submit for Review',
             'cancel_btn': 'Cancel',
         },
 
@@ -1887,6 +1887,25 @@ LOCALIZED_LANGUAGES_DATA = [
         'cert_en': 'DELE B2 or higher',
     },
 ]
+
+
+def _load_flash_messages():
+    """Merge the 'flash' section of i18n/<lang>.json into TRANSLATIONS (keeps existing keys)."""
+    import json
+    import os
+    base = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'i18n')
+    for lang in ('vi', 'en'):
+        try:
+            with open(os.path.join(base, f'{lang}.json'), encoding='utf-8') as f:
+                flash_msgs = json.load(f).get('flash', {})
+        except (OSError, ValueError):
+            continue
+        TRANSLATIONS[lang].setdefault('flash', {})
+        for k, v in flash_msgs.items():
+            TRANSLATIONS[lang]['flash'].setdefault(k, v)
+
+
+_load_flash_messages()
 
 
 def t(key, lang='vi', **kwargs):

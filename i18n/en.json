@@ -410,7 +410,7 @@
     "cat_negotiation": "Business & Negotiation Interpreting",
     "cat_document": "Specialized Document Translation",
     "cat_legal": "Legal & Courtroom Interpreting",
-    "submit_btn": "Post Job Now",
+    "submit_btn": "Submit for Review",
     "cancel_btn": "Cancel"
   },
   "profile_page": {
@@ -549,6 +549,8 @@
     "system_error": "A system error occurred, please try again later.",
     "hirer_only_post": "Only Hirers can post jobs.",
     "job_posted": "Job posted successfully!",
+    "job_submitted_pending": "Job submitted and awaiting admin approval. Please do not submit again.",
+    "job_duplicate_pending": "This job was already submitted and is awaiting admin approval. Please do not submit duplicates.",
     "translator_only_apply": "Only Translators can apply.",
     "job_closed": "This job is closed and no longer accepting proposals.",
     "cannot_apply_own_job": "You cannot apply to your own job.",
