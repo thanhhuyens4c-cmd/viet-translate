@@ -24,6 +24,11 @@
         <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         {{ t('auto.tham_gia_từ') }} {{ user.created_at.strftime('%m/%Y') }}
       </span>
+      {% if profile and profile.is_verified %}
+      <span class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1 rounded-full shadow-sm">
+        ✓ {{ t('hirer_profile_page.verified') }}
+      </span>
+      {% endif %}
       {% if profile and profile.location %}
       <span class="bg-white/80 border border-slate-200/60 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
         <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.242-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -64,9 +69,63 @@
           --
         {% endif %}
       </div>
-      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ t('auto.đánh_giá_1') }}</div>
+      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ t('auto.đánh_giá_1') }}{% if profile and profile.total_reviews %} ({{ profile.total_reviews }}){% endif %}</div>
     </div>
 
   </div>
+
+  {% if stats and stats.completion_rate is not none %}
+  <p class="mt-5 text-center text-sm text-slate-600">
+    {{ t('hirer_profile_page.completion_rate') }}: <strong>{{ stats.completion_rate }}%</strong>
+  </p>
+  {% endif %}
+
+  {% if profile %}
+  <div class="mt-8 bg-white rounded-2xl p-6 border border-slate-200/90 shadow-soft space-y-4 text-sm text-slate-700">
+    {% if profile.about %}
+    <div><div class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{{ t('hirer_profile_page.overview') }}</div>
+      <p class="whitespace-pre-line">{{ profile.about }}</p></div>
+    {% endif %}
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+      {% if profile.client_type %}<div><dt class="text-xs font-bold text-slate-500">{{ t('hirer_profile_page.client_type') }}</dt><dd>{{ t('hirer_profile_page.client_type_' ~ profile.client_type) }}</dd></div>{% endif %}
+      {% if profile.industry %}<div><dt class="text-xs font-bold text-slate-500">{{ t('hirer_profile_page.industry') }}</dt><dd>{{ t('hirer_profile_page.industry_' ~ profile.industry) }}</dd></div>{% endif %}
+      {% if profile.default_source_lang or profile.default_target_lang %}
+      <div><dt class="text-xs font-bold text-slate-500">{{ t('hirer_profile_page.usual_languages') }}</dt>
+        <dd>{{ lang_name(profile.default_source_lang) if profile.default_source_lang else '…' }} → {{ lang_name(profile.default_target_lang) if profile.default_target_lang else '…' }}</dd></div>
+      {% endif %}
+      {% if profile.work_mode %}<div><dt class="text-xs font-bold text-slate-500">{{ t('hirer_profile_page.work_mode') }}</dt><dd>{{ t('hirer_profile_page.work_mode_' ~ profile.work_mode) }}</dd></div>{% endif %}
+      {% if profile.hiring_frequency %}<div><dt class="text-xs font-bold text-slate-500">{{ t('hirer_profile_page.hiring_frequency') }}</dt><dd>{{ t('hirer_profile_page.hiring_frequency_' ~ profile.hiring_frequency) }}</dd></div>{% endif %}
+      {% if profile.typical_budget_min or profile.typical_budget_max %}
+      <div><dt class="text-xs font-bold text-slate-500">{{ t('hirer_profile_page.typical_budget') }}</dt>
+        <dd>{{ '{:,}'.format(profile.typical_budget_min or 0) }}{% if profile.typical_budget_max %} – {{ '{:,}'.format(profile.typical_budget_max) }}{% endif %} VND</dd></div>
+      {% endif %}
+      {% if profile.preferred_service_types %}
+      <div><dt class="text-xs font-bold text-slate-500">{{ t('hirer_profile_page.services') }}</dt><dd>{{ profile.preferred_service_types.replace(',', ', ') }}</dd></div>
+      {% endif %}
+      {% if profile.needs_nda or profile.needs_certified or profile.special_requirements %}
+      <div class="sm:col-span-2"><dt class="text-xs font-bold text-slate-500">{{ t('hirer_profile_page.requirements') }}</dt>
+        <dd>{% if profile.needs_nda %}{{ t('hirer_profile_page.needs_nda') }}. {% endif %}{% if profile.needs_certified %}{{ t('hirer_profile_page.needs_certified') }}. {% endif %}{{ profile.special_requirements or '' }}</dd></div>
+      {% endif %}
+      {% if profile.website %}<div><dt class="text-xs font-bold text-slate-500">{{ t('hirer_profile_page.website') }}</dt><dd><a href="{{ profile.website }}" rel="nofollow noopener" target="_blank" class="text-brand-600 hover:underline break-all">{{ profile.website }}</a></dd></div>{% endif %}
+    </dl>
+  </div>
+  {% endif %}
+
+  <h2 class="mt-10 mb-4 text-base font-bold text-slate-900">{{ t('hirer_profile_page.reviews_heading') }}</h2>
+  {% if reviews %}
+  <div class="space-y-3">
+    {% for r in reviews %}
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-soft">
+      <div class="flex items-center justify-between text-sm">
+        <span class="font-semibold text-slate-800">{{ r.reviewer.name if r.reviewer else t('hirer_profile_page.anonymous') }}</span>
+        <span class="text-amber-500 font-bold">{{ '★' * r.rating }}<span class="text-slate-300">{{ '★' * (5 - r.rating) }}</span></span>
+      </div>
+      {% if r.comment %}<p class="mt-2 text-sm text-slate-600">{{ r.comment }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-500">{{ t('hirer_profile_page.no_reviews') }}</p>
+  {% endif %}
 </div>
 {% endblock %}

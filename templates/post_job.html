@@ -90,13 +90,13 @@
                             <div class="flex items-center gap-2">
                                 <select name="source_lang" class="w-full px-3 py-3 border border-slate-200 rounded-xl text-xs sm:text-sm bg-slate-50/50">
                                     {% for val, label in lang_options %}
-                                    <option value="{{ val }}">{{ label }}</option>
+                                    <option value="{{ val }}" {% if hirer_profile and hirer_profile.default_source_lang == val %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                                 <span class="text-slate-400 font-bold">→</span>
                                 <select name="target_lang" class="w-full px-3 py-3 border border-slate-200 rounded-xl text-xs sm:text-sm bg-slate-50/50">
                                     {% for val, label in lang_options %}
-                                    <option value="{{ val }}" {% if val == 'Tiếng Anh' %}selected{% endif %}>{{ label }}</option>
+                                    <option value="{{ val }}" {% if hirer_profile and hirer_profile.default_target_lang %}{% if hirer_profile.default_target_lang == val %}selected{% endif %}{% elif val == 'Tiếng Anh' %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </div>

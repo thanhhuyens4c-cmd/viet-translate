@@ -578,6 +578,26 @@ with app.app_context():
 
 import sys
 
+def _ensure_model_columns(*models):
+    """Thêm các cột còn thiếu của bảng (db.create_all() không ALTER bảng có sẵn).
+
+    Idempotent: chỉ ADD COLUMN cho cột chưa tồn tại. Xem thêm migration_hirer_profile.sql.
+    """
+    from sqlalchemy import inspect, text
+    for model in models:
+        table = model.__tablename__
+        try:
+            existing = {c['name'] for c in inspect(db.engine).get_columns(table)}
+            dialect = db.engine.dialect
+            with db.engine.begin() as conn:
+                for col in model.__table__.columns:
+                    if col.name in existing:
+                        continue
+                    conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {col.name} {col.type.compile(dialect=dialect)}'))
+                    print(f"[DB] Added column {table}.{col.name}", file=sys.stderr)
+        except Exception as e:
+            print(f"[DB] ensure {table} columns error: {e}", file=sys.stderr)
+
 def _init_db():
     """Tạo bảng nếu chưa tồn tại và nạp seed data DUY NHẤT khi DB trống.
     
@@ -591,6 +611,8 @@ def _init_db():
     except Exception as e:
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
         return
+
+    _ensure_model_columns(HirerProfile, TranslatorPreference)
 
     try:
         # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
@@ -974,6 +996,9 @@ def register():
             profile = TranslatorProfile(user_id=new_user.id)
             db.session.add(profile)
             db.session.commit()
+        elif role == 'hirer':
+            db.session.add(HirerProfile(user_id=new_user.id))
+            db.session.commit()
 
         flash(_t('flash.register_success'), 'success')
         return redirect(url_for('login'))
@@ -1038,7 +1063,9 @@ def account_profile():
                     flash(_t('flash.password_changed'), 'success')
 
             return redirect(url_for('account_profile'))
-        return render_template('account_profile.html', user=user)
+        import services.hirer as hirer_svc
+        return render_template('account_profile.html', user=user, hirer_svc=hirer_svc,
+                               hirer_language_names=hirer_svc_language_names())
 
     # SQLite user
     user = User.query.get(uid)
@@ -1076,6 +1103,12 @@ def account_profile():
             
             pref.languages = ",".join(request.form.getlist('languages'))
             pref.service_types = ",".join(request.form.getlist('service_types'))
+            import services.hirer as hirer_svc
+            pref.specialties = ",".join(s for s in request.form.getlist('specialties') if s in hirer_svc.HIRER_INDUSTRIES)
+            pref.city = request.form.get('city', '').strip()[:100] or None
+            wm = request.form.get('work_mode', '')
+            pref.work_mode = wm if wm in hirer_svc.WORK_MODES else None
+            pref.offers_certified = 'offers_certified' in request.form
             pref.notify_new_jobs = 'notify_new_jobs' in request.form
             pref.notify_messages = 'notify_messages' in request.form
             pref.notify_contracts = 'notify_contracts' in request.form
@@ -1084,13 +1117,9 @@ def account_profile():
             flash(_t('flash.preferences_saved'), 'success')
 
         elif action == 'hirer_profile' and user.role == 'hirer':
-            profile = user.hirer_profile
-            if not profile:
-                profile = HirerProfile(user_id=user.id)
-                db.session.add(profile)
-            profile.title = request.form.get('title', '').strip()
-            profile.company = request.form.get('company', '').strip()
-            profile.location = request.form.get('location', '').strip()
+            from services.hirer import get_or_create_hirer_profile, apply_hirer_profile_form
+            profile = get_or_create_hirer_profile(user.id)
+            apply_hirer_profile_form(profile, request.form, hirer_svc_language_names())
             db.session.commit()
             flash(_t('flash.hirer_profile_updated'), 'success')
 
@@ -1111,7 +1140,13 @@ def account_profile():
 
         return redirect(url_for('account_profile'))
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
-    return render_template('account_profile.html', user=user, LANGUAGES=get_localized_languages(current_lang))
+    import services.hirer as hirer_svc
+    return render_template('account_profile.html', user=user, LANGUAGES=get_localized_languages(current_lang),
+                           hirer_svc=hirer_svc, hirer_language_names=hirer_svc_language_names())
+
+def hirer_svc_language_names():
+    """Ngôn ngữ chọn được trong hồ sơ khách: tiếng Việt + các ngôn ngữ phiên dịch hỗ trợ."""
+    return ['Tiếng Việt'] + [l.name for l in LANGUAGES]
 
 def get_translator_preferences(user_id):
     return TranslatorPreference.query.filter_by(translator_id=user_id).first()
@@ -1306,11 +1341,13 @@ def hirer_profile(hirer_id):
         
     profile = user.hirer_profile
     
-    # Calculate stats
-    total_jobs = Job.query.filter_by(hirer_id=hirer_id).count()
-    completed_contracts = Contract.query.join(Job).filter(Job.hirer_id == hirer_id, Contract.status == 'completed').count()
-    
-    return render_template('hirer_profile.html', user=user, profile=profile, total_jobs=total_jobs, completed_contracts=completed_contracts)
+    from services.hirer import get_hirer_stats
+    stats = get_hirer_stats(hirer_id)
+    reviews = Review.query.filter_by(reviewee_id=hirer_id, is_hidden=False).order_by(Review.created_at.desc()).limit(10).all()
+
+    return render_template('hirer_profile.html', user=user, profile=profile, reviews=reviews,
+                           total_jobs=stats['total_jobs'], completed_contracts=stats['completed_contracts'],
+                           stats=stats)
 
 @app.route('/translator/<string:lang_slug>')
 def translator_language(lang_slug):
@@ -1628,7 +1665,7 @@ def post_job():
 
         flash(_t('flash.job_posted'), 'success')
         return redirect(url_for('job_detail', job_id=job.id))
-    return render_template('post_job.html', LANGUAGES=LANGUAGES)
+    return render_template('post_job.html', LANGUAGES=LANGUAGES, hirer_profile=user.hirer_profile)
 
 @app.route('/jobs')
 def job_list():
@@ -2034,6 +2071,12 @@ def submit_review(contract_id):
             review = Review(contract_id=contract.id, reviewer_id=reviewer_id,
                             reviewee_id=reviewee_id, rating=rating, comment=comment)
             db.session.add(review)
+
+        if reviewer_id == contract.translator_id:
+            # Phiên dịch viên đánh giá khách -> tính lại điểm của khách từ các review hiển thị
+            db.session.flush()
+            from services.hirer import recalculate_hirer_rating
+            recalculate_hirer_rating(contract.hirer_id)
 
         if reviewer_id == contract.hirer_id:
             prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
@@ -2529,6 +2572,11 @@ def admin_toggle_review(review_id):
         description=f"{msg} #{r.id} của {r.reviewer.name}",
     )
     
+    if r.reviewee and r.reviewee.role == 'hirer':
+        db.session.flush()
+        from services.hirer import recalculate_hirer_rating
+        recalculate_hirer_rating(r.reviewee_id)
+
     db.session.commit()
     flash(msg, 'success')
     return redirect(url_for('admin_reviews'))

@@ -570,6 +570,7 @@
                             </div>
                             <div>
                                 <div class="font-bold text-slate-900 text-sm">{{ job.hirer.name }}</div>
+                                {% if job.hirer.hirer_profile and job.hirer.hirer_profile.is_verified %}
                                 <div class="text-xs text-emerald-600 flex items-center gap-1 mt-0.5 font-medium">
                                     <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd"
@@ -578,6 +579,7 @@
                                     </svg>
                                     {{ t('job_detail_page.verified_account') }}
                                 </div>
+                                {% endif %}
                                 <a href="{{ url_for('hirer_profile', hirer_id=job.hirer.id) }}"
                                     class="inline-flex mt-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 transition items-center gap-1">
                                     {{ t('auto.xem_profile') }}

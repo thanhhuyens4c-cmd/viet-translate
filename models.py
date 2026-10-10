@@ -118,6 +118,10 @@ class TranslatorPreference(db.Model):
     languages = db.Column(db.Text, default='')
     language_pairs = db.Column(db.Text, default='')
     service_types = db.Column(db.Text, default='')
+    specialties = db.Column(db.Text, default='')    # CSV khóa ngành, cùng danh sách HIRER_INDUSTRIES
+    city = db.Column(db.String(100))
+    work_mode = db.Column(db.String(20))            # onsite / online / both
+    offers_certified = db.Column(db.Boolean, default=False)
     notify_new_jobs = db.Column(db.Boolean, default=True)
     notify_messages = db.Column(db.Boolean, default=True)
     notify_contracts = db.Column(db.Boolean, default=True)
@@ -133,6 +137,25 @@ class HirerProfile(db.Model):
     company = db.Column(db.String(200))
     location = db.Column(db.String(100))
     rating = db.Column(db.Float, default=0.0)
+    total_reviews = db.Column(db.Integer, default=0)
+    is_verified = db.Column(db.Boolean, default=False)
+
+    # Thông tin phục vụ gợi ý phiên dịch viên phù hợp
+    client_type = db.Column(db.String(30))          # individual / business / agency / organization
+    industry = db.Column(db.String(60))             # xem HIRER_INDUSTRIES
+    website = db.Column(db.String(200))
+    about = db.Column(db.Text)
+    default_source_lang = db.Column(db.String(50))
+    default_target_lang = db.Column(db.String(50))
+    preferred_service_types = db.Column(db.Text)    # CSV, cùng nhãn với TranslatorPreference.service_types
+    work_mode = db.Column(db.String(20))            # onsite / online / both
+    hiring_frequency = db.Column(db.String(20))     # one_time / occasional / regular
+    typical_budget_min = db.Column(db.Integer)
+    typical_budget_max = db.Column(db.Integer)
+    needs_nda = db.Column(db.Boolean, default=False)
+    needs_certified = db.Column(db.Boolean, default=False)
+    special_requirements = db.Column(db.Text)
+    tax_code = db.Column(db.String(20))             # riêng tư, chỉ admin dùng để xác minh
 
 
 class Service(db.Model):

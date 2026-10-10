@@ -337,6 +337,44 @@
                                 </div>
                             </div>
 
+                            {% set pref_specialties = (pref.specialties or '').split(',') if pref else [] %}
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{ t('hirer_profile_page.specialties') }}</label>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                    {% for k in ['healthcare','legal','manufacturing','tourism','it','trade','education','finance','construction','media','government','other'] %}
+                                    <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
+                                        <input type="checkbox" name="specialties" value="{{ k }}" class="rounded text-brand-600" {% if k in pref_specialties %}checked{% endif %}>
+                                        <span>{{ t('hirer_profile_page.industry_' ~ k) }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{ t('hirer_profile_page.city') }}</label>
+                                    <input type="text" name="city" maxlength="100" value="{{ pref.city if pref and pref.city else '' }}"
+                                        list="translator-city-list" placeholder="Hà Nội, TP. Hồ Chí Minh…"
+                                        class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+                                    <datalist id="translator-city-list">
+                                        {% for loc in ['Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ'] %}<option value="{{ loc }}">{% endfor %}
+                                    </datalist>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{ t('hirer_profile_page.work_mode') }}</label>
+                                    <select name="work_mode" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+                                        <option value="">—</option>
+                                        {% for v in ['onsite','online','both'] %}
+                                        <option value="{{ v }}" {% if pref and pref.work_mode == v %}selected{% endif %}>{{ t('hirer_profile_page.work_mode_' ~ v) }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <label class="flex items-center gap-2 text-xs font-medium">
+                                <input type="checkbox" name="offers_certified" class="rounded text-brand-600" {% if pref and pref.offers_certified %}checked{% endif %}>
+                                {{ t('hirer_profile_page.offers_certified') }}
+                            </label>
+
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{
                                     t('account_profile_page.label_notifications') }}</label>
@@ -424,8 +462,131 @@
                                     t('auto.khu_vực') }}</label>
                                 <input type="text" name="location"
                                     value="{{ user.hirer_profile.location if user.hirer_profile else '' }}"
+                                    list="hirer-location-list" maxlength="100"
                                     class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
                                     placeholder="{{ t('auto.ví_dụ_hà_nội_tp_hồ_c') }}">
+                                <datalist id="hirer-location-list">
+                                    {% for loc in hirer_svc.LOCATION_SUGGESTIONS %}<option value="{{ loc }}">{% endfor %}
+                                </datalist>
+                            </div>
+
+                            {% set hp = user.hirer_profile %}
+                            {% set input_cls = 'w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition' %}
+                            {% set label_cls = 'block text-xs font-bold text-slate-700 uppercase tracking-wide' %}
+                            {% set hp_services = (hp.preferred_service_types or '').split(',') if hp else [] %}
+
+                            <div class="pt-4 border-t border-slate-100">
+                                <p class="text-xs text-slate-500 mb-4">{{ t('hirer_profile_page.form_hint') }}</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div class="space-y-1.5">
+                                    <label class="{{ label_cls }}">{{ t('hirer_profile_page.client_type') }}</label>
+                                    <select name="client_type" class="{{ input_cls }}">
+                                        <option value="">—</option>
+                                        {% for v in hirer_svc.CLIENT_TYPES %}
+                                        <option value="{{ v }}" {% if hp and hp.client_type == v %}selected{% endif %}>{{ t('hirer_profile_page.client_type_' ~ v) }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="{{ label_cls }}">{{ t('hirer_profile_page.industry') }}</label>
+                                    <select name="industry" class="{{ input_cls }}">
+                                        <option value="">—</option>
+                                        {% for v in hirer_svc.HIRER_INDUSTRIES %}
+                                        <option value="{{ v }}" {% if hp and hp.industry == v %}selected{% endif %}>{{ t('hirer_profile_page.industry_' ~ v) }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="{{ label_cls }}">{{ t('hirer_profile_page.default_source_lang') }}</label>
+                                    <select name="default_source_lang" class="{{ input_cls }}">
+                                        <option value="">—</option>
+                                        {% for n in hirer_language_names %}
+                                        <option value="{{ n }}" {% if hp and hp.default_source_lang == n %}selected{% endif %}>{{ lang_name(n) }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="{{ label_cls }}">{{ t('hirer_profile_page.default_target_lang') }}</label>
+                                    <select name="default_target_lang" class="{{ input_cls }}">
+                                        <option value="">—</option>
+                                        {% for n in hirer_language_names %}
+                                        <option value="{{ n }}" {% if hp and hp.default_target_lang == n %}selected{% endif %}>{{ lang_name(n) }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="{{ label_cls }}">{{ t('hirer_profile_page.work_mode') }}</label>
+                                    <select name="work_mode" class="{{ input_cls }}">
+                                        <option value="">—</option>
+                                        {% for v in hirer_svc.WORK_MODES %}
+                                        <option value="{{ v }}" {% if hp and hp.work_mode == v %}selected{% endif %}>{{ t('hirer_profile_page.work_mode_' ~ v) }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="{{ label_cls }}">{{ t('hirer_profile_page.hiring_frequency') }}</label>
+                                    <select name="hiring_frequency" class="{{ input_cls }}">
+                                        <option value="">—</option>
+                                        {% for v in hirer_svc.HIRING_FREQUENCIES %}
+                                        <option value="{{ v }}" {% if hp and hp.hiring_frequency == v %}selected{% endif %}>{{ t('hirer_profile_page.hiring_frequency_' ~ v) }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="{{ label_cls }}">{{ t('hirer_profile_page.budget_min') }}</label>
+                                    <input type="number" min="0" name="typical_budget_min" value="{{ hp.typical_budget_min if hp and hp.typical_budget_min else '' }}" class="{{ input_cls }}" placeholder="VND">
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="{{ label_cls }}">{{ t('hirer_profile_page.budget_max') }}</label>
+                                    <input type="number" min="0" name="typical_budget_max" value="{{ hp.typical_budget_max if hp and hp.typical_budget_max else '' }}" class="{{ input_cls }}" placeholder="VND">
+                                </div>
+                            </div>
+
+                            <div class="space-y-1.5">
+                                <label class="{{ label_cls }}">{{ t('hirer_profile_page.preferred_services') }}</label>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                    {% for s in hirer_svc.SERVICE_TYPE_OPTIONS %}
+                                    <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
+                                        <input type="checkbox" name="preferred_service_types" value="{{ s }}" class="rounded text-brand-600" {% if s in hp_services %}checked{% endif %}>
+                                        <span>{{ t('hirer_profile_page.service_' ~ loop.index0) }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div class="flex flex-wrap gap-4">
+                                <label class="flex items-center gap-2 text-xs font-medium">
+                                    <input type="checkbox" name="needs_nda" class="rounded text-brand-600" {% if hp and hp.needs_nda %}checked{% endif %}>
+                                    {{ t('hirer_profile_page.needs_nda') }}
+                                </label>
+                                <label class="flex items-center gap-2 text-xs font-medium">
+                                    <input type="checkbox" name="needs_certified" class="rounded text-brand-600" {% if hp and hp.needs_certified %}checked{% endif %}>
+                                    {{ t('hirer_profile_page.needs_certified') }}
+                                </label>
+                            </div>
+
+                            <div class="space-y-1.5">
+                                <label class="{{ label_cls }}">{{ t('hirer_profile_page.special_requirements') }}</label>
+                                <textarea name="special_requirements" rows="2" maxlength="1000" class="{{ input_cls }}">{{ hp.special_requirements if hp and hp.special_requirements else '' }}</textarea>
+                            </div>
+
+                            <div class="space-y-1.5">
+                                <label class="{{ label_cls }}">{{ t('hirer_profile_page.about') }}</label>
+                                <textarea name="about" rows="3" maxlength="2000" class="{{ input_cls }}">{{ hp.about if hp and hp.about else '' }}</textarea>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div class="space-y-1.5">
+                                    <label class="{{ label_cls }}">{{ t('hirer_profile_page.website') }}</label>
+                                    <input type="url" name="website" maxlength="200" value="{{ hp.website if hp and hp.website else '' }}" class="{{ input_cls }}" placeholder="https://">
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="{{ label_cls }}">{{ t('hirer_profile_page.tax_code') }}</label>
+                                    <input type="text" name="tax_code" maxlength="20" value="{{ hp.tax_code if hp and hp.tax_code else '' }}" class="{{ input_cls }}">
+                                    <p class="text-[11px] text-slate-400">{{ t('hirer_profile_page.tax_code_hint') }}</p>
+                                </div>
                             </div>
 
                             <div class="pt-2">
