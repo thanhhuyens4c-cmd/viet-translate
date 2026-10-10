@@ -8,6 +8,8 @@ from services.schedule import (
     is_schedule_complete,
     check_translator_schedule_conflict,
     build_effective_interval,
+    parse_date_range,
+    _parse_time,
     ScheduleCheckError
 )
 
@@ -99,22 +101,46 @@ def reserve_slot(
     buffer_after_minutes=30
 ):
     """
-    Giữ chỗ (reserve) một slot cho phiên dịch viên.
-    Sẽ raise SlotTakenError nếu trùng lịch.
+    Giữ chỗ (reserve) một hoặc nhiều slot cho phiên dịch viên.
+    
+    Hỗ trợ cả ngày đơn lẻ ("2024-12-01") và khoảng ngày ("2024-12-01 to 2024-12-03").
+    Khi đặt nhiều ngày, mỗi ngày sẽ tạo một bản ghi TranslatorSchedule riêng biệt
+    với cùng khung giờ start_time / end_time.
+    
+    Returns:
+        TranslatorSchedule hoặc list[TranslatorSchedule] – bản ghi lịch đã tạo.
+        Trả về đối tượng đơn nếu chỉ 1 ngày, trả về list nếu nhiều ngày.
+    
+    Raises:
+        SlotTakenError nếu trùng lịch.
+        SchedulingError nếu dữ liệu không hợp lệ.
     """
     # 1. Giải phóng reservation cũ trước khi kiểm tra (tránh false positive)
     _release_expired_schedules()
     
-    # 2. Chuẩn hóa & kiểm tra tính hợp lệ
-    parsed_date, parsed_start, parsed_end = normalize_schedule_datetime(
-        scheduled_date, start_time, end_time
-    )
-    parsed = {'date': parsed_date, 'start_time': parsed_start, 'end_time': parsed_end}
-    if not is_schedule_complete(parsed):
+    # 2. Parse thời gian
+    parsed_start = _parse_time(start_time)
+    parsed_end = _parse_time(end_time)
+    
+    if not parsed_start or not parsed_end:
         raise SchedulingError("Thời gian đặt lịch không hợp lệ hoặc bị thiếu.")
+    
+    if parsed_end <= parsed_start:
+        raise SchedulingError("Thời gian kết thúc phải sau thời gian bắt đầu.")
+    
+    # 3. Parse ngày (hỗ trợ date range)
+    date_list = parse_date_range(scheduled_date)
+    if not date_list:
+        # Fallback: thử parse như single date cũ
+        from services.schedule import _parse_date
+        single_date = _parse_date(scheduled_date)
+        if single_date:
+            date_list = [single_date]
+        else:
+            raise SchedulingError("Thời gian đặt lịch không hợp lệ hoặc bị thiếu.")
 
     try:
-        # 3. Sử dụng row-level locking để ngăn chặn race condition trên cấp ứng dụng.
+        # 4. Sử dụng row-level locking để ngăn chặn race condition trên cấp ứng dụng.
         # Lấy bản ghi user để lock
         translator = User.query.with_for_update().filter_by(id=translator_id).first()
         if not translator or getattr(translator, 'role', '') != 'translator':
@@ -122,42 +148,54 @@ def reserve_slot(
         
         # Kiểm tra tính Idempotent: nếu đã có reservation với contract_id này thì trả về luôn
         if contract_id:
-            existing = TranslatorSchedule.query.filter_by(contract_id=contract_id).first()
+            existing = TranslatorSchedule.query.filter_by(contract_id=contract_id).all()
             if existing:
-                return existing
+                return existing[0] if len(existing) == 1 else existing
 
-        # 4. Kiểm tra overlap (có tính buffer)
-        conflict_result = check_translator_schedule_conflict(
-            translator_id=translator_id,
-            scheduled_date=parsed_date,
-            start_time=parsed_start,
-            end_time=parsed_end,
-            buffer_before_minutes=buffer_before_minutes,
-            buffer_after_minutes=buffer_after_minutes
-        )
-        if conflict_result.get('conflict'):
-            raise SlotTakenError(conflict_result.get('message', "Lịch bị trùng với một booking khác."))
+        # 5. Kiểm tra overlap cho TẤT CẢ các ngày trước khi tạo bản ghi
+        for single_date in date_list:
+            conflict_result = check_translator_schedule_conflict(
+                translator_id=translator_id,
+                scheduled_date=single_date,
+                start_time=parsed_start,
+                end_time=parsed_end,
+                buffer_before_minutes=buffer_before_minutes,
+                buffer_after_minutes=buffer_after_minutes
+            )
+            if conflict_result.get('conflict'):
+                # Thêm thông tin ngày bị trùng để user biết rõ
+                conflict_date_str = single_date.strftime('%d/%m/%Y')
+                msg = conflict_result.get('message', "Lịch bị trùng với một booking khác.")
+                raise SlotTakenError(f"Ngày {conflict_date_str}: {msg}")
 
-        # 5. Tạo bản ghi reservation trong cùng transaction
+        # 6. Tạo bản ghi reservation cho từng ngày trong cùng transaction
         now = datetime.utcnow()
-        schedule = TranslatorSchedule(
-            translator_id=translator_id,
-            contract_id=contract_id,
-            job_id=job_id,
-            service_id=service_id,
-            scheduled_date=parsed_date,
-            start_time=parsed_start,
-            end_time=parsed_end,
-            buffer_before_minutes=buffer_before_minutes,
-            buffer_after_minutes=buffer_after_minutes,
-            status='reserved',
-            created_at=now,
-            expires_at=now + timedelta(minutes=30)
-        )
-        db.session.add(schedule)
-        db.session.flush() # Gửi xuống DB để kiểm tra exclusion constraint (nếu có Postgres)
+        created_schedules = []
         
-        return schedule
+        for single_date in date_list:
+            schedule = TranslatorSchedule(
+                translator_id=translator_id,
+                contract_id=contract_id,
+                job_id=job_id,
+                service_id=service_id,
+                scheduled_date=single_date,
+                start_time=parsed_start,
+                end_time=parsed_end,
+                buffer_before_minutes=buffer_before_minutes,
+                buffer_after_minutes=buffer_after_minutes,
+                status='reserved',
+                created_at=now,
+                expires_at=now + timedelta(minutes=30)
+            )
+            db.session.add(schedule)
+            created_schedules.append(schedule)
+        
+        db.session.flush()  # Gửi xuống DB để kiểm tra exclusion constraint (nếu có Postgres)
+        
+        # Trả về đối tượng đơn nếu chỉ 1 ngày (tương thích ngược), list nếu nhiều ngày
+        if len(created_schedules) == 1:
+            return created_schedules[0]
+        return created_schedules
         
     except IntegrityError as e:
         logger.error(f"PostgreSQL exclusion constraint or unique constraint triggered: {e}")
@@ -170,32 +208,48 @@ def reserve_slot(
 def confirm_slot(contract_id, commit=False):
     """
     Chuyển trạng thái từ reserved sang active khi đã thanh toán thành công (escrow).
+    Hỗ trợ nhiều schedule entries cho cùng một contract (multi-day bookings).
     """
-    schedule = TranslatorSchedule.query.with_for_update().filter_by(contract_id=contract_id).first()
-    if not schedule:
+    schedules = (
+        TranslatorSchedule.query
+        .with_for_update()
+        .filter_by(contract_id=contract_id)
+        .all()
+    )
+    if not schedules:
         return False
-        
-    if schedule.status == 'active':
+    
+    # Kiểm tra xem tất cả entries đã active chưa
+    all_active = all(s.status == 'active' for s in schedules)
+    if all_active:
         return True
-        
-    if schedule.status != 'reserved':
+    
+    # Kiểm tra xem có entry nào không ở trạng thái reserved
+    non_reserved = [s for s in schedules if s.status not in ('reserved', 'active')]
+    if non_reserved:
         return False
         
     now = datetime.utcnow()
-    is_expired = False
-    if schedule.expires_at is not None:
-        if schedule.expires_at <= now:
-            is_expired = True
-    else:
-        if schedule.created_at <= now - timedelta(minutes=30):
-            is_expired = True
+    
+    for schedule in schedules:
+        if schedule.status == 'active':
+            continue  # Bỏ qua entry đã active
             
-    if is_expired:
-        # Không cần thay đổi status ở đây nếu caller sẽ rollback sau khi catch exception
-        raise SlotExpiredError("Thời gian giữ lịch đã hết. Vui lòng đặt lại khung giờ.")
-        
-    schedule.status = 'active'
-    schedule.expires_at = None
+        is_expired = False
+        if schedule.expires_at is not None:
+            if schedule.expires_at <= now:
+                is_expired = True
+        else:
+            if schedule.created_at <= now - timedelta(minutes=30):
+                is_expired = True
+                
+        if is_expired:
+            # Không cần thay đổi status ở đây nếu caller sẽ rollback sau khi catch exception
+            raise SlotExpiredError("Thời gian giữ lịch đã hết. Vui lòng đặt lại khung giờ.")
+            
+        schedule.status = 'active'
+        schedule.expires_at = None
+    
     if commit:
         db.session.commit()
     else:
@@ -205,13 +259,19 @@ def confirm_slot(contract_id, commit=False):
 def cancel_slot(contract_id, commit=False):
     """
     Giải phóng slot (chuyển sang cancelled) khi hủy hợp đồng hoặc đổi lịch.
+    Hỗ trợ nhiều schedule entries cho cùng một contract (multi-day bookings).
     """
-    schedule = TranslatorSchedule.query.filter_by(contract_id=contract_id).first()
-    if schedule and schedule.status in ['reserved', 'active']:
-        schedule.status = 'cancelled'
+    schedules = TranslatorSchedule.query.filter_by(contract_id=contract_id).all()
+    cancelled_any = False
+    for schedule in schedules:
+        if schedule.status in ['reserved', 'active']:
+            schedule.status = 'cancelled'
+            cancelled_any = True
+    
+    if cancelled_any:
         if commit:
             db.session.commit()
         else:
             db.session.flush()
-        return True
-    return False
+    return cancelled_any
+

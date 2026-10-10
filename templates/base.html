@@ -274,19 +274,19 @@
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'translator_list' %}active text-brand-600 font-bold{% endif %}">{{
                         t('nav.find_translators') }}</a>
                     <a href="{{ url_for('account_history') }}"
-                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_history' %}active text-brand-600 font-bold{% endif %}">Việc
-                        làm của tôi</a>
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_history' %}active text-brand-600 font-bold{% endif %}">{{
+                        t('nav.my_jobs') }}</a>
                     {% elif current_user and current_user.role == 'translator' %}
                     <a href="{{ url_for('job_list') }}"
-                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and not request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">Tìm
-                        việc</a>
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and not request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">{{
+                        t('nav.find_jobs') }}</a>
                     <a href="{{ url_for('job_list', recommended=1) }}"
-                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">Việc
-                        phù hợp</a>
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">{{
+                        t('nav.recommended_jobs') }}</a>
                     <a href="{{ url_for('account_profile') }}"
-                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_profile' %}active text-brand-600 font-bold{% endif %}">Dịch
-                        vụ của tôi</a>
-                    <a href="#" class="nav-item hover:text-brand-600 py-1">Lịch làm việc</a>
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_profile' %}active text-brand-600 font-bold{% endif %}">{{
+                        t('nav.my_services') }}</a>
+                    <a href="{{ url_for('my_schedule') }}" class="nav-item hover:text-brand-600 py-1">{{ t('nav.my_schedule') }}</a>
                     {% else %}
                     <!-- Guest -->
                     <a href="{{ url_for('translator_list') }}"

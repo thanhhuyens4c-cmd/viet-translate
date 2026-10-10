@@ -116,6 +116,15 @@
                             </span>
                             {% endif %}
                         </a>
+                        {% if user.role == 'translator' %}
+                        <a href="{{ url_for('my_schedule') }}"
+                            class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {{ t('nav.my_schedule') }}
+                        </a>
+                        {% endif %}
                         {% if user.role == 'translator' and user.profile %}
                         <a href="{{ url_for('translator_profile', profile_id=user.profile.id) }}" target="_blank"
                             class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
@@ -905,7 +914,7 @@
                             {{ t('account_profile_page.heading_translator') }}
                         </h2>
 
-                        <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-5">
+                        <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-5" enctype="multipart/form-data">
                             <input type="hidden" name="action" value="translator_profile">
 
                             <div>
@@ -975,6 +984,32 @@
                                 <textarea name="bio" rows="6"
                                     placeholder="{{ t('account_profile_page.bio_placeholder') }}"
                                     class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 leading-relaxed">{{ user.profile.bio if user.profile else '' }}</textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Chứng chỉ chuyên môn</label>
+                                
+                                {% if user.profile and user.profile.certificates %}
+                                <div class="mb-3 space-y-2">
+                                    {% for cert in user.profile.certificates.split(',') %}
+                                    {% if cert %}
+                                    <div class="flex items-center justify-between bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg text-xs">
+                                        <a href="{{ url_for('static', filename='uploads/certificates/' + cert) }}" target="_blank" class="text-brand-600 hover:underline font-medium flex items-center gap-1.5">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                                            {{ cert }}
+                                        </a>
+                                        <button type="button" onclick="removeCertificate('{{ cert }}')" class="text-red-500 hover:text-red-700 p-1 bg-white rounded-md border border-red-100 shadow-xs">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                        </button>
+                                    </div>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                <input type="file" name="certificate_files" multiple accept=".pdf,.png,.jpg,.jpeg"
+                                    class="w-full text-xs sm:text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 transition border border-slate-200 rounded-xl bg-slate-50/50">
+                                <p class="text-[11px] text-slate-400 mt-1">Hỗ trợ PDF, PNG, JPG (Tối đa 10MB/file). Chọn nhiều file.</p>
                             </div>
 
                             <div class="flex justify-end pt-5 border-t border-slate-100">
@@ -1760,7 +1795,7 @@
             if (newUrl) {
                 headerAvatar.innerHTML = `<img src="${newUrl}" class="w-full h-full object-cover">`;
             } else if (initial) {
-                headerAvatar.innerHTML = initial;
+                headerAvatar.innerHTML = `<span class="w-full h-full flex items-center justify-center">${initial}</span>`;
             }
         }
 
@@ -1775,7 +1810,7 @@
                     img.id = 'sidebar-avatar-img';
                     img.src = newUrl;
                     img.alt = "{{ user.name }}";
-                    img.className = 'w-full h-full object-cover object-top';
+                    img.className = 'w-full h-full object-cover object-top rounded-full border-2 border-white shadow-sm bg-white';
                     container.insertBefore(img, container.firstChild);
                 }
             }
@@ -1791,7 +1826,7 @@
                     img.id = 'basic-tab-avatar-img';
                     img.src = newUrl;
                     img.alt = "{{ user.name }}";
-                    img.className = 'w-full h-full object-cover object-top';
+                    img.className = 'w-full h-full object-cover object-top rounded-full border-4 border-white shadow-md group-hover:opacity-75 transition';
                     container.insertBefore(img, container.firstChild);
                 }
             }
@@ -1844,6 +1879,21 @@
             toast.classList.remove('translate-y-0', 'opacity-100');
             toast.classList.add('translate-y-20', 'opacity-0');
         }, 4000);
+    }
+
+    function removeCertificate(filename) {
+        if(!confirm('Bạn có chắc chắn muốn xóa chứng chỉ này?')) return;
+        fetch("{{ url_for('account_profile') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams({ action: 'remove_certificate', filename: filename })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if(data.success) location.reload();
+            else alert(data.message || 'Có lỗi xảy ra');
+        })
+        .catch(e => alert('Lỗi mạng, vui lòng thử lại'));
     }
 </script>
 {% endblock %}

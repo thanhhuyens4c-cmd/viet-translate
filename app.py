@@ -1,6 +1,6 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -19,59 +19,6 @@ def get_locale():
 
 def _t(key, **kwargs):
     return t_lookup(key, lang=get_locale(), **kwargs)
-
-# ─── MONGODB (dùng khi deploy trên Vercel) ────────────────────────────────────
-MONGO_URI = os.getenv("MONGO_URI")
-_mongo_users = None  # lazy-init collection
-
-def get_mongo_users():
-    """Trả về MongoDB users collection nếu MONGO_URI được cấu hình."""
-    global _mongo_users
-    if _mongo_users is None and MONGO_URI:
-        try:
-            from pymongo import MongoClient
-            client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-            _mongo_users = client["viettranslate_db"]["users"]
-        except Exception as e:
-            print(f"[MongoDB] Không thể kết nối: {e}")
-    return _mongo_users
-
-def mongo_register_user(username, email, hashed_password, phone, role):
-    """Đăng ký tài khoản mới vào MongoDB. Trả về (success, message)."""
-    col = get_mongo_users()
-    if col is None:
-        return False, "MongoDB chưa được cấu hình."
-    if col.find_one({"email": email}):
-        return False, "Email đã được sử dụng."
-    col.insert_one({
-        "name": username,
-        "email": email,
-        "password_hash": hashed_password,
-        "phone": phone,
-        "role": role,
-        "is_admin": False,
-        "is_active": True,
-        "created_at": datetime.utcnow(),
-    })
-    return True, "Đăng ký thành công!"
-
-def mongo_find_user_by_email(email):
-    """Tìm user theo email trong MongoDB. Trả về dict hoặc None."""
-    col = get_mongo_users()
-    if col is None:
-        return None
-    return col.find_one({"email": email})
-
-def mongo_find_user_by_id(user_id):
-    """Tìm user theo _id string trong MongoDB. Trả về dict hoặc None."""
-    col = get_mongo_users()
-    if col is None:
-        return None
-    try:
-        from bson import ObjectId
-        return col.find_one({"_id": ObjectId(user_id)})
-    except Exception:
-        return None
 
 # ─── LANGUAGE LANDING PAGE CONFIGURATION ──────────────────────────────────────
 
@@ -511,22 +458,17 @@ if database_url:
     elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 else:
-    if os.environ.get('VERCEL') == '1':
-        # Vercel: filesystem ephemeral — BẮT BUỘC dùng DATABASE_URL hoặc MONGO_URI
-        if not os.getenv("MONGO_URI"):
-            error_msg = "[CRITICAL] Chạy trên Vercel nhưng DATABASE_URL (và MONGO_URI) chưa được cấu hình! Không dùng SQLite memory trong production để tránh mất dữ liệu."
-            print(error_msg, file=sys.stderr)
-            raise RuntimeError(error_msg)
-        # Nếu có MONGO_URI nhưng thiếu DATABASE_URL (chỉ dùng MongoDB):
-        database_url = 'sqlite:///:memory:'
-        _is_memory_db = True
-    elif os.environ.get('RENDER'):
-        # Chạy trên Render nhưng không có DATABASE_URL
-        print("[DB WARNING] Chạy trên Render nhưng DATABASE_URL chưa được cấu hình!", file=sys.stderr)
-        print("[DB WARNING] Hãy vào Render Dashboard → Environment → thêm DATABASE_URL hoặc MONGO_URI", file=sys.stderr)
-        # Vẫn dùng SQLite nhưng đây là ephemeral trên Render!
-        database_url = 'sqlite:///' + os.path.join(basedir, 'instance', 'database.db')
-        print("[DB WARNING] Render filesystem là ephemeral — dữ liệu sẽ mất khi redeploy!", file=sys.stderr)
+    if os.environ.get('VERCEL') == '1' or os.environ.get('RENDER'):
+        # TASK 10: Production (Vercel/Render) — BẮT BUỘC có DATABASE_URL trỏ tới Supabase PostgreSQL.
+        # Không fallback sang SQLite memory trong production.
+        _platform = 'Vercel' if os.environ.get('VERCEL') else 'Render'
+        error_msg = (
+            f"[CRITICAL] Chạy trên {_platform} nhưng DATABASE_URL chưa được cấu hình! "
+            "Database production phải là Supabase PostgreSQL. "
+            "Hãy vào Dashboard → Environment Variables → thêm DATABASE_URL."
+        )
+        print(error_msg, file=sys.stderr)
+        raise RuntimeError(error_msg)
     else:
         # Local development: dùng SQLite file cục bộ
         db_path = os.path.join(basedir, 'instance', 'database.db')
@@ -551,7 +493,7 @@ else:
     }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-UPLOAD_FOLDER = os.path.join('static', 'uploads')
+UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     UPLOAD_FOLDER = '/tmp'
 else:
@@ -597,7 +539,7 @@ def save_user_avatar(file, user_id, current_avatar=None):
         return False, 'flash.avatar_file_too_large'
 
     import time
-    clean_uid = str(user_id).replace('mongo:', 'm_')
+    clean_uid = str(user_id)
     ext = file.filename.rsplit('.', 1)[1].lower()
     filename = f"avatar_u{clean_uid}_{int(time.time())}.{ext}"
     folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join('static', 'uploads', 'avatars'))
@@ -618,6 +560,40 @@ def save_user_avatar(file, user_id, current_avatar=None):
     except Exception as e:
         print(f"[AVATAR UPLOAD ERROR] {e}", file=sys.stderr)
         return False, 'flash.avatar_upload_failed'
+
+def allowed_certificate_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'pdf'}
+
+def save_certificate_file(file, user_id):
+    """Lưu tệp chứng chỉ được tải lên và trả về (thành_công, tên_file_hoặc_mã_lỗi)."""
+    if not file or not file.filename:
+        return False, 'File không hợp lệ'
+    if not allowed_certificate_file(file.filename):
+        return False, 'Chỉ chấp nhận file PDF, PNG, JPG, JPEG'
+
+    try:
+        file.seek(0, os.SEEK_END)
+        size = file.tell()
+        file.seek(0)
+    except Exception:
+        size = 0
+    if size > 10 * 1024 * 1024:
+        return False, 'File chứng chỉ không được vượt quá 10MB'
+
+    import time
+    clean_uid = str(user_id)
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"cert_u{clean_uid}_{int(time.time())}.{ext}"
+    folder = os.path.join(app.root_path, 'static', 'uploads', 'certificates')
+    os.makedirs(folder, exist_ok=True)
+    filepath = os.path.join(folder, filename)
+
+    try:
+        file.save(filepath)
+        return True, filename
+    except Exception as e:
+        print(f"[CERT UPLOAD ERROR] {e}", file=sys.stderr)
+        return False, 'Lỗi hệ thống khi lưu file chứng chỉ'
 
 def delete_user_avatar(current_avatar):
     """Xóa file ảnh đại diện cũ nếu là ảnh do người dùng tải lên."""
@@ -654,6 +630,29 @@ def _init_db():
     """
     try:
         db.create_all()
+        # Tự động thêm cột image_url nếu DB đã tồn tại từ trước chưa có cột này
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE message ADD COLUMN image_url TEXT"))
+                conn.commit()
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE direct_message ADD COLUMN image_url TEXT"))
+                conn.commit()
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE message ALTER COLUMN image_url TYPE TEXT"))
+                conn.commit()
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE direct_message ALTER COLUMN image_url TYPE TEXT"))
+                conn.commit()
+            except Exception:
+                pass
     except Exception as e:
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
         return
@@ -842,40 +841,22 @@ def vnd_filter(value):
     except (ValueError, TypeError):
         return value
 
-class SimpleMongoUser:
-    """Wrapper nhẹ để templates có thể dùng current_user.name, .role, v.v. với MongoDB user."""
-    def __init__(self, data: dict):
-        self.id = f"mongo:{data['_id']}"
-        self.name = data.get('name', '')
-        self.email = data.get('email', '')
-        self.role = data.get('role', '')
-        self.phone = data.get('phone', '')
-        self.is_admin = data.get('is_admin', False)
-        self.is_active = data.get('is_active', True)
-        self.avatar = data.get('avatar', None)
-        self.profile = None  # Không dùng SQLAlchemy relationship
-
-    @property
-    def avatar_url(self):
-        if self.avatar:
-            if self.avatar.startswith('http://') or self.avatar.startswith('https://') or self.avatar.startswith('/'):
-                return self.avatar
-            return f'/static/uploads/avatars/{self.avatar}'
-        return None
-
+# TASK 5 + TASK 9: get_current_user và inject_globals dùng SQL only.
+# Legacy Auth object đã được loại bỏ.
 
 def get_current_user():
     """Trả về User object của người đang đăng nhập từ session hiện tại.
-    KHÔNG dùng User.query.first(), ID mặc định, hoặc dữ liệu hard-code.
+    SQL only.
+    TASK 9: Nếu session có user_id không phải integer -> clear session.
     Trả về None nếu chưa đăng nhập hoặc user không còn tồn tại.
     """
     uid = session.get('user_id')
     if not uid:
         return None
-    if isinstance(uid, str) and uid.startswith('mongo:'):
-        mongo_id = uid[len('mongo:'):]
-        mongo_data = mongo_find_user_by_id(mongo_id)
-        return SimpleMongoUser(mongo_data) if mongo_data else None
+    # TASK 9: Clear invalid/legacy session và yêu cầu login lại
+    if not isinstance(uid, int):
+        session.clear()
+        return None
     try:
         return User.query.get(uid)
     except SQLAlchemyError as e:
@@ -885,27 +866,25 @@ def get_current_user():
 
 @app.context_processor
 def inject_globals():
+    # TASK 5: context processor dùng SQL only.
+    # TASK 9: Nếu session không hợp lệ → clear, user sẽ thấy màn hình login.
     user = None
     uid = session.get('user_id')
     if uid:
-        try:
-            if isinstance(uid, str) and uid.startswith('mongo:'):
-                # MongoDB user: dựng dữ liệu đã lưu trong session (tránh query lại)
-                mongo_id = uid[len('mongo:'):]
-                mongo_data = mongo_find_user_by_id(mongo_id)
-                if mongo_data:
-                    user = SimpleMongoUser(mongo_data)
-                else:
-                    session.pop('user_id', None)
-            else:
+        # TASK 9: Clear legacy/invalid session
+        if not isinstance(uid, int):
+            session.clear()
+            uid = None
+        else:
+            try:
                 user = User.query.get(uid)
                 if not user:
                     session.pop('user_id', None)
-        except SQLAlchemyError as e:
-            print(f"[AUTH SQL GLOBALS ERROR] {e}")
-            # Do not pop session on transient DB locks to prevent random logout
-        except Exception as e:
-            print(f"[AUTH GLOBALS ERROR] {e}")
+            except SQLAlchemyError as e:
+                print(f"[AUTH SQL GLOBALS ERROR] {e}")
+                # Do not pop session on transient DB locks to prevent random logout
+            except Exception as e:
+                print(f"[AUTH GLOBALS ERROR] {e}")
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
     if current_lang not in ('vi', 'en'):
         current_lang = 'vi'
@@ -943,7 +922,7 @@ def index():
         TranslatorProfile.rating.desc()).limit(4).all()
     if not top_translators:
         top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
-    latest_jobs = Job.query.filter_by(status='open', is_flagged=False).order_by(Job.created_at.desc()).limit(4).all()
+    latest_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).order_by(Job.created_at.desc()).limit(4).all()
     return render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
 
 @app.route('/about')
@@ -958,36 +937,12 @@ def payment_info():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # Login dùng SQL only.
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
 
         try:
-            # ── Thử MongoDB trước (khi deploy trên Vercel) ──
-            if MONGO_URI:
-                mongo_user = mongo_find_user_by_email(email)
-                if mongo_user:
-                    if not mongo_user.get('is_active', True):
-                        flash(_t('flash.account_locked'), 'error')
-                        return render_template('login.html', email=email)
-                    if check_password_hash(mongo_user['password_hash'], password):
-                        # Lưu mongo _id dạng string vào session với prefix để phân biệt
-                        session.clear()
-                        session.permanent = True
-                        session['user_id'] = f"mongo:{mongo_user['_id']}"
-                        session['user_name'] = mongo_user.get('name', '')
-                        session['user_role'] = mongo_user.get('role', '')
-                        session['is_admin'] = mongo_user.get('is_admin', False)
-                        flash(_t('flash.login_success'), 'success')
-                        if mongo_user.get('is_admin'):
-                            return redirect(url_for('admin_dashboard'))
-                        return redirect(url_for('index'))
-                    else:
-                        flash(_t('flash.invalid_password'), 'error')
-                        return render_template('login.html', email=email)
-                # Nếu không tìm thấy trong MongoDB thì fallback xuống SQLite bên dưới
-    
-            # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
             user = User.query.filter_by(email=email).first()
             if user:
                 if not user.is_active:
@@ -996,8 +951,9 @@ def login():
                 if check_password_hash(user.password_hash, password):
                     session.clear()
                     session.permanent = True
-                    session['user_id'] = user.id
+                    session['user_id'] = user.id  # SQL integer ID
                     flash(_t('flash.login_success'), 'success')
+                    # TASK 4A: Role redirect
                     if user.is_admin:
                         return redirect(url_for('admin_dashboard'))
                     return redirect(url_for('index'))
@@ -1020,12 +976,14 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # Register dùng SQL only.
+    # Đăng ký phải atomic: User + Profile; nếu profile fail → rollback User.
     if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        phone = request.form.get('phone')
-        role = request.form.get('role')
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        phone = request.form.get('phone', '').strip()
+        role = request.form.get('role', '')
 
         if role not in ('hirer', 'translator'):
             flash(_t('flash.invalid_role'), 'error')
@@ -1036,42 +994,48 @@ def register():
             flash(_t('flash.invalid_email'), 'error')
             return redirect(url_for('register'))
 
-        hashed_pw = generate_password_hash(password)
+        if not password or len(password) < 6:
+            flash(_t('flash.password_too_short'), 'error')
+            return redirect(url_for('register'))
 
-        # ── Dùng MongoDB khi MONGO_URI được cấu hình (Vercel) ──
-        if MONGO_URI:
-            success, message = mongo_register_user(
-                username=name,
-                email=email,
-                hashed_password=hashed_pw,
-                phone=phone,
-                role=role,
-            )
-            if success:
-                flash(_t('flash.register_success'), 'success')
-                return redirect(url_for('login'))
-            else:
-                flash(message, 'error')
-                return redirect(url_for('register'))
-
-        # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
         if User.query.filter_by(email=email).first():
             flash(_t('flash.email_exists'), 'error')
             return redirect(url_for('register'))
 
-        new_user = User(name=name, email=email,
-                        password_hash=hashed_pw,
-                        phone=phone, role=role)
-        db.session.add(new_user)
-        db.session.commit()
+        hashed_pw = generate_password_hash(password)
 
-        if role == 'translator':
-            profile = TranslatorProfile(user_id=new_user.id)
-            db.session.add(profile)
+        try:
+            new_user = User(
+                name=name,
+                email=email,
+                password_hash=hashed_pw,
+                phone=phone,
+                role=role,
+            )
+            db.session.add(new_user)
+            db.session.flush()  # Lấy new_user.id trước khi tạo profile
+
+            # Tạo profile ngay trong cùng transaction (atomic)
+            if role == 'translator':
+                profile = TranslatorProfile(user_id=new_user.id)
+                db.session.add(profile)
+            elif role == 'hirer':
+                hirer_profile = HirerProfile(user_id=new_user.id)
+                db.session.add(hirer_profile)
+
             db.session.commit()
-
-        flash(_t('flash.register_success'), 'success')
-        return redirect(url_for('login'))
+            flash(_t('flash.register_success'), 'success')
+            return redirect(url_for('login'))
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            print(f"[REGISTER SQL ERROR] {e}")
+            flash(_t('flash.system_overload'), 'error')
+            return redirect(url_for('register'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"[REGISTER ERROR] {e}")
+            flash(_t('flash.db_error'), 'error')
+            return redirect(url_for('register'))
     return render_template('register.html')
 
 @app.route('/logout')
@@ -1188,98 +1152,17 @@ def compute_profile_completion(user):
 @app.route('/account/overview', methods=['GET', 'POST'])
 @login_required
 def account_profile():
-    uid = session['user_id']
+    # TASK 6: Account dùng SQL only.
+    # TASK 9: Legacy session sẽ bị login_required redirect vì get_current_user() trả về None.
+    uid = session.get('user_id')
 
-    # MongoDB user
-    if isinstance(uid, str) and uid.startswith('mongo:'):
-        mongo_id = uid[len('mongo:'):]
-        mongo_data = mongo_find_user_by_id(mongo_id)
-        if not mongo_data:
-            flash(_t('flash.account_not_found'), 'error')
-            return redirect(url_for('index'))
-        user = SimpleMongoUser(mongo_data)
+    # TASK 9: Guard — nếu session không phải số nguyên (cũ/lỗi) → clear và redirect login
+    if uid and not isinstance(uid, int):
+        session.clear()
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
 
-        if request.method == 'POST':
-            action = request.form.get('action', 'basic')
-            col = get_mongo_users()
-            if col is None:
-                flash(_t('flash.mongo_error'), 'error')
-                return redirect(url_for('account_profile'))
-
-            from bson import ObjectId
-            if action == 'basic':
-                col.update_one(
-                    {"_id": ObjectId(mongo_id)},
-                    {"$set": {
-                        "name": request.form.get('name', user.name).strip(),
-                        "phone": request.form.get('phone', user.phone or '').strip(),
-                    }}
-                )
-                session['user_name'] = request.form.get('name', user.name).strip()
-                flash(_t('flash.profile_updated'), 'success')
-
-            elif action == 'change_password':
-                old_pw = request.form.get('old_password', '')
-                new_pw = request.form.get('new_password', '')
-                confirm_pw = request.form.get('confirm_password', '')
-                if not check_password_hash(mongo_data['password_hash'], old_pw):
-                    flash(_t('flash.old_password_incorrect'), 'error')
-                elif new_pw != confirm_pw:
-                    flash(_t('flash.new_password_mismatch'), 'error')
-                elif len(new_pw) < 6:
-                    flash(_t('flash.password_too_short'), 'error')
-                else:
-                    col.update_one(
-                        {"_id": ObjectId(mongo_id)},
-                        {"$set": {"password_hash": generate_password_hash(new_pw)}}
-                    )
-                    flash(_t('flash.password_changed'), 'success')
-
-            elif action == 'upload_avatar':
-                file = request.files.get('avatar')
-                is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
-                ok, res = save_user_avatar(file, user.id, user.avatar)
-                if not ok:
-                    msg = _t(res)
-                    if is_ajax:
-                        return jsonify({'success': False, 'message': msg}), 400
-                    flash(msg, 'error')
-                    return redirect(url_for('account_profile'))
-                col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": res}})
-                user.avatar = res
-                msg = _t('flash.avatar_updated')
-                if is_ajax:
-                    return jsonify({'success': True, 'avatar_url': user.avatar_url, 'message': msg})
-                flash(msg, 'success')
-
-            elif action == 'remove_avatar':
-                is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
-                delete_user_avatar(user.avatar)
-                col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": None}})
-                user.avatar = None
-                msg = _t('flash.avatar_removed')
-                if is_ajax:
-                    return jsonify({'success': True, 'avatar_url': None, 'initial': (user.name or 'U')[0].upper(), 'message': msg})
-                flash(msg, 'success')
-
-            return redirect(url_for('account_profile'))
-
-        current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
-        default_tab = 'overview' if getattr(user, 'role', '') == 'translator' else 'basic'
-        if request.path == '/account/overview':
-            default_tab = 'overview'
-        active_tab = request.args.get('tab', default_tab)
-        profile_completion = compute_profile_completion(user)
-        return render_template(
-            'account_profile.html',
-            user=user,
-            LANGUAGES=get_localized_languages(current_lang),
-            active_tab=active_tab,
-            profile_completion=profile_completion,
-            unread_notifs_count=0
-        )
-
-    # SQLite user
+    # SQL user
     user = User.query.get(uid)
     if not user:
         flash(_t('flash.account_not_found'), 'error')
@@ -1361,8 +1244,49 @@ def account_profile():
             profile.languages = request.form.get('languages', '').strip()
             profile.badges = request.form.get('badges', '').strip()
             profile.response_time = request.form.get('response_time', '< 1 giờ').strip()
+
+            # Upload chứng chỉ (nếu có)
+            cert_files = request.files.getlist('certificate_files')
+            new_certs = []
+            for file in cert_files:
+                if file and file.filename:
+                    ok, res = save_certificate_file(file, user.id)
+                    if ok:
+                        new_certs.append(res)
+                    else:
+                        flash(f"Lỗi tải chứng chỉ {file.filename}: {res}", 'warning')
+            
+            if new_certs:
+                existing_certs = profile.certificates.split(',') if profile.certificates else []
+                existing_certs.extend(new_certs)
+                profile.certificates = ','.join(existing_certs)
+
             db.session.commit()
             flash(_t('flash.translator_profile_updated'), 'success')
+
+        elif action == 'remove_certificate' and user.role == 'translator':
+            filename = request.form.get('filename')
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+            profile = user.profile
+            if profile and profile.certificates and filename:
+                certs = profile.certificates.split(',')
+                if filename in certs:
+                    certs.remove(filename)
+                    profile.certificates = ','.join(certs)
+                    db.session.commit()
+                    # Xóa file vật lý
+                    filepath = os.path.join(app.root_path, 'static', 'uploads', 'certificates', filename)
+                    if os.path.exists(filepath):
+                        try:
+                            os.remove(filepath)
+                        except OSError:
+                            pass
+                    if is_ajax:
+                        return jsonify({'success': True})
+                    flash('Đã xóa chứng chỉ', 'success')
+            if is_ajax:
+                return jsonify({'success': False, 'message': 'Không tìm thấy chứng chỉ'}), 400
+            return redirect(url_for('account_profile'))
 
         elif action == 'translator_preference' and user.role == 'translator':
             pref = user.preference
@@ -1455,37 +1379,20 @@ def submit_verification():
 @app.route('/account/avatar/upload', methods=['POST'])
 @login_required
 def upload_avatar_endpoint():
-    """Endpoint riêng biệt hỗ trợ tải ảnh đại diện qua AJAX hoặc form POST."""
-    uid = session['user_id']
+    """Endpoint riêng biệt hỗ trợ tải ảnh đại diện qua AJAX hoặc form POST.
+    TASK 7: Avatar upload dùng SQL only.
+    """
+    uid = session.get('user_id')
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
     file = request.files.get('avatar')
 
-    if isinstance(uid, str) and uid.startswith('mongo:'):
-        mongo_id = uid[len('mongo:'):]
-        mongo_data = mongo_find_user_by_id(mongo_id)
-        if not mongo_data:
-            if is_ajax:
-                return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
-            flash(_t('flash.account_not_found'), 'error')
-            return redirect(url_for('account_profile'))
-        user = SimpleMongoUser(mongo_data)
-        ok, res = save_user_avatar(file, user.id, user.avatar)
-        if not ok:
-            msg = _t(res)
-            if is_ajax:
-                return jsonify({'success': False, 'message': msg}), 400
-            flash(msg, 'error')
-            return redirect(url_for('account_profile'))
-        col = get_mongo_users()
-        if col is not None:
-            from bson import ObjectId
-            col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": res}})
-        user.avatar = res
-        msg = _t('flash.avatar_updated')
+    # TASK 9: Guard legacy/invalid session
+    if uid and not isinstance(uid, int):
+        session.clear()
         if is_ajax:
-            return jsonify({'success': True, 'avatar_url': user.avatar_url, 'message': msg})
-        flash(msg, 'success')
-        return redirect(url_for('account_profile'))
+            return jsonify({'success': False, 'message': _t('flash.login_required')}), 401
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
 
     user = User.query.get(uid)
     if not user:
@@ -1523,30 +1430,19 @@ def upload_avatar_endpoint():
 @app.route('/account/avatar/remove', methods=['POST'])
 @login_required
 def remove_avatar_endpoint():
-    """Endpoint gỡ ảnh đại diện tùy chỉnh trở về ảnh mặc định."""
-    uid = session['user_id']
+    """Endpoint gỡ ảnh đại diện tùy chỉnh trở về ảnh mặc định.
+    TASK 7: Avatar remove dùng SQL only.
+    """
+    uid = session.get('user_id')
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
 
-    if isinstance(uid, str) and uid.startswith('mongo:'):
-        mongo_id = uid[len('mongo:'):]
-        mongo_data = mongo_find_user_by_id(mongo_id)
-        if not mongo_data:
-            if is_ajax:
-                return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
-            flash(_t('flash.account_not_found'), 'error')
-            return redirect(url_for('account_profile'))
-        user = SimpleMongoUser(mongo_data)
-        delete_user_avatar(user.avatar)
-        col = get_mongo_users()
-        if col is not None:
-            from bson import ObjectId
-            col.update_one({"_id": ObjectId(mongo_id)}, {"$set": {"avatar": None}})
-        user.avatar = None
-        msg = _t('flash.avatar_removed')
+    # TASK 9: Guard legacy/invalid session
+    if uid and not isinstance(uid, int):
+        session.clear()
         if is_ajax:
-            return jsonify({'success': True, 'avatar_url': user.avatar_url, 'initial': (user.name or 'U')[0].upper(), 'message': msg})
-        flash(msg, 'success')
-        return redirect(url_for('account_profile'))
+            return jsonify({'success': False, 'message': _t('flash.login_required')}), 401
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
 
     user = User.query.get(uid)
     if not user:
@@ -1637,6 +1533,22 @@ def account_history():
         contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
     return render_template('account_history.html', user=user, contracts=contracts)
 
+@app.route('/my-schedule')
+@login_required
+def my_schedule():
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        flash('Bạn không có quyền truy cập trang này', 'error')
+        return redirect(url_for('index'))
+    
+    # Lấy các lịch sắp tới của phiên dịch viên
+    schedules = TranslatorSchedule.query.filter(
+        TranslatorSchedule.translator_id == user.id,
+        TranslatorSchedule.status != 'cancelled'
+    ).order_by(TranslatorSchedule.scheduled_date.asc(), TranslatorSchedule.start_time.asc()).all()
+    
+    return render_template('translator_schedule.html', user=user, schedules=schedules)
+
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
 @app.route('/translator')
@@ -1687,7 +1599,7 @@ def debug_index():
             TranslatorProfile.rating.desc()).limit(4).all()
         if not top_translators:
             top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
-        latest_jobs = Job.query.filter_by(status='open', is_flagged=False).order_by(Job.created_at.desc()).limit(4).all()
+        latest_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).order_by(Job.created_at.desc()).limit(4).all()
         html = render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
         return jsonify({'status': 'ok', 'html_length': len(html)})
     except Exception as e:
@@ -1834,24 +1746,30 @@ def get_direct_messages(other_user_id):
         db.session.commit()
 
     return jsonify([{
-        'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
-        'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m')
+        'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name if m.sender else '',
+        'content': m.content, 'image_url': getattr(m, 'image_url', None),
+        'time': m.created_at.strftime('%H:%M %d/%m') if m.created_at else ''
     } for m in msgs])
 
 @app.route('/api/direct-messages/<int:other_user_id>', methods=['POST'])
 @login_required
 def send_direct_message(other_user_id):
     content = request.json.get('content', '').strip()
+    image_url = request.json.get('image_url', '').strip()
     me = session['user_id']
     
-    if not content or other_user_id == me:
+    if (not content and not image_url) or other_user_id == me:
         return jsonify({'status': 'error'}), 400
         
     receiver = User.query.get(other_user_id)
     if not receiver:
         return jsonify({'status': 'error'}), 400
         
-    msg = DirectMessage(sender_id=me, receiver_id=other_user_id, content=content)
+    msg = DirectMessage(
+        sender_id=me, receiver_id=other_user_id,
+        content=content or ('[Hình ảnh]' if image_url else ''),
+        image_url=image_url or None
+    )
     db.session.add(msg)
 
     # Notify receiver
@@ -1873,6 +1791,76 @@ def send_direct_message(other_user_id):
 
     db.session.commit()
     return jsonify({'status': 'ok'})
+
+
+CHAT_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+def allowed_chat_image(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in CHAT_IMAGE_EXTENSIONS
+
+@app.route('/api/chat/upload-image', methods=['POST'])
+@login_required
+def upload_chat_image():
+    """Upload ảnh cho chat. Trả về URL ảnh đã lưu."""
+    if 'image' not in request.files:
+        return jsonify({'status': 'error', 'message': 'No file provided'}), 400
+
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'status': 'error', 'message': 'No file selected'}), 400
+
+    if not allowed_chat_image(file.filename):
+        return jsonify({'status': 'error', 'message': 'File type not allowed'}), 400
+
+    # Nếu đang chạy trên môi trường Vercel hoặc filesystem tạm / read-only:
+    # Trả về trực tiếp Base64 Data URI để lưu và hiển thị trực tiếp 100%,
+    # không phụ thuộc vào filesystem ephemeral của serverless.
+    if os.environ.get('VERCEL') == '1' or app.config.get('UPLOAD_FOLDER') == '/tmp':
+        import base64
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        mime_map = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp'}
+        mime = mime_map.get(ext, 'image/jpeg')
+        file_bytes = file.read()
+        b64_str = base64.b64encode(file_bytes).decode('utf-8')
+        image_url = f"data:{mime};base64,{b64_str}"
+        return jsonify({'status': 'ok', 'image_url': image_url})
+
+    # Môi trường server thường / local: Lưu vào static/uploads/chat_images
+    chat_img_dir = os.path.join(basedir, 'static', 'uploads', 'chat_images')
+    try:
+        os.makedirs(chat_img_dir, exist_ok=True)
+    except OSError:
+        chat_img_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'chat_images')
+        os.makedirs(chat_img_dir, exist_ok=True)
+
+    # Tạo tên file duy nhất
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    unique_name = f"chat_{session['user_id']}_{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}.{ext}"
+    filename = secure_filename(unique_name)
+    filepath = os.path.join(chat_img_dir, filename)
+    file.save(filepath)
+
+    image_url = f'/static/uploads/chat_images/{filename}'
+    return jsonify({'status': 'ok', 'image_url': image_url})
+
+
+@app.route('/static/uploads/chat_images/<path:filename>')
+def serve_chat_image(filename):
+    """Phục vụ file ảnh chat trực tiếp để tránh lỗi 404."""
+    chat_img_dir = os.path.join(basedir, 'static', 'uploads', 'chat_images')
+    if os.path.exists(os.path.join(chat_img_dir, filename)):
+        return send_from_directory(chat_img_dir, filename)
+    if os.path.exists(os.path.join('/tmp', filename)):
+        return send_from_directory('/tmp', filename)
+    abort(404)
+
+
+@app.route('/tmp/<path:filename>')
+def serve_tmp_file(filename):
+    """Phục vụ file từ thư mục /tmp nếu có."""
+    if os.path.exists(os.path.join('/tmp', filename)):
+        return send_from_directory('/tmp', filename)
+    abort(404)
 
 
 # ─── MESSAGES PAGE ─────────────────────────────────────────────────────────────
@@ -2061,6 +2049,33 @@ def post_job():
         deadline_str = request.form.get('deadline')
         deadline = datetime.strptime(deadline_str, '%Y-%m-%d').date() if deadline_str else None
 
+        # ── Collect Multi-day Schedule ──────────────────────────────
+        scheduled_dates = request.form.getlist('scheduled_date[]')
+        start_times = request.form.getlist('start_time[]')
+        end_times = request.form.getlist('end_time[]')
+
+        entries = []
+        for d, st, et in zip(scheduled_dates, start_times, end_times):
+            if d or st or et: # Bỏ qua các dòng trống hoàn toàn
+                entries.append({
+                    'scheduled_date': d,
+                    'start_time': st,
+                    'end_time': et
+                })
+
+        # Validate schedule
+        from models import validate_schedule_entries
+        is_valid, errors = validate_schedule_entries(entries)
+        if not is_valid:
+            for err in errors:
+                flash(err['message'], 'error')
+            return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data=request.form)
+
+        # Fallback for legacy fields (lấy ngày đầu tiên)
+        legacy_date = entries[0]['scheduled_date'] if entries else ''
+        legacy_start = entries[0]['start_time'] if entries else ''
+        legacy_end = entries[0]['end_time'] if entries else ''
+
         job = Job(
             hirer_id=session['user_id'],
             title=request.form.get('title'),
@@ -2073,13 +2088,32 @@ def post_job():
             budget_type=request.form.get('budget_type'),
             budget_min=int(request.form.get('budget_min') or 0),
             budget_max=int(request.form.get('budget_max') or 0) or None,
-            event_date=request.form.get('event_date', ''),
-            event_time_start=request.form.get('event_time_start', ''),
-            event_time_end=request.form.get('event_time_end', ''),
+            event_date=legacy_date,
+            event_time_start=legacy_start,
+            event_time_end=legacy_end,
             event_location=request.form.get('event_location', ''),
-            deadline=deadline
+            deadline=deadline,
+            status='pending'
         )
         db.session.add(job)
+        db.session.flush() # Để lấy job.id
+
+        # Lưu chi tiết vào JobSchedule
+        from models import JobSchedule
+        from services.schedule import _parse_time
+        for entry in entries:
+            parsed_date = datetime.strptime(entry['scheduled_date'].strip(), '%Y-%m-%d').date()
+            parsed_start = _parse_time(entry['start_time'].strip())
+            parsed_end = _parse_time(entry['end_time'].strip())
+            if parsed_date and parsed_start and parsed_end:
+                js = JobSchedule(
+                    job_id=job.id,
+                    scheduled_date=parsed_date,
+                    start_time=parsed_start,
+                    end_time=parsed_end
+                )
+                db.session.add(js)
+
         db.session.commit()
 
         # Notify matching translators (safe, won't block job creation if fails)
@@ -2088,7 +2122,8 @@ def post_job():
 
         flash(_t('flash.job_posted'), 'success')
         return redirect(url_for('job_detail', job_id=job.id))
-    return render_template('post_job.html', LANGUAGES=LANGUAGES)
+        
+    return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data={})
 
 @app.route('/jobs')
 def job_list():
@@ -2098,7 +2133,7 @@ def job_list():
     page = request.args.get('page', 1, type=int)
     per_page = 10
 
-    query = Job.query.filter_by(status='open', is_flagged=False)
+    query = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None))
     if lang:
         safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
         query = query.filter(db.or_(Job.source_lang.ilike(f'%{safe_lang}%'), Job.target_lang.ilike(f'%{safe_lang}%')))
@@ -2115,6 +2150,17 @@ def job_list():
 @app.route('/job/<int:job_id>', methods=['GET', 'POST'])
 def job_detail(job_id):
     job = Job.query.get_or_404(job_id)
+
+    # ── 0. Access Control ─────────────────────────────────────────────────
+    user = get_current_user()
+    is_owner = user and (user.id == job.hirer_id)
+    is_admin_user = session.get(ADMIN_SESSION_KEY) is not None
+
+    if job.is_flagged or job.status == 'pending':
+        if not (is_owner or is_admin_user):
+            flash('Bài đăng này đang chờ duyệt hoặc đã bị khoá.', 'warning')
+            return redirect(url_for('index'))
+
     if request.method == 'POST':
         # ── 1. Login & Role guard ─────────────────────────────────────────────
         user = get_current_user()
@@ -2142,28 +2188,20 @@ def job_detail(job_id):
             return redirect(url_for('job_detail', job_id=job.id))
 
         # ── 3. Schedule conflict check ────────────────────────────────────────
-        from services.schedule import (
-            parse_job_datetime, is_schedule_complete,
-            check_translator_schedule_conflict, ScheduleCheckError
-        )
+        from services.schedule import check_job_schedule_conflicts
+
         try:
-            parsed = parse_job_datetime(job)
-            if is_schedule_complete(parsed):
-                result = check_translator_schedule_conflict(
-                    translator_id=session['user_id'],
-                    scheduled_date=parsed['date'],
-                    start_time=parsed['start_time'],
-                    end_time=parsed['end_time'],
-                )
-                if result['conflict']:
-                    flash(
-                        f'Bạn đã có lịch công việc khác trong khoảng thời gian này '
-                        f'({result["start_time"]}–{result["end_time"]}). '
-                        f'Vui lòng kiểm tra lịch của bạn.',
-                        'error'
-                    )
-                    return render_template('job_detail.html', job=job, form_data=request.form)
-        except ScheduleCheckError as e:
+            result = check_job_schedule_conflicts(job, session['user_id'])
+            if result.get('has_schedule') and not result.get('available'):
+                # Tìm ngày đầu tiên bị trùng để báo lỗi
+                for day in result.get('days', []):
+                    if not day.get('available'):
+                        flash(f'Bạn đã có lịch công việc khác vào ngày {day["date_display"]} '
+                              f'({day["conflict_start"]}–{day["conflict_end"]}). '
+                              f'Vui lòng kiểm tra lịch của bạn.', 'error')
+                        break
+                return render_template('job_detail.html', job=job, form_data=request.form)
+        except Exception as e:
             flash(str(e), 'error')
             return render_template('job_detail.html', job=job, form_data=request.form)
 
@@ -2238,35 +2276,26 @@ def job_detail(job_id):
 @login_required
 def api_schedule_check(job_id):
     """Frontend pre-check: returns whether the logged-in translator has a
-    schedule conflict with this job's date/time.  Backend still re-validates
+    schedule conflict with this job's dates/times. Backend still re-validates
     at proposal submission — this is for UI feedback only.
     """
-    from services.schedule import (
-        parse_job_datetime, is_schedule_complete,
-        check_translator_schedule_conflict,
-    )
+    from services.schedule import check_job_schedule_conflicts
+    
     job = Job.query.get_or_404(job_id)
-    parsed = parse_job_datetime(job)
+    result = check_job_schedule_conflicts(job, session['user_id'])
 
-    if not is_schedule_complete(parsed):
-        # Job has no fixed time → no conflict possible
+    if not result['has_schedule']:
         return jsonify({'available': True, 'reason': 'no_schedule'})
 
-    result = check_translator_schedule_conflict(
-        translator_id=session['user_id'],
-        scheduled_date=parsed['date'],
-        start_time=parsed['start_time'],
-        end_time=parsed['end_time'],
-    )
-
-    if result['conflict']:
-        return jsonify({
-            'available': False,
-            'conflict_start': result['start_time'],
-            'conflict_end': result['end_time'],
-            'message': result['message'],
-        })
-    return jsonify({'available': True})
+    # result trả về dạng:
+    # {
+    #     'available': bool,
+    #     'has_schedule': True,
+    #     'days': [
+    #         { 'date': '...', 'date_display': '...', 'available': bool, 'message': '...', 'conflict_start': '...', 'conflict_end': '...' }
+    #     ]
+    # }
+    return jsonify(result)
 
 # ─── CONTRACT / BUSINESS PROCESS ───────────────────────────────────────────────
 
@@ -2359,8 +2388,8 @@ def payment_mockup(contract_id):
                 c.status = 'cancelled'
                 
             from models import TranslatorSchedule
-            s = TranslatorSchedule.query.filter_by(contract_id=contract.id).first()
-            if s:
+            schedules = TranslatorSchedule.query.filter_by(contract_id=contract.id).all()
+            for s in schedules:
                 s.status = 'cancelled'
                 
             db.session.commit()
@@ -2572,8 +2601,9 @@ def get_messages(contract_id):
     if unread:
         db.session.commit()
 
-    return jsonify([{'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
-                     'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m')} for m in msgs])
+    return jsonify([{'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name if m.sender else '',
+                     'content': m.content, 'image_url': getattr(m, 'image_url', None),
+                     'time': m.created_at.strftime('%H:%M %d/%m') if m.created_at else ''} for m in msgs])
 
 @app.route('/api/messages/<int:contract_id>', methods=['POST'])
 @login_required
@@ -2584,8 +2614,13 @@ def send_message(contract_id):
     require_contract_access(sender_id, contract)
 
     content = request.json.get('content', '').strip()
-    if content:
-        db.session.add(Message(contract_id=contract_id, sender_id=sender_id, content=content))
+    image_url = request.json.get('image_url', '').strip()
+    if content or image_url:
+        db.session.add(Message(
+            contract_id=contract_id, sender_id=sender_id,
+            content=content or ('[Hình ảnh]' if image_url else ''),
+            image_url=image_url or None
+        ))
         db.session.flush()
 
         if sender_id == contract.hirer_id:
@@ -2761,13 +2796,14 @@ def admin_logout():
 # ─── ADMIN ROUTES ───────────────────────────────────────────────────────────────
 
 @app.route('/admin')
-@admin_required
+@admin_login_required
+@require_permission('view_dashboard')
 def admin_dashboard():
     stats = {
         'total_users': User.query.filter_by(is_admin=False).count(),
         'total_translators': TranslatorProfile.query.count(),
         'pending_verify': TranslatorProfile.query.filter_by(is_verified=False).count(),
-        'open_jobs': Job.query.filter_by(status='open', is_flagged=False).count(),
+        'open_jobs': Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).count(),
         'flagged_jobs': Job.query.filter_by(is_flagged=True).count(),
         'active_contracts': Contract.query.filter_by(status='in_progress').count(),
         'completed_contracts': Contract.query.filter_by(status='completed').count(),
@@ -2777,21 +2813,26 @@ def admin_dashboard():
     return render_template('admin_dashboard.html', stats=stats, recent_users=recent_users, recent_jobs=recent_jobs)
 
 @app.route('/admin/jobs')
-@admin_required
+@admin_login_required
+@require_permission('view_jobs')
 def admin_jobs():
     status_filter = request.args.get('status', 'all')
     query = Job.query
     if status_filter == 'flagged':
         query = query.filter_by(is_flagged=True)
     elif status_filter == 'open':
-        query = query.filter_by(status='open', is_flagged=False)
+        query = query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None))
+    elif status_filter == 'pending':
+        query = query.filter(Job.status == 'pending', db.or_(Job.is_flagged == False, Job.is_flagged == None))
     elif status_filter == 'completed':
         query = query.filter_by(status='completed')
     jobs = query.order_by(Job.created_at.desc()).all()
     return render_template('admin_jobs.html', jobs=jobs, status_filter=status_filter)
 
 @app.route('/admin/jobs/<int:job_id>/flag', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('flag_job')
 def admin_flag_job(job_id):
     job = Job.query.get_or_404(job_id)
     job.is_flagged = not job.is_flagged
@@ -2807,10 +2848,52 @@ def admin_flag_job(job_id):
     flash(f'{action_text} bài đăng "{job.title}".', 'success')
     return redirect(url_for('admin_jobs'))
 
+@app.route('/admin/jobs/<int:job_id>/approve', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('approve_job')
+def admin_approve_job(job_id):
+    job = Job.query.get_or_404(job_id)
+    if job.status == 'pending':
+        job.status = 'open'
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS.get('UPDATE_JOB_STATUS', 'UPDATE_JOB_STATUS'),
+            target_type='job',
+            target_id=job.id,
+            description=f'Phê duyệt job "{job.title}" (ID={job.id})',
+        )
+        db.session.commit()
+        flash('Đã phê duyệt bài đăng thành công.', 'success')
+    else:
+        flash('Bài đăng không ở trạng thái chờ duyệt.', 'warning')
+    return redirect(url_for('admin_jobs'))
+
 @app.route('/admin/jobs/<int:job_id>/delete', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('reject_job')
 def admin_delete_job(job_id):
     job = Job.query.get_or_404(job_id)
+    
+    # 1. Kiểm tra dependency quan trọng: Hợp đồng
+    from models import Contract
+    contracts = Contract.query.filter_by(job_id=job.id).all()
+    if contracts:
+        flash('Không thể xóa vĩnh viễn bài đăng đã có hợp đồng. Vui lòng sử dụng "Gắn cờ/Ẩn".', 'error')
+        return redirect(url_for('admin_jobs'))
+        
+    # 2. Xử lý dependencies phụ
+    from models import Notification, TranslatorSchedule, Proposal, Report, JobSchedule
+    
+    # SET NULL cho các lịch sử (không xóa lịch sử)
+    Notification.query.filter_by(related_job_id=job.id).update({'related_job_id': None})
+    Report.query.filter_by(related_job_id=job.id).update({'related_job_id': None})
+    TranslatorSchedule.query.filter_by(job_id=job.id).update({'job_id': None})
+    
+    # Xóa dọn dẹp các data ăn theo
+    Proposal.query.filter_by(job_id=job.id).delete()
+    JobSchedule.query.filter_by(job_id=job.id).delete()
+    
     _audit_log(
         action=ADMIN_AUDIT_ACTIONS['DELETE_JOB'],
         target_type='job',
@@ -2819,11 +2902,12 @@ def admin_delete_job(job_id):
     )
     db.session.delete(job)
     db.session.commit()
-    flash('Đã xoá vĩnh viễn bài đăng.', 'success')
+    flash('Đã xoá vĩnh viễn bài đăng an toàn.', 'success')
     return redirect(url_for('admin_jobs'))
 
 @app.route('/admin/users')
-@admin_required
+@admin_login_required
+@require_permission('view_users')
 def admin_users():
     role_filter = request.args.get('role', 'all')
     query = User.query.filter_by(is_admin=False)
@@ -2835,7 +2919,9 @@ def admin_users():
     return render_template('admin_users.html', users=users, role_filter=role_filter)
 
 @app.route('/admin/users/<int:user_id>/toggle-active', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('lock_user')
 def admin_toggle_user(user_id):
     user = User.query.get_or_404(user_id)
     user.is_active = not user.is_active
@@ -2852,7 +2938,8 @@ def admin_toggle_user(user_id):
     return redirect(url_for('admin_users'))
 
 @app.route('/admin/translators')
-@admin_required
+@admin_login_required
+@require_permission('view_translators')
 def admin_translators():
     show = request.args.get('show', 'pending')
     from models import TranslatorVerification
@@ -2881,7 +2968,9 @@ def admin_translators():
     )
 
 @app.route('/admin/translators/<int:profile_id>/verify', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('verify_translator')
 def admin_verify_translator(profile_id):
     profile = TranslatorProfile.query.get_or_404(profile_id)
     action = request.form.get('action')
@@ -2932,7 +3021,8 @@ def admin_review_verification(verification_id, action):
     return redirect(url_for('admin_translators', show='pending' if action == 'reject' else 'verified'))
 
 @app.route('/admin/reports')
-@admin_required
+@admin_login_required
+@require_permission('view_reports')
 def admin_reports():
     status_filter = request.args.get('status', 'new')
     query = Report.query
@@ -2943,7 +3033,9 @@ def admin_reports():
     return render_template('admin_reports.html', reports=reports, status_filter=status_filter)
 
 @app.route('/admin/reports/<int:report_id>/<action>', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_update_report(report_id, action):
     report = Report.query.get_or_404(report_id)
     
@@ -2980,7 +3072,8 @@ def admin_update_report(report_id, action):
     return redirect(url_for('admin_reports'))
 
 @app.route('/admin/proposals')
-@admin_required
+@admin_login_required
+@require_permission('view_proposals')
 def admin_proposals():
     status_filter = request.args.get('status', 'all')
     query = Proposal.query
@@ -2991,7 +3084,8 @@ def admin_proposals():
     return render_template('admin_proposals.html', proposals=proposals, status_filter=status_filter)
 
 @app.route('/admin/contracts')
-@admin_required
+@admin_login_required
+@require_permission('view_contracts')
 def admin_contracts():
     status_filter = request.args.get('status', 'all')
     query = Contract.query
@@ -3002,18 +3096,23 @@ def admin_contracts():
     return render_template('admin_contracts.html', contracts=contracts, status_filter=status_filter)
 
 @app.route('/admin/schedules')
-@admin_required
+@admin_login_required
+@require_permission('view_schedules')
 def admin_schedules():
     status_filter = request.args.get('status', 'all')
+    contract_id = request.args.get('contract_id', type=int)
     query = TranslatorSchedule.query
     if status_filter != 'all':
         query = query.filter_by(status=status_filter)
+    if contract_id:
+        query = query.filter_by(contract_id=contract_id)
     
     schedules = query.order_by(TranslatorSchedule.scheduled_date.desc(), TranslatorSchedule.start_time.desc()).all()
-    return render_template('admin_schedules.html', schedules=schedules, status_filter=status_filter)
+    return render_template('admin_schedules.html', schedules=schedules, status_filter=status_filter, contract_id=contract_id)
 
 @app.route('/admin/reviews')
-@admin_required
+@admin_login_required
+@require_permission('view_reviews')
 def admin_reviews():
     show_filter = request.args.get('show', 'all')
     query = Review.query
@@ -3026,7 +3125,9 @@ def admin_reviews():
     return render_template('admin_reviews.html', reviews=reviews, show=show_filter)
 
 @app.route('/admin/reviews/<int:review_id>/toggle', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_toggle_review(review_id):
     r = Review.query.get_or_404(review_id)
     r.is_hidden = not r.is_hidden
@@ -3046,7 +3147,8 @@ def admin_toggle_review(review_id):
     return redirect(url_for('admin_reviews'))
 
 @app.route('/admin/payments')
-@admin_required
+@admin_login_required
+@require_permission('view_payments')
 def admin_payments():
     status_filter = request.args.get('status', 'all')
     query = PaymentTransaction.query
@@ -3057,7 +3159,9 @@ def admin_payments():
     return render_template('admin_payments.html', payments=payments, status_filter=status_filter)
 
 @app.route('/admin/payments/<int:payment_id>/refund', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('refund_payment')
 def admin_refund_payment(payment_id):
     p = PaymentTransaction.query.get_or_404(payment_id)
     if p.status != 'escrow_pending' and p.status != 'completed':
@@ -3080,7 +3184,8 @@ def admin_refund_payment(payment_id):
     return redirect(url_for('admin_payments'))
 
 @app.route('/admin/notifications')
-@admin_required
+@admin_login_required
+@require_permission('view_notifications')
 def admin_notifications():
     show_filter = request.args.get('show', 'all')
     query = AdminNotification.query
@@ -3091,7 +3196,9 @@ def admin_notifications():
     return render_template('admin_notifications.html', notifications=notifications, show=show_filter)
 
 @app.route('/admin/notifications/<int:notif_id>/read', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_notifications_read(notif_id):
     n = AdminNotification.query.get_or_404(notif_id)
     n.is_read = True
@@ -3099,14 +3206,17 @@ def admin_notifications_read(notif_id):
     return redirect(url_for('admin_notifications'))
 
 @app.route('/admin/notifications/read-all', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_notifications_mark_all():
     AdminNotification.query.filter_by(is_read=False).update({'is_read': True})
     db.session.commit()
     return redirect(url_for('admin_notifications'))
 
 @app.route('/admin/audit')
-@admin_required
+@admin_login_required
+@require_permission('view_audit_logs')
 def admin_audit_logs():
     action_filter = request.args.get('action', 'all')
     query = AdminAuditLog.query
@@ -3141,7 +3251,8 @@ def admin_audit_logs():
     return render_template('admin_audit.html', logs=logs, action_filter=action_filter)
 
 @app.route('/admin/admins')
-@admin_required
+@admin_login_required
+@require_permission('view_dashboard')
 def admin_admins():
     # Only super_admin or users with manage_admins can see all details easily
     # But let's allow all admins to view the list, just restrict actions in UI
@@ -3149,7 +3260,9 @@ def admin_admins():
     return render_template('admin_admins.html', admins=admins)
 
 @app.route('/admin/admins/add', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_add_admin():
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
@@ -3187,7 +3300,9 @@ def admin_add_admin():
     return redirect(url_for('admin_admins'))
 
 @app.route('/admin/admins/<int:admin_id>/toggle', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_toggle_admin_status(admin_id):
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
@@ -3206,7 +3321,8 @@ def admin_toggle_admin_status(admin_id):
     return redirect(url_for('admin_admins'))
 
 @app.route('/admin/search')
-@admin_required
+@admin_login_required
+@require_permission('view_dashboard')
 def admin_search():
     q = request.args.get('q', '').strip()
     results = {'users': [], 'jobs': [], 'contracts': []}

@@ -9,6 +9,7 @@
     <!-- Filter Tabs -->
     <div class="filter-bar">
         <a href="?status=all" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">{{ t('admin_page.filter_all') }}</a>
+        <a href="?status=pending" class="filter-tab {% if status_filter == 'pending' %}active{% endif %}">Chờ duyệt</a>
         <a href="?status=open" class="filter-tab {% if status_filter == 'open' %}active{% endif %}">{{ t('admin_page.filter_open') }}</a>
         <a href="?status=flagged" class="filter-tab danger {% if status_filter == 'flagged' %}active{% endif %}">{{ t('admin_page.filter_flagged') }}</a>
         <a href="?status=completed" class="filter-tab {% if status_filter == 'completed' %}active{% endif %}">{{ t('admin_page.filter_completed') }}</a>
@@ -39,6 +40,8 @@
                     <td>
                         {% if job.is_flagged %}
                         <span class="badge badge-red">{{ t('admin_page.badge_flagged') }}</span>
+                        {% elif job.status == 'pending' %}
+                        <span class="badge badge-warning">Chờ duyệt</span>
                         {% elif job.status == 'open' %}
                         <span class="badge badge-blue">{{ t('admin_page.badge_open') }}</span>
                         {% elif job.status == 'contracted' %}
@@ -59,6 +62,13 @@
                             <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('{{ t('admin_page.action_flag_confirm') }}');">{{ t('admin_page.action_flag') }}</button>
                             {% endif %}
                         </form>
+                        
+                        {% if job.status == 'pending' and not job.is_flagged %}
+                        <form method="POST" action="{{ url_for('admin_approve_job', job_id=job.id) }}" style="display: inline;">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-primary btn-sm">Phê duyệt</button>
+                        </form>
+                        {% endif %}
 
                         <form method="POST" action="{{ url_for('admin_delete_job', job_id=job.id) }}" style="display: inline;">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

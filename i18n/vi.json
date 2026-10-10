@@ -19,7 +19,12 @@
     "lang_en": "English",
     "default_title": "VietTranslate | Nền Tảng Kết Nối Phiên Dịch Chuyên Nghiệp",
     "messages_tooltip": "Tin nhắn",
-    "notifications_tooltip": "Thông báo"
+    "notifications_tooltip": "Thông báo",
+    "my_jobs": "Việc làm của tôi",
+    "find_jobs": "Tìm việc",
+    "recommended_jobs": "Việc phù hợp",
+    "my_services": "Dịch vụ của tôi",
+    "my_schedule": "Lịch làm việc"
   },
   "footer": {
     "tagline": "Nền tảng kết nối ngôn ngữ hiện đại. Uy tín trong từng kết nối, chất lượng trong từng trải nghiệm giữa khách hàng và phiên dịch viên chuyên nghiệp.",
