@@ -2842,6 +2842,198 @@ def verification_status_api():
     return jsonify({'success': True, 'data': data})
 
 
+# ─── TRANSLATOR VERIFICATION REVISION ROUTES ──────────────────────────────────
+
+@app.route('/account/verification/revision', methods=['GET'])
+@app.route('/verification/revision', methods=['GET'])
+@login_required
+def verification_revision_page():
+    """
+    Trang chuyên biệt cho quy trình bổ sung và gửi lại hồ sơ xác minh:
+    - Hiển thị danh sách hạng mục Admin yêu cầu bổ sung thực tế.
+    - Hiển thị lý do và hướng dẫn chi tiết cho từng hạng mục.
+    - Cho phép sửa thông tin hoặc thay thế tài liệu tương ứng.
+    - Không yêu cầu khai báo lại toàn bộ hồ sơ (dữ liệu cũ được pre-filled an toàn).
+    - Kiểm tra quyền sửa nghiêm ngặt theo trạng thái hồ sơ.
+    - Không cho phép người dùng tự xóa yêu cầu bổ sung hoặc tự đổi trạng thái.
+    """
+    uid = session.get('user_id')
+    if uid and not isinstance(uid, int):
+        session.clear()
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
+
+    user = User.query.get(uid)
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        flash('Chức năng bổ sung hồ sơ xác minh chỉ dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import get_verification_revision_details, can_user_revise_verification, TranslatorVerification
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+
+    can_rev, rev_err = can_user_revise_verification(user, verification)
+    if not can_rev:
+        flash(rev_err, 'warning')
+        if not verification or getattr(verification, 'status', 'draft') in ('draft', 'not_started'):
+            return redirect(url_for('verification_form'))
+        return redirect(url_for('verification_status_page'))
+
+    data = get_verification_revision_details(user)
+    return render_template('verification_revision.html', user=user, data=data)
+
+
+@app.route('/account/verification/revision/resubmit', methods=['POST'])
+@app.route('/account/verification/resubmit', methods=['POST'])
+@login_required
+def verification_revision_resubmit():
+    """
+    Xử lý gửi lại hồ sơ sau khi bổ sung:
+    - Hỗ trợ cả form submit multipart lẫn API JSON.
+    - Lưu tài liệu thay thế vào Private Storage.
+    - Cập nhật thông tin, tăng phiên bản và lập snapshot bất biến.
+    - Bảo toàn phiên bản cũ và ghi nhận diff so sánh.
+    - Chuyển hồ sơ về hàng đợi duyệt của Ban quản trị.
+    - Ngăn chặn gửi lặp và xử lý rollback an toàn.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    is_json = request.is_json or 'application/json' in request.headers.get('Accept', '') or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    if not user or user.role != 'translator':
+        if is_json:
+            return jsonify({'success': False, 'message': 'Chỉ tài khoản phiên dịch viên mới có quyền gửi lại hồ sơ.'}), 403
+        flash('Chỉ tài khoản phiên dịch viên mới có quyền gửi lại hồ sơ.', 'error')
+        return redirect(url_for('account_profile'))
+
+    from admin_auth import get_client_ip
+    from services.verification import resubmit_verification, TranslatorVerification, can_user_revise_verification
+
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    can_rev, rev_err = can_user_revise_verification(user, verification)
+    if not can_rev:
+        st = getattr(verification, 'status', 'draft') if verification else 'not_started'
+        code = 409 if st == 'pending' else (403 if st in ('approved', 'verified') else 400)
+        if is_json:
+            return jsonify({'success': False, 'message': rev_err, 'is_duplicate': bool(st == 'pending')}), code
+        flash(rev_err, 'warning')
+        return redirect(url_for('verification_status_page'))
+
+    form_data = {}
+    if request.is_json:
+        form_data = request.get_json(silent=True) or {}
+    else:
+        form_data = request.form.to_dict()
+
+    files = request.files
+
+    ip = get_client_ip() if callable(get_client_ip) else request.remote_addr
+    user_agent = request.headers.get('User-Agent', '')[:512]
+
+    ok, msg, meta = resubmit_verification(
+        user=user,
+        form_data=form_data,
+        files=files,
+        ip_address=ip,
+        user_agent=user_agent
+    )
+
+    if not ok:
+        status_code = 409 if meta.get('is_duplicate') else 400
+        if is_json:
+            return jsonify({
+                'success': False,
+                'message': msg,
+                'is_duplicate': meta.get('is_duplicate', False),
+                'missing_items': meta.get('missing_items', []),
+                'error_list': meta.get('error_list', [msg])
+            }), status_code
+
+        flash(msg, 'error')
+        from services.verification import get_verification_revision_details
+        data = get_verification_revision_details(user)
+        data['error_message'] = msg
+        data['missing_items'] = meta.get('missing_items', [])
+        return render_template('verification_revision.html', user=user, data=data), 400
+
+    if is_json:
+        return jsonify({
+            'success': True,
+            'message': msg,
+            'version': meta.get('version'),
+            'previous_version': meta.get('previous_version'),
+            'submitted_at': meta.get('submitted_at'),
+            'status': meta.get('status')
+        }), 200
+
+    flash(msg, 'success')
+    return redirect(url_for('verification_status_page'))
+
+
+@app.route('/account/verification/revision/upload-document', methods=['POST'])
+@login_required
+def verification_revision_upload_document():
+    """
+    Endpoint tải lên tài liệu minh chứng thay thế từng tệp qua AJAX trong trang bổ sung hồ sơ:
+    - Lưu vào Private Storage an toàn.
+    - Cập nhật tài liệu cũ thành 'replaced'.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    from services.verification import TranslatorVerification, can_user_revise_verification, save_private_document
+
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    can_rev, rev_err = can_user_revise_verification(user, verification)
+    if not can_rev:
+        return jsonify({'success': False, 'message': rev_err}), 403
+
+    doc_type = request.form.get('document_type')
+    file = request.files.get('file') or request.files.get('document_file')
+    if not file or not file.filename:
+        return jsonify({'success': False, 'message': 'Vui lòng chọn tệp tài liệu để tải lên.'}), 400
+
+    ok, doc, err = save_private_document(file, user, doc_type=doc_type, verification=verification)
+    if not ok:
+        return jsonify({'success': False, 'message': err}), 400
+
+    return jsonify({
+        'success': True,
+        'message': f'Đã tải lên tệp thay thế cho {doc.document_type.upper()} thành công.',
+        'document': doc.to_dict()
+    }), 200
+
+
+@app.route('/api/account/verification/revision', methods=['GET'])
+@login_required
+def api_verification_revision_details():
+    """
+    API JSON trả về toàn bộ dữ liệu chi tiết phục vụ màn hình bổ sung hồ sơ.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    from services.verification import get_verification_revision_details
+    data = get_verification_revision_details(user)
+    return jsonify({'success': True, 'data': data})
+
+
+@app.route('/api/account/verification/revision/resubmit', methods=['POST'])
+@login_required
+def api_verification_revision_resubmit():
+    """
+    API JSON gửi lại hồ sơ sau khi bổ sung.
+    """
+    return verification_revision_resubmit()
+
+
 @app.route('/account/avatar/upload', methods=['POST'])
 @login_required
 def upload_avatar_endpoint():
