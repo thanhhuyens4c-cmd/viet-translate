@@ -851,11 +851,25 @@ class TranslatorVerification(db.Model):
     reviewed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)
 
+    # Tiến trình nộp hồ sơ, phiên bản & Snapshot bất biến
+    submitted_at = db.Column(db.DateTime, nullable=True, index=True)
+    submission_version = db.Column(db.Integer, default=0)
+    submitted_snapshot = db.Column(db.Text, nullable=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('verifications', lazy=True, cascade='all, delete-orphan', order_by='desc(TranslatorVerification.created_at)'))
     reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref=db.backref('reviewed_verifications', lazy=True))
+
+    def get_submitted_snapshot(self):
+        """Trả về dữ liệu snapshot của lần nộp hồ sơ gần nhất."""
+        if self.submitted_snapshot:
+            try:
+                return json.loads(self.submitted_snapshot)
+            except Exception:
+                return {}
+        return {}
 
     def get_draft_dict(self):
         """Trả về dictionary chứa dữ liệu nháp của tất cả các bước."""
@@ -950,3 +964,34 @@ class VerificationDocument(db.Model):
             'created_at': self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else None,
             'can_preview': self.file_extension in ('pdf', 'jpg', 'jpeg', 'png', 'webp')
         }
+
+
+# ─── VERIFICATION SUBMISSION VERSION MODEL ────────────────────────────────────
+
+class VerificationSubmissionVersion(db.Model):
+    """
+    Lưu giữ các phiên bản hồ sơ đã nộp của phiên dịch viên phục vụ đối soát và audit.
+    Bảo toàn snapshot bất biến tại từng thời điểm nộp hồ sơ.
+    """
+    __tablename__ = 'verification_submission_version'
+
+    id = db.Column(db.Integer, primary_key=True)
+    verification_id = db.Column(db.Integer, db.ForeignKey('translator_verification.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    version_number = db.Column(db.Integer, nullable=False, default=1)
+    status = db.Column(db.String(20), default='pending')
+    snapshot_data = db.Column(db.Text, nullable=False)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    ip_address = db.Column(db.String(50), nullable=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+
+    verification = db.relationship('TranslatorVerification', backref=db.backref('submission_versions', lazy=True, cascade='all, delete-orphan', order_by='desc(VerificationSubmissionVersion.submitted_at)'))
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('verification_submissions', lazy=True))
+
+    def get_snapshot(self):
+        """Trả về dữ liệu snapshot dạng dictionary."""
+        try:
+            return json.loads(self.snapshot_data)
+        except Exception:
+            return {}
+

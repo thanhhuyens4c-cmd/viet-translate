@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -833,6 +833,28 @@ def _init_db():
                     except Exception:
                         conn.execute(text('ALTER TABLE user ADD COLUMN avatar VARCHAR(255)'))
                         conn.commit()
+
+        if 'translator_verification' in inspector.get_table_names():
+            tv_cols = [c['name'] for c in inspector.get_columns('translator_verification')]
+            with db.engine.connect() as conn:
+                if 'submitted_at' not in tv_cols:
+                    try:
+                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN submitted_at TIMESTAMP'))
+                        conn.commit()
+                    except Exception:
+                        pass
+                if 'submission_version' not in tv_cols:
+                    try:
+                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN submission_version INTEGER DEFAULT 0'))
+                        conn.commit()
+                    except Exception:
+                        pass
+                if 'submitted_snapshot' not in tv_cols:
+                    try:
+                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN submitted_snapshot TEXT'))
+                        conn.commit()
+                    except Exception:
+                        pass
     except Exception:
         pass
 
@@ -2240,20 +2262,79 @@ def account_profile():
 @app.route('/account/verification/submit', methods=['POST'])
 @login_required
 def submit_verification():
-    """Nhận và xử lý hồ sơ xác minh phiên dịch viên (CV, chứng chỉ, thông tin năng lực)."""
-    uid = session['user_id']
+    """Nhận và xử lý gửi hồ sơ xác minh phiên dịch viên tới Ban quản trị."""
+    uid = session.get('user_id')
     user = User.query.get(uid)
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
+
     if not user:
+        if is_ajax:
+            return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
         flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        msg = 'Chỉ tài khoản phiên dịch viên mới có quyền gửi hồ sơ xác minh.'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 403
+        flash(msg, 'error')
         return redirect(url_for('account_profile'))
 
-    from services.verification import submit_verification_request
-    ok, msg = submit_verification_request(user, request.form, request.files)
-    if ok:
-        flash(msg, 'success')
+    from services.verification import submit_verification_for_review, submit_verification_request
+
+    # Nếu người dùng gửi kèm file trực tiếp qua multipart form
+    if request.files and any(f.filename for f in request.files.values()):
+        ok, msg = submit_verification_request(user, request.form, request.files)
+        if ok:
+            flash(msg, 'success')
+        else:
+            flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=verification')
+
+    # Dữ liệu JSON hoặc form POST
+    if request.is_json:
+        payload = request.json or {}
+        form_data = payload.get('form_data') or payload
+        confirmed = payload.get('confirmed') in (True, 'true', '1', 1, 'on')
     else:
-        flash(msg, 'error')
+        form_data = request.form.to_dict()
+        confirmed = request.form.get('confirmed') in (True, 'true', '1', 1, 'on')
+
+    ok, msg, meta = submit_verification_for_review(
+        user,
+        form_data=form_data,
+        confirmed=confirmed,
+        ip_address=request.remote_addr,
+        user_agent=request.user_agent.string if request.user_agent else None
+    )
+
+    if not ok:
+        if is_ajax:
+            status_code = 409 if meta.get('is_duplicate') else 400
+            return jsonify({
+                'success': False,
+                'message': msg,
+                'errors': meta.get('errors', {}),
+                'error_list': meta.get('error_list', [msg]),
+                'is_duplicate': meta.get('is_duplicate', False)
+            }), status_code
+
+        for err in meta.get('error_list', [msg]):
+            flash(err, 'error')
+        return redirect(url_for('account_profile') + '?tab=verification')
+
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': msg,
+            'version': meta.get('version'),
+            'submitted_at': meta.get('submitted_at'),
+            'redirect_url': url_for('account_profile') + '?tab=verification'
+        }), 200
+
+    flash(msg, 'success')
     return redirect(url_for('account_profile') + '?tab=verification')
+
 
 
 # ─── TRANSLATOR VERIFICATION DOCUMENTS (PRIVATE STORAGE & RBAC) ───────────────
@@ -2590,6 +2671,11 @@ def verification_form():
         elif action == 'confirm_draft':
             # Xác nhận hoàn tất khai báo nháp, chuẩn bị cho giai đoạn nộp tài liệu sau này
             ok, verif, err = save_verification_draft(user, form_data, target_step=6)
+            if not ok:
+                if is_ajax:
+                    return jsonify({'success': False, 'message': err}), 400
+                flash(err, 'error')
+                return redirect(url_for('verification_form', step=step))
             if is_ajax:
                 return jsonify({
                     'success': True,
@@ -2599,6 +2685,41 @@ def verification_form():
             flash('Bản nháp hồ sơ xác minh đã được lưu trữ an toàn trong tài khoản của bạn.', 'success')
             return redirect(url_for('account_profile') + '?tab=verification')
 
+        elif action == 'submit_verification':
+            from services.verification import submit_verification_for_review
+            confirmed = (form_data.get('confirmed') if isinstance(form_data, dict) else request.form.get('confirmed')) in (True, 'true', '1', 1, 'on')
+            ok, msg, meta = submit_verification_for_review(
+                user,
+                form_data=form_data,
+                confirmed=confirmed,
+                ip_address=request.remote_addr,
+                user_agent=request.user_agent.string if request.user_agent else None
+            )
+            if not ok:
+                if is_ajax:
+                    status_code = 409 if meta.get('is_duplicate') else 400
+                    return jsonify({
+                        'success': False,
+                        'message': msg,
+                        'errors': meta.get('errors', {}),
+                        'error_list': meta.get('error_list', [msg]),
+                        'is_duplicate': meta.get('is_duplicate', False)
+                    }), status_code
+                for err_text in meta.get('error_list', [msg]):
+                    flash(err_text, 'error')
+                return redirect(url_for('verification_form', step=6))
+
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': msg,
+                    'version': meta.get('version'),
+                    'submitted_at': meta.get('submitted_at'),
+                    'redirect_url': url_for('account_profile') + '?tab=verification'
+                }), 200
+            flash(msg, 'success')
+            return redirect(url_for('account_profile') + '?tab=verification')
+
     # GET Request
     # Ưu tiên tham số URL ?step=X, nếu không thì lấy từ verification.current_step
     requested_step = request.args.get('step', type=int)
@@ -2606,6 +2727,8 @@ def verification_form():
     
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
     draft_dict = verification.get_draft_dict()
+    from services.verification import DOCUMENT_POLICIES
+    verification_documents = [d for d in verification.documents if d.is_active] if verification else []
 
     return render_template(
         'verification_form.html',
@@ -2614,8 +2737,109 @@ def verification_form():
         draft=draft_dict,
         active_step=active_step,
         LANGUAGES=get_localized_languages(current_lang),
-        current_year=datetime.utcnow().year
+        current_year=datetime.utcnow().year,
+        verification_documents=verification_documents,
+        DOCUMENT_POLICIES=DOCUMENT_POLICIES,
+        is_pending=(getattr(verification, 'status', 'draft') == 'pending'),
+        is_approved=(getattr(verification, 'status', 'draft') == 'approved')
     )
+
+
+@app.route('/api/account/verification/check-eligibility', methods=['GET'])
+@login_required
+def check_verification_eligibility_api():
+    """Kiểm tra điều kiện sẵn sàng gửi hồ sơ xác minh trước khi nộp."""
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    from services.verification import validate_verification_eligibility, TranslatorVerification
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    if not verification:
+        return jsonify({
+            'success': True,
+            'is_eligible': False,
+            'status': 'not_started',
+            'errors': {'verification': 'Chưa khởi tạo hồ sơ.'},
+            'error_list': ['Chưa khởi tạo hồ sơ nháp.'],
+            'version': 0
+        })
+
+    is_eligible, errors_dict, error_messages = validate_verification_eligibility(
+        verification,
+        require_confirmation=False
+    )
+    return jsonify({
+        'success': True,
+        'is_eligible': is_eligible,
+        'status': verification.status,
+        'errors': errors_dict,
+        'error_list': error_messages,
+        'version': verification.submission_version or 0,
+        'submitted_at': verification.submitted_at.strftime('%d/%m/%Y %H:%M') if verification.submitted_at else None
+    })
+
+
+# ─── TRANSLATOR VERIFICATION STATUS TRACKER ROUTES ────────────────────────────
+
+@app.route('/account/verification/status', methods=['GET'])
+@app.route('/verification/status', methods=['GET'])
+@login_required
+def verification_status_page():
+    """
+    Trang theo dõi trạng thái xác minh riêng biệt dành cho phiên dịch viên (VietTranslate).
+    Lấy dữ liệu thực từ hồ sơ của tài khoản đang đăng nhập.
+    Hiển thị đầy đủ:
+    - Trạng thái tổng thể, ngày tạo và ngày gửi hồ sơ.
+    - Tiến độ 6 bước hoàn thành, đang xử lý hoặc cần bổ sung.
+    - Trạng thái từng hạng mục khi có dữ liệu.
+    - Yêu cầu bổ sung và hướng dẫn của Admin.
+    - Lý do từ chối nếu có.
+    - Lịch sử các lần gửi và kết quả.
+    - Hành động tiếp theo phù hợp với trạng thái hiện tại.
+    Quy tắc an toàn:
+    - Người dùng chỉ được xem hồ sơ của chính mình.
+    - Không suy đoán dữ liệu thiếu.
+    - Không lộ kết quả nội bộ không được phép.
+    """
+    uid = session.get('user_id')
+    if uid and not isinstance(uid, int):
+        session.clear()
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
+
+    user = User.query.get(uid)
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        flash('Trang theo dõi trạng thái xác minh chỉ dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import get_translator_verification_status_details
+    data = get_translator_verification_status_details(user)
+
+    return render_template('verification_status.html', user=user, data=data)
+
+
+@app.route('/api/account/verification/status', methods=['GET'])
+@login_required
+def verification_status_api():
+    """
+    API JSON trả về toàn bộ dữ liệu trạng thái xác minh của phiên dịch viên hiện tại.
+    Hỗ trợ tải động realtime qua AJAX.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    from services.verification import get_translator_verification_status_details
+    data = get_translator_verification_status_details(user)
+
+    return jsonify({'success': True, 'data': data})
 
 
 @app.route('/account/avatar/upload', methods=['POST'])

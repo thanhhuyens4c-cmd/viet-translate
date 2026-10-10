@@ -433,12 +433,12 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            <div class="shrink-0 w-full sm:w-auto">
-                                <button type="button" onclick="switchTab('verification')"
-                                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-amber-500/25 transition cursor-pointer">
+                            <div class="shrink-0 w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+                                <a href="{{ url_for('verification_status_page') }}"
+                                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-amber-500/25 transition">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                     <span>{{ t('account_profile_page.btn_view_verification_status') }}</span>
-                                </button>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -1041,7 +1041,7 @@
                             </div>
                             
                             <!-- Trạng thái hiện tại -->
-                            <div>
+                            <div class="flex items-center gap-2">
                                 {% if user.profile and user.profile.is_verified %}
                                 <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 shadow-sm">
                                     <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
@@ -1062,6 +1062,12 @@
                                     Chưa nộp hồ sơ
                                 </span>
                                 {% endif %}
+
+                                <a href="{{ url_for('verification_status_page') }}"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-brand-700 bg-brand-50 border border-brand-200/80 hover:bg-brand-100 transition shadow-2xs">
+                                    <span>Theo dõi chi tiết</span>
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                </a>
                             </div>
                         </div>
 
@@ -1136,7 +1142,11 @@
                                     <h3 class="text-sm font-bold text-amber-950">{{ t('account_profile_page.pending_title') }}</h3>
                                     <p class="text-xs text-amber-800 mt-1 leading-relaxed">{{ t('account_profile_page.pending_desc') }}</p>
                                     <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-amber-700">
-                                        <span>Ngày gửi: <strong>{{ user.latest_verification.created_at.strftime('%d/%m/%Y %H:%M') }}</strong></span>
+                                        <span>Ngày gửi: <strong>{{ (user.latest_verification.submitted_at or user.latest_verification.created_at).strftime('%d/%m/%Y %H:%M') }}</strong></span>
+                                        {% if user.latest_verification.submission_version %}
+                                        <span>·</span>
+                                        <span>Phiên bản hồ sơ: <strong>v{{ user.latest_verification.submission_version }}</strong></span>
+                                        {% endif %}
                                         {% if user.latest_verification.cv_url %}
                                         <span>·</span>
                                         <a href="{{ user.latest_verification.cv_url }}" target="_blank" class="font-bold underline hover:text-amber-900 inline-flex items-center gap-1">
@@ -1508,9 +1518,19 @@
                                             class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white leading-relaxed">{{ user.latest_verification.notes if user.latest_verification else '' }}</textarea>
                                     </div>
 
+                                    <div class="p-3.5 bg-amber-50/60 border border-amber-200/80 rounded-xl">
+                                        <label class="flex items-start gap-2.5 cursor-pointer">
+                                            <input type="checkbox" name="confirmed" value="1" required class="mt-0.5 rounded text-brand-600 focus:ring-brand-500">
+                                            <span class="text-xs text-slate-700 leading-relaxed font-medium">
+                                                Tôi xin cam kết toàn bộ thông tin kê khai và các tài liệu minh chứng đính kèm là hoàn toàn chính xác, trung thực. Tôi chịu hoàn toàn trách nhiệm trước pháp luật và chính sách của VietTranslate.
+                                            </span>
+                                        </label>
+                                    </div>
+
                                     <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
                                         <span class="text-[11px] text-slate-400">VietTranslate cam kết bảo mật toàn bộ dữ liệu giấy tờ cá nhân theo chính sách quyền riêng tư.</span>
-                                        <button type="submit"
+                                        <button type="submit" id="btn-submit-profile-verification"
+                                            onclick="if(this.form.checkValidity()){ this.disabled = true; this.innerHTML = '<span class=\'inline-block animate-spin mr-2\'>⏳</span> Đang gửi hồ sơ...'; this.form.submit(); }"
                                             class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-2 cursor-pointer">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                             <span>{% if user.latest_verification and user.latest_verification.status == 'rejected' %}{{ t('account_profile_page.resubmit_verification_btn') }}{% else %}{{ t('account_profile_page.submit_verification_btn') }}{% endif %}</span>
