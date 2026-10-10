@@ -786,8 +786,41 @@ class TranslatorVerification(db.Model):
     experience_years = db.Column(db.Integer, default=0)
     notes = db.Column(db.Text, nullable=True)                    # Lời nhắn / mô tả kinh nghiệm gửi Admin
 
-    # Trạng thái xét duyệt: 'pending', 'approved', 'rejected'
-    status = db.Column(db.String(20), default='pending', index=True)
+    # Tiến trình biểu mẫu nhiều bước & Dữ liệu nháp
+    current_step = db.Column(db.Integer, default=1)
+    draft_data = db.Column(db.Text, nullable=True)
+
+    # Bước 1: Thông tin cá nhân
+    full_name = db.Column(db.String(100), nullable=True)
+    phone = db.Column(db.String(20), nullable=True)
+    gender = db.Column(db.String(20), nullable=True)
+    dob = db.Column(db.String(20), nullable=True)
+    location = db.Column(db.String(100), nullable=True)
+    bio = db.Column(db.Text, nullable=True)
+
+    # Bước 2: Ngôn ngữ & Chiều phiên dịch
+    source_language = db.Column(db.String(100), nullable=True)
+    target_language = db.Column(db.String(100), nullable=True)
+    interpreting_direction = db.Column(db.String(50), nullable=True)
+    language_proficiency = db.Column(db.String(50), nullable=True)
+
+    # Bước 3: Lĩnh vực chuyên môn & Hình thức phiên dịch
+    specializations = db.Column(db.Text, nullable=True)
+    interpreting_types = db.Column(db.Text, nullable=True)
+
+    # Bước 4: Học vấn & Chứng chỉ
+    education_level = db.Column(db.String(100), nullable=True)
+    university = db.Column(db.String(255), nullable=True)
+    major = db.Column(db.String(255), nullable=True)
+    cert_year = db.Column(db.Integer, nullable=True)
+
+    # Bước 5: Kinh nghiệm nghề nghiệp
+    current_position = db.Column(db.String(255), nullable=True)
+    notable_clients = db.Column(db.Text, nullable=True)
+    featured_projects = db.Column(db.Text, nullable=True)
+
+    # Trạng thái xét duyệt: 'draft', 'pending', 'approved', 'rejected'
+    status = db.Column(db.String(20), default='draft', index=True)
     rejection_reason = db.Column(db.Text, nullable=True)
 
     # Xét duyệt bởi Admin
@@ -799,3 +832,30 @@ class TranslatorVerification(db.Model):
 
     user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('verifications', lazy=True, cascade='all, delete-orphan', order_by='desc(TranslatorVerification.created_at)'))
     reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref=db.backref('reviewed_verifications', lazy=True))
+
+    def get_draft_dict(self):
+        """Trả về dictionary chứa dữ liệu nháp của tất cả các bước."""
+        data = {}
+        if self.draft_data:
+            try:
+                data = json.loads(self.draft_data)
+            except Exception:
+                data = {}
+        
+        field_names = [
+            'full_name', 'phone', 'gender', 'dob', 'location', 'bio',
+            'source_language', 'target_language', 'interpreting_direction', 'language_proficiency',
+            'specializations', 'interpreting_types',
+            'education_level', 'university', 'major', 'certificate_type', 'certificate_name', 'cert_year',
+            'experience_years', 'current_position', 'notable_clients', 'featured_projects', 'notes'
+        ]
+        for f in field_names:
+            if f not in data or data[f] is None or data[f] == '':
+                val = getattr(self, f, None)
+                if val is not None:
+                    data[f] = val
+
+        if 'current_step' not in data:
+            data['current_step'] = self.current_step or 1
+
+        return data
