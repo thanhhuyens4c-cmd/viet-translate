@@ -83,7 +83,17 @@
             </div>
 
             <div class="shrink-0">
-                {% if contract.status == 'escrow_pending' %}
+                {% if contract.status == 'awaiting_translator' %}
+                <span
+                    class="bg-amber-50 text-amber-800 border border-amber-200/80 font-bold px-4 py-1.5 rounded-full text-xs inline-block">
+                    {{ '⏳ Chờ PDV xác nhận' if current_lang == 'vi' else '⏳ Awaiting translator' }}
+                </span>
+                {% elif contract.status == 'cancelled' %}
+                <span
+                    class="bg-slate-100 text-slate-600 border border-slate-200 font-bold px-4 py-1.5 rounded-full text-xs inline-block">
+                    {{ 'Đã hủy' if current_lang == 'vi' else 'Cancelled' }}
+                </span>
+                {% elif contract.status == 'escrow_pending' %}
                 <span
                     class="bg-amber-50 text-amber-800 border border-amber-200/80 font-bold px-4 py-1.5 rounded-full text-xs inline-block">
                     {{ t('auto.⏳_chờ_thanh_toán_esc') }}
@@ -101,6 +111,49 @@
                 {% endif %}
             </div>
         </div>
+
+        {% set vi = current_lang == 'vi' %}
+        {% if contract.status == 'awaiting_translator' %}
+        <div class="mb-6 bg-amber-50 border border-amber-200/80 rounded-2xl p-5 text-sm text-amber-900">
+            {% if current_user.id == contract.translator_id %}
+            <p class="font-bold mb-1">{{ 'Khách hàng muốn đặt lịch với bạn' if vi else 'A client wants to book you' }}</p>
+            <p class="text-xs mb-3">{{ 'Vui lòng xác nhận trong 24 giờ, nếu không lịch sẽ tự động hết hạn.' if vi else 'Please confirm within 24 hours or the request expires.' }}</p>
+            <div class="flex gap-2">
+                <form method="POST" action="{{ url_for('contract_action', contract_id=contract.id, action='accept') }}">
+                    <button class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs">{{ 'Nhận lịch' if vi else 'Accept' }}</button>
+                </form>
+                <form method="POST" action="{{ url_for('contract_action', contract_id=contract.id, action='decline') }}"
+                    onsubmit="return confirm('{{ 'Từ chối yêu cầu này?' if vi else 'Decline this request?' }}');">
+                    <button class="bg-white border border-slate-300 text-slate-700 px-5 py-2.5 rounded-xl font-bold text-xs">{{ 'Từ chối' if vi else 'Decline' }}</button>
+                </form>
+            </div>
+            {% else %}
+            <p class="font-bold">{{ 'Đang chờ phiên dịch viên xác nhận' if vi else 'Waiting for the translator to confirm' }}</p>
+            <p class="text-xs mt-1">{{ 'Bạn sẽ chỉ thanh toán sau khi phiên dịch viên đồng ý nhận lịch.' if vi else 'You pay only after the translator accepts.' }}</p>
+            {% endif %}
+        </div>
+        {% elif contract.status == 'cancelled' %}
+        <div class="mb-6 bg-slate-100 border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 font-semibold">
+            {{ 'Hợp đồng này đã bị hủy hoặc hết hạn.' if vi else 'This contract was cancelled or expired.' }}
+        </div>
+        {% endif %}
+
+        {% if contract.status in ['awaiting_translator', 'escrow_pending', 'in_progress'] and not contract.deliverables %}
+        <details class="mb-6 text-xs">
+            <summary class="cursor-pointer font-bold text-slate-500 hover:text-red-600">{{ 'Hủy hợp đồng' if vi else 'Cancel contract' }}</summary>
+            <div class="mt-2 bg-white border border-slate-200 rounded-xl p-4 text-slate-600 leading-relaxed">
+                {% if contract.status == 'in_progress' and current_user.id == contract.hirer_id %}
+                <p class="mb-2">{{ 'Chính sách hoàn tiền: hủy trước 48 giờ hoàn 100%; 24–48 giờ hoàn 50%; dưới 24 giờ không hoàn.' if vi else 'Refund policy: 100% if cancelled 48h+ before, 50% at 24–48h, none under 24h.' }}</p>
+                {% elif contract.status == 'in_progress' %}
+                <p class="mb-2">{{ 'Nếu bạn hủy sau khi khách đã thanh toán, khách được hoàn 100%.' if vi else 'If you cancel after payment, the client is refunded in full.' }}</p>
+                {% endif %}
+                <form method="POST" action="{{ url_for('contract_action', contract_id=contract.id, action='cancel') }}"
+                    onsubmit="return confirm('{{ 'Bạn chắc chắn muốn hủy hợp đồng?' if vi else 'Cancel this contract?' }}');">
+                    <button class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold">{{ 'Xác nhận hủy' if vi else 'Confirm cancel' }}</button>
+                </form>
+            </div>
+        </details>
+        {% endif %}
 
         <div class="flex flex-col lg:flex-row gap-6">
 
@@ -139,7 +192,10 @@
 
                             <!-- Step 2: Escrow -->
                             <div class="relative pl-11">
-                                {% if contract.status == 'escrow_pending' %}
+                                {% if contract.status in ['awaiting_translator', 'cancelled'] %}
+                                <div class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-slate-300 border-2 border-white"></div>
+                                <h3 class="font-bold text-slate-400 text-sm">{{ t('auto.thanh_toán_tạm_giữ_e') }}</h3>
+                                {% elif contract.status == 'escrow_pending' %}
                                 <div
                                     class="absolute left-2 top-0.5 w-4 h-4 rounded-full bg-brand-600 border-2 border-white shadow-sm animate-pulse">
                                 </div>

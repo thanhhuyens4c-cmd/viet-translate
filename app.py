@@ -1561,6 +1561,8 @@ def book_service(service_id):
                 service_id=service.id
             )
             flash(_t('flash.service_booked'), 'success')
+            if contract.status == 'awaiting_translator':
+                return redirect(url_for('transaction_detail', contract_id=contract.id))
             return redirect(url_for('payment_mockup', contract_id=contract.id))
             
         except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
@@ -1874,6 +1876,15 @@ def payment_mockup(contract_id):
     from services.permissions import require_contract_access
     require_contract_access(session['user_id'], contract)
 
+    if session['user_id'] != contract.hirer_id:
+        abort(403)
+    if contract.status != 'escrow_pending':
+        if contract.status == 'awaiting_translator':
+            flash('Phiên dịch viên chưa xác nhận lịch, bạn chưa thể thanh toán.', 'warning')
+        else:
+            flash('Hợp đồng này không ở trạng thái chờ thanh toán.', 'error')
+        return redirect(url_for('transaction_detail', contract_id=contract.id))
+
     platform_fee = int(contract.agreed_price * 0.10)
     translator_receives = contract.agreed_price - platform_fee
     if request.method == 'POST':
@@ -1885,6 +1896,10 @@ def payment_mockup(contract_id):
                 return redirect(url_for('index'))
                 
             contract.status = 'in_progress'
+            db.session.add(PaymentTransaction(
+                contract_id=contract.id, user_id=contract.hirer_id,
+                amount=contract.agreed_price, status='escrow_pending',
+                payment_method='mockup'))
             db.session.commit()
             flash('Thanh toán thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
             return redirect(url_for('transaction_detail', contract_id=contract.id))
@@ -1983,6 +1998,32 @@ def transaction_detail(contract_id):
 
     return render_template('transaction_detail.html', contract=contract)
 
+@app.route('/contract/<int:contract_id>/<action>', methods=['POST'])
+@login_required
+def contract_action(contract_id, action):
+    """PDV xác nhận/từ chối lịch; hirer hoặc PDV hủy hợp đồng."""
+    if action not in ('accept', 'decline', 'cancel'):
+        abort(404)
+    contract = Contract.query.with_for_update().get_or_404(contract_id)
+    from services.permissions import require_contract_access
+    from services.contract_flow import (ContractFlowError, accept_booking,
+                                        decline_booking, cancel_contract)
+    require_contract_access(session['user_id'], contract)
+    try:
+        if action == 'accept':
+            accept_booking(contract, session['user_id'])
+            flash('Đã xác nhận lịch. Đang chờ khách thanh toán.', 'success')
+        elif action == 'decline':
+            decline_booking(contract, session['user_id'])
+            flash('Đã từ chối yêu cầu đặt lịch.', 'success')
+        else:
+            pct = cancel_contract(contract, session['user_id'])
+            flash('Đã hủy hợp đồng.' + (f' Khách được hoàn {pct}% số tiền đã thanh toán.' if pct else ''), 'success')
+    except ContractFlowError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    return redirect(url_for('transaction_detail', contract_id=contract_id))
+
 @app.route('/approve-contract/<int:contract_id>', methods=['POST'])
 @login_required
 def approve_contract(contract_id):
@@ -1991,6 +2032,8 @@ def approve_contract(contract_id):
     require_contract_access(session['user_id'], contract)
     if session['user_id'] == contract.hirer_id and contract.status == 'in_progress':
         contract.status = 'completed'
+        for pay in PaymentTransaction.query.filter_by(contract_id=contract.id, status='escrow_pending').all():
+            pay.status = 'completed'
         if contract.job:
             contract.job.status = 'completed'
         prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
