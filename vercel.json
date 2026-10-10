@@ -9,7 +9,7 @@
       "src": "api/index.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": ["templates/**", "static/**", "instance/**", "translations.py", "models.py", "services/**"]
+        "includeFiles": ["templates/**", "static/**", "instance/**", "translations.py", "models.py", "services/**", "admin_auth.py", "supabase_client.py", "i18n/**"]
       }
     }
   ],

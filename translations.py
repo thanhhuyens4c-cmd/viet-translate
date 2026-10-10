@@ -514,9 +514,30 @@ TRANSLATIONS = {
             'nav_profile': 'Hồ sơ cá nhân',
             'nav_history': 'Lịch sử giao dịch',
             'nav_public_page': 'Xem trang công khai',
+            'nav_notifications': 'Hộp thư thông báo',
+            'tab_overview': 'Tổng quan hồ sơ',
             'tab_basic': 'Thông tin cá nhân',
             'tab_translator': 'Hồ sơ chuyên môn',
+            'tab_verification': 'Xác minh hồ sơ',
             'tab_security': 'Bảo mật & Mật khẩu',
+            'heading_overview': 'Tổng Quan Hồ Sơ & Trạng Thái',
+            'btn_start_verification': 'Bắt đầu xác minh',
+            'btn_continue_verification': 'Tiếp tục hoàn thiện hồ sơ',
+            'btn_view_verification_status': 'Xem trạng thái xác minh',
+            'btn_update_verification': 'Bổ sung hồ sơ ngay',
+            'btn_view_public_profile': 'Xem hồ sơ công khai',
+            'btn_resubmit_verification': 'Xem lý do & Gửi lại',
+            'completion_title': 'Tiến độ hoàn thiện hồ sơ',
+            'missing_items_title': 'Các mục còn thiếu hoặc cần bổ sung',
+            'heading_verification': 'Xác minh Hồ Sơ & Năng Lực',
+            'verified_title': 'Hồ sơ đã được xác minh chính thức',
+            'verified_desc': 'Hồ sơ của bạn đã hoàn tất xác minh danh tính và năng lực chuyên môn. Huy hiệu tích xanh uy tín hiện đang hiển thị trên trang cá nhân và danh sách ứng tuyển.',
+            'pending_title': 'Hồ sơ đang chờ phê duyệt',
+            'pending_desc': 'Yêu cầu xác minh của bạn đã được gửi tới Ban quản trị và đang trong quá trình xét duyệt. Quá trình này thường diễn ra trong vòng 24–48 giờ làm việc.',
+            'rejected_title': 'Hồ sơ chưa được phê duyệt',
+            'rejected_desc': 'Yêu cầu xác minh của bạn chưa đạt yêu cầu. Vui lòng xem lý do bên dưới, cập nhật lại tài liệu và gửi lại.',
+            'submit_verification_btn': 'Gửi hồ sơ xác minh',
+            'resubmit_verification_btn': 'Cập nhật & Nộp lại hồ sơ',
             'heading_basic': 'Thông tin tài khoản',
             'label_name': 'Họ và tên',
             'label_email': 'Email tài khoản',
@@ -650,14 +671,26 @@ TRANSLATIONS = {
             'translators_heading': 'Thẩm Định & Duyệt Phiên Dịch Viên',
             'tab_pending_verify': 'Chờ duyệt xác minh',
             'tab_verified': 'Đã xác minh (Tích xanh)',
+            'tab_all_translators': 'Tất cả phiên dịch viên',
+            'tab_rejected_verify': 'Bị từ chối',
             'th_translator': 'Phiên dịch viên',
             'th_languages': 'Ngôn ngữ',
             'th_specialty': 'Chuyên môn / Tiêu đề',
+            'th_credentials': 'Chứng chỉ & Bằng cấp',
+            'th_documents': 'Tài liệu thẩm định',
             'action_view_profile': 'Xem hồ sơ',
             'action_verify_confirm': 'Cấp tích xanh Xác minh cho người này?',
             'action_grant_verify': 'Cấp tích xanh',
+            'action_approve_verify': 'Phê duyệt',
+            'action_reject_verify': 'Từ chối',
             'action_revoke_confirm': 'Thu hồi tích xanh Xác minh của người này?',
             'action_revoke': 'Thu hồi',
+            'btn_view_cv': 'Xem CV',
+            'btn_view_cert': 'Xem Bằng',
+            'btn_view_id': 'Xem CCCD',
+            'reject_modal_title': 'Từ chối yêu cầu xác minh',
+            'reject_reason_label': 'Lý do từ chối (gửi tới phiên dịch viên):',
+            'reject_reason_placeholder': 'VD: Ảnh chứng chỉ không rõ ràng; CV thiếu kinh nghiệm...',
             'no_pending_profiles': 'Không có hồ sơ nào đang chờ duyệt.',
             'no_verified_profiles': 'Chưa có hồ sơ nào được xác minh.',
             'users_title': 'Quản Lý Tài Khoản Thành Viên | VietTranslate Admin',
@@ -1408,9 +1441,30 @@ TRANSLATIONS = {
             'nav_profile': 'Account Profile',
             'nav_history': 'Transaction History',
             'nav_public_page': 'View Public Profile',
+            'nav_notifications': 'Notifications Inbox',
+            'tab_overview': 'Profile Overview',
             'tab_basic': 'Personal Information',
             'tab_translator': 'Professional Profile',
+            'tab_verification': 'Profile Verification',
             'tab_security': 'Security & Password',
+            'heading_overview': 'Profile Overview & Verification Status',
+            'btn_start_verification': 'Start Verification',
+            'btn_continue_verification': 'Continue Profile Draft',
+            'btn_view_verification_status': 'View Verification Status',
+            'btn_update_verification': 'Submit Revisions Now',
+            'btn_view_public_profile': 'View Public Profile',
+            'btn_resubmit_verification': 'Review Reason & Resubmit',
+            'completion_title': 'Profile Completion Progress',
+            'missing_items_title': 'Items to Complete or Supplement',
+            'heading_verification': 'Profile & Credentials Verification',
+            'verified_title': 'Officially Verified Profile',
+            'verified_desc': 'Your profile has passed identity and credentials verification. The verified badge is actively displayed on your public page and job proposals.',
+            'pending_title': 'Verification In Review',
+            'pending_desc': 'Your verification request has been submitted to Administrators and is pending review. This usually takes 24–48 business hours.',
+            'rejected_title': 'Verification Not Approved',
+            'rejected_desc': 'Your verification request was not approved. Please review the reason below, update your documents, and resubmit.',
+            'submit_verification_btn': 'Submit Verification Request',
+            'resubmit_verification_btn': 'Update & Resubmit Documents',
             'heading_basic': 'Account Information',
             'label_name': 'Full Name',
             'label_email': 'Account Email',
@@ -1919,6 +1973,31 @@ LOCALIZED_LANGUAGES_DATA = [
         'cert_en': 'DELE B2 or higher',
     },
 ]
+
+def _load_json_translations():
+    import os
+    import json
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    for code in ('vi', 'en'):
+        json_file = os.path.join(base_dir, 'i18n', f'{code}.json')
+        if os.path.exists(json_file):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        if code not in TRANSLATIONS:
+                            TRANSLATIONS[code] = {}
+                        for sec_k, sec_v in data.items():
+                            if sec_k not in TRANSLATIONS[code]:
+                                TRANSLATIONS[code][sec_k] = sec_v
+                            elif isinstance(TRANSLATIONS[code][sec_k], dict) and isinstance(sec_v, dict):
+                                TRANSLATIONS[code][sec_k].update(sec_v)
+                            else:
+                                TRANSLATIONS[code][sec_k] = sec_v
+            except Exception:
+                pass
+
+_load_json_translations()
 
 
 def t(key, lang='vi', **kwargs):

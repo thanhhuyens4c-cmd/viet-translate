@@ -1,0 +1,676 @@
+{% extends "base.html" %}
+
+{% block title %}Tạo hồ sơ phiên dịch viên | VietTranslate{% endblock %}
+
+{% block head %}
+<style>
+    /* ── Gradient hero ── */
+    .setup-hero {
+        background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #4f46e5 100%);
+    }
+
+    /* ── Step indicator ── */
+    .step-circle {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    .step-circle.active   { background: #2563eb; color: #fff; box-shadow: 0 0 0 4px rgba(37,99,235,.18); }
+    .step-circle.done     { background: #10b981; color: #fff; }
+    .step-circle.inactive { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
+    .step-line { flex: 1; height: 2px; transition: background 0.4s; }
+    .step-line.done { background: #10b981; }
+    .step-line.inactive { background: #e2e8f0; }
+
+    /* ── Card ── */
+    .setup-card {
+        background: #fff;
+        border-radius: 20px;
+        border: 1px solid rgba(226,232,240,0.9);
+        box-shadow: 0 8px 32px -4px rgba(15,23,42,0.07);
+        padding: 2.5rem;
+        transition: box-shadow 0.3s;
+    }
+
+    /* ── Section title ── */
+    .section-title {
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: .09em;
+        text-transform: uppercase;
+        color: #2563eb;
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+    .section-title::before {
+        content: '';
+        display: inline-block;
+        width: 3px;
+        height: 14px;
+        border-radius: 4px;
+        background: #2563eb;
+    }
+
+    /* ── Form inputs ── */
+    .form-input, .form-select, .form-textarea {
+        width: 100%;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 0.65rem 1rem;
+        font-size: 0.875rem;
+        color: #0f172a;
+        background: #f8fafc;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        font-family: inherit;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+        border-color: #2563eb;
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(37,99,235,.11);
+    }
+    .form-label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #334155;
+        margin-bottom: 0.4rem;
+    }
+    .form-hint {
+        font-size: 0.7rem;
+        color: #94a3b8;
+        margin-top: 0.3rem;
+    }
+    .form-textarea { resize: vertical; min-height: 110px; }
+
+    /* ── Language chip ── */
+    .lang-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .35rem .85rem;
+        border-radius: 999px;
+        border: 1.5px solid #e2e8f0;
+        font-size: .78rem;
+        font-weight: 600;
+        color: #475569;
+        background: #f8fafc;
+        cursor: pointer;
+        transition: all .18s;
+        user-select: none;
+    }
+    .lang-chip:hover { border-color: #93c5fd; background: #eff6ff; color: #2563eb; }
+    .lang-chip.selected { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+    .lang-chip input { display: none; }
+
+    /* ── Tier card ── */
+    .tier-card {
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.25rem;
+    }
+
+    /* ── Avatar upload ── */
+    .avatar-drop {
+        width: 100%;
+        border: 2px dashed #cbd5e1;
+        border-radius: 16px;
+        padding: 2rem 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color .2s, background .2s;
+        background: #f8fafc;
+    }
+    .avatar-drop:hover { border-color: #2563eb; background: #eff6ff; }
+
+    /* ── Progress bar ── */
+    .progress-track { background: rgba(255,255,255,.2); border-radius: 999px; height: 6px; overflow: hidden; }
+    .progress-fill { background: #fff; border-radius: 999px; height: 100%; transition: width .5s cubic-bezier(.4,0,.2,1); }
+
+    /* ── Buttons ── */
+    .btn-primary {
+        background: linear-gradient(135deg, #2563eb, #4f46e5);
+        color: #fff;
+        font-weight: 800;
+        padding: .85rem 2.5rem;
+        border-radius: 14px;
+        border: none;
+        cursor: pointer;
+        font-size: .9rem;
+        box-shadow: 0 4px 18px rgba(37,99,235,.35);
+        transition: all .2s;
+        font-family: inherit;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(37,99,235,.4); }
+    .btn-outline {
+        background: transparent;
+        color: #2563eb;
+        font-weight: 700;
+        padding: .85rem 2rem;
+        border-radius: 14px;
+        border: 2px solid #2563eb;
+        cursor: pointer;
+        font-size: .9rem;
+        transition: all .2s;
+        font-family: inherit;
+    }
+    .btn-outline:hover { background: #eff6ff; }
+
+    /* ── Step panels ── */
+    .step-panel { display: none; }
+    .step-panel.active { display: block; animation: fadeInUp .35s ease; }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Preview badge ── */
+    .preview-badge {
+        background: linear-gradient(135deg,#2563eb,#4f46e5);
+        color:#fff;
+        font-size:.65rem;
+        font-weight:800;
+        letter-spacing:.08em;
+        padding:.2rem .6rem;
+        border-radius:999px;
+        text-transform:uppercase;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/60">
+
+    <!-- ── Hero Banner ── -->
+    <div class="setup-hero text-white py-12 px-4">
+        <div class="max-w-3xl mx-auto text-center">
+            <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-1.5 rounded-full text-xs font-bold mb-5 tracking-wider border border-white/20">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                TẠO HỒ SƠ PHIÊN DỊCH VIÊN
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold mb-3 tracking-tight">Xây dựng hồ sơ của bạn</h1>
+            <p class="text-blue-200 text-sm sm:text-base max-w-xl mx-auto">Hoàn thiện hồ sơ để nhận nhiều đơn hàng hơn và tăng uy tín với khách hàng trên VietTranslate.</p>
+            <div class="mt-8 max-w-xs mx-auto">
+                <div class="flex justify-between text-xs font-semibold mb-2">
+                    <span>Hoàn thiện hồ sơ</span>
+                    <span id="progress-pct">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+
+        <!-- ── Step Indicator ── -->
+        <div class="flex items-center mb-10 px-2">
+            <div class="flex flex-col items-center gap-1.5">
+                <div class="step-circle active" id="sc-1">1</div>
+                <span class="text-[10px] font-bold text-blue-600 hidden sm:block">Cá nhân</span>
+            </div>
+            <div class="step-line inactive" id="sl-1"></div>
+            <div class="flex flex-col items-center gap-1.5">
+                <div class="step-circle inactive" id="sc-2">2</div>
+                <span class="text-[10px] font-bold text-slate-400 hidden sm:block">Ngôn ngữ</span>
+            </div>
+            <div class="step-line inactive" id="sl-2"></div>
+            <div class="flex flex-col items-center gap-1.5">
+                <div class="step-circle inactive" id="sc-3">3</div>
+                <span class="text-[10px] font-bold text-slate-400 hidden sm:block">Dịch vụ</span>
+            </div>
+            <div class="step-line inactive" id="sl-3"></div>
+            <div class="flex flex-col items-center gap-1.5">
+                <div class="step-circle inactive" id="sc-4">4</div>
+                <span class="text-[10px] font-bold text-slate-400 hidden sm:block">Xem trước</span>
+            </div>
+        </div>
+
+        <!-- ── FORM ── -->
+        <form method="POST" enctype="multipart/form-data" id="profile-form" novalidate>
+
+            <!-- ═══ STEP 1: THÔNG TIN CÁ NHÂN ═══ -->
+            <div class="step-panel active" id="panel-1">
+                <div class="setup-card">
+                    <p class="section-title">Thông tin cá nhân</p>
+
+                    <!-- Avatar Upload -->
+                    <div class="mb-6">
+                        <label class="form-label">Ảnh đại diện</label>
+                        <div class="flex items-center gap-5">
+                            <div class="relative w-20 h-20 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-600 flex-shrink-0 flex items-center justify-center shadow-md">
+                                <img id="avatar-preview" src="" alt="" class="w-full h-full object-cover hidden">
+                                <span id="avatar-initials" class="text-white text-3xl font-black">
+                                    {% if user %}{{ user.name[0]|upper }}{% else %}?{% endif %}
+                                </span>
+                            </div>
+                            <div class="flex-1">
+                                <label for="avatar-input" class="avatar-drop block">
+                                    <svg class="w-8 h-8 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    <span class="text-xs font-semibold text-slate-500">Nhấn để tải ảnh lên</span>
+                                    <span class="block text-[11px] text-slate-400 mt-1">PNG, JPG tối đa 5MB</span>
+                                </label>
+                                <input type="file" id="avatar-input" name="avatar" accept="image/*" class="hidden">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div class="sm:col-span-2">
+                            <label for="full-name" class="form-label">Họ và tên <span class="text-red-500">*</span></label>
+                            <input type="text" id="full-name" name="full_name"
+                                value="{{ user.name if user else '' }}"
+                                class="form-input" placeholder="VD: Nguyễn Thị Mai" required>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <label for="title" class="form-label">Tiêu đề chuyên môn <span class="text-red-500">*</span></label>
+                            <input type="text" id="title" name="title"
+                                value="{{ profile.title if profile else '' }}"
+                                class="form-input" placeholder="VD: Phiên dịch viên Anh–Việt chuyên ngành pháp lý" required>
+                            <p class="form-hint">Tiêu đề ngắn gọn thể hiện chuyên môn nổi bật của bạn</p>
+                        </div>
+
+                        <div>
+                            <label for="phone" class="form-label">Số điện thoại</label>
+                            <input type="tel" id="phone" name="phone"
+                                value="{{ user.phone if user else '' }}"
+                                class="form-input" placeholder="0912 345 678">
+                        </div>
+
+                        <div>
+                            <label for="experience" class="form-label">Số năm kinh nghiệm</label>
+                            <select id="experience" name="experience" class="form-select">
+                                <option value="">-- Chọn --</option>
+                                <option value="Dưới 1 năm">Dưới 1 năm</option>
+                                <option value="1–2 năm">1–2 năm</option>
+                                <option value="3–5 năm">3–5 năm</option>
+                                <option value="5–10 năm">5–10 năm</option>
+                                <option value="Trên 10 năm">Trên 10 năm</option>
+                            </select>
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <label for="bio" class="form-label">Giới thiệu bản thân <span class="text-red-500">*</span></label>
+                            <textarea id="bio" name="bio" class="form-textarea"
+                                placeholder="Mô tả kinh nghiệm, thế mạnh, lĩnh vực chuyên môn và phong cách làm việc của bạn...">{{ profile.bio if profile else '' }}</textarea>
+                            <div class="flex justify-between form-hint">
+                                <span>Tối thiểu 80 ký tự để hồ sơ nổi bật</span>
+                                <span id="bio-count">0 / 600</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="response-time" class="form-label">Thời gian phản hồi</label>
+                            <select id="response-time" name="response_time" class="form-select">
+                                <option value="Trong vòng 1 giờ">Trong vòng 1 giờ</option>
+                                <option value="2–4 giờ" selected>2–4 giờ</option>
+                                <option value="Trong ngày">Trong ngày</option>
+                                <option value="1–2 ngày">1–2 ngày</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="location" class="form-label">Địa điểm làm việc</label>
+                            <select id="location" name="location" class="form-select">
+                                <option value="">-- Chọn tỉnh/thành --</option>
+                                <option>Hà Nội</option>
+                                <option>TP. Hồ Chí Minh</option>
+                                <option>Đà Nẵng</option>
+                                <option>Cần Thơ</option>
+                                <option>Hải Phòng</option>
+                                <option>Khác</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end mt-6">
+                    <button type="button" onclick="goStep(2)" class="btn-primary">Tiếp theo →</button>
+                </div>
+            </div>
+
+            <!-- ═══ STEP 2: NGÔN NGỮ & CHỨNG CHỈ ═══ -->
+            <div class="step-panel" id="panel-2">
+                <div class="setup-card">
+                    <p class="section-title">Ngôn ngữ &amp; Trình độ</p>
+
+                    <label class="form-label mb-3">Chọn ngôn ngữ bạn có thể dịch <span class="text-red-500">*</span></label>
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <label class="lang-chip" id="chip-en"><input type="checkbox" name="languages" value="Tiếng Anh" onchange="toggleChip(this)"><span>🇬🇧</span><span>Tiếng Anh</span></label>
+                        <label class="lang-chip" id="chip-ja"><input type="checkbox" name="languages" value="Tiếng Nhật" onchange="toggleChip(this)"><span>🇯🇵</span><span>Tiếng Nhật</span></label>
+                        <label class="lang-chip" id="chip-ko"><input type="checkbox" name="languages" value="Tiếng Hàn" onchange="toggleChip(this)"><span>🇰🇷</span><span>Tiếng Hàn</span></label>
+                        <label class="lang-chip" id="chip-zh"><input type="checkbox" name="languages" value="Tiếng Trung" onchange="toggleChip(this)"><span>🇨🇳</span><span>Tiếng Trung</span></label>
+                        <label class="lang-chip" id="chip-fr"><input type="checkbox" name="languages" value="Tiếng Pháp" onchange="toggleChip(this)"><span>🇫🇷</span><span>Tiếng Pháp</span></label>
+                        <label class="lang-chip" id="chip-de"><input type="checkbox" name="languages" value="Tiếng Đức" onchange="toggleChip(this)"><span>🇩🇪</span><span>Tiếng Đức</span></label>
+                        <label class="lang-chip" id="chip-ru"><input type="checkbox" name="languages" value="Tiếng Nga" onchange="toggleChip(this)"><span>🇷🇺</span><span>Tiếng Nga</span></label>
+                        <label class="lang-chip" id="chip-th"><input type="checkbox" name="languages" value="Tiếng Thái" onchange="toggleChip(this)"><span>🇹🇭</span><span>Tiếng Thái</span></label>
+                        <label class="lang-chip" id="chip-pt"><input type="checkbox" name="languages" value="Tiếng Bồ Đào Nha" onchange="toggleChip(this)"><span>🇵🇹</span><span>Tiếng Bồ Đào Nha</span></label>
+                        <label class="lang-chip" id="chip-es"><input type="checkbox" name="languages" value="Tiếng Tây Ban Nha" onchange="toggleChip(this)"><span>🇪🇸</span><span>Tiếng Tây Ban Nha</span></label>
+                    </div>
+
+                    <!-- Chứng chỉ -->
+                    <div class="mb-6">
+                        <label class="form-label">Chứng chỉ ngôn ngữ (nếu có)</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="cert-fields">
+                            <input type="text" name="cert_1" class="form-input" placeholder="VD: IELTS 7.5, JLPT N1...">
+                            <input type="text" name="cert_2" class="form-input" placeholder="VD: HSK 6, TOPIK 6...">
+                        </div>
+                        <button type="button" onclick="addCertField()" class="mt-2 text-xs text-blue-600 font-bold hover:underline flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                            Thêm chứng chỉ
+                        </button>
+                    </div>
+
+                    <!-- Chuyên ngành -->
+                    <div>
+                        <label class="form-label">Lĩnh vực chuyên môn</label>
+                        <div class="flex flex-wrap gap-2">
+                            <label class="lang-chip"><input type="checkbox" name="fields" value="Pháp lý / Hợp đồng" onchange="toggleChip(this)"><span>Pháp lý / Hợp đồng</span></label>
+                            <label class="lang-chip"><input type="checkbox" name="fields" value="Y tế / Dược" onchange="toggleChip(this)"><span>Y tế / Dược</span></label>
+                            <label class="lang-chip"><input type="checkbox" name="fields" value="Kỹ thuật / Công nghệ" onchange="toggleChip(this)"><span>Kỹ thuật / Công nghệ</span></label>
+                            <label class="lang-chip"><input type="checkbox" name="fields" value="Tài chính / Kế toán" onchange="toggleChip(this)"><span>Tài chính / Kế toán</span></label>
+                            <label class="lang-chip"><input type="checkbox" name="fields" value="Marketing / Truyền thông" onchange="toggleChip(this)"><span>Marketing / Truyền thông</span></label>
+                            <label class="lang-chip"><input type="checkbox" name="fields" value="Học thuật / Nghiên cứu" onchange="toggleChip(this)"><span>Học thuật / Nghiên cứu</span></label>
+                            <label class="lang-chip"><input type="checkbox" name="fields" value="Du lịch / Khách sạn" onchange="toggleChip(this)"><span>Du lịch / Khách sạn</span></label>
+                            <label class="lang-chip"><input type="checkbox" name="fields" value="Phiên dịch trực tiếp" onchange="toggleChip(this)"><span>Phiên dịch trực tiếp</span></label>
+                            <label class="lang-chip"><input type="checkbox" name="fields" value="Dịch thuật công chứng" onchange="toggleChip(this)"><span>Dịch thuật công chứng</span></label>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between mt-6">
+                    <button type="button" onclick="goStep(1)" class="btn-outline">← Quay lại</button>
+                    <button type="button" onclick="goStep(3)" class="btn-primary">Tiếp theo →</button>
+                </div>
+            </div>
+
+            <!-- ═══ STEP 3: GÓI DỊCH VỤ ═══ -->
+            <div class="step-panel" id="panel-3">
+                <div class="setup-card">
+                    <p class="section-title">Gói dịch vụ &amp; Giá cả</p>
+                    <p class="text-xs text-slate-500 mb-6">Thiết lập các gói dịch vụ để khách hàng dễ dàng đặt hàng. Bạn có thể thêm sau khi hoàn tất hồ sơ.</p>
+
+                    <div class="mb-5">
+                        <label for="service-name" class="form-label">Tên dịch vụ chính</label>
+                        <input type="text" id="service-name" name="service_name" class="form-input"
+                            placeholder="VD: Dịch thuật tài liệu pháp lý Anh–Việt">
+                    </div>
+
+                    <div class="mb-5">
+                        <label for="service-desc" class="form-label">Mô tả dịch vụ</label>
+                        <textarea id="service-desc" name="service_desc" class="form-textarea" style="min-height:80px"
+                            placeholder="Mô tả ngắn về dịch vụ, quy trình làm việc..."></textarea>
+                    </div>
+
+                    <!-- 3 Tier pricing -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="tier-card">
+                            <div class="flex items-center gap-1.5 mb-3">
+                                <span class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-bold">B</span>
+                                <span class="font-bold text-xs text-slate-700">CƠ BẢN</span>
+                            </div>
+                            <label class="form-label text-[11px]">Giá (VNĐ)</label>
+                            <input type="number" name="basic_price" min="0" step="10000" class="form-input mb-2" placeholder="150,000">
+                            <label class="form-label text-[11px]">Thời gian giao</label>
+                            <input type="text" name="basic_delivery" class="form-input" placeholder="3 ngày">
+                        </div>
+                        <div class="tier-card">
+                            <div class="flex items-center gap-1.5 mb-3">
+                                <span class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">S</span>
+                                <span class="font-bold text-xs text-blue-700">TIÊU CHUẨN</span>
+                            </div>
+                            <label class="form-label text-[11px]">Giá (VNĐ)</label>
+                            <input type="number" name="standard_price" min="0" step="10000" class="form-input mb-2" placeholder="250,000">
+                            <label class="form-label text-[11px]">Thời gian giao</label>
+                            <input type="text" name="standard_delivery" class="form-input" placeholder="2 ngày">
+                        </div>
+                        <div class="tier-card">
+                            <div class="flex items-center gap-1.5 mb-3">
+                                <span class="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold">P</span>
+                                <span class="font-bold text-xs text-indigo-700">CAO CẤP</span>
+                            </div>
+                            <label class="form-label text-[11px]">Giá (VNĐ)</label>
+                            <input type="number" name="premium_price" min="0" step="10000" class="form-input mb-2" placeholder="450,000">
+                            <label class="form-label text-[11px]">Thời gian giao</label>
+                            <input type="text" name="premium_delivery" class="form-input" placeholder="1 ngày">
+                        </div>
+                    </div>
+
+                    <div class="mt-5">
+                        <label for="service-category" class="form-label">Danh mục dịch vụ</label>
+                        <select id="service-category" name="service_category" class="form-select">
+                            <option value="">-- Chọn danh mục --</option>
+                            <option>Dịch thuật văn bản</option>
+                            <option>Phiên dịch trực tiếp</option>
+                            <option>Dịch công chứng</option>
+                            <option>Biên dịch đa phương tiện</option>
+                            <option>Dịch thuật chuyên ngành</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-between mt-6">
+                    <button type="button" onclick="goStep(2)" class="btn-outline">← Quay lại</button>
+                    <button type="button" onclick="goStep(4)" class="btn-primary">Xem trước →</button>
+                </div>
+            </div>
+
+            <!-- ═══ STEP 4: XEM TRƯỚC & HOÀN TẤT ═══ -->
+            <div class="step-panel" id="panel-4">
+                <!-- Preview -->
+                <div class="setup-card mb-6">
+                    <p class="section-title">Xem trước hồ sơ</p>
+                    <div class="bg-slate-50/80 border border-slate-200 rounded-2xl p-5 sm:p-6">
+                        <div class="flex items-start gap-4">
+                            <div class="w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-600 flex-shrink-0 flex items-center justify-center shadow">
+                                <img id="preview-avatar" src="" alt="" class="w-full h-full object-cover hidden">
+                                <span id="preview-initials" class="text-white text-2xl font-black">
+                                    {% if user %}{{ user.name[0]|upper }}{% else %}?{% endif %}
+                                </span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-0.5 flex-wrap">
+                                    <h2 class="text-base font-extrabold text-slate-900" id="preview-name">{{ user.name if user else 'Họ và tên' }}</h2>
+                                    <span class="preview-badge">Mới</span>
+                                </div>
+                                <p class="text-xs text-slate-500 mb-3" id="preview-title">Tiêu đề chuyên môn của bạn</p>
+                                <div class="flex flex-wrap gap-2 mb-3" id="preview-langs"></div>
+                                <p class="text-xs text-slate-600 leading-relaxed" id="preview-bio" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">Phần giới thiệu bản thân của bạn sẽ hiển thị ở đây...</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-6 mt-4 pt-4 border-t border-slate-200 text-xs text-slate-500 flex-wrap">
+                            <div class="flex items-center gap-1"><span class="text-amber-500 font-bold">★</span><span class="font-semibold text-slate-700">Mới</span></div>
+                            <div>Phản hồi: <strong id="preview-resp" class="text-slate-700">2–4 giờ</strong></div>
+                            <div>Đã hoàn thành: <strong class="text-slate-700">0 dự án</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cam kết -->
+                <div class="setup-card mb-6">
+                    <p class="section-title">Cam kết &amp; Điều khoản</p>
+                    <div class="space-y-3">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="agree_terms" id="agree-terms" required class="mt-0.5 w-4 h-4 accent-blue-600 flex-shrink-0">
+                            <span class="text-xs text-slate-600">Tôi xác nhận thông tin hồ sơ là <strong>trung thực, chính xác</strong> và đồng ý với <a href="#" class="text-blue-600 hover:underline font-semibold">Điều khoản dịch vụ</a> của VietTranslate.</span>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="agree_quality" id="agree-quality" required class="mt-0.5 w-4 h-4 accent-blue-600 flex-shrink-0">
+                            <span class="text-xs text-slate-600">Tôi cam kết cung cấp dịch vụ dịch thuật <strong>chất lượng cao</strong> và hoàn thành đúng tiến độ đã thỏa thuận.</span>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="agree_notify" class="mt-0.5 w-4 h-4 accent-blue-600 flex-shrink-0">
+                            <span class="text-xs text-slate-600">Đăng ký nhận thông báo về đơn hàng mới và tin tức từ VietTranslate. <span class="text-slate-400">(Tuỳ chọn)</span></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mt-2">
+                    <button type="button" onclick="goStep(3)" class="btn-outline w-full sm:w-auto">← Quay lại</button>
+                    <button type="submit" id="submit-btn" class="btn-primary w-full sm:w-auto flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                        Hoàn tất &amp; Tạo hồ sơ
+                    </button>
+                </div>
+            </div>
+
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── State ──
+let currentStep = 1;
+let certCount = 2;
+
+// ── Navigate steps ──
+function goStep(step) {
+    if (!validateStep(currentStep)) return;
+
+    document.getElementById('panel-' + currentStep).classList.remove('active');
+
+    for (let i = 1; i <= 4; i++) {
+        const sc = document.getElementById('sc-' + i);
+        const sl = i < 4 ? document.getElementById('sl-' + i) : null;
+        if (i < step) {
+            sc.className = 'step-circle done';
+            sc.textContent = '✓';
+            if (sl) sl.className = 'step-line done';
+        } else if (i === step) {
+            sc.className = 'step-circle active';
+            sc.textContent = i;
+            if (sl) sl.className = 'step-line inactive';
+        } else {
+            sc.className = 'step-circle inactive';
+            sc.textContent = i;
+            if (sl) sl.className = 'step-line inactive';
+        }
+    }
+
+    currentStep = step;
+    document.getElementById('panel-' + currentStep).classList.add('active');
+
+    if (step === 4) updatePreview();
+
+    const pct = Math.round(((step - 1) / 4) * 100);
+    document.getElementById('progress-pct').textContent = pct + '%';
+    document.getElementById('progress-fill').style.width = pct + '%';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Validation ──
+function validateStep(step) {
+    if (step === 1) {
+        const name = document.getElementById('full-name').value.trim();
+        const title = document.getElementById('title').value.trim();
+        if (!name) { showAlert('Vui lòng nhập họ và tên.'); return false; }
+        if (!title) { showAlert('Vui lòng nhập tiêu đề chuyên môn.'); return false; }
+    }
+    if (step === 2) {
+        const checked = document.querySelectorAll('input[name="languages"]:checked');
+        if (checked.length === 0) { showAlert('Vui lòng chọn ít nhất 1 ngôn ngữ.'); return false; }
+    }
+    return true;
+}
+
+function showAlert(msg) {
+    // Inline alert
+    let el = document.getElementById('inline-alert');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'inline-alert';
+        el.style.cssText = 'position:fixed;top:1.5rem;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;padding:.75rem 1.5rem;border-radius:12px;font-size:.85rem;font-weight:700;z-index:9999;box-shadow:0 4px 16px rgba(239,68,68,.4);';
+        document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+// ── Toggle chip style ──
+function toggleChip(input) {
+    const chip = input.closest('.lang-chip');
+    if (input.checked) chip.classList.add('selected');
+    else chip.classList.remove('selected');
+}
+
+// ── Avatar preview ──
+document.getElementById('avatar-input').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+        const src = ev.target.result;
+        const prev = document.getElementById('avatar-preview');
+        prev.src = src;
+        prev.classList.remove('hidden');
+        document.getElementById('avatar-initials').style.display = 'none';
+        // Step 4 preview
+        const pa = document.getElementById('preview-avatar');
+        pa.src = src;
+        pa.classList.remove('hidden');
+        document.getElementById('preview-initials').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+});
+
+// ── Bio counter ──
+document.getElementById('bio').addEventListener('input', function() {
+    document.getElementById('bio-count').textContent = this.value.length + ' / 600';
+    if (this.value.length > 600) this.value = this.value.substring(0, 600);
+});
+
+// ── Add cert field ──
+function addCertField() {
+    certCount++;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = 'cert_' + certCount;
+    input.className = 'form-input';
+    input.placeholder = 'Thêm chứng chỉ...';
+    document.getElementById('cert-fields').appendChild(input);
+}
+
+// ── Live preview update ──
+function updatePreview() {
+    document.getElementById('preview-name').textContent =
+        document.getElementById('full-name').value.trim() || 'Họ và tên';
+    document.getElementById('preview-title').textContent =
+        document.getElementById('title').value.trim() || 'Tiêu đề chuyên môn của bạn';
+    document.getElementById('preview-bio').textContent =
+        document.getElementById('bio').value.trim() || 'Phần giới thiệu bản thân của bạn sẽ hiển thị ở đây...';
+    document.getElementById('preview-resp').textContent =
+        document.getElementById('response-time').value || '2–4 giờ';
+
+    const langsEl = document.getElementById('preview-langs');
+    langsEl.innerHTML = '';
+    document.querySelectorAll('input[name="languages"]:checked').forEach(function(cb) {
+        const span = document.createElement('span');
+        span.className = 'bg-blue-50 text-blue-700 text-[11px] font-bold px-2 py-0.5 rounded-lg border border-blue-200/80';
+        span.textContent = cb.value;
+        langsEl.appendChild(span);
+    });
+}
+
+// ── Submit validation ──
+document.getElementById('profile-form').addEventListener('submit', function(e) {
+    const terms = document.getElementById('agree-terms').checked;
+    const quality = document.getElementById('agree-quality').checked;
+    if (!terms || !quality) {
+        e.preventDefault();
+        showAlert('Vui lòng đồng ý với các điều khoản bắt buộc.');
+    }
+});
+</script>
+{% endblock %}
