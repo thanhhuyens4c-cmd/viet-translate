@@ -33,23 +33,6 @@
         </p>
     </div>
 
-    {% if current_user and current_user.role == 'hirer' and (not current_user.hirer_profile or not current_user.hirer_profile.is_verified) %}
-    <div class="mb-6 p-4 sm:p-5 bg-gradient-to-r from-amber-50 via-amber-50/60 to-orange-50/50 border border-amber-200/80 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div class="flex items-center gap-3 text-left">
-            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs text-base">
-                🛡️
-            </div>
-            <div>
-                <h4 class="text-xs sm:text-sm font-bold text-slate-900">Nâng cao độ uy tín cho tin đăng tuyển dụng</h4>
-                <p class="text-xs text-slate-600 mt-0.5">Xác minh hồ sơ doanh nghiệp / HR để nhận <strong>Tích Xanh</strong> và thu hút gấp 2.5x báo giá từ phiên dịch viên chất lượng cao.</p>
-            </div>
-        </div>
-        <a href="{{ url_for('account_profile') }}#verify" target="_blank" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-xs transition shrink-0 transform hover:scale-105">
-            Xác minh ngay →
-        </a>
-    </div>
-    {% endif %}
-
     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-10">
         <form method="POST" action="{{ url_for('post_job') }}" class="space-y-8">
             

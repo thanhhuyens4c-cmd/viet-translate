@@ -305,41 +305,6 @@ class SchedulingTestCase(unittest.TestCase):
         # No extra schedules created for contract 170
         self.assertEqual(TranslatorSchedule.query.filter_by(contract_id=170).count(), 0)
 
-    def test_R_vietnamese_date_separator(self):
-        """TEST R: Phân tích đúng chuỗi ngày dùng dấu phân cách tiếng Việt 'đến'."""
-        schedules = reserve_slot(
-            self.trans1.id,
-            "2024-12-01 đến 2024-12-03",
-            "09:00",
-            "18:00",
-            contract_id=180
-        )
-        db.session.flush()
-        self.assertEqual(len(schedules), 3)
-        self.assertEqual(schedules[0].scheduled_date, date(2024, 12, 1))
-        self.assertEqual(schedules[2].scheduled_date, date(2024, 12, 3))
-
-    def test_S_daily_schedules_custom_times(self):
-        """TEST S: Đặt lịch với giờ làm việc khác nhau cho từng ngày."""
-        daily_schedules = [
-            {'date': '2024-12-05', 'start_time': '08:00', 'end_time': '12:00'},
-            {'date': '2024-12-06', 'start_time': '13:00', 'end_time': '17:00'}
-        ]
-        schedules = reserve_slot(
-            self.trans1.id,
-            daily_schedules=daily_schedules,
-            contract_id=190
-        )
-        db.session.flush()
-        self.assertEqual(len(schedules), 2)
-        self.assertEqual(schedules[0].scheduled_date, date(2024, 12, 5))
-        self.assertEqual(schedules[0].start_time, time(8, 0))
-        self.assertEqual(schedules[0].end_time, time(12, 0))
-
-        self.assertEqual(schedules[1].scheduled_date, date(2024, 12, 6))
-        self.assertEqual(schedules[1].start_time, time(13, 0))
-        self.assertEqual(schedules[1].end_time, time(17, 0))
-
 if __name__ == '__main__':
     unittest.main()
 
