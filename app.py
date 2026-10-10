@@ -578,6 +578,133 @@ with app.app_context():
 
 import sys
 
+HIRER_COMPANY_SIZES = ('<10', '10-50', '50-200', '200+')
+FREE_EMAIL_DOMAINS = {
+    'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.com.vn', 'hotmail.com', 'outlook.com',
+    'live.com', 'icloud.com', 'me.com', 'msn.com', 'aol.com', 'proton.me', 'protonmail.com',
+}
+LOGO_MAX_BYTES = 300 * 1024
+LOGO_MIME = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'webp': 'image/webp'}
+
+
+def _read_logo_upload(file_storage):
+    """Trả về (data_uri, error). File trống -> (None, None)."""
+    if not file_storage or not file_storage.filename:
+        return None, None
+    ext = file_storage.filename.rsplit('.', 1)[-1].lower() if '.' in file_storage.filename else ''
+    if ext not in LOGO_MIME:
+        return None, 'Logo / ảnh đại diện chỉ chấp nhận PNG, JPG hoặc WEBP.'
+    data = file_storage.read(LOGO_MAX_BYTES + 1)
+    if len(data) > LOGO_MAX_BYTES:
+        return None, 'Logo / ảnh đại diện tối đa 300KB.'
+    import base64
+    return f'data:{LOGO_MIME[ext]};base64,{base64.b64encode(data).decode()}', None
+
+
+def _apply_hirer_profile_form(user, profile, form, files):
+    """Validate và gán dữ liệu form hồ sơ khách thuê. Trả về list lỗi (rỗng = hợp lệ)."""
+    import re
+    errors = []
+    get = lambda k: (form.get(k) or '').strip()
+    phone_re = re.compile(r'^(\+84|0)\d{9,10}$')
+
+    def clean_phone(v):
+        return re.sub(r'[\s.\-]', '', v)
+
+    account_type = get('account_type')
+    if account_type not in ('business', 'individual'):
+        return ['Vui lòng chọn loại khách hàng: Doanh nghiệp / Tổ chức hoặc Cá nhân.']
+
+    phone = clean_phone(get('contact_phone'))
+    zalo = clean_phone(get('zalo'))
+    if not phone_re.match(phone):
+        errors.append('Số điện thoại không hợp lệ (VD: 0912345678).')
+    if not phone_re.match(zalo):
+        errors.append('Số Zalo không hợp lệ (VD: 0912345678).')
+
+    social = get('social_link')
+    website = get('website')
+    for label, url in (('Link Facebook / LinkedIn', social), ('Website / LinkedIn / Fanpage', website)):
+        if url and not re.match(r'^https?://\S+$', url):
+            errors.append(f'{label} phải bắt đầu bằng http:// hoặc https://')
+
+    logo, logo_err = _read_logo_upload(files.get('logo'))
+    if logo_err:
+        errors.append(logo_err)
+
+    if account_type == 'business':
+        company = get('company')
+        tax_code = re.sub(r'[\s\-]', '', get('tax_code'))
+        industry = get('industry')
+        size = get('company_size')
+        address = get('address')
+        email = get('company_email').lower()
+        rep_name = get('rep_name')
+        rep_title = get('title')
+        hotline = clean_phone(get('hotline'))
+
+        if not company: errors.append('Vui lòng nhập tên công ty / tổ chức.')
+        if not re.fullmatch(r'\d{10}|\d{13}', tax_code):
+            errors.append('Mã số thuế phải gồm 10 hoặc 13 chữ số.')
+        if not industry: errors.append('Vui lòng nhập lĩnh vực hoạt động.')
+        if size not in HIRER_COMPANY_SIZES: errors.append('Vui lòng chọn quy mô công ty.')
+        if not address: errors.append('Vui lòng nhập địa chỉ trụ sở / chi nhánh.')
+        if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
+            errors.append('Email doanh nghiệp không hợp lệ.')
+        elif email.rsplit('@', 1)[1] in FREE_EMAIL_DOMAINS:
+            errors.append('Vui lòng dùng email doanh nghiệp (dạng @tencongty.com), không dùng email miễn phí.')
+        if not rep_name or not rep_title: errors.append('Vui lòng nhập họ tên và chức vụ người đại diện.')
+        if hotline and not re.fullmatch(r'\+?\d{8,12}', hotline):
+            errors.append('Hotline bàn không hợp lệ.')
+        if errors:
+            return errors
+
+        profile.account_type = 'business'
+        profile.company, profile.tax_code, profile.industry = company, tax_code, industry
+        profile.company_size, profile.address, profile.company_email = size, address, email
+        profile.website, profile.hotline = website, hotline
+        profile.rep_name, profile.title = rep_name, rep_title
+        profile.about = get('about')[:1000]
+        profile.location = address[:100]
+    else:
+        full_name = get('full_name')
+        province = get('location')
+        hiring_field = get('hiring_field')
+        if not full_name: errors.append('Vui lòng nhập họ và tên.')
+        if not province: errors.append('Vui lòng nhập tỉnh / thành phố.')
+        if not hiring_field: errors.append('Vui lòng nhập lĩnh vực thường thuê phiên dịch.')
+        if errors:
+            return errors
+
+        profile.account_type = 'individual'
+        user.name = full_name
+        profile.location, profile.hiring_field, profile.social_link = province, hiring_field, social
+
+    profile.contact_phone, profile.zalo = phone, zalo
+    user.phone = phone
+    if logo:
+        profile.logo = logo
+    return []
+
+
+def _ensure_new_columns():
+    """db.create_all() không thêm cột vào bảng đã có -> tự thêm cột mới của hirer_profile và job."""
+    from sqlalchemy import inspect, text
+    for model in (HirerProfile, Job):
+        table = model.__table__
+        try:
+            existing = {c['name'] for c in inspect(db.engine).get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing:
+                    continue
+                coltype = col.type.compile(dialect=db.engine.dialect)
+                db.session.execute(text(f'ALTER TABLE {table.name} ADD COLUMN {col.name} {coltype}'))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] Cannot sync {table.name} columns: {e}", file=sys.stderr)
+
+
 def _init_db():
     """Tạo bảng nếu chưa tồn tại và nạp seed data DUY NHẤT khi DB trống.
     
@@ -591,6 +718,8 @@ def _init_db():
     except Exception as e:
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
         return
+
+    _ensure_new_columns()
 
     try:
         # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
@@ -1088,11 +1217,14 @@ def account_profile():
             if not profile:
                 profile = HirerProfile(user_id=user.id)
                 db.session.add(profile)
-            profile.title = request.form.get('title', '').strip()
-            profile.company = request.form.get('company', '').strip()
-            profile.location = request.form.get('location', '').strip()
-            db.session.commit()
-            flash(_t('flash.hirer_profile_updated'), 'success')
+            errors = _apply_hirer_profile_form(user, profile, request.form, request.files)
+            if errors:
+                db.session.rollback()
+                for msg in errors:
+                    flash(msg, 'error')
+            else:
+                db.session.commit()
+                flash(_t('flash.hirer_profile_updated'), 'success')
 
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')
@@ -1601,10 +1733,34 @@ def post_job():
         deadline_str = request.form.get('deadline')
         deadline = datetime.strptime(deadline_str, '%Y-%m-%d').date() if deadline_str else None
 
+        title = (request.form.get('title') or '').strip()
+        description = (request.form.get('description') or '').strip()
+
+        # Chống gửi trùng: cùng khách, cùng tiêu đề + mô tả đang chờ duyệt
+        duplicate = Job.query.filter_by(
+            hirer_id=session['user_id'], title=title, description=description, status='pending'
+        ).first()
+        if duplicate:
+            flash('Job này đã được gửi và đang chờ admin duyệt, vui lòng không gửi lại.', 'warning')
+            return redirect(url_for('job_detail', job_id=duplicate.id))
+
+        # Nhiều ngày: ô event_date chứa các ngày cách nhau bởi dấu phẩy (YYYY-MM-DD)
+        dates = []
+        for d in (request.form.get('event_date') or '').split(','):
+            d = d.strip()
+            try:
+                datetime.strptime(d, '%Y-%m-%d')
+            except ValueError:
+                continue
+            if d not in dates:
+                dates.append(d)
+        dates = sorted(dates)[:10]
+
         job = Job(
+            status='pending',
             hirer_id=session['user_id'],
-            title=request.form.get('title'),
-            description=request.form.get('description'),
+            title=title,
+            description=description,
             category=request.form.get('category'),
             category_group=request.form.get('category_group'),
             service_type=request.form.get('service_type'),
@@ -1613,7 +1769,8 @@ def post_job():
             budget_type=request.form.get('budget_type'),
             budget_min=int(request.form.get('budget_min') or 0),
             budget_max=int(request.form.get('budget_max') or 0) or None,
-            event_date=request.form.get('event_date', ''),
+            event_date=dates[0] if dates else '',
+            extra_dates=','.join(dates[1:]),
             event_time_start=request.form.get('event_time_start', ''),
             event_time_end=request.form.get('event_time_end', ''),
             event_location=request.form.get('event_location', ''),
@@ -1622,11 +1779,9 @@ def post_job():
         db.session.add(job)
         db.session.commit()
 
-        # Notify matching translators (safe, won't block job creation if fails)
-        from services.matching import notify_matching_translators_for_new_job
-        notify_matching_translators_for_new_job(job)
-
-        flash(_t('flash.job_posted'), 'success')
+        # Job chỉ hiện trên trang chính và báo cho phiên dịch viên sau khi admin duyệt
+        flash('Job đã gửi, đang chờ admin duyệt.' if get_locale() == 'vi'
+              else 'Job submitted — awaiting admin approval.', 'success')
         return redirect(url_for('job_detail', job_id=job.id))
     return render_template('post_job.html', LANGUAGES=LANGUAGES)
 
@@ -1655,6 +1810,10 @@ def job_list():
 @app.route('/job/<int:job_id>', methods=['GET', 'POST'])
 def job_detail(job_id):
     job = Job.query.get_or_404(job_id)
+    if job.status in ('pending', 'rejected'):
+        viewer = get_current_user()
+        if not viewer or not (viewer.id == job.hirer_id or viewer.is_admin):
+            abort(404)
     if request.method == 'POST':
         # ── 1. Login & Role guard ─────────────────────────────────────────────
         user = get_current_user()
@@ -2325,10 +2484,35 @@ def admin_jobs():
         query = query.filter_by(is_flagged=True)
     elif status_filter == 'open':
         query = query.filter_by(status='open', is_flagged=False)
+    elif status_filter == 'pending':
+        query = query.filter_by(status='pending')
     elif status_filter == 'completed':
         query = query.filter_by(status='completed')
     jobs = query.order_by(Job.created_at.desc()).all()
-    return render_template('admin_jobs.html', jobs=jobs, status_filter=status_filter)
+    return render_template('admin_jobs.html', jobs=jobs, status_filter=status_filter,
+                           pending_count=Job.query.filter_by(status='pending').count())
+
+@app.route('/admin/jobs/<int:job_id>/review', methods=['POST'])
+@admin_required
+def admin_review_job(job_id):
+    job = Job.query.get_or_404(job_id)
+    if job.status != 'pending':
+        flash('Job này không còn ở trạng thái chờ duyệt.', 'warning')
+        return redirect(url_for('admin_jobs', status='pending'))
+    approve = request.form.get('decision') == 'approve'
+    job.status = 'open' if approve else 'rejected'
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['UNFLAG_JOB'] if approve else ADMIN_AUDIT_ACTIONS['FLAG_JOB'],
+        target_type='job',
+        target_id=job.id,
+        description=f'{"Duyệt" if approve else "Từ chối"} job "{job.title}" (ID={job.id})',
+    )
+    db.session.commit()
+    if approve:
+        from services.matching import notify_matching_translators_for_new_job
+        notify_matching_translators_for_new_job(job)
+    flash(f'Đã {"duyệt" if approve else "từ chối"} job "{job.title}".', 'success')
+    return redirect(url_for('admin_jobs', status='pending'))
 
 @app.route('/admin/jobs/<int:job_id>/flag', methods=['POST'])
 @admin_required

@@ -391,41 +391,111 @@
 
                 <!-- Tab Hirer Profile -->
                 {% if user.role == 'hirer' %}
+                {% set hp = user.hirer_profile %}
+                {% set atype = hp.account_type if hp and hp.account_type else 'individual' %}
+                {% set inp = 'w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition' %}
+                {% set lbl = 'block text-xs font-bold text-slate-700 uppercase tracking-wide' %}
                 <div id="tab-hirer" class="tab-panel">
                     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
                         <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                            {{ t('auto.hồ_sơ_công_ty__tổ_ch') }}
+                            Hồ sơ khách hàng
                         </h2>
 
-                        <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-5">
+                        <form method="POST" action="{{ url_for('account_profile') }}" enctype="multipart/form-data" class="space-y-6" id="hirer-profile-form">
                             <input type="hidden" name="action" value="hirer_profile">
 
-                            <div class="space-y-1.5">
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{
-                                    t('auto.chức_vụ') }}</label>
-                                <input type="text" name="title"
-                                    value="{{ user.hirer_profile.title if user.hirer_profile else '' }}"
-                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                    placeholder="{{ t('auto.ví_dụ_trưởng_phòng_n') }}">
+                            <!-- Chọn loại khách -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="border rounded-xl p-4 cursor-pointer flex items-center gap-3 hirer-type-opt">
+                                    <input type="radio" name="account_type" value="business" {% if atype == 'business' %}checked{% endif %} class="text-brand-600">
+                                    <span class="font-bold text-sm text-slate-800">Doanh nghiệp / Tổ chức</span>
+                                </label>
+                                <label class="border rounded-xl p-4 cursor-pointer flex items-center gap-3 hirer-type-opt">
+                                    <input type="radio" name="account_type" value="individual" {% if atype != 'business' %}checked{% endif %} class="text-brand-600">
+                                    <span class="font-bold text-sm text-slate-800">Cá nhân</span>
+                                </label>
                             </div>
 
-                            <div class="space-y-1.5">
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{
-                                    t('auto.công_ty') }}</label>
-                                <input type="text" name="company"
-                                    value="{{ user.hirer_profile.company if user.hirer_profile else '' }}"
-                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                    placeholder="{{ t('auto.tên_công_ty_hoặc_tổ') }}">
+                            <!-- DOANH NGHIỆP -->
+                            <div id="hirer-business" class="space-y-6">
+                                <fieldset class="space-y-4">
+                                    <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Pháp lý</legend>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Tên công ty / tổ chức <span class="text-red-500">*</span></label>
+                                        <input type="text" name="company" value="{{ (hp.company if hp else '') or '' }}" class="{{ inp }}" data-biz-required></div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Mã số thuế <span class="text-red-500">*</span></label>
+                                            <input type="text" name="tax_code" inputmode="numeric" maxlength="14" placeholder="10 hoặc 13 chữ số" value="{{ (hp.tax_code if hp else '') or '' }}" class="{{ inp }}" data-biz-required></div>
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Quy mô <span class="text-red-500">*</span></label>
+                                            <select name="company_size" class="{{ inp }}" data-biz-required>
+                                                <option value="">-- Chọn quy mô --</option>
+                                                {% for v, l in [('<10','Dưới 10 lao động'),('10-50','10 - 50 lao động'),('50-200','50 - 200 lao động'),('200+','Trên 200 lao động')] %}
+                                                <option value="{{ v }}" {% if hp and hp.company_size == v %}selected{% endif %}>{{ l }}</option>
+                                                {% endfor %}
+                                            </select></div>
+                                    </div>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Lĩnh vực hoạt động <span class="text-red-500">*</span></label>
+                                        <input type="text" name="industry" value="{{ (hp.industry if hp else '') or '' }}" placeholder="VD: Sản xuất, Du lịch, Y tế..." class="{{ inp }}" data-biz-required></div>
+                                </fieldset>
+
+                                <fieldset class="space-y-4">
+                                    <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Liên hệ</legend>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Địa chỉ trụ sở / chi nhánh <span class="text-red-500">*</span></label>
+                                        <input type="text" name="address" value="{{ (hp.address if hp else '') or '' }}" class="{{ inp }}" data-biz-required></div>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Email doanh nghiệp <span class="text-red-500">*</span></label>
+                                        <input type="email" name="company_email" value="{{ (hp.company_email if hp else '') or '' }}" placeholder="ten@tencongty.com" class="{{ inp }}" data-biz-required></div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Website / LinkedIn / Fanpage</label>
+                                            <input type="url" name="website" value="{{ (hp.website if hp else '') or '' }}" placeholder="https://" class="{{ inp }}"></div>
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Hotline bàn</label>
+                                            <input type="tel" name="hotline" value="{{ (hp.hotline if hp else '') or '' }}" class="{{ inp }}"></div>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="space-y-4">
+                                    <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Người đại diện</legend>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Họ tên <span class="text-red-500">*</span></label>
+                                            <input type="text" name="rep_name" value="{{ (hp.rep_name if hp else '') or '' }}" class="{{ inp }}" data-biz-required></div>
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Chức vụ <span class="text-red-500">*</span></label>
+                                            <input type="text" name="title" value="{{ (hp.title if hp else '') or '' }}" class="{{ inp }}" data-biz-required></div>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="space-y-4">
+                                    <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Khác</legend>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Giới thiệu ngắn về công ty</label>
+                                        <textarea name="about" rows="3" maxlength="1000" class="{{ inp }}">{{ (hp.about if hp else '') or '' }}</textarea></div>
+                                </fieldset>
                             </div>
 
-                            <div class="space-y-1.5">
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{
-                                    t('auto.khu_vực') }}</label>
-                                <input type="text" name="location"
-                                    value="{{ user.hirer_profile.location if user.hirer_profile else '' }}"
-                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                    placeholder="{{ t('auto.ví_dụ_hà_nội_tp_hồ_c') }}">
+                            <!-- CÁ NHÂN -->
+                            <div id="hirer-individual" class="space-y-4">
+                                <div class="space-y-1.5"><label class="{{ lbl }}">Họ và tên <span class="text-red-500">*</span></label>
+                                    <input type="text" name="full_name" value="{{ user.name }}" class="{{ inp }}" data-ind-required></div>
+                                <div class="space-y-1.5"><label class="{{ lbl }}">Tỉnh / thành phố <span class="text-red-500">*</span></label>
+                                    <input type="text" name="location" value="{{ (hp.location if hp and atype != 'business' else '') or '' }}" placeholder="VD: Hà Nội, TP. Hồ Chí Minh" class="{{ inp }}" data-ind-required></div>
+                                <div class="space-y-1.5"><label class="{{ lbl }}">Lĩnh vực thường thuê phiên dịch <span class="text-red-500">*</span></label>
+                                    <input type="text" name="hiring_field" value="{{ (hp.hiring_field if hp else '') or '' }}" placeholder="VD: Du lịch, y tế, đàm phán..." class="{{ inp }}" data-ind-required></div>
+                                <div class="space-y-1.5"><label class="{{ lbl }}">Link Facebook / LinkedIn</label>
+                                    <input type="url" name="social_link" value="{{ (hp.social_link if hp else '') or '' }}" placeholder="https://" class="{{ inp }}"></div>
+                            </div>
+
+                            <!-- DÙNG CHUNG -->
+                            <div class="space-y-4 border-t border-slate-100 pt-5">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="space-y-1.5"><label class="{{ lbl }}"><span id="phone-label">Số điện thoại</span> <span class="text-red-500">*</span></label>
+                                        <input type="tel" name="contact_phone" required value="{{ (hp.contact_phone if hp and hp.contact_phone else user.phone) or '' }}" class="{{ inp }}"></div>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Zalo <span class="text-red-500">*</span></label>
+                                        <input type="tel" name="zalo" required value="{{ (hp.zalo if hp else '') or '' }}" class="{{ inp }}"></div>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="{{ lbl }}"><span id="logo-label">Ảnh đại diện</span> (PNG/JPG/WEBP, tối đa 300KB)</label>
+                                    <div class="flex items-center gap-4">
+                                        {% if hp and hp.logo %}<img src="{{ hp.logo }}" alt="" class="w-14 h-14 rounded-xl object-cover border border-slate-200">{% endif %}
+                                        <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" class="text-xs text-slate-600">
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="pt-2">
@@ -435,6 +505,26 @@
                                 </button>
                             </div>
                         </form>
+                        <style>.hirer-type-opt:has(input:checked){border-color:#2563eb;background:#eff6ff}</style>
+                        <script>
+                        (function () {
+                            var form = document.getElementById('hirer-profile-form');
+                            if (!form) return;
+                            function sync() {
+                                var biz = form.querySelector('input[name=account_type]:checked').value === 'business';
+                                var bizBox = document.getElementById('hirer-business');
+                                var indBox = document.getElementById('hirer-individual');
+                                bizBox.hidden = !biz; indBox.hidden = biz;
+                                // Chỉ ô của loại đang chọn mới bắt buộc và được gửi đi
+                                bizBox.querySelectorAll('input,select,textarea').forEach(function (el) { el.disabled = !biz; el.required = biz && el.hasAttribute('data-biz-required'); });
+                                indBox.querySelectorAll('input,select,textarea').forEach(function (el) { el.disabled = biz; el.required = !biz && el.hasAttribute('data-ind-required'); });
+                                document.getElementById('phone-label').textContent = biz ? 'SĐT người đại diện' : 'Số điện thoại';
+                                document.getElementById('logo-label').textContent = biz ? 'Logo công ty' : 'Ảnh đại diện';
+                            }
+                            form.querySelectorAll('input[name=account_type]').forEach(function (r) { r.addEventListener('change', sync); });
+                            sync();
+                        })();
+                        </script>
                     </div>
                 </div>
                 {% endif %}

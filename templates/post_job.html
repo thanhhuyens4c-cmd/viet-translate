@@ -177,13 +177,20 @@
                             <label class="block text-slate-600 font-medium mb-1.5 text-xs">
                                 {{ t('post_job_page.event_date_picker_label') }}
                             </label>
-                            <div class="relative">
-                                <input type="text" id="event-date-display" placeholder="{{ t('post_job_page.date_picker_placeholder') }}"
-                                    class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white cursor-pointer"
-                                    readonly>
-                                <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                <input type="hidden" name="event_date" id="event-date-hidden">
+                            <div class="flex gap-2">
+                                <div class="relative flex-1">
+                                    <input type="text" id="event-date-display" placeholder="{{ t('post_job_page.date_picker_placeholder') }}"
+                                        class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white cursor-pointer"
+                                        readonly>
+                                    <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    <input type="hidden" name="event_date" id="event-date-hidden">
+                                </div>
+                                <button type="button" id="add-date-btn" class="shrink-0 px-4 py-2.5 rounded-xl border border-brand-200 bg-brand-50 text-brand-700 font-bold text-xs sm:text-sm hover:bg-brand-100 transition">
+                                    + {{ 'Thêm ngày' if current_lang == 'vi' else 'Add day' }}
+                                </button>
                             </div>
+                            <div id="date-chips" class="flex flex-wrap gap-2 mt-2"></div>
+                            <p class="text-[11px] text-slate-400 mt-1.5">{{ 'Chọn nhiều ngày nếu công việc kéo dài hoặc diễn ra nhiều buổi (tối đa 10 ngày).' if current_lang == 'vi' else 'Pick several days if the job spans multiple sessions (max 10).' }}</p>
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
@@ -219,7 +226,8 @@
                 </div>
             </div>
             
-            <div class="flex justify-end pt-6 border-t border-slate-100">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-6 border-t border-slate-100">
+                <p class="text-xs text-slate-500">{{ 'Job sẽ hiển thị trên trang chính sau khi admin duyệt.' if current_lang == 'vi' else 'Your job will appear on the job board once an admin approves it.' }}</p>
                 <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-sm text-xs sm:text-sm">
                     {{ t('post_job_page.submit_btn') }}
                 </button>
@@ -231,15 +239,50 @@
 
 {% block scripts %}
 <script>
-flatpickr('#event-date-display', {
+const MAX_DATES = 10;
+const dateChips = document.getElementById('date-chips');
+const datePicker = flatpickr('#event-date-display', {
     {% if current_lang == 'vi' %}locale: 'vn',{% endif %}
+    mode: 'multiple',
+    conjunction: ', ',
     minDate: 'today',
     dateFormat: 'Y-m-d',
-    altInput: true,
-    altFormat: 'D, d/m/Y',
-    onChange: function(sel, str) {
-        document.getElementById('event-date-hidden').value = str;
+    onChange: function(selectedDates, str, inst) {
+        if (selectedDates.length > MAX_DATES) {
+            selectedDates.pop();
+            inst.setDate(selectedDates, false);
+        }
+        renderDateChips(inst);
     }
+});
+
+function renderDateChips(inst) {
+    const dates = inst.selectedDates.slice().sort((a, b) => a - b);
+    document.getElementById('event-date-hidden').value = dates.map(d => inst.formatDate(d, 'Y-m-d')).join(',');
+    dateChips.innerHTML = '';
+    dates.forEach(function(d) {
+        const chip = document.createElement('span');
+        chip.className = 'inline-flex items-center gap-1.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-lg px-2.5 py-1 text-xs font-semibold';
+        chip.textContent = inst.formatDate(d, 'd/m/Y');
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.textContent = '×';
+        x.className = 'text-brand-500 hover:text-red-500 font-bold leading-none';
+        x.addEventListener('click', function() {
+            inst.setDate(inst.selectedDates.filter(s => s.getTime() !== d.getTime()), false);
+            renderDateChips(inst);
+        });
+        chip.appendChild(x);
+        dateChips.appendChild(chip);
+    });
+}
+
+document.getElementById('add-date-btn').addEventListener('click', function() { datePicker.open(); });
+
+// Chống gửi trùng: khóa nút sau lần bấm đầu tiên
+document.querySelector('form[action="{{ url_for('post_job') }}"]').addEventListener('submit', function() {
+    const btn = this.querySelector('button[type=submit]');
+    if (btn) { btn.disabled = true; btn.classList.add('opacity-60', 'cursor-not-allowed'); }
 });
 
 flatpickr('#time-start-input', {

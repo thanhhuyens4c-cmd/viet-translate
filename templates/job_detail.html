@@ -24,6 +24,16 @@
         <!-- Job Main Content -->
         <div class="w-full lg:w-2/3 space-y-6">
 
+            {% if job.status == 'pending' %}
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 px-5 py-4 text-sm font-medium">
+                ⏳ Job đã gửi, đang chờ admin duyệt. Sau khi được duyệt, job sẽ hiển thị trên trang chính.
+            </div>
+            {% elif job.status == 'rejected' %}
+            <div class="rounded-2xl border border-red-200 bg-red-50 text-red-800 px-5 py-4 text-sm font-medium">
+                Job này chưa được admin chấp thuận nên không hiển thị công khai.
+            </div>
+            {% endif %}
+
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
 
                 <div class="flex flex-wrap items-center gap-2 mb-3">
@@ -59,7 +69,7 @@
                     <div class="flex items-center gap-2">
                         <span class="text-base">📅</span>
                         <span>{{ t('job_detail_page.time_label') }} <strong class="text-slate-800 font-semibold">{{
-                                job.event_date }}</strong></span>
+                                job.event_date }}{% if job.extra_dates %}, {{ job.extra_dates.split(",")|join(", ") }}{% endif %}</strong></span>
                     </div>
                     {% endif %}
                     {% if job.event_location %}
@@ -501,7 +511,7 @@
                     {% if job.event_date %}
                     <div class="flex justify-between items-center">
                         <span class="text-slate-500">Thời gian:</span>
-                        <span class="font-medium text-slate-800">{{ job.event_date }}</span>
+                        <span class="font-medium text-slate-800">{{ job.event_date }}{% if job.extra_dates %}, {{ job.extra_dates.split(",")|join(", ") }}{% endif %}</span>
                         <!-- Budget Card -->
                         <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-soft text-center">
                             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{{

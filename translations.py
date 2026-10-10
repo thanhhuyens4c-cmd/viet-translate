@@ -453,7 +453,7 @@ TRANSLATIONS = {
             'cat_negotiation': 'Phiên dịch Đàm phán thương mại',
             'cat_document': 'Biên dịch tài liệu / Hợp đồng',
             'cat_legal': 'Phiên dịch Pháp lý / Tòa án',
-            'submit_btn': 'Đăng Tin Tuyển Dụng Ngay',
+            'submit_btn': 'Gửi duyệt',
             'cancel_btn': 'Hủy bỏ',
         },
 
@@ -1331,7 +1331,7 @@ TRANSLATIONS = {
             'cat_negotiation': 'Business & Negotiation Interpreting',
             'cat_document': 'Specialized Document Translation',
             'cat_legal': 'Legal & Courtroom Interpreting',
-            'submit_btn': 'Post Job Now',
+            'submit_btn': 'Submit for review',
             'cancel_btn': 'Cancel',
         },
 

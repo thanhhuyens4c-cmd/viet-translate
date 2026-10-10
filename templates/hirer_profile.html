@@ -6,17 +6,22 @@
 <div class="mesh-hero-bg border-b border-slate-200/70 py-12 md:py-16">
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
     <div class="w-24 h-24 mx-auto bg-gradient-to-br from-brand-600 to-indigo-600 rounded-3xl flex items-center justify-center text-white text-4xl font-extrabold shadow-md mb-6 transform -rotate-3 hover:rotate-0 transition duration-300">
-      {{ user.name[:1]|upper }}
+      {% if profile and profile.logo %}
+      <img src="{{ profile.logo }}" alt="{{ user.name }}" class="w-full h-full object-cover rounded-3xl">
+      {% else %}
+      {{ (profile.company if profile and profile.is_business and profile.company else user.name)[:1]|upper }}
+      {% endif %}
     </div>
-    
-    <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">{{ user.name }}</h1>
-    
-    {% if profile and profile.title %}
-    <p class="text-brand-600 font-bold text-base md:text-lg mb-1">{{ profile.title }}</p>
+
+    <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">{% if profile and profile.is_business and profile.company %}{{ profile.company }}{% else %}{{ user.name }}{% endif %}</h1>
+    {% if profile and profile.is_business and profile.rep_name %}
+    <p class="text-slate-500 text-sm mb-1">Đại diện: {{ profile.rep_name }}{% if profile.title %} · {{ profile.title }}{% endif %}</p>
     {% endif %}
     
-    {% if profile and profile.company %}
-    <p class="text-slate-600 font-semibold mb-4">{{ profile.company }}</p>
+    {% if profile and not profile.is_business %}
+      {% if profile.title %}<p class="text-brand-600 font-bold text-base md:text-lg mb-1">{{ profile.title }}</p>{% endif %}
+      {% if profile.company %}<p class="text-slate-600 font-semibold mb-4">{{ profile.company }}</p>{% endif %}
+      {% if profile.hiring_field %}<p class="text-slate-600 font-semibold mb-4">Thường thuê phiên dịch: {{ profile.hiring_field }}</p>{% endif %}
     {% endif %}
     
     <div class="flex flex-wrap items-center justify-center gap-3 mt-4 text-xs font-semibold text-slate-500">
@@ -68,5 +73,28 @@
     </div>
 
   </div>
+
+  {% if profile and profile.is_business %}
+  <div class="mt-8 bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-soft">
+    <h2 class="text-sm font-extrabold uppercase tracking-wider text-slate-700 mb-4">Thông tin doanh nghiệp</h2>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+      {% for label, val in [('Mã số thuế', profile.tax_code), ('Lĩnh vực', profile.industry), ('Quy mô', (profile.company_size ~ ' lao động') if profile.company_size else ''), ('Địa chỉ', profile.address), ('Email', profile.company_email), ('Hotline', profile.hotline)] %}
+      {% if val %}
+      <div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">{{ label }}</dt><dd class="text-slate-800 font-medium break-words">{{ val }}</dd></div>
+      {% endif %}
+      {% endfor %}
+      {% if profile.website %}
+      <div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">Website</dt><dd><a href="{{ profile.website }}" target="_blank" rel="noopener nofollow" class="text-brand-600 font-medium break-all hover:underline">{{ profile.website }}</a></dd></div>
+      {% endif %}
+    </dl>
+    {% if profile.about %}
+    <p class="mt-5 text-sm text-slate-600 leading-relaxed whitespace-pre-line">{{ profile.about }}</p>
+    {% endif %}
+  </div>
+  {% elif profile and profile.social_link %}
+  <div class="mt-8 text-center">
+    <a href="{{ profile.social_link }}" target="_blank" rel="noopener nofollow" class="text-brand-600 font-semibold text-sm hover:underline">Trang cá nhân (Facebook / LinkedIn)</a>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
