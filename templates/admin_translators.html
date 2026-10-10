@@ -7,16 +7,161 @@
 {% block content %}
 <div class="admin-card">
     <!-- Filter Tabs -->
-    <div class="filter-bar">
-        <a href="?show=pending" class="filter-tab {% if show == 'pending' %}active{% endif %}">
-            {{ t('admin_page.tab_pending_verify') }}
-        </a>
-        <a href="?show=verified" class="filter-tab {% if show == 'verified' %}active{% endif %}">
-            {{ t('admin_page.tab_verified') }}
-        </a>
+    <div class="filter-bar flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <a href="?show=pending" class="filter-tab {% if show == 'pending' %}active{% endif %}">
+                <span>{{ t('admin_page.tab_pending_verify') }}</span>
+                {% if pending_count and pending_count > 0 %}
+                <span class="nav-badge warning text-[10px] ml-1">{{ pending_count }}</span>
+                {% endif %}
+            </a>
+            <a href="?show=verified" class="filter-tab {% if show == 'verified' %}active{% endif %}">
+                {{ t('admin_page.tab_verified') }}
+            </a>
+            <a href="?show=all" class="filter-tab {% if show == 'all' %}active{% endif %}">
+                {{ t('admin_page.tab_all_translators') }}
+            </a>
+        </div>
+        <div class="text-xs text-slate-400">
+            Hệ thống thẩm định & xác minh hồ sơ chuyên môn
+        </div>
     </div>
 
-    <!-- Table -->
+    <!-- 1. DANH SÁCH ĐƠN YÊU CẦU XÁC MINH CẦN DUYỆT -->
+    {% if show == 'pending' and verifications and verifications | length > 0 %}
+    <div class="p-4 bg-slate-900/60 border-b border-slate-700/60 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+            <span class="text-xs font-bold text-amber-300 uppercase tracking-wider">Hồ sơ đã gửi đơn & tài liệu thẩm định ({{ verifications | length }})</span>
+        </div>
+        <span class="text-[11px] text-slate-400">Kiểm tra CV và bản scan bằng cấp trước khi phê duyệt</span>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>{{ t('admin_page.th_translator') }}</th>
+                    <th>{{ t('admin_page.th_credentials') }}</th>
+                    <th>{{ t('admin_page.th_documents') }}</th>
+                    <th>Ghi chú & Thời gian</th>
+                    <th style="text-align: right;">{{ t('admin_page.th_actions') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in verifications %}
+                <tr>
+                    <!-- Translator info -->
+                    <td>
+                        <div style="font-weight: 600; color: #f1f5f9;">{{ v.user.name }}</div>
+                        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">{{ v.user.email }}</div>
+                        {% if v.user.phone %}
+                        <div style="font-size: 10px; color: #94a3b8;">📞 {{ v.user.phone }}</div>
+                        {% endif %}
+                    </td>
+
+                    <!-- Credentials info -->
+                    <td>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            {% if v.certificate_name %}
+                            <span class="badge badge-indigo">
+                                🎖️ {{ v.certificate_name }}
+                            </span>
+                            {% endif %}
+                            {% if v.certificate_type %}
+                            <span class="badge badge-gray">
+                                {{ v.certificate_type }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="text-xs text-slate-400 mt-1.5 flex items-center gap-2">
+                            <span>Ngôn ngữ: <strong class="text-slate-200">{{ v.primary_language or 'Chung' }}</strong></span>
+                            <span>·</span>
+                            <span>Kinh nghiệm: <strong class="text-slate-200">{{ v.experience_years }} năm</strong></span>
+                        </div>
+                    </td>
+
+                    <!-- Attached Documents -->
+                    <td>
+                        <div class="flex flex-col gap-1.5">
+                            {% if v.cv_url %}
+                            <a href="{{ v.cv_url }}" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-semibold transition underline">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                <span>{{ t('admin_page.btn_view_cv') }}</span>
+                                <span class="text-[10px] text-slate-400 font-normal">({{ v.cv_filename or 'Tải' }})</span>
+                            </a>
+                            {% else %}
+                            <span class="text-xs text-slate-500 italic">Chưa có CV</span>
+                            {% endif %}
+
+                            {% if v.certificate_url %}
+                            <a href="{{ v.certificate_url }}" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-semibold transition underline">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                <span>{{ t('admin_page.btn_view_cert') }}</span>
+                                <span class="text-[10px] text-slate-400 font-normal">({{ v.certificate_filename or 'Scan' }})</span>
+                            </a>
+                            {% endif %}
+
+                            {% if v.id_card_url %}
+                            <a href="{{ v.id_card_url }}" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 font-semibold transition underline">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/></svg>
+                                <span>{{ t('admin_page.btn_view_id') }}</span>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Notes & Date -->
+                    <td>
+                        <div class="max-w-[220px] text-xs text-slate-300 truncate" title="{{ v.notes or 'Không có ghi chú' }}">
+                            {{ v.notes or '—' }}
+                        </div>
+                        <div class="text-[10px] text-slate-400 mt-1">
+                            Gửi lúc: {{ v.created_at.strftime('%d/%m/%Y %H:%M') }}
+                        </div>
+                    </td>
+
+                    <!-- Actions -->
+                    <td style="text-align: right; white-space: nowrap;">
+                        <a href="{{ url_for('translator_profile', profile_id=v.user.profile.id if v.user.profile else 1) }}" target="_blank" class="btn btn-ghost btn-sm mr-1">
+                            {{ t('admin_page.action_view_profile') }}
+                        </a>
+
+                        <!-- Approve Form -->
+                        <form method="POST" action="{{ url_for('admin_review_verification', verification_id=v.id, action='approve') }}" style="display: inline;">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Xác nhận phê duyệt và cấp huy hiệu tích xanh cho {{ v.user.name }}?');">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                <span>{{ t('admin_page.action_approve_verify') }}</span>
+                            </button>
+                        </form>
+
+                        <!-- Reject Button (Opens Modal) -->
+                        <button type="button" class="btn btn-danger btn-sm ml-1" onclick="openRejectModal('{{ v.id }}', '{{ v.user.name }}')">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            <span>{{ t('admin_page.action_reject_verify') }}</span>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- 2. DANH SÁCH PROFILES (TẤT CẢ / ĐÃ XÁC MINH / CHƯA XÁC MINH) -->
+    <div class="p-4 bg-slate-900/40 border-t border-slate-700/60 flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">
+            {% if show == 'verified' %}
+            Danh sách phiên dịch viên đã xác minh ({{ profiles | length }})
+            {% elif show == 'pending' %}
+            Tài khoản phiên dịch viên chưa có tích xanh ({{ profiles | length }})
+            {% else %}
+            Toàn bộ tài khoản phiên dịch viên ({{ profiles | length }})
+            {% endif %}
+        </span>
+    </div>
+
     <div style="overflow-x: auto;">
         <table class="admin-table">
             <thead>
@@ -24,6 +169,7 @@
                     <th>{{ t('admin_page.th_translator') }}</th>
                     <th>{{ t('admin_page.th_languages') }}</th>
                     <th>{{ t('admin_page.th_specialty') }}</th>
+                    <th>Trạng thái xác minh</th>
                     <th style="text-align: right;">{{ t('admin_page.th_actions') }}</th>
                 </tr>
             </thead>
@@ -36,13 +182,29 @@
                     </td>
                     <td>
                         <div style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1;" title="{{ profile.languages }}">
-                            {{ profile.languages }}
+                            {{ profile.languages or 'Chưa cập nhật' }}
                         </div>
                     </td>
                     <td>
                         <div style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1;" title="{{ profile.title }}">
-                            {{ profile.title }}
+                            {{ profile.title or 'Phiên dịch viên tự do' }}
                         </div>
+                    </td>
+                    <td>
+                        {% if profile.is_verified %}
+                        <span class="badge badge-green">
+                            <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Đã xác minh
+                        </span>
+                        {% elif profile.latest_verification and profile.latest_verification.status == 'pending' %}
+                        <span class="badge badge-yellow">
+                            Đã gửi đơn chờ duyệt
+                        </span>
+                        {% else %}
+                        <span class="badge badge-gray">
+                            Chưa xác minh
+                        </span>
+                        {% endif %}
                     </td>
                     <td style="text-align: right; white-space: nowrap;">
                         <a href="{{ url_for('translator_profile', profile_id=profile.id) }}" target="_blank" class="btn btn-ghost btn-sm">
@@ -70,7 +232,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="empty-state">
+                    <td colspan="5" class="empty-state">
                         <div class="empty-state-title">
                             {% if show == 'pending' %}
                             {{ t('admin_page.no_pending_profiles') }}
@@ -85,4 +247,57 @@
         </table>
     </div>
 </div>
+
+<!-- MODAL TỪ CHỐI YÊU CẦU XÁC MINH -->
+<div id="reject-modal" class="fixed inset-0 z-50 bg-black/75 hidden items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-700/80">
+            <h3 class="text-base font-bold text-rose-400 flex items-center gap-2">
+                <svg class="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span>{{ t('admin_page.reject_modal_title') }}</span>
+            </h3>
+            <button type="button" onclick="closeRejectModal()" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+
+        <form id="reject-form" method="POST" action="" class="space-y-4 pt-4">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <p class="text-xs text-slate-300">
+                Từ chối hồ sơ của <strong id="reject-user-name" class="text-white"></strong>. Vui lòng nêu rõ lý do để phiên dịch viên có thể khắc phục và nộp lại.
+            </p>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1.5">{{ t('admin_page.reject_reason_label') }}</label>
+                <textarea name="reason" rows="4" required
+                    placeholder="{{ t('admin_page.reject_reason_placeholder') }}"
+                    class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 text-xs text-slate-100 leading-relaxed"></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-700/80">
+                <button type="button" onclick="closeRejectModal()" class="btn btn-ghost btn-sm text-slate-300">Hủy bỏ</button>
+                <button type="submit" class="btn btn-danger btn-sm">
+                    Xác nhận từ chối
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openRejectModal(verificationId, userName) {
+    const modal = document.getElementById('reject-modal');
+    const form = document.getElementById('reject-form');
+    const nameEl = document.getElementById('reject-user-name');
+    
+    form.action = `/admin/verifications/${verificationId}/reject`;
+    nameEl.textContent = userName;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeRejectModal() {
+    const modal = document.getElementById('reject-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+</script>
 {% endblock %}

@@ -453,7 +453,7 @@ TRANSLATIONS = {
             'cat_negotiation': 'Phiên dịch Đàm phán thương mại',
             'cat_document': 'Biên dịch tài liệu / Hợp đồng',
             'cat_legal': 'Phiên dịch Pháp lý / Tòa án',
-            'submit_btn': 'Đăng Tin Tuyển Dụng Ngay',
+            'submit_btn': 'Gửi duyệt',
             'cancel_btn': 'Hủy bỏ',
         },
 
@@ -486,6 +486,7 @@ TRANSLATIONS = {
             'input_placeholder': 'Nhập tin nhắn trao đổi công việc...',
             'role_translator': 'Phiên dịch viên chuyên nghiệp',
             'role_hirer': 'Khách hàng',
+            'upload_image': 'Gửi hình ảnh',
         },
 
         # ─── Account History Page ───
@@ -513,9 +514,30 @@ TRANSLATIONS = {
             'nav_profile': 'Hồ sơ cá nhân',
             'nav_history': 'Lịch sử giao dịch',
             'nav_public_page': 'Xem trang công khai',
+            'nav_notifications': 'Hộp thư thông báo',
+            'tab_overview': 'Tổng quan hồ sơ',
             'tab_basic': 'Thông tin cá nhân',
             'tab_translator': 'Hồ sơ chuyên môn',
+            'tab_verification': 'Xác minh hồ sơ',
             'tab_security': 'Bảo mật & Mật khẩu',
+            'heading_overview': 'Tổng Quan Hồ Sơ & Trạng Thái',
+            'btn_start_verification': 'Bắt đầu xác minh',
+            'btn_continue_verification': 'Tiếp tục hoàn thiện hồ sơ',
+            'btn_view_verification_status': 'Xem trạng thái xác minh',
+            'btn_update_verification': 'Bổ sung hồ sơ ngay',
+            'btn_view_public_profile': 'Xem hồ sơ công khai',
+            'btn_resubmit_verification': 'Xem lý do & Gửi lại',
+            'completion_title': 'Tiến độ hoàn thiện hồ sơ',
+            'missing_items_title': 'Các mục còn thiếu hoặc cần bổ sung',
+            'heading_verification': 'Xác minh Hồ Sơ & Năng Lực',
+            'verified_title': 'Hồ sơ đã được xác minh chính thức',
+            'verified_desc': 'Hồ sơ của bạn đã hoàn tất xác minh danh tính và năng lực chuyên môn. Huy hiệu tích xanh uy tín hiện đang hiển thị trên trang cá nhân và danh sách ứng tuyển.',
+            'pending_title': 'Hồ sơ đang chờ phê duyệt',
+            'pending_desc': 'Yêu cầu xác minh của bạn đã được gửi tới Ban quản trị và đang trong quá trình xét duyệt. Quá trình này thường diễn ra trong vòng 24–48 giờ làm việc.',
+            'rejected_title': 'Hồ sơ chưa được phê duyệt',
+            'rejected_desc': 'Yêu cầu xác minh của bạn chưa đạt yêu cầu. Vui lòng xem lý do bên dưới, cập nhật lại tài liệu và gửi lại.',
+            'submit_verification_btn': 'Gửi hồ sơ xác minh',
+            'resubmit_verification_btn': 'Cập nhật & Nộp lại hồ sơ',
             'heading_basic': 'Thông tin tài khoản',
             'label_name': 'Họ và tên',
             'label_email': 'Email tài khoản',
@@ -649,14 +671,26 @@ TRANSLATIONS = {
             'translators_heading': 'Thẩm Định & Duyệt Phiên Dịch Viên',
             'tab_pending_verify': 'Chờ duyệt xác minh',
             'tab_verified': 'Đã xác minh (Tích xanh)',
+            'tab_all_translators': 'Tất cả phiên dịch viên',
+            'tab_rejected_verify': 'Bị từ chối',
             'th_translator': 'Phiên dịch viên',
             'th_languages': 'Ngôn ngữ',
             'th_specialty': 'Chuyên môn / Tiêu đề',
+            'th_credentials': 'Chứng chỉ & Bằng cấp',
+            'th_documents': 'Tài liệu thẩm định',
             'action_view_profile': 'Xem hồ sơ',
             'action_verify_confirm': 'Cấp tích xanh Xác minh cho người này?',
             'action_grant_verify': 'Cấp tích xanh',
+            'action_approve_verify': 'Phê duyệt',
+            'action_reject_verify': 'Từ chối',
             'action_revoke_confirm': 'Thu hồi tích xanh Xác minh của người này?',
             'action_revoke': 'Thu hồi',
+            'btn_view_cv': 'Xem CV',
+            'btn_view_cert': 'Xem Bằng',
+            'btn_view_id': 'Xem CCCD',
+            'reject_modal_title': 'Từ chối yêu cầu xác minh',
+            'reject_reason_label': 'Lý do từ chối (gửi tới phiên dịch viên):',
+            'reject_reason_placeholder': 'VD: Ảnh chứng chỉ không rõ ràng; CV thiếu kinh nghiệm...',
             'no_pending_profiles': 'Không có hồ sơ nào đang chờ duyệt.',
             'no_verified_profiles': 'Chưa có hồ sơ nào được xác minh.',
             'users_title': 'Quản Lý Tài Khoản Thành Viên | VietTranslate Admin',
@@ -761,42 +795,7 @@ TRANSLATIONS = {
             'remote_work': 'Làm việc từ xa (Online)',
             'location_match': 'Phù hợp địa điểm',
             'budget_match': 'Ngân sách phù hợp',
-            'industry_match': 'Có chuyên môn đúng ngành của khách',
-            'certified_match': 'Có thể cung cấp bản dịch chứng nhận',
-            'mode_match': 'Phù hợp hình thức làm việc',
             'schedule_free': 'Có lịch trống',
-        },
-
-        'hirer_profile_page': {
-            'verified': 'Khách hàng đã xác minh',
-            'completion_rate': 'Tỉ lệ hoàn thành',
-            'reviews_heading': 'Đánh giá từ phiên dịch viên',
-            'no_reviews': 'Chưa có đánh giá nào.',
-            'anonymous': 'Phiên dịch viên',
-            'form_hint': 'Càng nhiều thông tin, hệ thống càng gợi ý được phiên dịch viên phù hợp cho công việc của bạn.',
-            'client_type': 'Loại khách hàng', 'client_type_individual': 'Cá nhân', 'client_type_business': 'Doanh nghiệp',
-            'client_type_agency': 'Công ty dịch thuật / đại lý', 'client_type_organization': 'Tổ chức / Cơ quan nhà nước',
-            'industry': 'Ngành / lĩnh vực',
-            'industry_healthcare': 'Y tế', 'industry_legal': 'Pháp lý', 'industry_manufacturing': 'Sản xuất',
-            'industry_tourism': 'Du lịch & Khách sạn', 'industry_it': 'CNTT & Công nghệ', 'industry_trade': 'Thương mại & Xuất nhập khẩu',
-            'industry_education': 'Giáo dục', 'industry_finance': 'Tài chính & Ngân hàng', 'industry_construction': 'Xây dựng & Bất động sản',
-            'industry_media': 'Truyền thông & Giải trí', 'industry_government': 'Cơ quan nhà nước', 'industry_other': 'Khác',
-            'default_source_lang': 'Ngôn ngữ nguồn thường dùng', 'default_target_lang': 'Ngôn ngữ đích thường dùng',
-            'work_mode': 'Hình thức làm việc', 'work_mode_onsite': 'Trực tiếp', 'work_mode_online': 'Online', 'work_mode_both': 'Trực tiếp & online',
-            'hiring_frequency': 'Tần suất thuê', 'hiring_frequency_one_time': 'Một lần',
-            'hiring_frequency_occasional': 'Thỉnh thoảng', 'hiring_frequency_regular': 'Thường xuyên / dài hạn',
-            'budget_min': 'Ngân sách thường dùng từ (VND)', 'budget_max': 'Ngân sách thường dùng đến (VND)',
-            'preferred_services': 'Dịch vụ thường cần',
-            'service_0': 'Dịch thuật', 'service_1': 'Phiên dịch', 'service_2': 'Hội họp', 'service_3': 'Kinh doanh',
-            'service_4': 'Du lịch', 'service_5': 'Sự kiện', 'service_6': 'Khác',
-            'needs_nda': 'Yêu cầu bảo mật (NDA)', 'needs_certified': 'Yêu cầu bản dịch có chứng nhận / công chứng',
-            'special_requirements': 'Yêu cầu đặc biệt', 'about': 'Giới thiệu về bạn / công ty',
-            'website': 'Website', 'tax_code': 'Mã số thuế / giấy phép kinh doanh',
-            'tax_code_hint': 'Thông tin riêng tư, chỉ quản trị viên dùng để xác minh tài khoản.',
-            'overview': 'Giới thiệu', 'usual_languages': 'Ngôn ngữ thường dùng', 'typical_budget': 'Ngân sách thường dùng',
-            'services': 'Dịch vụ', 'requirements': 'Yêu cầu',
-            'specialties': 'Lĩnh vực chuyên môn', 'city': 'Thành phố / nơi làm việc chính',
-            'offers_certified': 'Tôi có thể cung cấp bản dịch có chứng nhận / công chứng',
         },
 
         # ─── Auto-generated keys (from i18n/vi.json) – used in personal/main templates ───
@@ -916,6 +915,21 @@ TRANSLATIONS = {
             'phiên_dịch_viên_chưa': 'Phiên dịch viên chưa niêm yết gói cố định.',
             'nhắn_tin_trao_đổi_tr': 'Nhắn tin trao đổi trực tiếp',
             'phiên_dịch_viên_chuy': 'Phiên dịch viên chuyên nghiệp',
+        },
+
+        # ─── Matching Reasons ───
+        'match_reasons': {
+            'exact_language_pair': 'Đúng chính xác cặp ngôn ngữ',
+            'reverse_language_pair': 'Cặp ngôn ngữ đảo chiều',
+            'partial_language': 'Trùng một trong hai ngôn ngữ',
+            'language_match': 'Khớp ngôn ngữ chuyên môn',
+            'exact_job_type': 'Đúng loại hình dịch vụ mong muốn',
+            'group_match': 'Cùng nhóm dịch vụ phiên dịch',
+            'experience_match': 'Hồ sơ có đánh giá & kinh nghiệm tốt',
+            'remote_work': 'Làm việc từ xa (Online)',
+            'location_match': 'Địa điểm làm việc phù hợp',
+            'budget_match': 'Mức thù lao đáp ứng kỳ vọng',
+            'schedule_free': 'Lịch trống không bị trùng',
         },
     },
 
@@ -1366,7 +1380,7 @@ TRANSLATIONS = {
             'cat_negotiation': 'Business & Negotiation Interpreting',
             'cat_document': 'Specialized Document Translation',
             'cat_legal': 'Legal & Courtroom Interpreting',
-            'submit_btn': 'Post Job Now',
+            'submit_btn': 'Submit for review',
             'cancel_btn': 'Cancel',
         },
 
@@ -1399,6 +1413,7 @@ TRANSLATIONS = {
             'input_placeholder': 'Type your message regarding the project...',
             'role_translator': 'Professional Translator',
             'role_hirer': 'Client',
+            'upload_image': 'Send image',
         },
 
         # ─── Account History Page ───
@@ -1426,9 +1441,30 @@ TRANSLATIONS = {
             'nav_profile': 'Account Profile',
             'nav_history': 'Transaction History',
             'nav_public_page': 'View Public Profile',
+            'nav_notifications': 'Notifications Inbox',
+            'tab_overview': 'Profile Overview',
             'tab_basic': 'Personal Information',
             'tab_translator': 'Professional Profile',
+            'tab_verification': 'Profile Verification',
             'tab_security': 'Security & Password',
+            'heading_overview': 'Profile Overview & Verification Status',
+            'btn_start_verification': 'Start Verification',
+            'btn_continue_verification': 'Continue Profile Draft',
+            'btn_view_verification_status': 'View Verification Status',
+            'btn_update_verification': 'Submit Revisions Now',
+            'btn_view_public_profile': 'View Public Profile',
+            'btn_resubmit_verification': 'Review Reason & Resubmit',
+            'completion_title': 'Profile Completion Progress',
+            'missing_items_title': 'Items to Complete or Supplement',
+            'heading_verification': 'Profile & Credentials Verification',
+            'verified_title': 'Officially Verified Profile',
+            'verified_desc': 'Your profile has passed identity and credentials verification. The verified badge is actively displayed on your public page and job proposals.',
+            'pending_title': 'Verification In Review',
+            'pending_desc': 'Your verification request has been submitted to Administrators and is pending review. This usually takes 24–48 business hours.',
+            'rejected_title': 'Verification Not Approved',
+            'rejected_desc': 'Your verification request was not approved. Please review the reason below, update your documents, and resubmit.',
+            'submit_verification_btn': 'Submit Verification Request',
+            'resubmit_verification_btn': 'Update & Resubmit Documents',
             'heading_basic': 'Account Information',
             'label_name': 'Full Name',
             'label_email': 'Account Email',
@@ -1674,42 +1710,7 @@ TRANSLATIONS = {
             'remote_work': 'Remote work (Online)',
             'location_match': 'Matching location',
             'budget_match': 'Matching budget',
-            'industry_match': 'Expertise in the client\'s industry',
-            'certified_match': 'Can provide certified translations',
-            'mode_match': 'Matching working format',
             'schedule_free': 'Schedule available',
-        },
-
-        'hirer_profile_page': {
-            'verified': 'Verified client',
-            'completion_rate': 'Completion rate',
-            'reviews_heading': 'Reviews from translators',
-            'no_reviews': 'No reviews yet.',
-            'anonymous': 'Translator',
-            'form_hint': 'The more details you provide, the better we can suggest the right translators for your jobs.',
-            'client_type': 'Client type', 'client_type_individual': 'Individual', 'client_type_business': 'Business',
-            'client_type_agency': 'Agency / Translation company', 'client_type_organization': 'Organization / Government',
-            'industry': 'Industry',
-            'industry_healthcare': 'Healthcare', 'industry_legal': 'Legal', 'industry_manufacturing': 'Manufacturing',
-            'industry_tourism': 'Tourism & Hospitality', 'industry_it': 'IT & Technology', 'industry_trade': 'Trade & Import/Export',
-            'industry_education': 'Education', 'industry_finance': 'Finance & Banking', 'industry_construction': 'Construction & Real estate',
-            'industry_media': 'Media & Entertainment', 'industry_government': 'Government', 'industry_other': 'Other',
-            'default_source_lang': 'Usual source language', 'default_target_lang': 'Usual target language',
-            'work_mode': 'Working format', 'work_mode_onsite': 'On-site', 'work_mode_online': 'Online', 'work_mode_both': 'On-site & online',
-            'hiring_frequency': 'Hiring frequency', 'hiring_frequency_one_time': 'One-off',
-            'hiring_frequency_occasional': 'Occasional', 'hiring_frequency_regular': 'Regular / long-term',
-            'budget_min': 'Typical budget from (VND)', 'budget_max': 'Typical budget up to (VND)',
-            'preferred_services': 'Services you usually need',
-            'service_0': 'Translation', 'service_1': 'Interpretation', 'service_2': 'Meeting', 'service_3': 'Business',
-            'service_4': 'Travel', 'service_5': 'Event', 'service_6': 'Other',
-            'needs_nda': 'Confidentiality (NDA) required', 'needs_certified': 'Certified / notarized work required',
-            'special_requirements': 'Special requirements', 'about': 'About you / your company',
-            'website': 'Website', 'tax_code': 'Tax code / business license',
-            'tax_code_hint': 'Private. Only used by admins to verify your account.',
-            'overview': 'Overview', 'usual_languages': 'Usual languages', 'typical_budget': 'Typical budget',
-            'services': 'Services', 'requirements': 'Requirements',
-            'specialties': 'Fields of expertise', 'city': 'City / base location',
-            'offers_certified': 'I can provide certified / notarized translations',
         },
 
         # ─── Auto-generated keys (from i18n/en.json) – used in personal/main templates ───
@@ -1829,6 +1830,21 @@ TRANSLATIONS = {
             'phiên_dịch_viên_chưa': 'No fixed packages listed yet.',
             'nhắn_tin_trao_đổi_tr': 'Message Directly',
             'phiên_dịch_viên_chuy': 'Professional Interpreter',
+        },
+
+        # ─── Matching Reasons ───
+        'match_reasons': {
+            'exact_language_pair': 'Exact language pair match',
+            'reverse_language_pair': 'Reverse language pair match',
+            'partial_language': 'Partial language match',
+            'language_match': 'Fluent language match',
+            'exact_job_type': 'Preferred service type match',
+            'group_match': 'Matching service group',
+            'experience_match': 'High rating & verified experience',
+            'remote_work': 'Remote work (Online)',
+            'location_match': 'Matching work location',
+            'budget_match': 'Meets budget expectations',
+            'schedule_free': 'Schedule available without conflict',
         },
     }
 }
@@ -1957,6 +1973,31 @@ LOCALIZED_LANGUAGES_DATA = [
         'cert_en': 'DELE B2 or higher',
     },
 ]
+
+def _load_json_translations():
+    import os
+    import json
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    for code in ('vi', 'en'):
+        json_file = os.path.join(base_dir, 'i18n', f'{code}.json')
+        if os.path.exists(json_file):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        if code not in TRANSLATIONS:
+                            TRANSLATIONS[code] = {}
+                        for sec_k, sec_v in data.items():
+                            if sec_k not in TRANSLATIONS[code]:
+                                TRANSLATIONS[code][sec_k] = sec_v
+                            elif isinstance(TRANSLATIONS[code][sec_k], dict) and isinstance(sec_v, dict):
+                                TRANSLATIONS[code][sec_k].update(sec_v)
+                            else:
+                                TRANSLATIONS[code][sec_k] = sec_v
+            except Exception:
+                pass
+
+_load_json_translations()
 
 
 def t(key, lang='vi', **kwargs):

@@ -1,6 +1,6 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -19,59 +19,6 @@ def get_locale():
 
 def _t(key, **kwargs):
     return t_lookup(key, lang=get_locale(), **kwargs)
-
-# ─── MONGODB (dùng khi deploy trên Vercel) ────────────────────────────────────
-MONGO_URI = os.getenv("MONGO_URI")
-_mongo_users = None  # lazy-init collection
-
-def get_mongo_users():
-    """Trả về MongoDB users collection nếu MONGO_URI được cấu hình."""
-    global _mongo_users
-    if _mongo_users is None and MONGO_URI:
-        try:
-            from pymongo import MongoClient
-            client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-            _mongo_users = client["viettranslate_db"]["users"]
-        except Exception as e:
-            print(f"[MongoDB] Không thể kết nối: {e}")
-    return _mongo_users
-
-def mongo_register_user(username, email, hashed_password, phone, role):
-    """Đăng ký tài khoản mới vào MongoDB. Trả về (success, message)."""
-    col = get_mongo_users()
-    if col is None:
-        return False, "MongoDB chưa được cấu hình."
-    if col.find_one({"email": email}):
-        return False, "Email đã được sử dụng."
-    col.insert_one({
-        "name": username,
-        "email": email,
-        "password_hash": hashed_password,
-        "phone": phone,
-        "role": role,
-        "is_admin": False,
-        "is_active": True,
-        "created_at": datetime.utcnow(),
-    })
-    return True, "Đăng ký thành công!"
-
-def mongo_find_user_by_email(email):
-    """Tìm user theo email trong MongoDB. Trả về dict hoặc None."""
-    col = get_mongo_users()
-    if col is None:
-        return None
-    return col.find_one({"email": email})
-
-def mongo_find_user_by_id(user_id):
-    """Tìm user theo _id string trong MongoDB. Trả về dict hoặc None."""
-    col = get_mongo_users()
-    if col is None:
-        return None
-    try:
-        from bson import ObjectId
-        return col.find_one({"_id": ObjectId(user_id)})
-    except Exception:
-        return None
 
 # ─── LANGUAGE LANDING PAGE CONFIGURATION ──────────────────────────────────────
 
@@ -511,22 +458,17 @@ if database_url:
     elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 else:
-    if os.environ.get('VERCEL') == '1':
-        # Vercel: filesystem ephemeral — BẮT BUỘC dùng DATABASE_URL hoặc MONGO_URI
-        if not os.getenv("MONGO_URI"):
-            error_msg = "[CRITICAL] Chạy trên Vercel nhưng DATABASE_URL (và MONGO_URI) chưa được cấu hình! Không dùng SQLite memory trong production để tránh mất dữ liệu."
-            print(error_msg, file=sys.stderr)
-            raise RuntimeError(error_msg)
-        # Nếu có MONGO_URI nhưng thiếu DATABASE_URL (chỉ dùng MongoDB):
-        database_url = 'sqlite:///:memory:'
-        _is_memory_db = True
-    elif os.environ.get('RENDER'):
-        # Chạy trên Render nhưng không có DATABASE_URL
-        print("[DB WARNING] Chạy trên Render nhưng DATABASE_URL chưa được cấu hình!", file=sys.stderr)
-        print("[DB WARNING] Hãy vào Render Dashboard → Environment → thêm DATABASE_URL hoặc MONGO_URI", file=sys.stderr)
-        # Vẫn dùng SQLite nhưng đây là ephemeral trên Render!
-        database_url = 'sqlite:///' + os.path.join(basedir, 'instance', 'database.db')
-        print("[DB WARNING] Render filesystem là ephemeral — dữ liệu sẽ mất khi redeploy!", file=sys.stderr)
+    if os.environ.get('VERCEL') == '1' or os.environ.get('RENDER'):
+        # TASK 10: Production (Vercel/Render) — BẮT BUỘC có DATABASE_URL trỏ tới Supabase PostgreSQL.
+        # Không fallback sang SQLite memory trong production.
+        _platform = 'Vercel' if os.environ.get('VERCEL') else 'Render'
+        error_msg = (
+            f"[CRITICAL] Chạy trên {_platform} nhưng DATABASE_URL chưa được cấu hình! "
+            "Database production phải là Supabase PostgreSQL. "
+            "Hãy vào Dashboard → Environment Variables → thêm DATABASE_URL."
+        )
+        print(error_msg, file=sys.stderr)
+        raise RuntimeError(error_msg)
     else:
         # Local development: dùng SQLite file cục bộ
         db_path = os.path.join(basedir, 'instance', 'database.db')
@@ -551,7 +493,7 @@ else:
     }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-UPLOAD_FOLDER = os.path.join('static', 'uploads')
+UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     UPLOAD_FOLDER = '/tmp'
 else:
@@ -562,10 +504,120 @@ else:
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 
+AVATAR_UPLOAD_FOLDER = os.path.join('static', 'uploads', 'avatars')
+if os.environ.get('VERCEL') == '1' or _is_memory_db:
+    AVATAR_UPLOAD_FOLDER = '/tmp/avatars'
+try:
+    os.makedirs(AVATAR_UPLOAD_FOLDER, exist_ok=True)
+except OSError:
+    AVATAR_UPLOAD_FOLDER = '/tmp'
+app.config['AVATAR_UPLOAD_FOLDER'] = AVATAR_UPLOAD_FOLDER
+
+# Thư mục lưu trữ tài liệu riêng tư (Private Storage - Hoàn toàn ngoài static webroot)
+PRIVATE_STORAGE_FOLDER = os.getenv('PRIVATE_STORAGE_FOLDER', os.path.join(basedir, 'instance', 'storage', 'private_verifications'))
+if os.environ.get('VERCEL') == '1' or _is_memory_db:
+    PRIVATE_STORAGE_FOLDER = '/tmp/private_verifications'
+try:
+    os.makedirs(PRIVATE_STORAGE_FOLDER, exist_ok=True)
+except OSError:
+    PRIVATE_STORAGE_FOLDER = '/tmp/private_verifications'
+app.config['PRIVATE_STORAGE_FOLDER'] = PRIVATE_STORAGE_FOLDER
+
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'zip', 'rar', 'png', 'jpg', 'jpeg'}
+ALLOWED_AVATAR_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def allowed_avatar_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_AVATAR_EXTENSIONS
+
+def save_user_avatar(file, user_id, current_avatar=None):
+    """Lưu tệp ảnh đại diện được tải lên và trả về (thành_công, tên_file_hoặc_mã_lỗi)."""
+    if not file or not file.filename:
+        return False, 'flash.avatar_invalid_file'
+    if not allowed_avatar_file(file.filename):
+        return False, 'flash.avatar_invalid_file'
+
+    try:
+        file.seek(0, os.SEEK_END)
+        size = file.tell()
+        file.seek(0)
+    except Exception:
+        size = 0
+    if size > 5 * 1024 * 1024:
+        return False, 'flash.avatar_file_too_large'
+
+    import time
+    clean_uid = str(user_id)
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"avatar_u{clean_uid}_{int(time.time())}.{ext}"
+    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join('static', 'uploads', 'avatars'))
+    os.makedirs(folder, exist_ok=True)
+    filepath = os.path.join(folder, filename)
+
+    try:
+        if current_avatar and not current_avatar.startswith('http') and not current_avatar.startswith('/static/avatars/'):
+            old_base = os.path.basename(current_avatar)
+            old_path = os.path.join(folder, old_base)
+            if os.path.exists(old_path):
+                try:
+                    os.remove(old_path)
+                except OSError:
+                    pass
+        file.save(filepath)
+        return True, filename
+    except Exception as e:
+        print(f"[AVATAR UPLOAD ERROR] {e}", file=sys.stderr)
+        return False, 'flash.avatar_upload_failed'
+
+def allowed_certificate_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'pdf'}
+
+def save_certificate_file(file, user_id):
+    """Lưu tệp chứng chỉ được tải lên và trả về (thành_công, tên_file_hoặc_mã_lỗi)."""
+    if not file or not file.filename:
+        return False, 'File không hợp lệ'
+    if not allowed_certificate_file(file.filename):
+        return False, 'Chỉ chấp nhận file PDF, PNG, JPG, JPEG'
+
+    try:
+        file.seek(0, os.SEEK_END)
+        size = file.tell()
+        file.seek(0)
+    except Exception:
+        size = 0
+    if size > 10 * 1024 * 1024:
+        return False, 'File chứng chỉ không được vượt quá 10MB'
+
+    import time
+    clean_uid = str(user_id)
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"cert_u{clean_uid}_{int(time.time())}.{ext}"
+    folder = os.path.join(app.root_path, 'static', 'uploads', 'certificates')
+    os.makedirs(folder, exist_ok=True)
+    filepath = os.path.join(folder, filename)
+
+    try:
+        file.save(filepath)
+        return True, filename
+    except Exception as e:
+        print(f"[CERT UPLOAD ERROR] {e}", file=sys.stderr)
+        return False, 'Lỗi hệ thống khi lưu file chứng chỉ'
+
+def delete_user_avatar(current_avatar):
+    """Xóa file ảnh đại diện cũ nếu là ảnh do người dùng tải lên."""
+    if not current_avatar:
+        return
+    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join('static', 'uploads', 'avatars'))
+    if not current_avatar.startswith('http') and not current_avatar.startswith('/static/avatars/'):
+        old_base = os.path.basename(current_avatar)
+        old_path = os.path.join(folder, old_base)
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except OSError:
+                pass
 
 db.init_app(app)
 
@@ -578,25 +630,156 @@ with app.app_context():
 
 import sys
 
-def _ensure_model_columns(*models):
-    """Thêm các cột còn thiếu của bảng (db.create_all() không ALTER bảng có sẵn).
+HIRER_COMPANY_SIZES = ('<10', '10-50', '50-200', '200+')
+FREE_EMAIL_DOMAINS = {
+    'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.com.vn', 'hotmail.com', 'outlook.com',
+    'live.com', 'icloud.com', 'me.com', 'msn.com', 'aol.com', 'proton.me', 'protonmail.com',
+}
+HIRING_FIELDS = ('Du lịch', 'Y tế', 'Đàm phán / Thương mại', 'Hội nghị / Sự kiện', 'Pháp lý / Công chứng',
+                 'Giáo dục / Du học', 'Sản xuất / Kỹ thuật', 'Tài chính / Ngân hàng', 'Công nghệ / IT',
+                 'Xuất nhập khẩu / Logistics', 'Khác')
+HIRING_LANGUAGES = ('Tiếng Anh', 'Tiếng Trung', 'Tiếng Nhật', 'Tiếng Hàn', 'Tiếng Pháp', 'Tiếng Đức',
+                    'Tiếng Nga', 'Tiếng Thái', 'Ngôn ngữ khác')
+HIRING_SERVICES = ('Phiên dịch trực tiếp', 'Phiên dịch online', 'Phiên dịch tháp tùng', 'Dịch tài liệu / Biên dịch')
+BUSINESS_INDUSTRIES = ('Sản xuất / Công nghiệp', 'Thương mại / Xuất nhập khẩu', 'Du lịch / Khách sạn / Nhà hàng',
+                       'Y tế / Dược', 'Giáo dục / Đào tạo', 'Công nghệ / IT', 'Tài chính / Ngân hàng / Bảo hiểm',
+                       'Xây dựng / Bất động sản', 'Pháp lý / Tư vấn', 'Truyền thông / Sự kiện',
+                       'Logistics / Vận tải', 'Nông nghiệp / Thực phẩm', 'Tổ chức phi lợi nhuận / NGO', 'Khác')
+app.jinja_env.globals.update(HIRING_FIELDS=HIRING_FIELDS, HIRING_LANGUAGES=HIRING_LANGUAGES,
+                             HIRING_SERVICES=HIRING_SERVICES, BUSINESS_INDUSTRIES=BUSINESS_INDUSTRIES)
+LOGO_MAX_BYTES = 300 * 1024
+LOGO_MIME = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'webp': 'image/webp'}
 
-    Idempotent: chỉ ADD COLUMN cho cột chưa tồn tại. Xem thêm migration_hirer_profile.sql.
-    """
+
+def _read_logo_upload(file_storage):
+    """Trả về (data_uri, error). File trống -> (None, None)."""
+    if not file_storage or not file_storage.filename:
+        return None, None
+    ext = file_storage.filename.rsplit('.', 1)[-1].lower() if '.' in file_storage.filename else ''
+    if ext not in LOGO_MIME:
+        return None, 'Logo / ảnh đại diện chỉ chấp nhận PNG, JPG hoặc WEBP.'
+    data = file_storage.read(LOGO_MAX_BYTES + 1)
+    if len(data) > LOGO_MAX_BYTES:
+        return None, 'Logo / ảnh đại diện tối đa 300KB.'
+    import base64
+    return f'data:{LOGO_MIME[ext]};base64,{base64.b64encode(data).decode()}', None
+
+
+def _apply_hirer_profile_form(user, profile, form, files):
+    """Validate và gán dữ liệu form hồ sơ khách thuê. Trả về list lỗi (rỗng = hợp lệ)."""
+    import re
+    errors = []
+    get = lambda k: (form.get(k) or '').strip()
+    phone_re = re.compile(r'^(\+84|0)\d{9,10}$')
+
+    def clean_phone(v):
+        return re.sub(r'[\s.\-]', '', v)
+
+    def pick(name, options):
+        """Chỉ nhận giá trị nằm trong danh sách có sẵn, giữ đúng thứ tự danh sách."""
+        chosen = set(form.getlist(name))
+        return [o for o in options if o in chosen]
+
+    account_type = get('account_type')
+    if account_type not in ('business', 'individual'):
+        return ['Vui lòng chọn loại khách hàng: Doanh nghiệp / Tổ chức hoặc Cá nhân.']
+    # Mỗi tài khoản chỉ thuộc một loại: đã lưu hồ sơ (có SĐT) thì không được đổi loại
+    if profile.contact_phone and profile.account_type and profile.account_type != account_type:
+        return ['Loại khách hàng đã được xác lập và không thể thay đổi. Mỗi tài khoản chỉ được là Doanh nghiệp / Tổ chức hoặc Cá nhân.']
+
+    phone = clean_phone(get('contact_phone'))
+    if not phone_re.match(phone):
+        errors.append('Số điện thoại không hợp lệ (VD: 0912345678).')
+
+
+    website = get('website')
+    for label, url in (('Website / LinkedIn / Fanpage', website),):
+        if url and not re.match(r'^https?://\S+$', url):
+            errors.append(f'{label} phải bắt đầu bằng http:// hoặc https://')
+
+    logo, logo_err = _read_logo_upload(files.get('logo'))
+    if logo_err:
+        errors.append(logo_err)
+
+    if account_type == 'business':
+        company = get('company')
+        tax_code = re.sub(r'[\s\-]', '', get('tax_code'))
+        industries = pick('industry', BUSINESS_INDUSTRIES)
+        industry = ', '.join(industries)
+        size = get('company_size')
+        address = get('address')
+        email = get('company_email').lower()
+        rep_name = get('rep_name')
+        rep_title = get('title')
+        hotline = clean_phone(get('hotline'))
+
+        if not company: errors.append('Vui lòng nhập tên công ty / tổ chức.')
+        if not re.fullmatch(r'\d{10}|\d{13}', tax_code):
+            errors.append('Mã số thuế phải gồm 10 hoặc 13 chữ số.')
+        if not industry: errors.append('Vui lòng chọn ít nhất một lĩnh vực hoạt động.')
+        if size not in HIRER_COMPANY_SIZES: errors.append('Vui lòng chọn quy mô công ty.')
+        if not address: errors.append('Vui lòng nhập địa chỉ trụ sở / chi nhánh.')
+        if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
+            errors.append('Email doanh nghiệp không hợp lệ.')
+        elif email.rsplit('@', 1)[1] in FREE_EMAIL_DOMAINS:
+            errors.append('Vui lòng dùng email doanh nghiệp (dạng @tencongty.com), không dùng email miễn phí.')
+        if not rep_name or not rep_title: errors.append('Vui lòng nhập họ tên và chức vụ người đại diện.')
+        if hotline and not re.fullmatch(r'\+?\d{8,12}', hotline):
+            errors.append('Hotline bàn không hợp lệ.')
+        if errors:
+            return errors
+
+        profile.account_type = 'business'
+        profile.company, profile.tax_code, profile.industry = company, tax_code, industry
+        profile.company_size, profile.address, profile.company_email = size, address, email
+        profile.website, profile.hotline = website, hotline
+        profile.rep_name, profile.title = rep_name, rep_title
+        profile.about = get('about')[:1000]
+        profile.location = address[:100]
+    else:
+        full_name = get('full_name')
+        province = get('location')
+        fields = pick('hiring_field', HIRING_FIELDS)
+        languages = pick('hiring_languages', HIRING_LANGUAGES)
+        services = pick('hiring_services', HIRING_SERVICES)
+        if not full_name: errors.append('Vui lòng nhập họ và tên.')
+        if not province: errors.append('Vui lòng nhập tỉnh / thành phố.')
+        if not fields: errors.append('Vui lòng chọn ít nhất một lĩnh vực thường thuê phiên dịch.')
+        if errors:
+            return errors
+
+        profile.account_type = 'individual'
+        user.name = full_name
+        profile.location = province
+        profile.hiring_field = ', '.join(fields)
+        profile.hiring_languages = ', '.join(languages)
+        profile.hiring_services = ', '.join(services)
+        profile.about = get('about')[:500]
+
+    profile.contact_phone = phone
+    user.phone = phone
+    if logo:
+        profile.logo = logo
+    return []
+
+
+def _ensure_new_columns():
+    """db.create_all() không thêm cột vào bảng đã có -> tự thêm cột mới của hirer_profile."""
     from sqlalchemy import inspect, text
-    for model in models:
-        table = model.__tablename__
+    for model in (HirerProfile,):
+        table = model.__table__
         try:
-            existing = {c['name'] for c in inspect(db.engine).get_columns(table)}
-            dialect = db.engine.dialect
-            with db.engine.begin() as conn:
-                for col in model.__table__.columns:
-                    if col.name in existing:
-                        continue
-                    conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {col.name} {col.type.compile(dialect=dialect)}'))
-                    print(f"[DB] Added column {table}.{col.name}", file=sys.stderr)
+            existing = {c['name'] for c in inspect(db.engine).get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing:
+                    continue
+                coltype = col.type.compile(dialect=db.engine.dialect)
+                db.session.execute(text(f'ALTER TABLE {table.name} ADD COLUMN {col.name} {coltype}'))
+            db.session.commit()
         except Exception as e:
-            print(f"[DB] ensure {table} columns error: {e}", file=sys.stderr)
+            db.session.rollback()
+            print(f"[DB] Cannot sync {table.name} columns: {e}", file=sys.stderr)
+
 
 def _init_db():
     """Tạo bảng nếu chưa tồn tại và nạp seed data DUY NHẤT khi DB trống.
@@ -608,11 +791,72 @@ def _init_db():
     """
     try:
         db.create_all()
+        # Tự động thêm cột image_url nếu DB đã tồn tại từ trước chưa có cột này
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE message ADD COLUMN image_url TEXT"))
+                conn.commit()
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE direct_message ADD COLUMN image_url TEXT"))
+                conn.commit()
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE message ALTER COLUMN image_url TYPE TEXT"))
+                conn.commit()
+            except Exception:
+                pass
+            try:
+                conn.execute(text("ALTER TABLE direct_message ALTER COLUMN image_url TYPE TEXT"))
+                conn.commit()
+            except Exception:
+                pass
     except Exception as e:
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
         return
 
-    _ensure_model_columns(HirerProfile, TranslatorPreference)
+    _ensure_new_columns()
+    # Tự động đồng bộ cột avatar nếu chưa tồn tại trong bảng user
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if 'user' in inspector.get_table_names():
+            user_cols = [c['name'] for c in inspector.get_columns('user')]
+            if 'avatar' not in user_cols:
+                with db.engine.connect() as conn:
+                    try:
+                        conn.execute(text('ALTER TABLE "user" ADD COLUMN avatar VARCHAR(255)'))
+                        conn.commit()
+                    except Exception:
+                        conn.execute(text('ALTER TABLE user ADD COLUMN avatar VARCHAR(255)'))
+                        conn.commit()
+
+        if 'translator_verification' in inspector.get_table_names():
+            tv_cols = [c['name'] for c in inspector.get_columns('translator_verification')]
+            with db.engine.connect() as conn:
+                if 'submitted_at' not in tv_cols:
+                    try:
+                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN submitted_at TIMESTAMP'))
+                        conn.commit()
+                    except Exception:
+                        pass
+                if 'submission_version' not in tv_cols:
+                    try:
+                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN submission_version INTEGER DEFAULT 0'))
+                        conn.commit()
+                    except Exception:
+                        pass
+                if 'submitted_snapshot' not in tv_cols:
+                    try:
+                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN submitted_snapshot TEXT'))
+                        conn.commit()
+                    except Exception:
+                        pass
+    except Exception:
+        pass
 
     try:
         # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
@@ -712,13 +956,16 @@ def inject_admin_badges():
 
     badges = {}
     try:
+        from models import TranslatorVerification
         badges['admin_badge_pending_translators'] = TranslatorProfile.query.filter_by(is_verified=False).count()
+        badges['admin_badge_pending_verifications'] = TranslatorVerification.query.filter_by(status='pending').count()
         badges['admin_badge_flagged_jobs'] = Job.query.filter_by(is_flagged=True).count()
         badges['admin_badge_reports'] = Report.query.filter_by(status='new').count()
         badges['admin_badge_notifications'] = AdminNotification.query.filter_by(is_read=False).count()
     except SQLAlchemyError:
         badges = {
             'admin_badge_pending_translators': 0,
+            'admin_badge_pending_verifications': 0,
             'admin_badge_flagged_jobs': 0,
             'admin_badge_reports': 0,
             'admin_badge_notifications': 0,
@@ -778,31 +1025,22 @@ def vnd_filter(value):
     except (ValueError, TypeError):
         return value
 
-class SimpleMongoUser:
-    """Wrapper nhẹ để templates có thể dùng current_user.name, .role, v.v. với MongoDB user."""
-    def __init__(self, data: dict):
-        self.id = f"mongo:{data['_id']}"
-        self.name = data.get('name', '')
-        self.email = data.get('email', '')
-        self.role = data.get('role', '')
-        self.phone = data.get('phone', '')
-        self.is_admin = data.get('is_admin', False)
-        self.is_active = data.get('is_active', True)
-        self.profile = None  # Không dùng SQLAlchemy relationship
-
+# TASK 5 + TASK 9: get_current_user và inject_globals dùng SQL only.
+# Legacy Auth object đã được loại bỏ.
 
 def get_current_user():
     """Trả về User object của người đang đăng nhập từ session hiện tại.
-    KHÔNG dùng User.query.first(), ID mặc định, hoặc dữ liệu hard-code.
+    SQL only.
+    TASK 9: Nếu session có user_id không phải integer -> clear session.
     Trả về None nếu chưa đăng nhập hoặc user không còn tồn tại.
     """
     uid = session.get('user_id')
     if not uid:
         return None
-    if isinstance(uid, str) and uid.startswith('mongo:'):
-        mongo_id = uid[len('mongo:'):]
-        mongo_data = mongo_find_user_by_id(mongo_id)
-        return SimpleMongoUser(mongo_data) if mongo_data else None
+    # TASK 9: Clear invalid/legacy session và yêu cầu login lại
+    if not isinstance(uid, int):
+        session.clear()
+        return None
     try:
         return User.query.get(uid)
     except SQLAlchemyError as e:
@@ -812,27 +1050,25 @@ def get_current_user():
 
 @app.context_processor
 def inject_globals():
+    # TASK 5: context processor dùng SQL only.
+    # TASK 9: Nếu session không hợp lệ → clear, user sẽ thấy màn hình login.
     user = None
     uid = session.get('user_id')
     if uid:
-        try:
-            if isinstance(uid, str) and uid.startswith('mongo:'):
-                # MongoDB user: dựng dữ liệu đã lưu trong session (tránh query lại)
-                mongo_id = uid[len('mongo:'):]
-                mongo_data = mongo_find_user_by_id(mongo_id)
-                if mongo_data:
-                    user = SimpleMongoUser(mongo_data)
-                else:
-                    session.pop('user_id', None)
-            else:
+        # TASK 9: Clear legacy/invalid session
+        if not isinstance(uid, int):
+            session.clear()
+            uid = None
+        else:
+            try:
                 user = User.query.get(uid)
                 if not user:
                     session.pop('user_id', None)
-        except SQLAlchemyError as e:
-            print(f"[AUTH SQL GLOBALS ERROR] {e}")
-            # Do not pop session on transient DB locks to prevent random logout
-        except Exception as e:
-            print(f"[AUTH GLOBALS ERROR] {e}")
+            except SQLAlchemyError as e:
+                print(f"[AUTH SQL GLOBALS ERROR] {e}")
+                # Do not pop session on transient DB locks to prevent random logout
+            except Exception as e:
+                print(f"[AUTH GLOBALS ERROR] {e}")
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
     if current_lang not in ('vi', 'en'):
         current_lang = 'vi'
@@ -870,8 +1106,715 @@ def index():
         TranslatorProfile.rating.desc()).limit(4).all()
     if not top_translators:
         top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
-    latest_jobs = Job.query.filter_by(status='open', is_flagged=False).order_by(Job.created_at.desc()).limit(4).all()
+    latest_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).order_by(Job.created_at.desc()).limit(4).all()
     return render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
+
+
+@app.route('/interpreter/dashboard')
+@login_required
+def interpreter_dashboard():
+    """Trang Tổng quan dành riêng cho phiên dịch viên."""
+    from datetime import date as date_cls, timedelta
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
+    if user.role != 'translator':
+        return redirect(url_for('index'))
+
+    uid = user.id
+
+    # ── 1. Hồ sơ & xác minh ──────────────────────────────────────────────────
+    profile = user.profile
+    preference = getattr(user, 'preference', None)
+
+    # Tiêu chí hoàn thiện hồ sơ có căn cứ rõ ràng từ các trường dữ liệu thực tế:
+    # 1. Họ và tên: 15% (user.name)
+    # 2. Số điện thoại: 10% (user.phone)
+    # 3. Tiêu đề chuyên môn: 15% (profile.title)
+    # 4. Ngôn ngữ thông thạo: 20% (profile.languages)
+    # 5. Bằng cấp / Chứng chỉ: 15% (profile.badges)
+    # 6. Giới thiệu bản thân: 15% (profile.bio)
+    # 7. Cài đặt nhận việc / Dịch vụ: 10% (preference.service_types hoặc profile.services)
+    profile_completeness = 0
+    profile_missing = []
+
+    # 1. Họ và tên
+    if user.name and user.name.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Họ và tên')
+
+    # 2. Số điện thoại
+    if user.phone and user.phone.strip():
+        profile_completeness += 10
+    else:
+        profile_missing.append('Số điện thoại')
+
+    # 3. Tiêu đề chuyên môn
+    if profile and profile.title and profile.title.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Tiêu đề chuyên môn')
+
+    # 4. Ngôn ngữ thông thạo
+    if profile and profile.languages and profile.languages.strip():
+        profile_completeness += 20
+    else:
+        profile_missing.append('Ngôn ngữ thông thạo')
+
+    # 5. Bằng cấp / Chứng chỉ (căn cứ kiểm duyệt xác minh)
+    if profile and profile.badges and profile.badges.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Bằng cấp / Chứng chỉ')
+
+    # 6. Giới thiệu bản thân
+    if profile and profile.bio and profile.bio.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Giới thiệu bản thân')
+
+    # 7. Cài đặt nhận việc / Dịch vụ
+    has_services = False
+    if profile and getattr(profile, 'services', None) and len(profile.services) > 0:
+        has_services = True
+    elif preference and getattr(preference, 'service_types', None) and preference.service_types.strip():
+        has_services = True
+
+    if has_services:
+        profile_completeness += 10
+    else:
+        profile_missing.append('Dịch vụ / Cài đặt nhận việc')
+
+    # Xác định trạng thái xác minh thực tế:
+    if not profile:
+        verification_status = {
+            'code': 'no_profile',
+            'label': 'Chưa tạo hồ sơ',
+            'color': 'slate',
+            'badge_bg': 'bg-slate-100',
+            'badge_text': 'text-slate-600',
+            'badge_border': 'border-slate-200',
+            'tooltip': 'Chưa có thông tin hồ sơ phiên dịch viên.',
+            'action_hint': 'Vui lòng khởi tạo hồ sơ cá nhân.',
+        }
+    elif profile.is_verified:
+        verification_status = {
+            'code': 'verified',
+            'label': 'Đã xác minh',
+            'color': 'emerald',
+            'badge_bg': 'bg-emerald-50',
+            'badge_text': 'text-emerald-700',
+            'badge_border': 'border-emerald-200',
+            'tooltip': 'Hồ sơ và chứng chỉ đã được Ban quản trị VietTranslate kiểm duyệt & chứng nhận.',
+            'action_hint': 'Hồ sơ đã được cấp huy hiệu uy tín.',
+        }
+    elif profile.badges and profile.badges.strip():
+        verification_status = {
+            'code': 'pending',
+            'label': 'Đang chờ duyệt',
+            'color': 'blue',
+            'badge_bg': 'bg-blue-50',
+            'badge_text': 'text-blue-700',
+            'badge_border': 'border-blue-200',
+            'tooltip': 'Bạn đã cung cấp chứng chỉ. Hồ sơ đang trong danh sách chờ Ban quản trị xét duyệt.',
+            'action_hint': 'Đang chờ Ban quản trị duyệt chứng chỉ.',
+        }
+    else:
+        verification_status = {
+            'code': 'unverified',
+            'label': 'Chưa xác minh',
+            'color': 'amber',
+            'badge_bg': 'bg-amber-50',
+            'badge_text': 'text-amber-700',
+            'badge_border': 'border-amber-200',
+            'tooltip': 'Chưa nộp chứng chỉ. Nhấn để bổ sung chứng chỉ (IELTS, JLPT, HSK...) và gửi duyệt.',
+            'action_hint': 'Cần bổ sung chứng chỉ để xác minh.',
+        }
+
+    # ── 2. Thống kê công việc (3 chỉ số cốt lõi và dữ liệu hợp đồng) ─────────
+    today = date_cls.today()
+
+    # Chỉ số 1: Số đơn ứng tuyển đang chờ (chỉ tính status == 'pending' của Interpreter)
+    proposals_all = Proposal.query.filter_by(translator_id=uid).all()
+    proposals_pending = [p for p in proposals_all if p.status == 'pending']
+    proposals_accepted = [p for p in proposals_all if p.status == 'accepted']
+    pending_proposals_count = len(proposals_pending)
+
+    # Chỉ số 2: Số ca làm sắp tới (ca có lịch hợp lệ: scheduled_date >= today, status in ('reserved', 'active'))
+    # Đảm bảo không tính ca đã hủy hoặc đã hoàn thành
+    all_schedules = TranslatorSchedule.query.filter_by(translator_id=uid).all()
+    upcoming_schedules_all = [
+        s for s in all_schedules
+        if s.scheduled_date and s.scheduled_date >= today and s.status in ('reserved', 'active')
+    ]
+    scheduled_contract_ids = {s.contract_id for s in upcoming_schedules_all if s.contract_id}
+
+    # Hợp đồng của interpreter
+    contracts_all = Contract.query.filter_by(translator_id=uid).all()
+    contracts_active = [c for c in contracts_all if c.status in ('escrow_held', 'in_progress', 'active')]
+    contracts_done = [c for c in contracts_all if c.status == 'completed']
+    contracts_pending_payment = [c for c in contracts_all if c.status == 'escrow_pending']
+
+    # Bổ sung các hợp đồng đang thực hiện có lịch làm mà chưa gắn TranslatorSchedule (tránh đếm trùng)
+    extra_active_contracts = [c for c in contracts_active if c.id not in scheduled_contract_ids]
+    upcoming_shifts_count = len(upcoming_schedules_all) + len(extra_active_contracts)
+
+    # Chỉ số 3: Số ca làm đã hoàn thành (chỉ tính ca/hợp đồng đã có trạng thái hoàn thành hợp lệ)
+    # Tránh đếm trùng cùng một ca khi có cả contract_id và schedule hoàn thành
+    completed_contract_ids = {c.id for c in contracts_done}
+    standalone_completed_schedules = [
+        s for s in all_schedules
+        if s.status == 'completed' and (not s.contract_id or s.contract_id not in completed_contract_ids)
+    ]
+    completed_shifts_count = len(contracts_done) + len(standalone_completed_schedules)
+
+    job_stats = {
+        'pending_proposals':  pending_proposals_count,
+        'upcoming_shifts':    upcoming_shifts_count,
+        'completed_shifts':   completed_shifts_count,
+        'total_contracts':    len(contracts_all),
+        'active_contracts':   len(contracts_active),
+        'completed':          len(contracts_done),
+        'accepted_proposals': len(proposals_accepted),
+        'rating':             profile.rating if profile else 0.0,
+        'total_reviews':      profile.total_reviews if profile else 0,
+    }
+
+    # ── 3. Thống kê thu nhập (từ contracts completed có agreed_price) ─────────
+    import calendar
+    first_of_month = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+    end_of_month = today.replace(day=last_day)
+    period_label = f"Tháng {today.month:02d}/{today.year}"
+    period_range = f"01/{today.month:02d} - {last_day:02d}/{today.month:02d}/{today.year}"
+
+    # 1. Thu nhập trong kỳ hiện tại: Hợp đồng hoàn tất (nghiệm thu giải ngân) trong tháng hiện tại
+    monthly_contracts = [
+        c for c in contracts_done
+        if c.updated_at and c.updated_at.date() >= first_of_month and c.updated_at.date() <= end_of_month
+    ]
+    monthly_earned = sum(c.agreed_price for c in monthly_contracts if c.agreed_price)
+
+    # 2. Thu nhập đã thanh toán: Tổng các khoản thực sự đã thanh toán (nghiệm thu/giải ngân tích lũy)
+    total_earned = sum(c.agreed_price for c in contracts_done if c.agreed_price)
+
+    # 3. Khoản thu nhập đang chờ xử lý:
+    # - Tiền đang giữ an toàn trong Escrow cho các hợp đồng đang thực hiện (in_progress, active, escrow_held)
+    pending_payout = sum(c.agreed_price for c in contracts_active if c.agreed_price)
+    # - Khoản chờ khách nạp tiền ký quỹ Escrow (escrow_pending)
+    escrow_pending_amount = sum(c.agreed_price for c in contracts_pending_payment if c.agreed_price)
+
+    income_stats = {
+        'total_earned':              total_earned,
+        'monthly_earned':            monthly_earned,
+        'pending_payout':            pending_payout,
+        'escrow_pending_amount':     escrow_pending_amount,
+        'period_label':              period_label,
+        'period_range':              period_range,
+        'period_start':              f"01/{today.month:02d}/{today.year}",
+        'period_end':                f"{last_day:02d}/{today.month:02d}/{today.year}",
+        'monthly_contracts_count':   len(monthly_contracts),
+        'completed_contracts_count': len(contracts_done),
+        'active_contracts_count':    len(contracts_active),
+        'escrow_pending_count':      len(contracts_pending_payment),
+    }
+
+    # ── 4. Ca làm sắp tới (Sắp xếp tăng dần theo thời điểm bắt đầu) ────────
+    from datetime import datetime as dt_cls, time as time_cls
+    from services.schedule import _parse_date, _parse_time
+    now = dt_cls.now()
+    now_time = now.time()
+
+    WEEKDAYS_VN = {
+        0: 'Thứ Hai',
+        1: 'Thứ Ba',
+        2: 'Thứ Tư',
+        3: 'Thứ Năm',
+        4: 'Thứ Sáu',
+        5: 'Thứ Bảy',
+        6: 'Chủ Nhật'
+    }
+
+    upcoming_shifts_list = []
+    seen_contract_ids = set()
+
+    # Nguồn 1: Các lịch đặt trong TranslatorSchedule (status reserved hoặc active)
+    for sch in upcoming_schedules_all:
+        if not sch.scheduled_date:
+            continue
+        # Bỏ qua ca đã qua trong ngày hôm nay nếu end_time đã kết thúc và không còn active
+        if sch.scheduled_date == today and sch.end_time and sch.end_time < now_time and sch.status != 'active':
+            continue
+
+        c = sch.contract
+        j = sch.job or (c.job if c else None)
+        s = sch.service or (c.service if c else None)
+
+        if c:
+            seen_contract_ids.add(c.id)
+
+        # Tiêu đề ca làm việc
+        title = None
+        if j and j.title:
+            title = j.title
+        elif s and s.name:
+            title = s.name
+        elif c:
+            title = f"Hợp đồng phiên dịch #{c.id}"
+        else:
+            title = f"Ca phiên dịch #{sch.id}"
+
+        # Hình thức làm việc & Địa điểm
+        raw_location = (c.location if c and c.location else (j.event_location if j and j.event_location else '')).strip()
+        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+        work_mode = {
+            'type': 'onsite' if is_onsite else 'online',
+            'label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
+            'location': raw_location if is_onsite else 'Online / Từ xa'
+        }
+
+        # Trạng thái ca làm việc
+        is_active_now = (sch.status == 'active' or (sch.scheduled_date == today and sch.start_time and sch.start_time <= now_time and sch.end_time and sch.end_time >= now_time))
+        if is_active_now:
+            status_meta = {
+                'code': 'active',
+                'label': 'Đang diễn ra',
+                'badge_bg': 'bg-emerald-50',
+                'badge_text': 'text-emerald-700',
+                'badge_border': 'border-emerald-200',
+                'dot_color': 'bg-emerald-500 animate-pulse'
+            }
+        elif sch.status == 'active':
+            status_meta = {
+                'code': 'confirmed',
+                'label': 'Đã xác nhận',
+                'badge_bg': 'bg-blue-50',
+                'badge_text': 'text-blue-700',
+                'badge_border': 'border-blue-200',
+                'dot_color': 'bg-blue-500'
+            }
+        else:
+            status_meta = {
+                'code': 'reserved',
+                'label': 'Chờ bắt đầu',
+                'badge_bg': 'bg-amber-50',
+                'badge_text': 'text-amber-700',
+                'badge_border': 'border-amber-200',
+                'dot_color': 'bg-amber-500'
+            }
+
+        # Nhãn thời gian tương đối
+        delta_days = (sch.scheduled_date - today).days
+        if delta_days == 0:
+            relative_badge = 'Hôm nay'
+            badge_color = 'bg-rose-50 text-rose-700 border-rose-200'
+        elif delta_days == 1:
+            relative_badge = 'Ngày mai'
+            badge_color = 'bg-amber-50 text-amber-700 border-amber-200'
+        elif delta_days <= 3:
+            relative_badge = f'Trong {delta_days} ngày'
+            badge_color = 'bg-blue-50 text-blue-700 border-blue-200'
+        else:
+            relative_badge = WEEKDAYS_VN.get(sch.scheduled_date.weekday(), f'+{delta_days} ngày')
+            badge_color = 'bg-slate-100 text-slate-700 border-slate-200'
+
+        start_str = sch.start_time.strftime('%H:%M') if sch.start_time else ''
+        end_str = sch.end_time.strftime('%H:%M') if sch.end_time else ''
+        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoạt')
+
+        if c:
+            detail_url = url_for('transaction_detail', contract_id=c.id)
+        elif j:
+            detail_url = url_for('job_detail', job_id=j.id)
+        else:
+            detail_url = url_for('account_history')
+
+        client_name = c.hirer.name if (c and c.hirer) else (j.hirer.name if (j and j.hirer) else None)
+        category_name = j.display_category_text() if j else (s.name if s else 'Phiên dịch')
+
+        upcoming_shifts_list.append({
+            'id': sch.id,
+            'contract_id': c.id if c else None,
+            'job_id': j.id if j else None,
+            'title': title,
+            'scheduled_date': sch.scheduled_date,
+            'date_display': sch.scheduled_date.strftime('%d/%m/%Y'),
+            'day_of_week': WEEKDAYS_VN.get(sch.scheduled_date.weekday(), ''),
+            'relative_badge': relative_badge,
+            'badge_color': badge_color,
+            'start_time': sch.start_time or time_cls(0, 0),
+            'time_display': time_display,
+            'work_mode': work_mode,
+            'status': status_meta,
+            'detail_url': detail_url,
+            'client_name': client_name,
+            'category_name': category_name,
+            'price': c.agreed_price if c else None
+        })
+
+    # Nguồn 2: Bổ sung các hợp đồng đang thực hiện có lịch làm mà chưa tạo TranslatorSchedule
+    for c in contracts_active + contracts_pending_payment:
+        if c.id in seen_contract_ids:
+            continue
+        raw_d = _parse_date(c.scheduled_date)
+        if not raw_d or raw_d < today:
+            continue
+
+        start_t = _parse_time(c.scheduled_time_start)
+        end_t = _parse_time(c.scheduled_time_end)
+
+        if raw_d == today and end_t and end_t < now_time:
+            continue
+
+        seen_contract_ids.add(c.id)
+        j = c.job
+        s = c.service
+        title = j.title if (j and j.title) else (s.name if (s and s.name) else f"Hợp đồng phiên dịch #{c.id}")
+
+        raw_location = (c.location or (j.event_location if j else '') or '').strip()
+        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+        work_mode = {
+            'type': 'onsite' if is_onsite else 'online',
+            'label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
+            'location': raw_location if is_onsite else 'Online / Từ xa'
+        }
+
+        if c.status in ('in_progress', 'active', 'escrow_held'):
+            status_meta = {
+                'code': 'confirmed',
+                'label': 'Đang thực hiện (Escrow)',
+                'badge_bg': 'bg-emerald-50',
+                'badge_text': 'text-emerald-700',
+                'badge_border': 'border-emerald-200',
+                'dot_color': 'bg-emerald-500'
+            }
+        else:
+            status_meta = {
+                'code': 'pending_escrow',
+                'label': 'Chờ ký quỹ Escrow',
+                'badge_bg': 'bg-amber-50',
+                'badge_text': 'text-amber-700',
+                'badge_border': 'border-amber-200',
+                'dot_color': 'bg-amber-500'
+            }
+
+        delta_days = (raw_d - today).days
+        if delta_days == 0:
+            relative_badge = 'Hôm nay'
+            badge_color = 'bg-rose-50 text-rose-700 border-rose-200'
+        elif delta_days == 1:
+            relative_badge = 'Ngày mai'
+            badge_color = 'bg-amber-50 text-amber-700 border-amber-200'
+        elif delta_days <= 3:
+            relative_badge = f'Trong {delta_days} ngày'
+            badge_color = 'bg-blue-50 text-blue-700 border-blue-200'
+        else:
+            relative_badge = WEEKDAYS_VN.get(raw_d.weekday(), f'+{delta_days} ngày')
+            badge_color = 'bg-slate-100 text-slate-700 border-slate-200'
+
+        start_str = start_t.strftime('%H:%M') if start_t else (c.scheduled_time_start or '')
+        end_str = end_t.strftime('%H:%M') if end_t else (c.scheduled_time_end or '')
+        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoạt')
+
+        upcoming_shifts_list.append({
+            'id': c.id,
+            'contract_id': c.id,
+            'job_id': j.id if j else None,
+            'title': title,
+            'scheduled_date': raw_d,
+            'date_display': raw_d.strftime('%d/%m/%Y'),
+            'day_of_week': WEEKDAYS_VN.get(raw_d.weekday(), ''),
+            'relative_badge': relative_badge,
+            'badge_color': badge_color,
+            'start_time': start_t or time_cls(0, 0),
+            'time_display': time_display,
+            'work_mode': work_mode,
+            'status': status_meta,
+            'detail_url': url_for('transaction_detail', contract_id=c.id),
+            'client_name': c.hirer.name if c.hirer else None,
+            'category_name': j.display_category_text() if j else 'Phiên dịch',
+            'price': c.agreed_price
+        })
+
+    # Sắp xếp tăng dần theo thời gian bắt đầu
+    upcoming_shifts_list.sort(key=lambda x: (x['scheduled_date'], x['start_time'] or time_cls(0, 0)))
+    total_upcoming_shifts = len(upcoming_shifts_list)
+    upcoming_shifts = upcoming_shifts_list[:6]
+    upcoming_schedules = upcoming_shifts
+
+    # ── 5. Việc làm đề xuất (dùng matching service hiện có) ──────────────────
+    has_profile_languages = bool(
+        (profile and profile.languages and profile.languages.strip()) or
+        (preference and preference.languages and preference.languages.strip()) or
+        (preference and getattr(preference, 'language_pairs', None) and preference.language_pairs.strip())
+    )
+
+    recommended_jobs = []
+    try:
+        from services.matching import get_recommended_jobs_for_translator
+        current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+        recommended_raw = get_recommended_jobs_for_translator(uid, 6, current_lang)
+        if recommended_raw:
+            job_ids = [r['job_id'] for r in recommended_raw]
+            jobs_map = {j.id: j for j in Job.query.filter(Job.id.in_(job_ids)).all()}
+            for r in recommended_raw:
+                j = jobs_map.get(r['job_id'])
+                if j and j.status == 'open' and not j.is_flagged:
+                    loc = (j.event_location or '').strip()
+                    is_onsite = bool(loc and not any(k in loc.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+
+                    recommended_jobs.append({
+                        'job': j,
+                        'match_score': r.get('match_score', 0),
+                        'reasons': r.get('reasons', []),
+                        'is_matched': True,
+                        'work_mode_label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
+                        'work_mode_type': 'onsite' if is_onsite else 'online',
+                        'location_display': loc if is_onsite else 'Online / Từ xa',
+                        'applicant_count': j.applicant_count,
+                        'category_text': j.display_category_text(current_lang),
+                    })
+    except Exception as e:
+        print(f"[interpreter_dashboard] recommended jobs error: {e}")
+        recommended_jobs = []
+
+    # ── 6. Việc cần xử lý (Tasks & Action Items) ─────────────────────────────
+    action_items = []
+
+    # 1. Phản hồi lời mời làm việc từ khách hàng (Ưu tiên cao nhất)
+    try:
+        invitation_notifs = Notification.query.filter_by(
+            user_id=uid,
+            type='JOB_INVITATION'
+        ).order_by(Notification.created_at.desc()).all()
+
+        for notif in invitation_notifs:
+            if notif.related_job_id:
+                inv_job = Job.query.get(notif.related_job_id)
+                if inv_job and inv_job.status == 'open' and not inv_job.is_flagged:
+                    has_applied = Proposal.query.filter_by(job_id=inv_job.id, translator_id=uid).first()
+                    if not has_applied:
+                        action_items.append({
+                            'id': f"invitation_{inv_job.id}",
+                            'type': 'job_invitation',
+                            'title': f"Phản hồi lời mời: {inv_job.title}",
+                            'description': f"Khách hàng {inv_job.hirer.name if inv_job.hirer else ''} đã gửi lời mời bạn tham gia phiên dịch ({inv_job.source_lang} → {inv_job.target_lang}). Hãy xem mô tả và gửi báo giá.",
+                            'status_label': 'Chờ phản hồi',
+                            'priority_label': 'Khẩn cấp',
+                            'priority_badge': 'bg-rose-50 text-rose-700 border-rose-200',
+                            'icon_type': 'invitation',
+                            'url': url_for('job_detail', job_id=inv_job.id),
+                            'action_text': 'Phản hồi lời mời →',
+                        })
+    except Exception as e:
+        print(f"[interpreter_dashboard] invitation action error: {e}")
+
+    # 2. Hoàn thiện hồ sơ cá nhân (Nếu profile_completeness < 100%)
+    if profile_completeness < 100:
+        missing_str = ', '.join(profile_missing) if profile_missing else 'thông tin cần thiết'
+        action_items.append({
+            'id': 'profile_incomplete',
+            'type': 'profile_completion',
+            'title': 'Hoàn thiện hồ sơ cá nhân',
+            'description': f"Hồ sơ hiện đạt {profile_completeness}%. Bạn cần bổ sung: {missing_str} để tăng uy tín và cơ hội nhận việc.",
+            'status_label': f"Còn thiếu ({profile_completeness}%)",
+            'priority_label': 'Quan trọng',
+            'priority_badge': 'bg-amber-50 text-amber-700 border-amber-200',
+            'icon_type': 'profile',
+            'url': url_for('account_profile'),
+            'action_text': 'Hoàn thiện hồ sơ →',
+        })
+
+    # 3. Bổ sung chứng chỉ xác minh hồ sơ (Nếu chưa nộp chứng chỉ)
+    if verification_status and verification_status.get('code') in ('unverified', 'no_profile'):
+        action_items.append({
+            'id': 'profile_verification',
+            'type': 'verification',
+            'title': 'Bổ sung chứng chỉ để xác minh hồ sơ',
+            'description': 'Bạn chưa nộp chứng chỉ ngoại ngữ. Hãy bổ sung bằng cấp/chứng chỉ (IELTS, JLPT, HSK...) để được Ban quản trị duyệt cấp huy hiệu uy tín.',
+            'status_label': 'Chưa xác minh',
+            'priority_label': 'Khuyên dùng',
+            'priority_badge': 'bg-blue-50 text-blue-700 border-blue-200',
+            'icon_type': 'verification',
+            'url': url_for('account_verification'),
+            'action_text': 'Nộp chứng chỉ →',
+        })
+
+    # 4. Hợp đồng đang thực hiện cần bàn giao / tiến độ
+    for c in contracts_active:
+        job_title = c.job.title if c.job else (c.service.name if c.service else f"Hợp đồng #{c.id}")
+        price_str = f"{c.agreed_price:,} VND".replace(',', '.') if c.agreed_price else ""
+        action_items.append({
+            'id': f"contract_{c.id}",
+            'type': 'contract_in_progress',
+            'title': f"Bàn giao & Thực hiện: {job_title}",
+            'description': f"Hợp đồng trị giá {price_str} đang được Escrow bảo chứng. Vui lòng theo dõi tiến độ, trao đổi với khách và hoàn tất ca dịch.",
+            'status_label': 'Đang thực hiện',
+            'priority_label': 'Cần bàn giao',
+            'priority_badge': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            'icon_type': 'contract',
+            'url': url_for('transaction_detail', contract_id=c.id),
+            'action_text': 'Vào phòng làm việc →',
+        })
+
+    # 5. Hợp đồng chờ khách nạp Escrow
+    for c in contracts_pending_payment:
+        job_title = c.job.title if c.job else (c.service.name if c.service else f"Hợp đồng #{c.id}")
+        action_items.append({
+            'id': f"escrow_{c.id}",
+            'type': 'escrow_pending',
+            'title': f"Theo dõi nạp ký quỹ: {job_title}",
+            'description': "Đề xuất đã được khách chấp thuận nhưng chưa hoàn tất nạp tiền vào Escrow. Lưu ý chỉ bắt đầu phiên dịch khi tiền đã vào Escrow an toàn.",
+            'status_label': 'Chờ khách nạp tiền',
+            'priority_label': 'Lưu ý',
+            'priority_badge': 'bg-amber-50 text-amber-700 border-amber-200',
+            'icon_type': 'escrow',
+            'url': url_for('transaction_detail', contract_id=c.id),
+            'action_text': 'Chi tiết hợp đồng →',
+        })
+
+    # ── 7. Thông báo gần đây (5 thông báo mới nhất) ──────────────────────────
+    recent_notifications_raw = Notification.query.filter_by(user_id=uid).order_by(
+        Notification.created_at.desc()
+    ).limit(5).all()
+
+    unread_notifications_count = Notification.query.filter_by(
+        user_id=uid, is_read=False
+    ).count()
+
+    from datetime import datetime as dt_cls
+    now_dt = dt_cls.utcnow()
+
+    recent_notifications = []
+    for n in recent_notifications_raw:
+        # Xác định target_url an toàn và chuẩn xác
+        target_url = None
+        if n.url and n.url.strip() and n.url != '#':
+            target_url = n.url.strip()
+        elif n.related_contract_id:
+            target_url = url_for('transaction_detail', contract_id=n.related_contract_id)
+        elif n.related_job_id:
+            target_url = url_for('job_detail', job_id=n.related_job_id)
+        elif n.type in ('CONTRACT_CREATED', 'CONTRACT_COMPLETED', 'PAYMENT'):
+            target_url = url_for('account_history')
+        elif n.type == 'NEW_MESSAGE':
+            target_url = url_for('messages_page')
+        elif n.type in ('JOB_MATCH', 'JOB_INVITATION', 'JOB_APPLICATION'):
+            target_url = url_for('job_list')
+        else:
+            target_url = url_for('notifications_page')
+
+        # Thời gian tương đối
+        time_ago_str = ""
+        if n.created_at:
+            delta_seconds = int((now_dt - n.created_at).total_seconds())
+            if delta_seconds < 60:
+                time_ago_str = "Vừa xong"
+            elif delta_seconds < 3600:
+                time_ago_str = f"{max(1, delta_seconds // 60)} phút trước"
+            elif delta_seconds < 86400:
+                time_ago_str = f"{delta_seconds // 3600} giờ trước"
+            elif delta_seconds < 172800:
+                time_ago_str = "Hôm qua"
+            else:
+                time_ago_str = n.created_at.strftime('%d/%m/%Y %H:%M')
+
+        # Phân loại và icon/badge meta
+        ntype = n.type or ''
+        if 'INVITATION' in ntype:
+            cat_label = 'Lời mời việc'
+            icon_kind = 'invitation'
+            cat_badge = 'bg-rose-50 text-rose-700 border-rose-200'
+            icon_bg = 'bg-rose-100 text-rose-600'
+        elif 'MATCH' in ntype:
+            cat_label = 'Việc phù hợp'
+            icon_kind = 'match'
+            cat_badge = 'bg-blue-50 text-blue-700 border-blue-200'
+            icon_bg = 'bg-blue-100 text-blue-600'
+        elif 'PROPOSAL_ACCEPTED' in ntype:
+            cat_label = 'Đã chấp thuận'
+            icon_kind = 'accepted'
+            cat_badge = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            icon_bg = 'bg-emerald-100 text-emerald-600'
+        elif 'PROPOSAL_REJECTED' in ntype:
+            cat_label = 'Từ chối'
+            icon_kind = 'rejected'
+            cat_badge = 'bg-slate-100 text-slate-700 border-slate-200'
+            icon_bg = 'bg-slate-100 text-slate-600'
+        elif 'CONTRACT' in ntype:
+            cat_label = 'Hợp đồng'
+            icon_kind = 'contract'
+            cat_badge = 'bg-indigo-50 text-indigo-700 border-indigo-200'
+            icon_bg = 'bg-indigo-100 text-indigo-600'
+        elif 'PAYMENT' in ntype:
+            cat_label = 'Ký quỹ / Tiền'
+            icon_kind = 'payment'
+            cat_badge = 'bg-amber-50 text-amber-700 border-amber-200'
+            icon_bg = 'bg-amber-100 text-amber-600'
+        elif 'MESSAGE' in ntype:
+            cat_label = 'Tin nhắn'
+            icon_kind = 'message'
+            cat_badge = 'bg-purple-50 text-purple-700 border-purple-200'
+            icon_bg = 'bg-purple-100 text-purple-600'
+        elif 'REVIEW' in ntype:
+            cat_label = 'Đánh giá'
+            icon_kind = 'review'
+            cat_badge = 'bg-amber-50 text-amber-700 border-amber-200'
+            icon_bg = 'bg-amber-100 text-amber-600'
+        else:
+            cat_label = 'Hệ thống'
+            icon_kind = 'bell'
+            cat_badge = 'bg-slate-100 text-slate-700 border-slate-200'
+            icon_bg = 'bg-slate-100 text-slate-600'
+
+        recent_notifications.append({
+            'id': n.id,
+            'type': n.type,
+            'title': n.title,
+            'message': n.message,
+            'is_read': n.is_read,
+            'created_at': n.created_at,
+            'created_at_display': n.created_at.strftime('%d/%m/%Y %H:%M') if n.created_at else '',
+            'time_ago': time_ago_str,
+            'target_url': target_url,
+            'cat_label': cat_label,
+            'icon_kind': icon_kind,
+            'cat_badge': cat_badge,
+            'icon_bg': icon_bg,
+        })
+
+    return render_template(
+        'interpreter_dashboard.html',
+        user=user,
+        profile=profile,
+        profile_completeness=profile_completeness,
+        profile_missing=profile_missing,
+        verification_status=verification_status,
+        job_stats=job_stats,
+        income_stats=income_stats,
+        upcoming_schedules=upcoming_schedules,
+        upcoming_shifts=upcoming_shifts,
+        total_upcoming_shifts=total_upcoming_shifts,
+        recommended_jobs=recommended_jobs,
+        has_profile_languages=has_profile_languages,
+        action_items=action_items,
+        recent_notifications=recent_notifications,
+        unread_notifications_count=unread_notifications_count,
+        today=today,
+    )
+
+@app.route('/account/verification')
+@login_required
+def account_verification():
+    """Điều hướng đến khu vực quản lý hồ sơ và chứng chỉ xác minh của phiên dịch viên."""
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
+    if user.role != 'translator':
+        flash('Chức năng xác minh hồ sơ chỉ dành cho phiên dịch viên.', 'info')
+        return redirect(url_for('account_profile'))
+    return redirect(url_for('account_profile', tab='translator'))
 
 @app.route('/about')
 def about():
@@ -885,36 +1828,12 @@ def payment_info():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # Login dùng SQL only.
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
 
         try:
-            # ── Thử MongoDB trước (khi deploy trên Vercel) ──
-            if MONGO_URI:
-                mongo_user = mongo_find_user_by_email(email)
-                if mongo_user:
-                    if not mongo_user.get('is_active', True):
-                        flash(_t('flash.account_locked'), 'error')
-                        return render_template('login.html', email=email)
-                    if check_password_hash(mongo_user['password_hash'], password):
-                        # Lưu mongo _id dạng string vào session với prefix để phân biệt
-                        session.clear()
-                        session.permanent = True
-                        session['user_id'] = f"mongo:{mongo_user['_id']}"
-                        session['user_name'] = mongo_user.get('name', '')
-                        session['user_role'] = mongo_user.get('role', '')
-                        session['is_admin'] = mongo_user.get('is_admin', False)
-                        flash(_t('flash.login_success'), 'success')
-                        if mongo_user.get('is_admin'):
-                            return redirect(url_for('admin_dashboard'))
-                        return redirect(url_for('index'))
-                    else:
-                        flash(_t('flash.invalid_password'), 'error')
-                        return render_template('login.html', email=email)
-                # Nếu không tìm thấy trong MongoDB thì fallback xuống SQLite bên dưới
-    
-            # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
             user = User.query.filter_by(email=email).first()
             if user:
                 if not user.is_active:
@@ -923,10 +1842,13 @@ def login():
                 if check_password_hash(user.password_hash, password):
                     session.clear()
                     session.permanent = True
-                    session['user_id'] = user.id
+                    session['user_id'] = user.id  # SQL integer ID
                     flash(_t('flash.login_success'), 'success')
+                    # TASK 4A: Role redirect
                     if user.is_admin:
                         return redirect(url_for('admin_dashboard'))
+                    if user.role == 'translator':
+                        return redirect(url_for('interpreter_dashboard'))
                     return redirect(url_for('index'))
                 else:
                     flash(_t('flash.invalid_password'), 'error')
@@ -947,12 +1869,14 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # Register dùng SQL only.
+    # Đăng ký phải atomic: User + Profile; nếu profile fail → rollback User.
     if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        phone = request.form.get('phone')
-        role = request.form.get('role')
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        phone = request.form.get('phone', '').strip()
+        role = request.form.get('role', '')
 
         if role not in ('hirer', 'translator'):
             flash(_t('flash.invalid_role'), 'error')
@@ -963,45 +1887,48 @@ def register():
             flash(_t('flash.invalid_email'), 'error')
             return redirect(url_for('register'))
 
-        hashed_pw = generate_password_hash(password)
+        if not password or len(password) < 6:
+            flash(_t('flash.password_too_short'), 'error')
+            return redirect(url_for('register'))
 
-        # ── Dùng MongoDB khi MONGO_URI được cấu hình (Vercel) ──
-        if MONGO_URI:
-            success, message = mongo_register_user(
-                username=name,
-                email=email,
-                hashed_password=hashed_pw,
-                phone=phone,
-                role=role,
-            )
-            if success:
-                flash(_t('flash.register_success'), 'success')
-                return redirect(url_for('login'))
-            else:
-                flash(message, 'error')
-                return redirect(url_for('register'))
-
-        # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
         if User.query.filter_by(email=email).first():
             flash(_t('flash.email_exists'), 'error')
             return redirect(url_for('register'))
 
-        new_user = User(name=name, email=email,
-                        password_hash=hashed_pw,
-                        phone=phone, role=role)
-        db.session.add(new_user)
-        db.session.commit()
+        hashed_pw = generate_password_hash(password)
 
-        if role == 'translator':
-            profile = TranslatorProfile(user_id=new_user.id)
-            db.session.add(profile)
-            db.session.commit()
-        elif role == 'hirer':
-            db.session.add(HirerProfile(user_id=new_user.id))
-            db.session.commit()
+        try:
+            new_user = User(
+                name=name,
+                email=email,
+                password_hash=hashed_pw,
+                phone=phone,
+                role=role,
+            )
+            db.session.add(new_user)
+            db.session.flush()  # Lấy new_user.id trước khi tạo profile
 
-        flash(_t('flash.register_success'), 'success')
-        return redirect(url_for('login'))
+            # Tạo profile ngay trong cùng transaction (atomic)
+            if role == 'translator':
+                profile = TranslatorProfile(user_id=new_user.id)
+                db.session.add(profile)
+            elif role == 'hirer':
+                hirer_profile = HirerProfile(user_id=new_user.id)
+                db.session.add(hirer_profile)
+
+            db.session.commit()
+            flash(_t('flash.register_success'), 'success')
+            return redirect(url_for('login'))
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            print(f"[REGISTER SQL ERROR] {e}")
+            flash(_t('flash.system_overload'), 'error')
+            return redirect(url_for('register'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"[REGISTER ERROR] {e}")
+            flash(_t('flash.db_error'), 'error')
+            return redirect(url_for('register'))
     return render_template('register.html')
 
 @app.route('/logout')
@@ -1010,64 +1937,125 @@ def logout():
     flash(_t('flash.logout_success'), 'success')
     return redirect(url_for('index'))
 
-# ─── ACCOUNT ───────────────────────────────────────────────────────────────────
+# ─── ACCOUNT & PROFILE OVERVIEW ───────────────────────────────────────────────
+
+def compute_profile_completion(user):
+    """Tính toán tiến độ hoàn thiện hồ sơ thực tế của phiên dịch viên dựa trên dữ liệu thực tế."""
+    if not user or getattr(user, 'role', '') != 'translator':
+        return None
+
+    prof = getattr(user, 'profile', None)
+    verif = getattr(user, 'latest_verification', None)
+
+    criteria = [
+        {
+            'key': 'name',
+            'title': 'Họ và tên định danh',
+            'completed': bool(user.name and user.name.strip()),
+            'action_tab': 'basic',
+            'desc': 'Cập nhật họ tên pháp lý chính xác của bạn.'
+        },
+        {
+            'key': 'avatar',
+            'title': 'Ảnh đại diện cá nhân',
+            'completed': bool(user.avatar or user.avatar_url),
+            'action_tab': 'basic',
+            'desc': 'Tải lên ảnh chân dung sắc nét để tăng độ tin cậy với khách hàng.'
+        },
+        {
+            'key': 'phone',
+            'title': 'Số điện thoại liên hệ',
+            'completed': bool(user.phone and user.phone.strip()),
+            'action_tab': 'basic',
+            'desc': 'Cung cấp số điện thoại để nhận thông báo việc làm khẩn.'
+        },
+        {
+            'key': 'title',
+            'title': 'Tiêu đề nghề nghiệp / Chuyên môn',
+            'completed': bool(prof and prof.title and prof.title.strip()),
+            'action_tab': 'translator',
+            'desc': 'Mô tả ngắn gọn vị trí chuyên môn của bạn (VD: Phiên dịch tiếng Hàn TOPIK 6).'
+        },
+        {
+            'key': 'bio',
+            'title': 'Giới thiệu bản thân & Kinh nghiệm',
+            'completed': bool(prof and prof.bio and len(prof.bio.strip()) >= 20),
+            'action_tab': 'translator',
+            'desc': 'Viết đoạn giới thiệu ít nhất 20 ký tự về quá trình làm việc và thế mạnh.'
+        },
+        {
+            'key': 'languages',
+            'title': 'Ngôn ngữ thành thạo',
+            'completed': bool(prof and prof.languages and prof.languages.strip()),
+            'action_tab': 'translator',
+            'desc': 'Lựa chọn các ngôn ngữ bạn có thể đảm nhận ca phiên dịch.'
+        },
+        {
+            'key': 'services',
+            'title': 'Gói dịch vụ & Bảng giá',
+            'completed': bool(prof and getattr(prof, 'services', None) and len(prof.services) > 0),
+            'action_tab': 'translator',
+            'desc': 'Thiết lập bảng giá dịch vụ để khách hàng có thể đặt trực tiếp.'
+        },
+        {
+            'key': 'verification',
+            'title': 'Hồ sơ xác minh & CV',
+            'completed': bool(prof and (prof.is_verified or (verif and verif.status in ('pending', 'approved', 'verified')))),
+            'action_tab': 'verification',
+            'desc': 'Gửi CV và chứng chỉ thẩm định để nhận tích xanh chính thức.'
+        }
+    ]
+
+    completed_count = sum(1 for c in criteria if c['completed'])
+    total_count = len(criteria)
+    percentage = int(round((completed_count / total_count) * 100)) if total_count else 0
+    missing_items = [c for c in criteria if not c['completed']]
+
+    if prof and prof.is_verified:
+        verification_state = 'verified'
+    elif verif:
+        if verif.status in ('approved', 'verified'):
+            verification_state = 'verified'
+        elif verif.status in ('pending', 'in_review'):
+            verification_state = 'pending'
+        elif verif.status in ('needs_revision', 'revision_requested'):
+            verification_state = 'needs_revision'
+        elif verif.status == 'draft':
+            verification_state = 'draft'
+        elif verif.status == 'rejected':
+            verification_state = 'rejected'
+        else:
+            verification_state = verif.status
+    else:
+        verification_state = 'not_started'
+
+    return {
+        'completed_count': completed_count,
+        'total_count': total_count,
+        'percentage': percentage,
+        'criteria': criteria,
+        'missing_items': missing_items,
+        'verification_state': verification_state,
+        'latest_verification': verif
+    }
+
 
 @app.route('/account', methods=['GET', 'POST'])
+@app.route('/account/profile', methods=['GET', 'POST'])
+@app.route('/account/overview', methods=['GET', 'POST'])
 @login_required
 def account_profile():
-    uid = session['user_id']
+    # TASK 6: Account dùng SQL only.
+    # TASK 9: Legacy session sẽ bị login_required redirect vì get_current_user() trả về None.
+    uid = session.get('user_id')
 
-    # MongoDB user
-    if isinstance(uid, str) and uid.startswith('mongo:'):
-        mongo_id = uid[len('mongo:'):]
-        mongo_data = mongo_find_user_by_id(mongo_id)
-        if not mongo_data:
-            flash(_t('flash.account_not_found'), 'error')
-            return redirect(url_for('index'))
-        user = SimpleMongoUser(mongo_data)
+    # TASK 9: Guard — nếu session không phải số nguyên (cũ/lỗi) → clear và redirect login
+    if uid and not isinstance(uid, int):
+        session.clear()
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
 
-        if request.method == 'POST':
-            action = request.form.get('action', 'basic')
-            col = get_mongo_users()
-            if col is None:
-                flash(_t('flash.mongo_error'), 'error')
-                return redirect(url_for('account_profile'))
-
-            from bson import ObjectId
-            if action == 'basic':
-                col.update_one(
-                    {"_id": ObjectId(mongo_id)},
-                    {"$set": {
-                        "name": request.form.get('name', user.name).strip(),
-                        "phone": request.form.get('phone', user.phone or '').strip(),
-                    }}
-                )
-                session['user_name'] = request.form.get('name', user.name).strip()
-                flash(_t('flash.profile_updated'), 'success')
-
-            elif action == 'change_password':
-                old_pw = request.form.get('old_password', '')
-                new_pw = request.form.get('new_password', '')
-                confirm_pw = request.form.get('confirm_password', '')
-                if not check_password_hash(mongo_data['password_hash'], old_pw):
-                    flash(_t('flash.old_password_incorrect'), 'error')
-                elif new_pw != confirm_pw:
-                    flash(_t('flash.new_password_mismatch'), 'error')
-                elif len(new_pw) < 6:
-                    flash(_t('flash.password_too_short'), 'error')
-                else:
-                    col.update_one(
-                        {"_id": ObjectId(mongo_id)},
-                        {"$set": {"password_hash": generate_password_hash(new_pw)}}
-                    )
-                    flash(_t('flash.password_changed'), 'success')
-
-            return redirect(url_for('account_profile'))
-        import services.hirer as hirer_svc
-        return render_template('account_profile.html', user=user, hirer_svc=hirer_svc,
-                               hirer_language_names=hirer_svc_language_names())
-
-    # SQLite user
+    # SQL user
     user = User.query.get(uid)
     if not user:
         flash(_t('flash.account_not_found'), 'error')
@@ -1079,8 +2067,65 @@ def account_profile():
         if action == 'basic':
             user.name = request.form.get('name', user.name).strip()
             user.phone = request.form.get('phone', user.phone or '').strip()
+
+            # Tùy chọn: người dùng có thể gửi kèm file avatar trong form basic
+            if 'avatar' in request.files and request.files['avatar'].filename:
+                ok, res = save_user_avatar(request.files['avatar'], user.id, user.avatar)
+                if ok:
+                    user.avatar = res
+                else:
+                    flash(_t(res), 'error')
+
             db.session.commit()
             flash(_t('flash.profile_updated'), 'success')
+
+        elif action == 'upload_avatar':
+            file = request.files.get('avatar')
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+            ok, res = save_user_avatar(file, user.id, user.avatar)
+            if not ok:
+                msg = _t(res)
+                if is_ajax:
+                    return jsonify({'success': False, 'message': msg}), 400
+                flash(msg, 'error')
+                return redirect(url_for('account_profile'))
+
+            try:
+                user.avatar = res
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                msg = _t('flash.avatar_upload_failed')
+                if is_ajax:
+                    return jsonify({'success': False, 'message': msg}), 500
+                flash(msg, 'error')
+                return redirect(url_for('account_profile'))
+
+            msg = _t('flash.avatar_updated')
+            if is_ajax:
+                return jsonify({'success': True, 'avatar_url': user.avatar_url, 'message': msg})
+            flash(msg, 'success')
+            return redirect(url_for('account_profile'))
+
+        elif action == 'remove_avatar':
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+            delete_user_avatar(user.avatar)
+            try:
+                user.avatar = None
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                msg = _t('flash.system_error')
+                if is_ajax:
+                    return jsonify({'success': False, 'message': msg}), 500
+                flash(msg, 'error')
+                return redirect(url_for('account_profile'))
+
+            msg = _t('flash.avatar_removed')
+            if is_ajax:
+                return jsonify({'success': True, 'avatar_url': user.avatar_url, 'initial': (user.name or 'U')[0].upper(), 'message': msg})
+            flash(msg, 'success')
+            return redirect(url_for('account_profile'))
 
         elif action == 'translator_profile' and user.role == 'translator':
             profile = user.profile
@@ -1092,8 +2137,49 @@ def account_profile():
             profile.languages = request.form.get('languages', '').strip()
             profile.badges = request.form.get('badges', '').strip()
             profile.response_time = request.form.get('response_time', '< 1 giờ').strip()
+
+            # Upload chứng chỉ (nếu có)
+            cert_files = request.files.getlist('certificate_files')
+            new_certs = []
+            for file in cert_files:
+                if file and file.filename:
+                    ok, res = save_certificate_file(file, user.id)
+                    if ok:
+                        new_certs.append(res)
+                    else:
+                        flash(f"Lỗi tải chứng chỉ {file.filename}: {res}", 'warning')
+            
+            if new_certs:
+                existing_certs = profile.certificates.split(',') if profile.certificates else []
+                existing_certs.extend(new_certs)
+                profile.certificates = ','.join(existing_certs)
+
             db.session.commit()
             flash(_t('flash.translator_profile_updated'), 'success')
+
+        elif action == 'remove_certificate' and user.role == 'translator':
+            filename = request.form.get('filename')
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+            profile = user.profile
+            if profile and profile.certificates and filename:
+                certs = profile.certificates.split(',')
+                if filename in certs:
+                    certs.remove(filename)
+                    profile.certificates = ','.join(certs)
+                    db.session.commit()
+                    # Xóa file vật lý
+                    filepath = os.path.join(app.root_path, 'static', 'uploads', 'certificates', filename)
+                    if os.path.exists(filepath):
+                        try:
+                            os.remove(filepath)
+                        except OSError:
+                            pass
+                    if is_ajax:
+                        return jsonify({'success': True})
+                    flash('Đã xóa chứng chỉ', 'success')
+            if is_ajax:
+                return jsonify({'success': False, 'message': 'Không tìm thấy chứng chỉ'}), 400
+            return redirect(url_for('account_profile'))
 
         elif action == 'translator_preference' and user.role == 'translator':
             pref = user.preference
@@ -1103,12 +2189,6 @@ def account_profile():
             
             pref.languages = ",".join(request.form.getlist('languages'))
             pref.service_types = ",".join(request.form.getlist('service_types'))
-            import services.hirer as hirer_svc
-            pref.specialties = ",".join(s for s in request.form.getlist('specialties') if s in hirer_svc.HIRER_INDUSTRIES)
-            pref.city = request.form.get('city', '').strip()[:100] or None
-            wm = request.form.get('work_mode', '')
-            pref.work_mode = wm if wm in hirer_svc.WORK_MODES else None
-            pref.offers_certified = 'offers_certified' in request.form
             pref.notify_new_jobs = 'notify_new_jobs' in request.form
             pref.notify_messages = 'notify_messages' in request.form
             pref.notify_contracts = 'notify_contracts' in request.form
@@ -1117,11 +2197,18 @@ def account_profile():
             flash(_t('flash.preferences_saved'), 'success')
 
         elif action == 'hirer_profile' and user.role == 'hirer':
-            from services.hirer import get_or_create_hirer_profile, apply_hirer_profile_form
-            profile = get_or_create_hirer_profile(user.id)
-            apply_hirer_profile_form(profile, request.form, hirer_svc_language_names())
-            db.session.commit()
-            flash(_t('flash.hirer_profile_updated'), 'success')
+            profile = user.hirer_profile
+            if not profile:
+                profile = HirerProfile(user_id=user.id)
+                db.session.add(profile)
+            errors = _apply_hirer_profile_form(user, profile, request.form, request.files)
+            if errors:
+                db.session.rollback()
+                for msg in errors:
+                    flash(msg, 'error')
+            else:
+                db.session.commit()
+                flash(_t('flash.hirer_profile_updated'), 'success')
 
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')
@@ -1139,14 +2226,714 @@ def account_profile():
                 flash(_t('flash.password_changed'), 'success')
 
         return redirect(url_for('account_profile'))
-    current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
-    import services.hirer as hirer_svc
-    return render_template('account_profile.html', user=user, LANGUAGES=get_localized_languages(current_lang),
-                           hirer_svc=hirer_svc, hirer_language_names=hirer_svc_language_names())
 
-def hirer_svc_language_names():
-    """Ngôn ngữ chọn được trong hồ sơ khách: tiếng Việt + các ngôn ngữ phiên dịch hỗ trợ."""
-    return ['Tiếng Việt'] + [l.name for l in LANGUAGES]
+    current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    default_tab = 'overview' if getattr(user, 'role', '') == 'translator' else 'basic'
+    if request.path == '/account/overview':
+        default_tab = 'overview'
+    active_tab = request.args.get('tab', default_tab)
+
+    profile_completion = None
+    unread_notifs_count = 0
+    verification_documents = []
+    from services.verification import DOCUMENT_POLICIES
+    if getattr(user, 'role', '') == 'translator':
+        from models import Notification
+        try:
+            unread_notifs_count = Notification.query.filter_by(user_id=user.id, is_read=False).count()
+        except Exception:
+            unread_notifs_count = 0
+        profile_completion = compute_profile_completion(user)
+        if user.latest_verification:
+            verification_documents = [d for d in user.latest_verification.documents if d.is_active]
+
+    return render_template(
+        'account_profile.html',
+        user=user,
+        LANGUAGES=get_localized_languages(current_lang),
+        active_tab=active_tab,
+        profile_completion=profile_completion,
+        unread_notifs_count=unread_notifs_count,
+        verification_documents=verification_documents,
+        DOCUMENT_POLICIES=DOCUMENT_POLICIES
+    )
+
+
+@app.route('/account/verification/submit', methods=['POST'])
+@login_required
+def submit_verification():
+    """Nhận và xử lý gửi hồ sơ xác minh phiên dịch viên tới Ban quản trị."""
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
+
+    if not user:
+        if is_ajax:
+            return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        msg = 'Chỉ tài khoản phiên dịch viên mới có quyền gửi hồ sơ xác minh.'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 403
+        flash(msg, 'error')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import submit_verification_for_review, submit_verification_request
+
+    # Nếu người dùng gửi kèm file trực tiếp qua multipart form
+    if request.files and any(f.filename for f in request.files.values()):
+        ok, msg = submit_verification_request(user, request.form, request.files)
+        if ok:
+            flash(msg, 'success')
+        else:
+            flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=verification')
+
+    # Dữ liệu JSON hoặc form POST
+    if request.is_json:
+        payload = request.json or {}
+        form_data = payload.get('form_data') or payload
+        confirmed = payload.get('confirmed') in (True, 'true', '1', 1, 'on')
+    else:
+        form_data = request.form.to_dict()
+        confirmed = request.form.get('confirmed') in (True, 'true', '1', 1, 'on')
+
+    ok, msg, meta = submit_verification_for_review(
+        user,
+        form_data=form_data,
+        confirmed=confirmed,
+        ip_address=request.remote_addr,
+        user_agent=request.user_agent.string if request.user_agent else None
+    )
+
+    if not ok:
+        if is_ajax:
+            status_code = 409 if meta.get('is_duplicate') else 400
+            return jsonify({
+                'success': False,
+                'message': msg,
+                'errors': meta.get('errors', {}),
+                'error_list': meta.get('error_list', [msg]),
+                'is_duplicate': meta.get('is_duplicate', False)
+            }), status_code
+
+        for err in meta.get('error_list', [msg]):
+            flash(err, 'error')
+        return redirect(url_for('account_profile') + '?tab=verification')
+
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': msg,
+            'version': meta.get('version'),
+            'submitted_at': meta.get('submitted_at'),
+            'redirect_url': url_for('account_profile') + '?tab=verification'
+        }), 200
+
+    flash(msg, 'success')
+    return redirect(url_for('account_profile') + '?tab=verification')
+
+
+
+# ─── TRANSLATOR VERIFICATION DOCUMENTS (PRIVATE STORAGE & RBAC) ───────────────
+
+@app.route('/account/verification/documents/upload', methods=['POST'])
+@login_required
+def upload_verification_document():
+    """
+    Endpoint tải lên tài liệu minh chứng cho hồ sơ xác minh phiên dịch viên.
+    Hỗ trợ cả tải lên qua AJAX (tiến trình thời gian thực) và form submit thông thường.
+    Kiểm tra quyền, kiểm tra chính sách loại tài liệu, chữ ký nhị phân (magic bytes)
+    và dung lượng thực tế ở cấp máy chủ.
+    Tài liệu được lưu trữ tại vùng riêng tư an toàn (Private Storage).
+    LƯU Ý: Tải lên thành công KHÔNG đồng nghĩa tài liệu đã được xác minh.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'message': 'Không tìm thấy thông tin tài khoản.'}), 401
+        flash('Không tìm thấy thông tin tài khoản.', 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        msg = 'Chỉ tài khoản phiên dịch viên mới có quyền tải lên tài liệu minh chứng.'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'message': msg}), 403
+        flash(msg, 'error')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import save_private_document
+
+    file = request.files.get('file') or request.files.get('document_file')
+    doc_type = request.form.get('document_type') or request.form.get('doc_type')
+
+    ok, doc, err = save_private_document(file, user, doc_type=doc_type)
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+
+    if not ok:
+        if is_ajax:
+            return jsonify({'success': False, 'message': err}), 400
+        flash(err, 'error')
+        return redirect(url_for('account_profile') + '?tab=verification')
+
+    success_msg = f'Đã tải lên và lưu trữ an toàn tài liệu minh chứng "{doc.original_filename}".'
+    notice_msg = 'Lưu ý: Tài liệu đang ở trạng thái Chờ thẩm định, chưa phải là Đã xác minh.'
+
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': success_msg,
+            'notice': notice_msg,
+            'document': doc.to_dict()
+        }), 200
+
+    flash(f"{success_msg} ({notice_msg})", 'success')
+    return redirect(url_for('account_profile') + '?tab=verification')
+
+
+@app.route('/account/verification/documents/<int:doc_id>/download')
+@login_required
+def download_verification_document(doc_id):
+    """
+    Endpoint tải xuống tài liệu minh chứng.
+    Kiểm tra nghiêm ngặt quyền truy cập ở backend (RBAC):
+    - Chỉ Chủ sở hữu hoặc Quản trị viên (Admin) mới có quyền tải xuống.
+    - Người khác nhận mã lỗi 403 Forbidden.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        abort(401)
+
+    doc = VerificationDocument.query.get_or_404(doc_id)
+
+    from services.verification import can_user_access_document, get_private_verification_folder
+    can_access, err = can_user_access_document(user, doc)
+    if not can_access:
+        abort(403)
+
+    file_path = doc.storage_path
+    if not file_path or not os.path.isabs(file_path):
+        file_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+
+    if not os.path.exists(file_path):
+        fallback_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+        if os.path.exists(fallback_path):
+            file_path = fallback_path
+        else:
+            abort(404)
+
+    response = send_file(
+        file_path,
+        as_attachment=True,
+        download_name=doc.original_filename,
+        mimetype=doc.mime_type or 'application/octet-stream'
+    )
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Content-Security-Policy'] = "default-src 'none'"
+    response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+    return response
+
+
+@app.route('/account/verification/documents/<int:doc_id>/view')
+@login_required
+def view_verification_document(doc_id):
+    """
+    Endpoint xem trước tài liệu minh chứng (PDF hoặc ảnh).
+    Kiểm tra nghiêm ngặt quyền truy cập ở backend (RBAC).
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        abort(401)
+
+    doc = VerificationDocument.query.get_or_404(doc_id)
+
+    from services.verification import can_user_access_document, get_private_verification_folder
+    can_access, err = can_user_access_document(user, doc)
+    if not can_access:
+        abort(403)
+
+    file_path = doc.storage_path
+    if not file_path or not os.path.isabs(file_path):
+        file_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+
+    if not os.path.exists(file_path):
+        fallback_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+        if os.path.exists(fallback_path):
+            file_path = fallback_path
+        else:
+            abort(404)
+
+    response = send_file(
+        file_path,
+        as_attachment=False,
+        download_name=doc.original_filename,
+        mimetype=doc.mime_type or 'application/octet-stream'
+    )
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+    return response
+
+
+@app.route('/account/verification/documents/<int:doc_id>/delete', methods=['POST'])
+@login_required
+def delete_verification_document_endpoint(doc_id):
+    """
+    Endpoint xóa/hủy tài liệu minh chứng nháp.
+    Chỉ cho phép khi hồ sơ ở trạng thái được phép chỉnh sửa.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        abort(401)
+
+    from services.verification import delete_private_document
+    ok, msg = delete_private_document(doc_id, user)
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
+    if not ok:
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=verification')
+
+    if is_ajax:
+        return jsonify({'success': True, 'message': msg}), 200
+
+    flash(msg, 'success')
+    return redirect(url_for('account_profile') + '?tab=verification')
+
+
+@app.route('/api/account/verification/documents', methods=['GET'])
+@login_required
+def get_verification_documents_api():
+    """
+    API trả về danh sách các tài liệu minh chứng của phiên dịch viên hiện tại,
+    kèm chính sách tải tệp và trạng thái hồ sơ.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    from services.verification import DOCUMENT_POLICIES
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+
+    docs = []
+    if verification:
+        docs = [d.to_dict() for d in verification.documents if d.is_active]
+
+    policies_data = {}
+    for k, p in DOCUMENT_POLICIES.items():
+        policies_data[k] = {
+            'code': p['code'],
+            'name': p['name'],
+            'description': p['description'],
+            'required': p['required'],
+            'allowed_extensions': list(sorted(p['allowed_extensions'])),
+            'max_size_mb': p['max_size_mb']
+        }
+
+    status = verification.status if verification else 'not_started'
+    can_modify = status in ('draft', 'rejected', 'needs_revision', 'not_started', None)
+
+    return jsonify({
+        'success': True,
+        'verification_status': status,
+        'can_modify': can_modify,
+        'documents': docs,
+        'policies': policies_data
+    })
+
+
+@app.route('/account/verification/form', methods=['GET', 'POST'])
+@app.route('/verification/apply', methods=['GET', 'POST'])
+@login_required
+def verification_form():
+    """
+    Biểu mẫu nhiều bước khai báo thông tin xác minh phiên dịch viên (VietTranslate).
+    Bao gồm 6 bước:
+    1. Thông tin cá nhân
+    2. Ngôn ngữ nguồn, ngôn ngữ đích và chiều phiên dịch
+    3. Lĩnh vực chuyên môn & Hình thức dịch
+    4. Học vấn và chứng chỉ
+    5. Kinh nghiệm nghề nghiệp
+    6. Xem lại thông tin (Review & Confirm Draft)
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        flash('Biểu mẫu xác minh chỉ dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import (
+        get_or_create_verification_draft,
+        validate_step_data,
+        save_verification_draft
+    )
+
+    verification = get_or_create_verification_draft(user)
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
+
+    if request.method == 'POST':
+        action = request.form.get('action') or (request.json.get('action') if request.is_json else 'save_draft')
+        step = request.form.get('step', type=int) or (request.json.get('step') if request.is_json else verification.current_step or 1)
+        
+        # Lấy dữ liệu biểu mẫu
+        if request.is_json:
+            form_data = request.json or {}
+        else:
+            raw = request.form.to_dict(flat=False)
+            form_data = {}
+            for k, v in raw.items():
+                if k in ('specializations', 'interpreting_types'):
+                    form_data[k] = v
+                elif len(v) == 1:
+                    form_data[k] = v[0]
+                else:
+                    form_data[k] = v
+
+        if action == 'save_draft':
+            # Lưu nháp bất kỳ bước nào mà không bắt buộc hoàn thiện
+            target_step = request.form.get('target_step', type=int) or (request.json.get('target_step') if request.is_json else step)
+            ok, verif, err = save_verification_draft(user, form_data, target_step=target_step)
+            if not ok:
+                if is_ajax:
+                    return jsonify({'success': False, 'message': err}), 500
+                flash(err, 'error')
+                return redirect(url_for('verification_form', step=step))
+            
+            last_saved = verif.updated_at.strftime('%H:%M:%S') if verif.updated_at else datetime.utcnow().strftime('%H:%M:%S')
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': f'Đã lưu nháp an toàn vào hệ thống lúc {last_saved}',
+                    'last_saved': last_saved,
+                    'current_step': verif.current_step,
+                    'draft_data': verif.get_draft_dict()
+                })
+            flash(f'Đã lưu bản nháp thành công lúc {last_saved}', 'success')
+            return redirect(url_for('verification_form', step=step))
+
+        elif action == 'next_step':
+            # Kiểm tra dữ liệu bước hiện tại
+            is_valid, errors = validate_step_data(step, form_data)
+            if not is_valid:
+                if is_ajax:
+                    return jsonify({
+                        'success': False,
+                        'errors': errors,
+                        'message': 'Vui lòng kiểm tra và sửa các trường thông tin chưa hợp lệ trước khi tiếp tục.'
+                    }), 400
+                for f_name, f_err in errors.items():
+                    flash(f_err, 'error')
+                return redirect(url_for('verification_form', step=step))
+
+            # Hợp lệ -> Lưu nháp dữ liệu và tăng sang bước tiếp theo
+            next_step = min(6, step + 1)
+            ok, verif, err = save_verification_draft(user, form_data, target_step=next_step)
+            if not ok:
+                if is_ajax:
+                    return jsonify({'success': False, 'message': err}), 500
+                flash(err, 'error')
+                return redirect(url_for('verification_form', step=step))
+
+            last_saved = verif.updated_at.strftime('%H:%M:%S') if verif.updated_at else datetime.utcnow().strftime('%H:%M:%S')
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': 'Dữ liệu hợp lệ. Đã chuyển sang bước tiếp theo.',
+                    'next_step': next_step,
+                    'last_saved': last_saved,
+                    'draft_data': verif.get_draft_dict()
+                })
+            return redirect(url_for('verification_form', step=next_step))
+
+        elif action == 'goto_step':
+            # Nhảy tới bước chỉ định (từ nút Sửa ở Bước 6 hoặc quay lại)
+            target = request.form.get('target_step', type=int) or (request.json.get('target_step') if request.is_json else 1)
+            if 1 <= target <= 6:
+                save_verification_draft(user, form_data, target_step=target)
+                if is_ajax:
+                    return jsonify({'success': True, 'target_step': target})
+                return redirect(url_for('verification_form', step=target))
+
+        elif action == 'confirm_draft':
+            # Xác nhận hoàn tất khai báo nháp, chuẩn bị cho giai đoạn nộp tài liệu sau này
+            ok, verif, err = save_verification_draft(user, form_data, target_step=6)
+            if not ok:
+                if is_ajax:
+                    return jsonify({'success': False, 'message': err}), 400
+                flash(err, 'error')
+                return redirect(url_for('verification_form', step=step))
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': 'Bản nháp hồ sơ xác minh đã được lưu trữ an toàn! Bạn có thể xem lại hoặc chỉnh sửa bất kỳ lúc nào.',
+                    'redirect_url': url_for('account_profile') + '?tab=verification'
+                })
+            flash('Bản nháp hồ sơ xác minh đã được lưu trữ an toàn trong tài khoản của bạn.', 'success')
+            return redirect(url_for('account_profile') + '?tab=verification')
+
+        elif action == 'submit_verification':
+            from services.verification import submit_verification_for_review
+            confirmed = (form_data.get('confirmed') if isinstance(form_data, dict) else request.form.get('confirmed')) in (True, 'true', '1', 1, 'on')
+            ok, msg, meta = submit_verification_for_review(
+                user,
+                form_data=form_data,
+                confirmed=confirmed,
+                ip_address=request.remote_addr,
+                user_agent=request.user_agent.string if request.user_agent else None
+            )
+            if not ok:
+                if is_ajax:
+                    status_code = 409 if meta.get('is_duplicate') else 400
+                    return jsonify({
+                        'success': False,
+                        'message': msg,
+                        'errors': meta.get('errors', {}),
+                        'error_list': meta.get('error_list', [msg]),
+                        'is_duplicate': meta.get('is_duplicate', False)
+                    }), status_code
+                for err_text in meta.get('error_list', [msg]):
+                    flash(err_text, 'error')
+                return redirect(url_for('verification_form', step=6))
+
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': msg,
+                    'version': meta.get('version'),
+                    'submitted_at': meta.get('submitted_at'),
+                    'redirect_url': url_for('account_profile') + '?tab=verification'
+                }), 200
+            flash(msg, 'success')
+            return redirect(url_for('account_profile') + '?tab=verification')
+
+    # GET Request
+    # Ưu tiên tham số URL ?step=X, nếu không thì lấy từ verification.current_step
+    requested_step = request.args.get('step', type=int)
+    active_step = requested_step if requested_step and 1 <= requested_step <= 6 else (verification.current_step or 1)
+    
+    current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    draft_dict = verification.get_draft_dict()
+    from services.verification import DOCUMENT_POLICIES
+    verification_documents = [d for d in verification.documents if d.is_active] if verification else []
+
+    return render_template(
+        'verification_form.html',
+        user=user,
+        verification=verification,
+        draft=draft_dict,
+        active_step=active_step,
+        LANGUAGES=get_localized_languages(current_lang),
+        current_year=datetime.utcnow().year,
+        verification_documents=verification_documents,
+        DOCUMENT_POLICIES=DOCUMENT_POLICIES,
+        is_pending=(getattr(verification, 'status', 'draft') == 'pending'),
+        is_approved=(getattr(verification, 'status', 'draft') == 'approved')
+    )
+
+
+@app.route('/api/account/verification/check-eligibility', methods=['GET'])
+@login_required
+def check_verification_eligibility_api():
+    """Kiểm tra điều kiện sẵn sàng gửi hồ sơ xác minh trước khi nộp."""
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    from services.verification import validate_verification_eligibility, TranslatorVerification
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    if not verification:
+        return jsonify({
+            'success': True,
+            'is_eligible': False,
+            'status': 'not_started',
+            'errors': {'verification': 'Chưa khởi tạo hồ sơ.'},
+            'error_list': ['Chưa khởi tạo hồ sơ nháp.'],
+            'version': 0
+        })
+
+    is_eligible, errors_dict, error_messages = validate_verification_eligibility(
+        verification,
+        require_confirmation=False
+    )
+    return jsonify({
+        'success': True,
+        'is_eligible': is_eligible,
+        'status': verification.status,
+        'errors': errors_dict,
+        'error_list': error_messages,
+        'version': verification.submission_version or 0,
+        'submitted_at': verification.submitted_at.strftime('%d/%m/%Y %H:%M') if verification.submitted_at else None
+    })
+
+
+# ─── TRANSLATOR VERIFICATION STATUS TRACKER ROUTES ────────────────────────────
+
+@app.route('/account/verification/status', methods=['GET'])
+@app.route('/verification/status', methods=['GET'])
+@login_required
+def verification_status_page():
+    """
+    Trang theo dõi trạng thái xác minh riêng biệt dành cho phiên dịch viên (VietTranslate).
+    Lấy dữ liệu thực từ hồ sơ của tài khoản đang đăng nhập.
+    Hiển thị đầy đủ:
+    - Trạng thái tổng thể, ngày tạo và ngày gửi hồ sơ.
+    - Tiến độ 6 bước hoàn thành, đang xử lý hoặc cần bổ sung.
+    - Trạng thái từng hạng mục khi có dữ liệu.
+    - Yêu cầu bổ sung và hướng dẫn của Admin.
+    - Lý do từ chối nếu có.
+    - Lịch sử các lần gửi và kết quả.
+    - Hành động tiếp theo phù hợp với trạng thái hiện tại.
+    Quy tắc an toàn:
+    - Người dùng chỉ được xem hồ sơ của chính mình.
+    - Không suy đoán dữ liệu thiếu.
+    - Không lộ kết quả nội bộ không được phép.
+    """
+    uid = session.get('user_id')
+    if uid and not isinstance(uid, int):
+        session.clear()
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
+
+    user = User.query.get(uid)
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        flash('Trang theo dõi trạng thái xác minh chỉ dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import get_translator_verification_status_details
+    data = get_translator_verification_status_details(user)
+
+    return render_template('verification_status.html', user=user, data=data)
+
+
+@app.route('/api/account/verification/status', methods=['GET'])
+@login_required
+def verification_status_api():
+    """
+    API JSON trả về toàn bộ dữ liệu trạng thái xác minh của phiên dịch viên hiện tại.
+    Hỗ trợ tải động realtime qua AJAX.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    from services.verification import get_translator_verification_status_details
+    data = get_translator_verification_status_details(user)
+
+    return jsonify({'success': True, 'data': data})
+
+
+@app.route('/account/avatar/upload', methods=['POST'])
+@login_required
+def upload_avatar_endpoint():
+    """Endpoint riêng biệt hỗ trợ tải ảnh đại diện qua AJAX hoặc form POST.
+    TASK 7: Avatar upload dùng SQL only.
+    """
+    uid = session.get('user_id')
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
+    file = request.files.get('avatar')
+
+    # TASK 9: Guard legacy/invalid session
+    if uid and not isinstance(uid, int):
+        session.clear()
+        if is_ajax:
+            return jsonify({'success': False, 'message': _t('flash.login_required')}), 401
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
+
+    user = User.query.get(uid)
+    if not user:
+        if is_ajax:
+            return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('account_profile'))
+
+    ok, res = save_user_avatar(file, user.id, user.avatar)
+    if not ok:
+        msg = _t(res)
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile'))
+
+    try:
+        user.avatar = res
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        msg = _t('flash.avatar_upload_failed')
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 500
+        flash(msg, 'error')
+        return redirect(url_for('account_profile'))
+
+    msg = _t('flash.avatar_updated')
+    if is_ajax:
+        return jsonify({'success': True, 'avatar_url': user.avatar_url, 'message': msg})
+    flash(msg, 'success')
+    return redirect(url_for('account_profile'))
+
+
+@app.route('/account/avatar/remove', methods=['POST'])
+@login_required
+def remove_avatar_endpoint():
+    """Endpoint gỡ ảnh đại diện tùy chỉnh trở về ảnh mặc định.
+    TASK 7: Avatar remove dùng SQL only.
+    """
+    uid = session.get('user_id')
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
+
+    # TASK 9: Guard legacy/invalid session
+    if uid and not isinstance(uid, int):
+        session.clear()
+        if is_ajax:
+            return jsonify({'success': False, 'message': _t('flash.login_required')}), 401
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
+
+    user = User.query.get(uid)
+    if not user:
+        if is_ajax:
+            return jsonify({'success': False, 'message': _t('flash.account_not_found')}), 404
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('account_profile'))
+
+    delete_user_avatar(user.avatar)
+    try:
+        user.avatar = None
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        msg = _t('flash.system_error')
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 500
+        flash(msg, 'error')
+        return redirect(url_for('account_profile'))
+
+    msg = _t('flash.avatar_removed')
+    if is_ajax:
+        return jsonify({'success': True, 'avatar_url': user.avatar_url, 'initial': (user.name or 'U')[0].upper(), 'message': msg})
+    flash(msg, 'success')
+    return redirect(url_for('account_profile'))
 
 def get_translator_preferences(user_id):
     return TranslatorPreference.query.filter_by(translator_id=user_id).first()
@@ -1202,15 +2989,84 @@ def get_job_applicant_count(job_id):
 @app.route('/account/history')
 @login_required
 def account_history():
+    from datetime import date as date_cls
+    import calendar
     user = get_current_user()
     if not user:
         flash(_t('flash.account_not_found'), 'error')
         return redirect(url_for('index'))
+
+    status_filter = request.args.get('status')
+    prop_filter = request.args.get('prop_status')
+    period_filter = request.args.get('period')
+
+    today = date_cls.today()
+    first_of_month = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+    end_of_month = today.replace(day=last_day)
+    period_label = f"Tháng {today.month:02d}/{today.year}"
+
     if user.role == 'hirer':
-        contracts = Contract.query.filter_by(hirer_id=user.id).order_by(Contract.created_at.desc()).all()
+        query = Contract.query.filter_by(hirer_id=user.id)
+        if status_filter:
+            query = query.filter_by(status=status_filter)
+        if period_filter == 'current_month':
+            query = query.filter(Contract.created_at >= first_of_month)
+        contracts = query.order_by(Contract.created_at.desc()).all()
+        proposals = []
     else:
-        contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
-    return render_template('account_history.html', user=user, contracts=contracts)
+        query = Contract.query.filter_by(translator_id=user.id)
+        if status_filter:
+            if status_filter in ('in_progress', 'active', 'escrow_held'):
+                query = query.filter(Contract.status.in_(['in_progress', 'active', 'escrow_held']))
+            else:
+                query = query.filter_by(status=status_filter)
+
+        if period_filter == 'current_month':
+            # Với hợp đồng đã hoàn tất, kỳ thống kê căn cứ vào ngày hoàn tất (updated_at)
+            if status_filter == 'completed':
+                query = query.filter(Contract.updated_at >= first_of_month)
+            else:
+                query = query.filter(
+                    db.or_(Contract.updated_at >= first_of_month, Contract.created_at >= first_of_month)
+                )
+
+        contracts = query.order_by(Contract.created_at.desc()).all()
+
+        prop_query = Proposal.query.filter_by(translator_id=user.id)
+        if prop_filter:
+            prop_query = prop_query.filter_by(status=prop_filter)
+        proposals = prop_query.order_by(Proposal.created_at.desc()).all()
+
+    filtered_income_total = sum(c.agreed_price for c in contracts if c.agreed_price)
+
+    return render_template(
+        'account_history.html',
+        user=user,
+        contracts=contracts,
+        proposals=proposals,
+        status_filter=status_filter,
+        prop_filter=prop_filter,
+        period_filter=period_filter,
+        period_label=period_label,
+        filtered_income_total=filtered_income_total
+    )
+
+@app.route('/my-schedule')
+@login_required
+def my_schedule():
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        flash('Bạn không có quyền truy cập trang này', 'error')
+        return redirect(url_for('index'))
+    
+    # Lấy các lịch sắp tới của phiên dịch viên
+    schedules = TranslatorSchedule.query.filter(
+        TranslatorSchedule.translator_id == user.id,
+        TranslatorSchedule.status != 'cancelled'
+    ).order_by(TranslatorSchedule.scheduled_date.asc(), TranslatorSchedule.start_time.asc()).all()
+    
+    return render_template('translator_schedule.html', user=user, schedules=schedules)
 
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
@@ -1262,7 +3118,7 @@ def debug_index():
             TranslatorProfile.rating.desc()).limit(4).all()
         if not top_translators:
             top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
-        latest_jobs = Job.query.filter_by(status='open', is_flagged=False).order_by(Job.created_at.desc()).limit(4).all()
+        latest_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).order_by(Job.created_at.desc()).limit(4).all()
         html = render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
         return jsonify({'status': 'ok', 'html_length': len(html)})
     except Exception as e:
@@ -1341,13 +3197,11 @@ def hirer_profile(hirer_id):
         
     profile = user.hirer_profile
     
-    from services.hirer import get_hirer_stats
-    stats = get_hirer_stats(hirer_id)
-    reviews = Review.query.filter_by(reviewee_id=hirer_id, is_hidden=False).order_by(Review.created_at.desc()).limit(10).all()
-
-    return render_template('hirer_profile.html', user=user, profile=profile, reviews=reviews,
-                           total_jobs=stats['total_jobs'], completed_contracts=stats['completed_contracts'],
-                           stats=stats)
+    # Calculate stats
+    total_jobs = Job.query.filter_by(hirer_id=hirer_id).count()
+    completed_contracts = Contract.query.join(Job).filter(Job.hirer_id == hirer_id, Contract.status == 'completed').count()
+    
+    return render_template('hirer_profile.html', user=user, profile=profile, total_jobs=total_jobs, completed_contracts=completed_contracts)
 
 @app.route('/translator/<string:lang_slug>')
 def translator_language(lang_slug):
@@ -1411,24 +3265,30 @@ def get_direct_messages(other_user_id):
         db.session.commit()
 
     return jsonify([{
-        'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
-        'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m')
+        'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name if m.sender else '',
+        'content': m.content, 'image_url': getattr(m, 'image_url', None),
+        'time': m.created_at.strftime('%H:%M %d/%m') if m.created_at else ''
     } for m in msgs])
 
 @app.route('/api/direct-messages/<int:other_user_id>', methods=['POST'])
 @login_required
 def send_direct_message(other_user_id):
     content = request.json.get('content', '').strip()
+    image_url = request.json.get('image_url', '').strip()
     me = session['user_id']
     
-    if not content or other_user_id == me:
+    if (not content and not image_url) or other_user_id == me:
         return jsonify({'status': 'error'}), 400
         
     receiver = User.query.get(other_user_id)
     if not receiver:
         return jsonify({'status': 'error'}), 400
         
-    msg = DirectMessage(sender_id=me, receiver_id=other_user_id, content=content)
+    msg = DirectMessage(
+        sender_id=me, receiver_id=other_user_id,
+        content=content or ('[Hình ảnh]' if image_url else ''),
+        image_url=image_url or None
+    )
     db.session.add(msg)
 
     # Notify receiver
@@ -1450,6 +3310,76 @@ def send_direct_message(other_user_id):
 
     db.session.commit()
     return jsonify({'status': 'ok'})
+
+
+CHAT_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+def allowed_chat_image(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in CHAT_IMAGE_EXTENSIONS
+
+@app.route('/api/chat/upload-image', methods=['POST'])
+@login_required
+def upload_chat_image():
+    """Upload ảnh cho chat. Trả về URL ảnh đã lưu."""
+    if 'image' not in request.files:
+        return jsonify({'status': 'error', 'message': 'No file provided'}), 400
+
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'status': 'error', 'message': 'No file selected'}), 400
+
+    if not allowed_chat_image(file.filename):
+        return jsonify({'status': 'error', 'message': 'File type not allowed'}), 400
+
+    # Nếu đang chạy trên môi trường Vercel hoặc filesystem tạm / read-only:
+    # Trả về trực tiếp Base64 Data URI để lưu và hiển thị trực tiếp 100%,
+    # không phụ thuộc vào filesystem ephemeral của serverless.
+    if os.environ.get('VERCEL') == '1' or app.config.get('UPLOAD_FOLDER') == '/tmp':
+        import base64
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        mime_map = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp'}
+        mime = mime_map.get(ext, 'image/jpeg')
+        file_bytes = file.read()
+        b64_str = base64.b64encode(file_bytes).decode('utf-8')
+        image_url = f"data:{mime};base64,{b64_str}"
+        return jsonify({'status': 'ok', 'image_url': image_url})
+
+    # Môi trường server thường / local: Lưu vào static/uploads/chat_images
+    chat_img_dir = os.path.join(basedir, 'static', 'uploads', 'chat_images')
+    try:
+        os.makedirs(chat_img_dir, exist_ok=True)
+    except OSError:
+        chat_img_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'chat_images')
+        os.makedirs(chat_img_dir, exist_ok=True)
+
+    # Tạo tên file duy nhất
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    unique_name = f"chat_{session['user_id']}_{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}.{ext}"
+    filename = secure_filename(unique_name)
+    filepath = os.path.join(chat_img_dir, filename)
+    file.save(filepath)
+
+    image_url = f'/static/uploads/chat_images/{filename}'
+    return jsonify({'status': 'ok', 'image_url': image_url})
+
+
+@app.route('/static/uploads/chat_images/<path:filename>')
+def serve_chat_image(filename):
+    """Phục vụ file ảnh chat trực tiếp để tránh lỗi 404."""
+    chat_img_dir = os.path.join(basedir, 'static', 'uploads', 'chat_images')
+    if os.path.exists(os.path.join(chat_img_dir, filename)):
+        return send_from_directory(chat_img_dir, filename)
+    if os.path.exists(os.path.join('/tmp', filename)):
+        return send_from_directory('/tmp', filename)
+    abort(404)
+
+
+@app.route('/tmp/<path:filename>')
+def serve_tmp_file(filename):
+    """Phục vụ file từ thư mục /tmp nếu có."""
+    if os.path.exists(os.path.join('/tmp', filename)):
+        return send_from_directory('/tmp', filename)
+    abort(404)
 
 
 # ─── MESSAGES PAGE ─────────────────────────────────────────────────────────────
@@ -1598,6 +3528,8 @@ def book_service(service_id):
                 service_id=service.id
             )
             flash(_t('flash.service_booked'), 'success')
+            if contract.status == 'awaiting_translator':
+                return redirect(url_for('transaction_detail', contract_id=contract.id))
             return redirect(url_for('payment_mockup', contract_id=contract.id))
             
         except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
@@ -1638,6 +3570,42 @@ def post_job():
         deadline_str = request.form.get('deadline')
         deadline = datetime.strptime(deadline_str, '%Y-%m-%d').date() if deadline_str else None
 
+        # ── Collect Multi-day Schedule ──────────────────────────────
+        scheduled_dates = request.form.getlist('scheduled_date[]')
+        start_times = request.form.getlist('start_time[]')
+        end_times = request.form.getlist('end_time[]')
+
+        entries = []
+        for d, st, et in zip(scheduled_dates, start_times, end_times):
+            if d or st or et: # Bỏ qua các dòng trống hoàn toàn
+                entries.append({
+                    'scheduled_date': d,
+                    'start_time': st,
+                    'end_time': et
+                })
+
+        # Validate schedule
+        from models import validate_schedule_entries
+        is_valid, errors = validate_schedule_entries(entries)
+        if not is_valid:
+            for err in errors:
+                flash(err['message'], 'error')
+            return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data=request.form)
+
+        # Fallback for legacy fields (lấy ngày đầu tiên)
+        legacy_date = entries[0]['scheduled_date'] if entries else ''
+        legacy_start = entries[0]['start_time'] if entries else ''
+        legacy_end = entries[0]['end_time'] if entries else ''
+
+        # Chống gửi trùng: cùng khách, cùng tiêu đề và mô tả đang chờ duyệt
+        duplicate = Job.query.filter_by(
+            hirer_id=session['user_id'], title=(request.form.get('title') or ''),
+            description=(request.form.get('description') or ''), status='pending'
+        ).first()
+        if duplicate:
+            flash('Job này đã được gửi và đang chờ admin duyệt, vui lòng không gửi lại.', 'warning')
+            return redirect(url_for('job_detail', job_id=duplicate.id))
+
         job = Job(
             hirer_id=session['user_id'],
             title=request.form.get('title'),
@@ -1650,22 +3618,40 @@ def post_job():
             budget_type=request.form.get('budget_type'),
             budget_min=int(request.form.get('budget_min') or 0),
             budget_max=int(request.form.get('budget_max') or 0) or None,
-            event_date=request.form.get('event_date', ''),
-            event_time_start=request.form.get('event_time_start', ''),
-            event_time_end=request.form.get('event_time_end', ''),
+            event_date=legacy_date,
+            event_time_start=legacy_start,
+            event_time_end=legacy_end,
             event_location=request.form.get('event_location', ''),
-            deadline=deadline
+            deadline=deadline,
+            status='pending'
         )
         db.session.add(job)
+        db.session.flush() # Để lấy job.id
+
+        # Lưu chi tiết vào JobSchedule
+        from models import JobSchedule
+        from services.schedule import _parse_time
+        for entry in entries:
+            parsed_date = datetime.strptime(entry['scheduled_date'].strip(), '%Y-%m-%d').date()
+            parsed_start = _parse_time(entry['start_time'].strip())
+            parsed_end = _parse_time(entry['end_time'].strip())
+            if parsed_date and parsed_start and parsed_end:
+                js = JobSchedule(
+                    job_id=job.id,
+                    scheduled_date=parsed_date,
+                    start_time=parsed_start.strftime('%H:%M'),
+                    end_time=parsed_end.strftime('%H:%M')
+                )
+                db.session.add(js)
+
         db.session.commit()
 
-        # Notify matching translators (safe, won't block job creation if fails)
-        from services.matching import notify_matching_translators_for_new_job
-        notify_matching_translators_for_new_job(job)
-
-        flash(_t('flash.job_posted'), 'success')
+        # Job chỉ hiện trên trang chính và báo cho phiên dịch viên sau khi admin duyệt
+        flash('Job đã gửi, đang chờ admin duyệt.' if get_locale() == 'vi'
+              else 'Job submitted — awaiting admin approval.', 'success')
         return redirect(url_for('job_detail', job_id=job.id))
-    return render_template('post_job.html', LANGUAGES=LANGUAGES, hirer_profile=user.hirer_profile)
+        
+    return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data={})
 
 @app.route('/jobs')
 def job_list():
@@ -1673,9 +3659,21 @@ def job_list():
     budget = request.args.get('budget', '')
     sort = request.args.get('sort', 'newest')
     page = request.args.get('page', 1, type=int)
+    recommended = request.args.get('recommended')
     per_page = 10
 
-    query = Job.query.filter_by(status='open', is_flagged=False)
+    query = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None))
+
+    user = get_current_user()
+    if recommended and user and user.role == 'translator':
+        from services.matching import get_recommended_jobs_for_translator
+        current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+        rec_list = get_recommended_jobs_for_translator(user.id, 50, current_lang)
+        rec_ids = [r['job_id'] for r in rec_list]
+        if rec_ids:
+            query = query.filter(Job.id.in_(rec_ids))
+        else:
+            query = query.filter(Job.id == -1)
     if lang:
         safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
         query = query.filter(db.or_(Job.source_lang.ilike(f'%{safe_lang}%'), Job.target_lang.ilike(f'%{safe_lang}%')))
@@ -1687,11 +3685,22 @@ def job_list():
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     return render_template('job_list.html', jobs=pagination.items, pagination=pagination,
-                           lang_filter=lang, LANGUAGES=LANGUAGES)
+                           lang_filter=lang, LANGUAGES=LANGUAGES, is_recommended=bool(recommended))
 
 @app.route('/job/<int:job_id>', methods=['GET', 'POST'])
 def job_detail(job_id):
     job = Job.query.get_or_404(job_id)
+
+    # ── 0. Access Control ─────────────────────────────────────────────────
+    user = get_current_user()
+    is_owner = user and (user.id == job.hirer_id)
+    is_admin_user = session.get(ADMIN_SESSION_KEY) is not None
+
+    if job.is_flagged or job.status == 'pending':
+        if not (is_owner or is_admin_user):
+            flash('Bài đăng này đang chờ duyệt hoặc đã bị khoá.', 'warning')
+            return redirect(url_for('index'))
+
     if request.method == 'POST':
         # ── 1. Login & Role guard ─────────────────────────────────────────────
         user = get_current_user()
@@ -1719,28 +3728,20 @@ def job_detail(job_id):
             return redirect(url_for('job_detail', job_id=job.id))
 
         # ── 3. Schedule conflict check ────────────────────────────────────────
-        from services.schedule import (
-            parse_job_datetime, is_schedule_complete,
-            check_translator_schedule_conflict, ScheduleCheckError
-        )
+        from services.schedule import check_job_schedule_conflicts
+
         try:
-            parsed = parse_job_datetime(job)
-            if is_schedule_complete(parsed):
-                result = check_translator_schedule_conflict(
-                    translator_id=session['user_id'],
-                    scheduled_date=parsed['date'],
-                    start_time=parsed['start_time'],
-                    end_time=parsed['end_time'],
-                )
-                if result['conflict']:
-                    flash(
-                        f'Bạn đã có lịch công việc khác trong khoảng thời gian này '
-                        f'({result["start_time"]}–{result["end_time"]}). '
-                        f'Vui lòng kiểm tra lịch của bạn.',
-                        'error'
-                    )
-                    return render_template('job_detail.html', job=job, form_data=request.form)
-        except ScheduleCheckError as e:
+            result = check_job_schedule_conflicts(job, session['user_id'])
+            if result.get('has_schedule') and not result.get('available'):
+                # Tìm ngày đầu tiên bị trùng để báo lỗi
+                for day in result.get('days', []):
+                    if not day.get('available'):
+                        flash(f'Bạn đã có lịch công việc khác vào ngày {day["date_display"]} '
+                              f'({day["conflict_start"]}–{day["conflict_end"]}). '
+                              f'Vui lòng kiểm tra lịch của bạn.', 'error')
+                        break
+                return render_template('job_detail.html', job=job, form_data=request.form)
+        except Exception as e:
             flash(str(e), 'error')
             return render_template('job_detail.html', job=job, form_data=request.form)
 
@@ -1815,35 +3816,26 @@ def job_detail(job_id):
 @login_required
 def api_schedule_check(job_id):
     """Frontend pre-check: returns whether the logged-in translator has a
-    schedule conflict with this job's date/time.  Backend still re-validates
+    schedule conflict with this job's dates/times. Backend still re-validates
     at proposal submission — this is for UI feedback only.
     """
-    from services.schedule import (
-        parse_job_datetime, is_schedule_complete,
-        check_translator_schedule_conflict,
-    )
+    from services.schedule import check_job_schedule_conflicts
+    
     job = Job.query.get_or_404(job_id)
-    parsed = parse_job_datetime(job)
+    result = check_job_schedule_conflicts(job, session['user_id'])
 
-    if not is_schedule_complete(parsed):
-        # Job has no fixed time → no conflict possible
+    if not result['has_schedule']:
         return jsonify({'available': True, 'reason': 'no_schedule'})
 
-    result = check_translator_schedule_conflict(
-        translator_id=session['user_id'],
-        scheduled_date=parsed['date'],
-        start_time=parsed['start_time'],
-        end_time=parsed['end_time'],
-    )
-
-    if result['conflict']:
-        return jsonify({
-            'available': False,
-            'conflict_start': result['start_time'],
-            'conflict_end': result['end_time'],
-            'message': result['message'],
-        })
-    return jsonify({'available': True})
+    # result trả về dạng:
+    # {
+    #     'available': bool,
+    #     'has_schedule': True,
+    #     'days': [
+    #         { 'date': '...', 'date_display': '...', 'available': bool, 'message': '...', 'conflict_start': '...', 'conflict_end': '...' }
+    #     ]
+    # }
+    return jsonify(result)
 
 # ─── CONTRACT / BUSINESS PROCESS ───────────────────────────────────────────────
 
@@ -1911,6 +3903,15 @@ def payment_mockup(contract_id):
     from services.permissions import require_contract_access
     require_contract_access(session['user_id'], contract)
 
+    if session['user_id'] != contract.hirer_id:
+        abort(403)
+    if contract.status != 'escrow_pending':
+        if contract.status == 'awaiting_translator':
+            flash('Phiên dịch viên chưa xác nhận lịch, bạn chưa thể thanh toán.', 'warning')
+        else:
+            flash('Hợp đồng này không ở trạng thái chờ thanh toán.', 'error')
+        return redirect(url_for('transaction_detail', contract_id=contract.id))
+
     platform_fee = int(contract.agreed_price * 0.10)
     translator_receives = contract.agreed_price - platform_fee
     if request.method == 'POST':
@@ -1922,6 +3923,10 @@ def payment_mockup(contract_id):
                 return redirect(url_for('index'))
                 
             contract.status = 'in_progress'
+            db.session.add(PaymentTransaction(
+                contract_id=contract.id, user_id=contract.hirer_id,
+                amount=contract.agreed_price, status='escrow_pending',
+                payment_method='mockup'))
             db.session.commit()
             flash('Thanh toán thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
             return redirect(url_for('transaction_detail', contract_id=contract.id))
@@ -1936,8 +3941,8 @@ def payment_mockup(contract_id):
                 c.status = 'cancelled'
                 
             from models import TranslatorSchedule
-            s = TranslatorSchedule.query.filter_by(contract_id=contract.id).first()
-            if s:
+            schedules = TranslatorSchedule.query.filter_by(contract_id=contract.id).all()
+            for s in schedules:
                 s.status = 'cancelled'
                 
             db.session.commit()
@@ -2020,6 +4025,32 @@ def transaction_detail(contract_id):
 
     return render_template('transaction_detail.html', contract=contract)
 
+@app.route('/contract/<int:contract_id>/<action>', methods=['POST'])
+@login_required
+def contract_action(contract_id, action):
+    """PDV xác nhận/từ chối lịch; hirer hoặc PDV hủy hợp đồng."""
+    if action not in ('accept', 'decline', 'cancel'):
+        abort(404)
+    contract = Contract.query.with_for_update().get_or_404(contract_id)
+    from services.permissions import require_contract_access
+    from services.contract_flow import (ContractFlowError, accept_booking,
+                                        decline_booking, cancel_contract)
+    require_contract_access(session['user_id'], contract)
+    try:
+        if action == 'accept':
+            accept_booking(contract, session['user_id'])
+            flash('Đã xác nhận lịch. Đang chờ khách thanh toán.', 'success')
+        elif action == 'decline':
+            decline_booking(contract, session['user_id'])
+            flash('Đã từ chối yêu cầu đặt lịch.', 'success')
+        else:
+            pct = cancel_contract(contract, session['user_id'])
+            flash('Đã hủy hợp đồng.' + (f' Khách được hoàn {pct}% số tiền đã thanh toán.' if pct else ''), 'success')
+    except ContractFlowError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    return redirect(url_for('transaction_detail', contract_id=contract_id))
+
 @app.route('/approve-contract/<int:contract_id>', methods=['POST'])
 @login_required
 def approve_contract(contract_id):
@@ -2028,6 +4059,8 @@ def approve_contract(contract_id):
     require_contract_access(session['user_id'], contract)
     if session['user_id'] == contract.hirer_id and contract.status == 'in_progress':
         contract.status = 'completed'
+        for pay in PaymentTransaction.query.filter_by(contract_id=contract.id, status='escrow_pending').all():
+            pay.status = 'completed'
         if contract.job:
             contract.job.status = 'completed'
         prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
@@ -2071,12 +4104,6 @@ def submit_review(contract_id):
             review = Review(contract_id=contract.id, reviewer_id=reviewer_id,
                             reviewee_id=reviewee_id, rating=rating, comment=comment)
             db.session.add(review)
-
-        if reviewer_id == contract.translator_id:
-            # Phiên dịch viên đánh giá khách -> tính lại điểm của khách từ các review hiển thị
-            db.session.flush()
-            from services.hirer import recalculate_hirer_rating
-            recalculate_hirer_rating(contract.hirer_id)
 
         if reviewer_id == contract.hirer_id:
             prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
@@ -2155,8 +4182,9 @@ def get_messages(contract_id):
     if unread:
         db.session.commit()
 
-    return jsonify([{'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
-                     'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m')} for m in msgs])
+    return jsonify([{'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name if m.sender else '',
+                     'content': m.content, 'image_url': getattr(m, 'image_url', None),
+                     'time': m.created_at.strftime('%H:%M %d/%m') if m.created_at else ''} for m in msgs])
 
 @app.route('/api/messages/<int:contract_id>', methods=['POST'])
 @login_required
@@ -2167,8 +4195,13 @@ def send_message(contract_id):
     require_contract_access(sender_id, contract)
 
     content = request.json.get('content', '').strip()
-    if content:
-        db.session.add(Message(contract_id=contract_id, sender_id=sender_id, content=content))
+    image_url = request.json.get('image_url', '').strip()
+    if content or image_url:
+        db.session.add(Message(
+            contract_id=contract_id, sender_id=sender_id,
+            content=content or ('[Hình ảnh]' if image_url else ''),
+            image_url=image_url or None
+        ))
         db.session.flush()
 
         if sender_id == contract.hirer_id:
@@ -2344,13 +4377,14 @@ def admin_logout():
 # ─── ADMIN ROUTES ───────────────────────────────────────────────────────────────
 
 @app.route('/admin')
-@admin_required
+@admin_login_required
+@require_permission('view_dashboard')
 def admin_dashboard():
     stats = {
         'total_users': User.query.filter_by(is_admin=False).count(),
         'total_translators': TranslatorProfile.query.count(),
         'pending_verify': TranslatorProfile.query.filter_by(is_verified=False).count(),
-        'open_jobs': Job.query.filter_by(status='open', is_flagged=False).count(),
+        'open_jobs': Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).count(),
         'flagged_jobs': Job.query.filter_by(is_flagged=True).count(),
         'active_contracts': Contract.query.filter_by(status='in_progress').count(),
         'completed_contracts': Contract.query.filter_by(status='completed').count(),
@@ -2360,21 +4394,26 @@ def admin_dashboard():
     return render_template('admin_dashboard.html', stats=stats, recent_users=recent_users, recent_jobs=recent_jobs)
 
 @app.route('/admin/jobs')
-@admin_required
+@admin_login_required
+@require_permission('view_jobs')
 def admin_jobs():
     status_filter = request.args.get('status', 'all')
     query = Job.query
     if status_filter == 'flagged':
         query = query.filter_by(is_flagged=True)
     elif status_filter == 'open':
-        query = query.filter_by(status='open', is_flagged=False)
+        query = query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None))
+    elif status_filter == 'pending':
+        query = query.filter(Job.status == 'pending', db.or_(Job.is_flagged == False, Job.is_flagged == None))
     elif status_filter == 'completed':
         query = query.filter_by(status='completed')
     jobs = query.order_by(Job.created_at.desc()).all()
     return render_template('admin_jobs.html', jobs=jobs, status_filter=status_filter)
 
 @app.route('/admin/jobs/<int:job_id>/flag', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('flag_job')
 def admin_flag_job(job_id):
     job = Job.query.get_or_404(job_id)
     job.is_flagged = not job.is_flagged
@@ -2390,10 +4429,52 @@ def admin_flag_job(job_id):
     flash(f'{action_text} bài đăng "{job.title}".', 'success')
     return redirect(url_for('admin_jobs'))
 
+@app.route('/admin/jobs/<int:job_id>/approve', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('approve_job')
+def admin_approve_job(job_id):
+    job = Job.query.get_or_404(job_id)
+    if job.status == 'pending':
+        job.status = 'open'
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS.get('UPDATE_JOB_STATUS', 'UPDATE_JOB_STATUS'),
+            target_type='job',
+            target_id=job.id,
+            description=f'Phê duyệt job "{job.title}" (ID={job.id})',
+        )
+        db.session.commit()
+        flash('Đã phê duyệt bài đăng thành công.', 'success')
+    else:
+        flash('Bài đăng không ở trạng thái chờ duyệt.', 'warning')
+    return redirect(url_for('admin_jobs'))
+
 @app.route('/admin/jobs/<int:job_id>/delete', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('reject_job')
 def admin_delete_job(job_id):
     job = Job.query.get_or_404(job_id)
+    
+    # 1. Kiểm tra dependency quan trọng: Hợp đồng
+    from models import Contract
+    contracts = Contract.query.filter_by(job_id=job.id).all()
+    if contracts:
+        flash('Không thể xóa vĩnh viễn bài đăng đã có hợp đồng. Vui lòng sử dụng "Gắn cờ/Ẩn".', 'error')
+        return redirect(url_for('admin_jobs'))
+        
+    # 2. Xử lý dependencies phụ
+    from models import Notification, TranslatorSchedule, Proposal, Report, JobSchedule
+    
+    # SET NULL cho các lịch sử (không xóa lịch sử)
+    Notification.query.filter_by(related_job_id=job.id).update({'related_job_id': None})
+    Report.query.filter_by(related_job_id=job.id).update({'related_job_id': None})
+    TranslatorSchedule.query.filter_by(job_id=job.id).update({'job_id': None})
+    
+    # Xóa dọn dẹp các data ăn theo
+    Proposal.query.filter_by(job_id=job.id).delete()
+    JobSchedule.query.filter_by(job_id=job.id).delete()
+    
     _audit_log(
         action=ADMIN_AUDIT_ACTIONS['DELETE_JOB'],
         target_type='job',
@@ -2402,11 +4483,12 @@ def admin_delete_job(job_id):
     )
     db.session.delete(job)
     db.session.commit()
-    flash('Đã xoá vĩnh viễn bài đăng.', 'success')
+    flash('Đã xoá vĩnh viễn bài đăng an toàn.', 'success')
     return redirect(url_for('admin_jobs'))
 
 @app.route('/admin/users')
-@admin_required
+@admin_login_required
+@require_permission('view_users')
 def admin_users():
     role_filter = request.args.get('role', 'all')
     query = User.query.filter_by(is_admin=False)
@@ -2418,7 +4500,9 @@ def admin_users():
     return render_template('admin_users.html', users=users, role_filter=role_filter)
 
 @app.route('/admin/users/<int:user_id>/toggle-active', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('lock_user')
 def admin_toggle_user(user_id):
     user = User.query.get_or_404(user_id)
     user.is_active = not user.is_active
@@ -2435,21 +4519,52 @@ def admin_toggle_user(user_id):
     return redirect(url_for('admin_users'))
 
 @app.route('/admin/translators')
-@admin_required
+@admin_login_required
+@require_permission('view_translators')
 def admin_translators():
     show = request.args.get('show', 'pending')
+    from models import TranslatorVerification
+    verifications_query = TranslatorVerification.query.order_by(TranslatorVerification.created_at.desc())
+    pending_verifications = TranslatorVerification.query.filter_by(status='pending').order_by(TranslatorVerification.created_at.desc()).all()
+
     if show == 'verified':
         profiles = TranslatorProfile.query.filter_by(is_verified=True).all()
-    else:
+        active_verifications = []
+    elif show == 'all':
+        profiles = TranslatorProfile.query.all()
+        active_verifications = verifications_query.all()
+    elif show == 'rejected':
+        profiles = []
+        active_verifications = TranslatorVerification.query.filter_by(status='rejected').order_by(TranslatorVerification.created_at.desc()).all()
+    else:  # 'pending'
         profiles = TranslatorProfile.query.filter_by(is_verified=False).all()
-    return render_template('admin_translators.html', profiles=profiles, show=show)
+        active_verifications = pending_verifications
+
+    return render_template(
+        'admin_translators.html',
+        profiles=profiles,
+        show=show,
+        verifications=active_verifications,
+        pending_count=len(pending_verifications)
+    )
 
 @app.route('/admin/translators/<int:profile_id>/verify', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('verify_translator')
 def admin_verify_translator(profile_id):
     profile = TranslatorProfile.query.get_or_404(profile_id)
     action = request.form.get('action')
     profile.is_verified = (action == 'verify')
+
+    # Đồng bộ với bản ghi TranslatorVerification nếu có
+    from models import TranslatorVerification
+    verif = TranslatorVerification.query.filter_by(user_id=profile.user_id).order_by(TranslatorVerification.created_at.desc()).first()
+    if verif:
+        verif.status = 'approved' if profile.is_verified else 'rejected'
+        verif.reviewed_at = datetime.utcnow()
+        verif.reviewed_by = session.get('admin_id')
+
     action_key = ADMIN_AUDIT_ACTIONS['VERIFY_TRANSLATOR'] if profile.is_verified else ADMIN_AUDIT_ACTIONS['REJECT_TRANSLATOR']
     msg = 'Đã xác minh' if profile.is_verified else 'Đã từ chối xác minh'
     _audit_log(
@@ -2462,8 +4577,33 @@ def admin_verify_translator(profile_id):
     flash(f'{msg} hồ sơ {profile.user.name}.', 'success')
     return redirect(url_for('admin_translators'))
 
-@app.route('/admin/reports')
+@app.route('/admin/verifications/<int:verification_id>/<action>', methods=['POST'])
 @admin_required
+def admin_review_verification(verification_id, action):
+    """Phê duyệt hoặc từ chối yêu cầu xác minh của phiên dịch viên."""
+    from services.verification import review_verification_request
+    from admin_auth import get_client_ip
+
+    admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
+    reason = request.form.get('reason', '')
+
+    ok, msg = review_verification_request(
+        verification_id=verification_id,
+        admin_user=admin,
+        action=action,
+        reason=reason,
+        ip_address=get_client_ip(),
+        user_agent=request.headers.get('User-Agent', '')[:512]
+    )
+    if ok:
+        flash(msg, 'success')
+    else:
+        flash(msg, 'error')
+    return redirect(url_for('admin_translators', show='pending' if action == 'reject' else 'verified'))
+
+@app.route('/admin/reports')
+@admin_login_required
+@require_permission('view_reports')
 def admin_reports():
     status_filter = request.args.get('status', 'new')
     query = Report.query
@@ -2474,7 +4614,9 @@ def admin_reports():
     return render_template('admin_reports.html', reports=reports, status_filter=status_filter)
 
 @app.route('/admin/reports/<int:report_id>/<action>', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_update_report(report_id, action):
     report = Report.query.get_or_404(report_id)
     
@@ -2511,7 +4653,8 @@ def admin_update_report(report_id, action):
     return redirect(url_for('admin_reports'))
 
 @app.route('/admin/proposals')
-@admin_required
+@admin_login_required
+@require_permission('view_proposals')
 def admin_proposals():
     status_filter = request.args.get('status', 'all')
     query = Proposal.query
@@ -2522,7 +4665,8 @@ def admin_proposals():
     return render_template('admin_proposals.html', proposals=proposals, status_filter=status_filter)
 
 @app.route('/admin/contracts')
-@admin_required
+@admin_login_required
+@require_permission('view_contracts')
 def admin_contracts():
     status_filter = request.args.get('status', 'all')
     query = Contract.query
@@ -2533,18 +4677,23 @@ def admin_contracts():
     return render_template('admin_contracts.html', contracts=contracts, status_filter=status_filter)
 
 @app.route('/admin/schedules')
-@admin_required
+@admin_login_required
+@require_permission('view_schedules')
 def admin_schedules():
     status_filter = request.args.get('status', 'all')
+    contract_id = request.args.get('contract_id', type=int)
     query = TranslatorSchedule.query
     if status_filter != 'all':
         query = query.filter_by(status=status_filter)
+    if contract_id:
+        query = query.filter_by(contract_id=contract_id)
     
     schedules = query.order_by(TranslatorSchedule.scheduled_date.desc(), TranslatorSchedule.start_time.desc()).all()
-    return render_template('admin_schedules.html', schedules=schedules, status_filter=status_filter)
+    return render_template('admin_schedules.html', schedules=schedules, status_filter=status_filter, contract_id=contract_id)
 
 @app.route('/admin/reviews')
-@admin_required
+@admin_login_required
+@require_permission('view_reviews')
 def admin_reviews():
     show_filter = request.args.get('show', 'all')
     query = Review.query
@@ -2557,7 +4706,9 @@ def admin_reviews():
     return render_template('admin_reviews.html', reviews=reviews, show=show_filter)
 
 @app.route('/admin/reviews/<int:review_id>/toggle', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_toggle_review(review_id):
     r = Review.query.get_or_404(review_id)
     r.is_hidden = not r.is_hidden
@@ -2572,17 +4723,13 @@ def admin_toggle_review(review_id):
         description=f"{msg} #{r.id} của {r.reviewer.name}",
     )
     
-    if r.reviewee and r.reviewee.role == 'hirer':
-        db.session.flush()
-        from services.hirer import recalculate_hirer_rating
-        recalculate_hirer_rating(r.reviewee_id)
-
     db.session.commit()
     flash(msg, 'success')
     return redirect(url_for('admin_reviews'))
 
 @app.route('/admin/payments')
-@admin_required
+@admin_login_required
+@require_permission('view_payments')
 def admin_payments():
     status_filter = request.args.get('status', 'all')
     query = PaymentTransaction.query
@@ -2593,7 +4740,9 @@ def admin_payments():
     return render_template('admin_payments.html', payments=payments, status_filter=status_filter)
 
 @app.route('/admin/payments/<int:payment_id>/refund', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('refund_payment')
 def admin_refund_payment(payment_id):
     p = PaymentTransaction.query.get_or_404(payment_id)
     if p.status != 'escrow_pending' and p.status != 'completed':
@@ -2616,7 +4765,8 @@ def admin_refund_payment(payment_id):
     return redirect(url_for('admin_payments'))
 
 @app.route('/admin/notifications')
-@admin_required
+@admin_login_required
+@require_permission('view_notifications')
 def admin_notifications():
     show_filter = request.args.get('show', 'all')
     query = AdminNotification.query
@@ -2627,7 +4777,9 @@ def admin_notifications():
     return render_template('admin_notifications.html', notifications=notifications, show=show_filter)
 
 @app.route('/admin/notifications/<int:notif_id>/read', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_notifications_read(notif_id):
     n = AdminNotification.query.get_or_404(notif_id)
     n.is_read = True
@@ -2635,14 +4787,17 @@ def admin_notifications_read(notif_id):
     return redirect(url_for('admin_notifications'))
 
 @app.route('/admin/notifications/read-all', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_notifications_mark_all():
     AdminNotification.query.filter_by(is_read=False).update({'is_read': True})
     db.session.commit()
     return redirect(url_for('admin_notifications'))
 
 @app.route('/admin/audit')
-@admin_required
+@admin_login_required
+@require_permission('view_audit_logs')
 def admin_audit_logs():
     action_filter = request.args.get('action', 'all')
     query = AdminAuditLog.query
@@ -2677,7 +4832,8 @@ def admin_audit_logs():
     return render_template('admin_audit.html', logs=logs, action_filter=action_filter)
 
 @app.route('/admin/admins')
-@admin_required
+@admin_login_required
+@require_permission('view_dashboard')
 def admin_admins():
     # Only super_admin or users with manage_admins can see all details easily
     # But let's allow all admins to view the list, just restrict actions in UI
@@ -2685,7 +4841,9 @@ def admin_admins():
     return render_template('admin_admins.html', admins=admins)
 
 @app.route('/admin/admins/add', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_add_admin():
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
@@ -2723,7 +4881,9 @@ def admin_add_admin():
     return redirect(url_for('admin_admins'))
 
 @app.route('/admin/admins/<int:admin_id>/toggle', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('view_dashboard')
 def admin_toggle_admin_status(admin_id):
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
@@ -2742,7 +4902,8 @@ def admin_toggle_admin_status(admin_id):
     return redirect(url_for('admin_admins'))
 
 @app.route('/admin/search')
-@admin_required
+@admin_login_required
+@require_permission('view_dashboard')
 def admin_search():
     q = request.args.get('q', '').strip()
     results = {'users': [], 'jobs': [], 'contracts': []}

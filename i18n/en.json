@@ -19,7 +19,12 @@
     "lang_en": "English",
     "default_title": "VietTranslate | Professional Language Services Marketplace",
     "messages_tooltip": "Messages",
-    "notifications_tooltip": "Notifications"
+    "notifications_tooltip": "Notifications",
+    "my_jobs": "My Jobs",
+    "find_jobs": "Find Work",
+    "recommended_jobs": "Recommended Jobs",
+    "my_services": "My Services",
+    "my_schedule": "My Schedule"
   },
   "footer": {
     "tagline": "Modern language connection platform. Trust in every connection, excellence in every experience between clients and professional language experts.",
@@ -410,7 +415,7 @@
     "cat_negotiation": "Business & Negotiation Interpreting",
     "cat_document": "Specialized Document Translation",
     "cat_legal": "Legal & Courtroom Interpreting",
-    "submit_btn": "Post Job Now",
+    "submit_btn": "Submit for review",
     "cancel_btn": "Cancel"
   },
   "profile_page": {
@@ -503,7 +508,21 @@
     "notif_new_messages": "New messages",
     "notif_new_reviews": "New reviews",
     "notif_contracts": "Contract updates",
-    "save_preferences_btn": "Save Preferences"
+    "save_preferences_btn": "Save Preferences",
+    "heading_avatar": "Profile Avatar",
+    "avatar_subtitle": "Upload a clear portrait photo to build trust and credibility",
+    "btn_upload_photo": "Upload new photo",
+    "btn_change_photo": "Change photo",
+    "btn_remove_photo": "Remove current photo",
+    "avatar_guidelines": "Supports JPG, PNG, WEBP, GIF. Maximum size: 5MB.",
+    "custom_avatar_badge": "Custom photo",
+    "default_avatar_badge": "Default avatar",
+    "select_photo_prompt": "Click to select a photo from your device",
+    "modal_avatar_title": "Update Profile Avatar",
+    "modal_avatar_preview": "Avatar Preview",
+    "btn_save_avatar": "Save Avatar",
+    "uploading_avatar": "Uploading photo...",
+    "confirm_remove_avatar": "Are you sure you want to remove your avatar?"
   },
   "common": {
     "all": "All",
@@ -555,7 +574,12 @@
     "already_applied": "You have already applied to this job.",
     "missing_proposal_fields": "Proposed Rate and Delivery Time are required.",
     "proposal_sent": "Proposal sent successfully!",
-    "message_sent": "Message sent!"
+    "message_sent": "Message sent!",
+    "avatar_updated": "Avatar updated successfully!",
+    "avatar_removed": "Avatar removed successfully!",
+    "avatar_invalid_file": "Please choose a valid image file (JPG, PNG, WEBP, GIF)!",
+    "avatar_file_too_large": "File size exceeds the 5MB limit!",
+    "avatar_upload_failed": "An error occurred while uploading avatar, please try again!"
   },
   "auto": {
     "chờ_escrow": "Escrow Pending",

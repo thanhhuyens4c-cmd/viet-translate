@@ -52,19 +52,30 @@
                     {{ job.title }}
                 </h1>
 
-                {% if job.event_date or job.event_location %}
-                <div
-                    class="bg-slate-50 rounded-xl p-4 border border-slate-200/70 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
-                    {% if job.event_date %}
+                {% if job.event_date or job.event_location or job.schedules %}
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/70 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
+                    {% if job.schedules %}
+                    <div class="flex items-start gap-2">
+                        <span class="text-base mt-0.5">📅</span>
+                        <div>
+                            <span>{{ t('job_detail_page.time_label') }}</span>
+                            <ul class="mt-1 space-y-1">
+                                {% for sched in job.schedules %}
+                                <li><strong class="text-slate-800 font-semibold">{{ sched.scheduled_date.strftime('%d/%m/%Y') if sched.scheduled_date else '' }}</strong> ({{ sched.start_time }} - {{ sched.end_time }})</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% elif job.event_date %}
                     <div class="flex items-center gap-2">
                         <span class="text-base">📅</span>
-                        <span>{{ t('job_detail_page.time_label') }} <strong class="text-slate-800 font-semibold">{{
-                                job.event_date }}</strong></span>
+                        <span>{{ t('job_detail_page.time_label') }} <strong class="text-slate-800 font-semibold">{{ job.event_date }}</strong></span>
                     </div>
                     {% endif %}
+
                     {% if job.event_location %}
-                    <div class="flex items-center gap-2">
-                        <span class="text-base">📍</span>
+                    <div class="flex items-start gap-2">
+                        <span class="text-base mt-0.5">📍</span>
                         <span>{{ t('job_detail_page.location_label') }} <strong class="text-slate-800 font-semibold">{{
                                 job.event_location }}</strong></span>
                     </div>
@@ -238,10 +249,21 @@
                                 badge.textContent = "{{ t('job_detail_page.schedule_available') }}";
                                 badge.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
                             } else {
-                                badge.innerHTML = "{{ t('job_detail_page.schedule_conflict_prefix') }} "
-                                    + `(${data.conflict_start}–${data.conflict_end}). `
-                                    + "{{ t('job_detail_page.schedule_conflict_suffix') }}";
-                                badge.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
+                                let conflictMsg = "<div>⚠️ <strong>" + "{{ t('job_detail_page.schedule_conflict_prefix') }}" + "</strong><ul class='mt-1 ml-4 list-disc text-xs font-normal space-y-1'>";
+                                if (data.days && data.days.length > 0) {
+                                    data.days.forEach(day => {
+                                        if (!day.available) {
+                                            conflictMsg += `<li><span class='font-bold'>${day.date_display}:</span> ${day.message}</li>`;
+                                        }
+                                    });
+                                } else {
+                                    conflictMsg += `<li>${data.message || 'Lịch bị trùng'}</li>`;
+                                }
+                                conflictMsg += "</ul></div>";
+                                
+                                badge.innerHTML = conflictMsg;
+                                badge.classList.remove('flex', 'items-center', 'gap-2'); // Đổi sang block hiển thị list tốt hơn
+                                badge.classList.add('bg-red-50', 'text-red-800', 'border-red-200', 'block');
                                 btn.classList.replace('bg-brand-600', 'bg-slate-400');
                                 btn.classList.remove('hover:bg-brand-700');
 
@@ -369,8 +391,7 @@
                 btn.classList.replace('bg-brand-600', 'bg-slate-400');
                 btn.classList.remove('hover:bg-brand-700');
 
-                fetch(`/ api / jobs / {{ job.id }
-                        }/invite/${ translatorId }`, { method: 'POST' })
+                fetch(`/api/jobs/{{ job.id }}/invite/${translatorId}`, { method: 'POST' })
                     .then(r => r.json())
                     .then(data => {
                         if (data.status === 'success') {
@@ -502,6 +523,8 @@
                     <div class="flex justify-between items-center">
                         <span class="text-slate-500">Thời gian:</span>
                         <span class="font-medium text-slate-800">{{ job.event_date }}</span>
+                    </div>
+                    {% endif %}
                         <!-- Budget Card -->
                         <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-soft text-center">
                             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{{
@@ -570,7 +593,6 @@
                             </div>
                             <div>
                                 <div class="font-bold text-slate-900 text-sm">{{ job.hirer.name }}</div>
-                                {% if job.hirer.hirer_profile and job.hirer.hirer_profile.is_verified %}
                                 <div class="text-xs text-emerald-600 flex items-center gap-1 mt-0.5 font-medium">
                                     <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd"
@@ -579,7 +601,6 @@
                                     </svg>
                                     {{ t('job_detail_page.verified_account') }}
                                 </div>
-                                {% endif %}
                                 <a href="{{ url_for('hirer_profile', hirer_id=job.hirer.id) }}"
                                     class="inline-flex mt-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 transition items-center gap-1">
                                     {{ t('auto.xem_profile') }}

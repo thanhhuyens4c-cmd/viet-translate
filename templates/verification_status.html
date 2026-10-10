@@ -1,0 +1,830 @@
+{% extends 'base.html' %}
+
+{% block title %}Theo Dõi Trạng Thái Xác Minh Hồ Sơ - VietTranslate{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/70 py-8 sm:py-12">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+
+        <!-- ─── BREADCRUMB & TOP NAV BAR ────────────────────────────────────── -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+            <nav class="flex items-center gap-2 text-xs sm:text-sm text-slate-500 font-medium">
+                <a href="{{ url_for('index') }}" class="hover:text-brand-600 transition">Trang chủ</a>
+                <span>/</span>
+                <a href="{{ url_for('account_profile') }}" class="hover:text-brand-600 transition">Tài khoản</a>
+                <span>/</span>
+                <a href="{{ url_for('account_profile') }}?tab=verification" class="hover:text-brand-600 transition">Xác minh</a>
+                <span>/</span>
+                <span class="text-slate-900 font-bold">Theo dõi trạng thái</span>
+            </nav>
+
+            <div class="flex items-center gap-2.5">
+                <!-- Nút Làm Mới Realtime -->
+                <button type="button" id="btn-refresh-status" onclick="refreshStatusData()"
+                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200/90 shadow-2xs hover:bg-slate-50 transition cursor-pointer">
+                    <svg id="refresh-icon" class="w-3.5 h-3.5 text-slate-500 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Làm mới trạng thái</span>
+                </button>
+
+                <a href="{{ url_for('account_profile') }}?tab=verification"
+                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-brand-700 bg-brand-50 border border-brand-200/80 hover:bg-brand-100 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    <span>Quay lại hồ sơ</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- ─── TRƯỜNG HỢP: CHƯA CÓ HỒ SƠ XÁC MINH (EMPTY STATE) ─────────────── -->
+        {% if data.overall_state == 'not_started' %}
+        <div class="bg-white rounded-3xl border border-slate-200/90 shadow-soft p-8 sm:p-12 text-center max-w-3xl mx-auto space-y-6">
+            <div class="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-brand-500/25">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+            </div>
+            
+            <div class="space-y-2">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200">
+                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                    Chưa khởi tạo hồ sơ
+                </span>
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Xác Minh Danh Tính & Năng Lực Phiên Dịch</h1>
+                <p class="text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
+                    Bạn chưa bắt đầu nộp hồ sơ xác minh. Trở thành phiên dịch viên có tích xanh để tăng uy tín, được khách hàng tin tưởng và ưu tiên nhận các dự án hội nghị cao cấp.
+                </p>
+            </div>
+
+            <!-- Quyền lợi xác minh -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left pt-2">
+                <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">✓</div>
+                    <h4 class="text-xs font-bold text-slate-900">Huy Hiệu Tích Xanh</h4>
+                    <p class="text-[11px] text-slate-500">Hiển thị nổi bật trên danh bạ và trang cá nhân.</p>
+                </div>
+                <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                    <div class="w-8 h-8 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-sm">📈</div>
+                    <h4 class="text-xs font-bold text-slate-900">Tăng 300% Cơ Hội Việc</h4>
+                    <p class="text-[11px] text-slate-500">Khách thuê ưu tiên gửi yêu cầu đặt lịch trực tiếp.</p>
+                </div>
+                <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">🛡️</div>
+                    <h4 class="text-xs font-bold text-slate-900">Bảo Vệ Thanh Toán</h4>
+                    <p class="text-[11px] text-slate-500">Được VietTranslate đảm bảo hợp đồng và thù lao minh bạch.</p>
+                </div>
+            </div>
+
+            <div class="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a href="{{ url_for('verification_form') }}"
+                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-brand-500/25 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    <span>Bắt đầu khai báo hồ sơ ngay</span>
+                </a>
+                <a href="{{ url_for('account_profile') }}"
+                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition">
+                    <span>Xem thông tin tài khoản</span>
+                </a>
+            </div>
+        </div>
+
+        {% else %}
+
+        <!-- ─── 1. HERO CARD: TRẠNG THÁI TỔNG THỂ & THÔNG TIN CHÍNH ────────────── -->
+        <div class="bg-white rounded-3xl border border-slate-200/90 shadow-soft overflow-hidden">
+            <!-- Header dải màu gradient trạng thái -->
+            <div class="p-6 sm:p-8 {% if data.overall_state == 'verified' %}bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-white border-b border-emerald-100{% elif data.overall_state == 'pending' %}bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-white border-b border-amber-100{% elif data.overall_state == 'needs_revision' %}bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-white border-b border-orange-100{% elif data.overall_state == 'rejected' %}bg-gradient-to-r from-rose-500/10 via-red-500/5 to-white border-b border-rose-100{% else %}bg-gradient-to-r from-indigo-500/10 via-blue-500/5 to-white border-b border-indigo-100{% endif %}">
+                
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div class="flex items-start gap-4 sm:gap-5">
+                        <!-- Icon trạng thái lớn -->
+                        <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shrink-0 shadow-md {% if data.overall_state == 'verified' %}bg-emerald-600 text-white shadow-emerald-500/25{% elif data.overall_state == 'pending' %}bg-amber-500 text-white shadow-amber-500/25{% elif data.overall_state == 'needs_revision' %}bg-orange-500 text-white shadow-orange-500/25{% elif data.overall_state == 'rejected' %}bg-rose-600 text-white shadow-rose-500/25{% else %}bg-indigo-600 text-white shadow-indigo-500/25{% endif %}">
+                            {% if data.overall_state == 'verified' %}
+                            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            {% elif data.overall_state == 'pending' %}
+                            <svg class="w-8 h-8 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            {% elif data.overall_state == 'needs_revision' %}
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            {% elif data.overall_state == 'rejected' %}
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            {% else %}
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            {% endif %}
+                        </div>
+
+                        <div class="space-y-1">
+                            <div class="flex flex-wrap items-center gap-2.5">
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs {% if data.overall_state == 'verified' %}bg-emerald-100/80 text-emerald-900 border-emerald-300{% elif data.overall_state == 'pending' %}bg-amber-100/80 text-amber-900 border-amber-300{% elif data.overall_state == 'needs_revision' %}bg-orange-100/80 text-orange-900 border-orange-300{% elif data.overall_state == 'rejected' %}bg-rose-100/80 text-rose-900 border-rose-300{% else %}bg-indigo-100/80 text-indigo-900 border-indigo-300{% endif %}">
+                                    <span class="w-2 h-2 rounded-full {% if data.overall_state == 'verified' %}bg-emerald-500{% elif data.overall_state == 'pending' %}bg-amber-500 animate-ping{% elif data.overall_state == 'needs_revision' %}bg-orange-500{% elif data.overall_state == 'rejected' %}bg-rose-500{% else %}bg-indigo-500{% endif %}"></span>
+                                    {{ data.status_label }}
+                                </span>
+
+                                {% if data.current_version and data.current_version > 0 %}
+                                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                    Phiên bản v{{ data.current_version }}
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">{{ data.status_headline }}</h1>
+                            <p class="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-2xl">{{ data.status_description }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Hành động chính nhanh -->
+                    <div class="shrink-0 flex flex-col sm:flex-row lg:flex-col gap-2.5">
+                        <a href="{{ data.next_action.primary_btn.url }}"
+                            class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md transition {{ data.next_action.primary_btn.class }}">
+                            <span>{{ data.next_action.primary_btn.text }}</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                        </a>
+                        {% if data.next_action.secondary_btn %}
+                        <a href="{{ data.next_action.secondary_btn.url }}"
+                            class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition {{ data.next_action.secondary_btn.class }}">
+                            <span>{{ data.next_action.secondary_btn.text }}</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Thước đo mốc thời gian thực tế -->
+                <div class="mt-6 pt-5 border-t border-slate-200/70 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div class="p-3 rounded-xl bg-white/70 border border-slate-200/80">
+                        <span class="text-slate-500 block text-[11px]">Ngày tạo hồ sơ:</span>
+                        <strong class="text-slate-800 font-bold block mt-0.5">
+                            {{ data.timestamps.created_at or 'Chưa ghi nhận' }}
+                        </strong>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-white/70 border border-slate-200/80">
+                        <span class="text-slate-500 block text-[11px]">Ngày gửi xét duyệt:</span>
+                        <strong class="font-bold block mt-0.5 {% if data.timestamps.submitted_at %}text-slate-800{% else %}text-slate-400 italic{% endif %}">
+                            {{ data.timestamps.submitted_at or 'Chưa gửi hồ sơ' }}
+                        </strong>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-white/70 border border-slate-200/80">
+                        <span class="text-slate-500 block text-[11px]">Ngày Ban quản trị phản hồi:</span>
+                        <strong class="font-bold block mt-0.5 {% if data.timestamps.reviewed_at %}text-slate-800{% else %}text-slate-400 italic{% endif %}">
+                            {{ data.timestamps.reviewed_at or 'Chưa có kết quả' }}
+                        </strong>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-white/70 border border-slate-200/80">
+                        <span class="text-slate-500 block text-[11px]">Cập nhật gần nhất:</span>
+                        <strong class="text-slate-800 font-bold block mt-0.5">
+                            {{ data.timestamps.updated_at or 'Chưa cập nhật' }}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ─── 2. THANH TIẾN TRÌNH QUY TRÌNH XÁC MINH (LIFECYCLE TRACKER) ─────── -->
+            <div class="p-6 sm:p-8 bg-slate-50/50">
+                <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-6 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                    <span>Quy Trình Xác Minh 5 Giai Đoạn (Verification Lifecycle)</span>
+                </h3>
+
+                <div class="relative">
+                    <!-- Đường nối -->
+                    <div class="hidden md:block absolute top-1/2 left-6 right-6 h-0.5 -translate-y-1/2 bg-slate-200 z-0"></div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 relative z-10">
+                        
+                        <!-- Mốc 1: Khởi tạo nháp -->
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex md:flex-col items-center md:items-start gap-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 {% if data.overall_state != 'not_started' %}bg-emerald-600 text-white{% else %}bg-slate-200 text-slate-500{% endif %}">
+                                {% if data.overall_state != 'not_started' %}✓{% else %}1{% endif %}
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900">1. Khởi tạo nháp</h4>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Lưu thông tin cá nhân</p>
+                                <span class="text-[10px] font-semibold text-emerald-600 block mt-1">{% if data.overall_state != 'not_started' %}Hoàn thành{% else %}Chưa tạo{% endif %}</span>
+                            </div>
+                        </div>
+
+                        <!-- Mốc 2: Khai báo & Tải tài liệu -->
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex md:flex-col items-center md:items-start gap-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 {% if data.overall_state in ('pending', 'verified', 'approved') or (data.completed_steps_count >= 5) %}bg-emerald-600 text-white{% elif data.overall_state == 'draft' %}bg-indigo-600 text-white{% else %}bg-slate-200 text-slate-500{% endif %}">
+                                {% if data.overall_state in ('pending', 'verified', 'approved') or (data.completed_steps_count >= 5) %}✓{% else %}2{% endif %}
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900">2. Khai báo 6 bước</h4>
+                                <p class="text-[11px] text-slate-500 mt-0.5">CV, bằng cấp, dự án</p>
+                                <span class="text-[10px] font-semibold {% if data.completed_steps_count == 6 %}text-emerald-600{% elif data.completed_steps_count > 0 %}text-indigo-600{% else %}text-slate-400{% endif %} block mt-1">
+                                    {{ data.completed_steps_count }}/6 bước hợp lệ
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Mốc 3: Nộp hồ sơ xét duyệt -->
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex md:flex-col items-center md:items-start gap-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 {% if data.timestamps.submitted_at %}bg-emerald-600 text-white{% elif data.overall_state == 'draft' %}bg-amber-100 text-amber-700 border border-amber-300{% else %}bg-slate-200 text-slate-500{% endif %}">
+                                {% if data.timestamps.submitted_at %}✓{% else %}3{% endif %}
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900">3. Nộp hồ sơ</h4>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Cam kết tính trung thực</p>
+                                <span class="text-[10px] font-semibold {% if data.timestamps.submitted_at %}text-emerald-600{% else %}text-slate-400{% endif %} block mt-1">
+                                    {% if data.timestamps.submitted_at %}Đã nộp v{{ data.current_version }}{% else %}Chưa nộp{% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Mốc 4: Ban quản trị thẩm định -->
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex md:flex-col items-center md:items-start gap-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 {% if data.overall_state == 'pending' %}bg-amber-500 text-white animate-pulse{% elif data.overall_state in ('verified', 'approved', 'rejected', 'needs_revision') %}bg-emerald-600 text-white{% else %}bg-slate-200 text-slate-500{% endif %}">
+                                {% if data.overall_state in ('verified', 'approved', 'rejected', 'needs_revision') %}✓{% else %}4{% endif %}
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900">4. Thẩm định</h4>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Đối soát hồ sơ 24-48h</p>
+                                <span class="text-[10px] font-semibold {% if data.overall_state == 'pending' %}text-amber-600 font-bold{% elif data.overall_state in ('verified', 'approved', 'rejected', 'needs_revision') %}text-emerald-600{% else %}text-slate-400{% endif %} block mt-1">
+                                    {% if data.overall_state == 'pending' %}Đang xử lý...{% elif data.timestamps.reviewed_at %}Đã thẩm định{% else %}Chờ nộp{% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Mốc 5: Kết quả cuối cùng -->
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex md:flex-col items-center md:items-start gap-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 {% if data.overall_state == 'verified' %}bg-emerald-600 text-white{% elif data.overall_state == 'rejected' %}bg-rose-600 text-white{% elif data.overall_state == 'needs_revision' %}bg-orange-500 text-white{% else %}bg-slate-200 text-slate-500{% endif %}">
+                                {% if data.overall_state == 'verified' %}✓{% elif data.overall_state == 'rejected' %}✗{% elif data.overall_state == 'needs_revision' %}!{% else %}5{% endif %}
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900">5. Kết quả</h4>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Tích xanh hoặc bổ sung</p>
+                                <span class="text-[10px] font-semibold {% if data.overall_state == 'verified' %}text-emerald-600 font-bold{% elif data.overall_state == 'rejected' %}text-rose-600 font-bold{% elif data.overall_state == 'needs_revision' %}text-orange-600 font-bold{% else %}text-slate-400{% endif %} block mt-1">
+                                    {{ data.status_label }}
+                                </span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── 3. THÔNG BÁO PHẢN HỒI CỦA ADMIN (KHI CÓ YÊU CẦU BỔ SUNG HOẶC TỪ CHỐI) ─ -->
+        {% if data.admin_feedback.has_rejection or data.admin_feedback.has_revision_request %}
+        <div class="rounded-3xl p-6 sm:p-7 border shadow-soft {% if data.overall_state == 'rejected' %}bg-rose-50/80 border-rose-200 text-rose-950{% else %}bg-orange-50/90 border-orange-200 text-orange-950{% endif %}">
+            <div class="flex items-start gap-4">
+                <div class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 {% if data.overall_state == 'rejected' %}bg-rose-600 text-white shadow-md shadow-rose-500/20{% else %}bg-orange-500 text-white shadow-md shadow-orange-500/20{% endif %}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div class="space-y-2 flex-grow">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="text-base font-bold">
+                            {% if data.overall_state == 'rejected' %}
+                            Lý do từ chối từ Ban quản trị VietTranslate
+                            {% else %}
+                            Yêu cầu bổ sung & Hướng dẫn từ Ban quản trị
+                            {% endif %}
+                        </h3>
+                        {% if data.admin_feedback.reviewed_at_str %}
+                        <span class="text-xs opacity-75 font-medium">Thời gian gửi phản hồi: {{ data.admin_feedback.reviewed_at_str }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Nội dung lý do / yêu cầu -->
+                    <div class="p-4 rounded-xl bg-white/90 border {% if data.overall_state == 'rejected' %}border-rose-200 text-rose-900{% else %}border-orange-200 text-orange-900{% endif %} text-xs sm:text-sm font-medium leading-relaxed">
+                        {{ data.admin_feedback.rejection_reason or data.admin_feedback.needs_revision_message or 'Vui lòng cập nhật lại thông tin hồ sơ và tài liệu minh chứng theo chính sách của nền tảng.' }}
+                    </div>
+
+                    <!-- Danh sách tài liệu cụ thể bị từ chối nếu có -->
+                    {% if data.admin_feedback.rejected_documents and (data.admin_feedback.rejected_documents | length > 0) %}
+                    <div class="pt-2 space-y-2">
+                        <h4 class="text-xs font-bold uppercase tracking-wider opacity-90">Tài liệu minh chứng cần tải lại:</h4>
+                        <div class="space-y-1.5">
+                            {% for rdoc in data.admin_feedback.rejected_documents %}
+                            <div class="p-3 rounded-xl bg-white/80 border border-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                                <div>
+                                    <strong class="text-rose-900">{{ rdoc.name }}</strong>
+                                    <span class="text-slate-500">({{ rdoc.type_name }})</span>
+                                    <p class="text-rose-700 mt-0.5">Lý do: {{ rdoc.reason }}</p>
+                                </div>
+                                <a href="{{ url_for('account_profile') }}?tab=verification"
+                                    class="shrink-0 inline-flex items-center gap-1 text-xs font-bold text-rose-700 hover:text-rose-900 underline">
+                                    <span>Tải lại tệp</span> &rarr;
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="pt-3">
+                        <a href="{{ data.next_action.primary_btn.url }}"
+                            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-sm transition {{ data.next_action.primary_btn.class }}">
+                            <span>{{ data.next_action.primary_btn.text }}</span>
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ─── 4. TIẾN ĐỘ CHI TIẾT 6 BƯỚC KHAI BÁO (STEP BREAKDOWN) ─────────── -->
+        <div class="bg-white rounded-3xl border border-slate-200/90 shadow-soft p-6 sm:p-8 space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
+                        Tiến Độ Từng Bước Khai Báo (6 Bước Xác Minh)
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Theo dõi chi tiết mức độ hoàn thiện của từng bước trong biểu mẫu xác minh</p>
+                </div>
+
+                <div class="flex items-center gap-2 text-xs font-bold">
+                    <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-700">
+                        Hoàn thành {{ data.completed_steps_count }}/6 bước
+                    </span>
+                    {% if data.overall_state == 'draft' %}
+                    <a href="{{ url_for('verification_form') }}" class="text-brand-600 hover:text-brand-700 font-bold underline">
+                        Mở biểu mẫu &rarr;
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for stp in data.steps_progress %}
+                <div class="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/40 hover:bg-white hover:border-slate-300 hover:shadow-2xs transition flex flex-col justify-between space-y-3">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600">
+                                BƯỚC {{ stp.step_number }}
+                            </span>
+                            <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border {{ stp.badge_class }}">
+                                {{ stp.status_label }}
+                            </span>
+                        </div>
+                        
+                        <h3 class="text-sm font-bold text-slate-900 leading-snug">{{ stp.title }}</h3>
+                        <p class="text-xs text-slate-500 leading-relaxed">{{ stp.desc }}</p>
+
+                        <!-- Lỗi hoặc thiếu nếu có -->
+                        {% if stp.missing_fields and (stp.missing_fields | length > 0) and data.overall_state in ('draft', 'needs_revision') %}
+                        <div class="pt-1">
+                            <span class="text-[10px] font-bold text-orange-700 block">Cần hoàn thiện:</span>
+                            <ul class="text-[11px] text-orange-600 space-y-0.5 list-disc list-inside mt-0.5">
+                                {% for mf, msg in stp.errors.items() %}
+                                <li>{{ msg }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                        <span class="text-[11px] text-slate-500">
+                            {% if stp.status == 'completed' %}
+                            ✓ Đã ghi nhận
+                            {% elif stp.status == 'in_progress' %}
+                            ⏳ Đang lưu nháp
+                            {% else %}
+                            Chưa có dữ liệu
+                            {% endif %}
+                        </span>
+                        
+                        <a href="{{ stp.edit_url }}"
+                            class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-800 transition">
+                            <span>{% if data.overall_state in ('verified', 'pending') %}Xem lại{% else %}Chỉnh sửa{% endif %}</span>
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- ─── 5. TRẠNG THÁI TỪNG HẠNG MỤC DỮ LIỆU THỰC TẾ ────────────────────── -->
+        <div class="bg-white rounded-3xl border border-slate-200/90 shadow-soft p-6 sm:p-8 space-y-6">
+            <div class="pb-4 border-b border-slate-100">
+                <h2 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                    Chi Tiết Dữ Liệu Hồ Sơ Thực Tế
+                </h2>
+                <p class="text-xs text-slate-500 mt-0.5">Dữ liệu được cập nhật từ hồ sơ của tài khoản đang đăng nhập</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Hạng mục 1: Thông tin cá nhân -->
+                <div class="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/30 space-y-3">
+                    <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>👤 1. Định Danh & Cá Nhân</span>
+                    </h3>
+                    <div class="space-y-2 text-xs">
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Họ và tên:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.personal.full_name or 'Chưa cập nhật' }}</strong>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Số điện thoại:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.personal.phone or 'Chưa cập nhật' }}</strong>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Giới tính / Ngày sinh:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.personal.gender or 'Chưa chọn' }} {% if data.categories_data.personal.dob %}· {{ data.categories_data.personal.dob }}{% endif %}</strong>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Khu vực / Nơi ở:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.personal.location or 'Chưa cập nhật' }}</strong>
+                        </div>
+                        <div class="pt-1">
+                            <span class="text-slate-500 block mb-1">Giới thiệu bản thân:</span>
+                            <p class="text-slate-700 bg-white p-3 rounded-xl border border-slate-200/80 leading-relaxed italic text-[11px]">
+                                {{ data.categories_data.personal.bio or 'Chưa có đoạn giới thiệu bản thân.' }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hạng mục 2: Ngôn ngữ & Chiều dịch -->
+                <div class="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/30 space-y-3">
+                    <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>🌐 2. Ngôn Ngữ & Chiều Dịch</span>
+                    </h3>
+                    <div class="space-y-2 text-xs">
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Cặp ngôn ngữ chính:</span>
+                            <strong class="text-brand-700 font-bold">{{ data.categories_data.language.primary_pair or 'Chưa cấu hình' }}</strong>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Chiều phiên dịch:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.language.direction or 'Chưa cấu hình' }}</strong>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Mức độ thành thạo:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.language.proficiency or 'Chưa chọn' }}</strong>
+                        </div>
+                        <div class="pt-1">
+                            <span class="text-slate-500 block mb-1.5">Lĩnh vực chuyên môn thế mạnh:</span>
+                            <div class="flex flex-wrap gap-1.5">
+                                {% if data.categories_data.specialization.specializations and (data.categories_data.specialization.specializations | length > 0) %}
+                                    {% for sp in data.categories_data.specialization.specializations %}
+                                    <span class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white text-slate-800 border border-slate-200">{{ sp }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-slate-400 italic">Chưa chọn lĩnh vực</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="pt-1">
+                            <span class="text-slate-500 block mb-1.5">Hình thức phiên dịch đảm nhận:</span>
+                            <div class="flex flex-wrap gap-1.5">
+                                {% if data.categories_data.specialization.interpreting_types and (data.categories_data.specialization.interpreting_types | length > 0) %}
+                                    {% for it in data.categories_data.specialization.interpreting_types %}
+                                    <span class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">{{ it }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-slate-400 italic">Chưa chọn hình thức dịch</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hạng mục 3: Học vấn & Chứng chỉ -->
+                <div class="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/30 space-y-3">
+                    <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>🎓 3. Học Vấn & Chứng Chỉ Ngoại Ngữ</span>
+                    </h3>
+                    <div class="space-y-2 text-xs">
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Trình độ học vấn cao nhất:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.education.education_level or 'Chưa cập nhật' }}</strong>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Trường đào tạo:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.education.university or 'Chưa cập nhật' }}</strong>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Chuyên ngành:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.education.major or 'Chưa cập nhật' }}</strong>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Chứng chỉ ngoại ngữ:</span>
+                            <strong class="text-brand-700 font-bold">{{ data.categories_data.education.certificate_type or '' }} {% if data.categories_data.education.certificate_name %}- {{ data.categories_data.education.certificate_name }}{% endif %}</strong>
+                        </div>
+                        <div class="flex justify-between py-1">
+                            <span class="text-slate-500">Năm cấp chứng chỉ:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.education.cert_year or 'Chưa cập nhật' }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hạng mục 4: Kinh nghiệm nghề nghiệp -->
+                <div class="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/30 space-y-3">
+                    <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>💼 4. Kinh Nghiệm Nghề Nghiệp</span>
+                    </h3>
+                    <div class="space-y-2 text-xs">
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Số năm kinh nghiệm:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.experience.experience_years or 0 }} năm</strong>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500">Chức danh / Vị trí hiện tại:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.experience.current_position or 'Chưa cập nhật' }}</strong>
+                        </div>
+                        <div class="py-1 border-b border-slate-200/60">
+                            <span class="text-slate-500 block mb-0.5">Khách hàng / Đối tác tiêu biểu:</span>
+                            <strong class="text-slate-800">{{ data.categories_data.experience.notable_clients or 'Chưa cập nhật' }}</strong>
+                        </div>
+                        <div class="pt-1">
+                            <span class="text-slate-500 block mb-1">Dự án & Sự kiện tiêu biểu:</span>
+                            <p class="text-slate-700 bg-white p-3 rounded-xl border border-slate-200/80 leading-relaxed text-[11px]">
+                                {{ data.categories_data.experience.featured_projects or 'Chưa mô tả dự án tiêu biểu.' }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── 6. KHO TÀI LIỆU MINH CHỨNG (SECURE DOCUMENT VAULT) ─────────────── -->
+        <div class="bg-white rounded-3xl border border-slate-200/90 shadow-soft p-6 sm:p-8 space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                        <h2 class="text-base sm:text-lg font-bold text-slate-900">Tài Liệu Minh Chứng Năng Lực (Private Storage)</h2>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            Lưu trữ riêng tư
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-0.5">Tài liệu được mã hóa, chỉ có bạn và Ban quản trị mới có quyền truy cập</p>
+                </div>
+
+                <div class="text-xs">
+                    <a href="{{ url_for('account_profile') }}?tab=verification"
+                        class="inline-flex items-center gap-1 font-bold text-brand-600 hover:text-brand-800 transition">
+                        <span>Quản lý & Tải thêm tệp</span> &rarr;
+                    </a>
+                </div>
+            </div>
+
+            <!-- Bảng tài liệu đã tải lên -->
+            <div class="space-y-3">
+                {% if data.documents and (data.documents | length > 0) %}
+                <div class="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                    {% for doc in data.documents %}
+                    <div class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition">
+                        <div class="flex items-start gap-3.5 min-w-0">
+                            <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 {% if doc.file_extension == 'pdf' %}bg-rose-50 text-rose-700 border border-rose-200{% elif doc.file_extension in ('doc', 'docx') %}bg-blue-50 text-blue-700 border border-blue-200{% else %}bg-purple-50 text-purple-700 border border-purple-200{% endif %}">
+                                {{ doc.file_extension.upper() }}
+                            </div>
+                            <div class="min-w-0 space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h4 class="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-xs sm:max-w-md">{{ doc.original_filename }}</h4>
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                                        {{ doc.type_name }}
+                                    </span>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2.5 text-[11px] text-slate-500">
+                                    <span>Dung lượng: {{ doc.file_size_formatted }}</span>
+                                    <span>•</span>
+                                    <span>Tải lên lúc: {{ doc.created_at }}</span>
+                                </div>
+                                {% if doc.review_notes %}
+                                <p class="text-[11px] font-medium text-rose-800 bg-rose-50 border border-rose-200/80 rounded-lg px-2.5 py-1">
+                                    <strong>Ghi chú Admin:</strong> {{ doc.review_notes }}
+                                </p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 shrink-0">
+                            <!-- Badge trạng thái tệp -->
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-lg border {{ doc.status_badge }}">
+                                {{ doc.status_label }}
+                            </span>
+
+                            <!-- Nút Xem tệp -->
+                            {% if doc.can_preview %}
+                            <a href="{{ doc.view_url }}" target="_blank"
+                                class="p-2 rounded-xl text-slate-600 hover:text-brand-600 hover:bg-brand-50 border border-slate-200 transition" title="Xem trước tài liệu">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            </a>
+                            {% endif %}
+
+                            <!-- Nút Tải xuống -->
+                            <a href="{{ doc.download_url }}"
+                                class="p-2 rounded-xl text-slate-600 hover:text-brand-600 hover:bg-brand-50 border border-slate-200 transition" title="Tải xuống tài liệu an toàn">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="p-8 text-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 space-y-2">
+                    <p class="text-xs text-slate-500">Chưa có tài liệu minh chứng nào được tải lên.</p>
+                    <a href="{{ url_for('account_profile') }}?tab=verification" class="inline-flex text-xs font-bold text-brand-600 hover:text-brand-800 underline">
+                        Tải lên Sơ yếu lý lịch (CV) ngay
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Bảng kiểm tra danh mục bắt buộc theo chính sách -->
+            <div class="pt-2 space-y-2">
+                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Chính sách tài liệu VietTranslate:</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs">
+                    {% for pol in data.policy_checklist %}
+                    <div class="p-3 rounded-xl border border-slate-200/80 bg-white flex items-center justify-between gap-2">
+                        <div>
+                            <strong class="text-slate-800 block text-xs">{{ pol.name }}</strong>
+                            <span class="text-[10px] text-slate-500">{% if pol.required %}<span class="text-rose-600 font-bold">* Bắt buộc</span>{% else %}Khuyến khích{% endif %}</span>
+                        </div>
+                        <span class="text-[11px] font-bold {% if pol.is_attached %}text-emerald-600{% else %}{% if pol.required %}text-rose-600{% else %}text-slate-400{% endif %}{% endif %}">
+                            {% if pol.is_attached %}✓ Đã có{% else %}Chưa đính kèm{% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── 7. LỊCH SỬ CÁC LẦN GỬI VÀ KẾT QUẢ (SUBMISSION HISTORY) ────────── -->
+        <div class="bg-white rounded-3xl border border-slate-200/90 shadow-soft p-6 sm:p-8 space-y-6">
+            <div class="pb-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-slate-700"></span>
+                        Lịch Sử Các Lần Nộp Hồ Sơ & Kết Quả Thẩm Định
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Bảo toàn snapshot bất biến tại từng thời điểm nộp hồ sơ phục vụ đối soát</p>
+                </div>
+                
+                <span class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700 self-start sm:self-auto">
+                    {{ data.submission_history | length }} lần nộp
+                </span>
+            </div>
+
+            {% if data.submission_history and (data.submission_history | length > 0) %}
+            <div class="divide-y divide-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                {% for sub in data.submission_history %}
+                <div class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition">
+                    <div class="flex items-start gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                            v{{ sub.version_number }}
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h4 class="text-xs sm:text-sm font-bold text-slate-900">Phiên bản hồ sơ #{{ sub.version_number }}</h4>
+                                <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border {{ sub.status_badge }}">
+                                    {{ sub.status_label }}
+                                </span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                                <span>Thời gian gửi: <strong class="text-slate-700">{{ sub.submitted_at_str }}</strong></span>
+                                {% if sub.language_pair %}
+                                <span>•</span>
+                                <span>Ngôn ngữ: {{ sub.language_pair }}</span>
+                                {% endif %}
+                                <span>•</span>
+                                <span>Tài liệu: {{ sub.docs_count }} tệp</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="showSnapshotModal({{ sub.version_number }})"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0 cursor-pointer">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        <span>Xem snapshot</span>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-8 text-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 space-y-2">
+                <p class="text-xs text-slate-500">Chưa có lịch sử gửi hồ sơ nào trước đây.</p>
+                <p class="text-[11px] text-slate-400">Sau khi bạn hoàn tất khai báo và nhấn gửi xét duyệt, các phiên bản nộp sẽ được lưu trữ tự động tại đây.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        {% endif %}
+
+        <!-- ─── MODAL XEM CHI TIẾT SNAPSHOT HỒ SƠ ─────────────────────────────── -->
+        <div id="snapshot-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in duration-200">
+                <div class="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm sm:text-base font-bold text-slate-900" id="snapshot-modal-title">Snapshot Hồ Sơ Đã Nộp</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Dữ liệu bất biến tại thời điểm phiên dịch viên xác nhận gửi</p>
+                    </div>
+                    <button type="button" onclick="closeSnapshotModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition cursor-pointer">
+                        ✕
+                    </button>
+                </div>
+
+                <div class="p-6 overflow-y-auto space-y-4 text-xs font-mono" id="snapshot-modal-content">
+                    <!-- Dữ liệu render qua JS -->
+                </div>
+
+                <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                    <button type="button" onclick="closeSnapshotModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // Dữ liệu snapshot các phiên bản gửi
+    const SUBMISSION_SNAPSHOTS = {
+        {% if data.submission_history %}
+        {% for sub in data.submission_history %}
+        {{ sub.version_number }}: {{ sub.snapshot | tojson | safe }},
+        {% endfor %}
+        {% endif %}
+    };
+
+    function showSnapshotModal(version) {
+        const snap = SUBMISSION_SNAPSHOTS[version];
+        if (!snap) return;
+
+        document.getElementById('snapshot-modal-title').textContent = `Chi Tiết Snapshot Hồ Sơ (Phiên bản v${version})`;
+        
+        const contentDiv = document.getElementById('snapshot-modal-content');
+        
+        let html = '';
+        if (snap.user) {
+            html += `<div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <strong class="text-slate-800 font-sans block mb-1">Thông tin người nộp:</strong>
+                <div>Họ tên: ${snap.user.name || 'N/A'}</div>
+                <div>Email: ${snap.user.email || 'N/A'}</div>
+                <div>SĐT: ${snap.user.phone || 'N/A'}</div>
+                <div>Thời gian nộp: ${snap.submitted_at || 'N/A'}</div>
+            </div>`;
+        }
+
+        if (snap.form_data) {
+            html += `<div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <strong class="text-slate-800 font-sans block mb-1">Dữ liệu biểu mẫu khai báo:</strong>
+                <div>• Ngôn ngữ: ${snap.form_data.source_language || ''} ➔ ${snap.form_data.target_language || ''}</div>
+                <div>• Trình độ: ${snap.form_data.language_proficiency || 'N/A'}</div>
+                <div>• Chuyên môn: ${snap.form_data.specializations || 'N/A'}</div>
+                <div>• Hình thức: ${snap.form_data.interpreting_types || 'N/A'}</div>
+                <div>• Trường đào tạo: ${snap.form_data.university || 'N/A'}</div>
+                <div>• Chứng chỉ: ${snap.form_data.certificate_type || ''} ${snap.form_data.certificate_name || ''}</div>
+                <div>• Kinh nghiệm: ${snap.form_data.experience_years || 0} năm - ${snap.form_data.current_position || ''}</div>
+            </div>`;
+        }
+
+        if (snap.documents && snap.documents.length > 0) {
+            html += `<div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <strong class="text-slate-800 font-sans block mb-1">Tài liệu đính kèm lúc nộp (${snap.documents.length}):</strong>
+                <ul class="list-disc list-inside space-y-0.5">`;
+            snap.documents.forEach(d => {
+                html += `<li>${d.type_name || d.document_type}: <strong>${d.original_filename}</strong> (${d.file_size_formatted || ''})</li>`;
+            });
+            html += `</ul></div>`;
+        }
+
+        contentDiv.innerHTML = html;
+        document.getElementById('snapshot-modal').classList.remove('hidden');
+    }
+
+    function closeSnapshotModal() {
+        document.getElementById('snapshot-modal').classList.add('hidden');
+    }
+
+    // Refresh dữ liệu theo thời gian thực (Live AJAX Refresh)
+    async function refreshStatusData() {
+        const icon = document.getElementById('refresh-icon');
+        if (icon) icon.classList.add('rotate-180');
+
+        try {
+            const res = await fetch('/api/account/verification/status', {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            if (res.ok) {
+                // Tự động tải lại trang để hiển thị state mới nhất từ backend
+                window.location.reload();
+            } else {
+                alert('Không thể làm mới trạng thái lúc này. Vui lòng thử lại sau.');
+            }
+        } catch (err) {
+            console.error('Refresh status error:', err);
+            window.location.reload();
+        } finally {
+            if (icon) setTimeout(() => icon.classList.remove('rotate-180'), 500);
+        }
+    }
+</script>
+{% endblock %}

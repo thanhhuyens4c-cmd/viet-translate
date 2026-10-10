@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nguyễn Ngọc Thương – Phiên dịch viên Tiếng Anh | VietTranslate</title>
+    <meta name="description" content="Phiên dịch viên Anh–Việt chuyên nghiệp, IELTS 8.0, 5 năm kinh nghiệm dịch pháp lý, tài chính, thương mại và hội nghị. Đặt dịch vụ ngay trên VietTranslate.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50:'#eff6ff', 100:'#dbeafe', 200:'#bfdbfe',
+                            300:'#93c5fd', 400:'#60a5fa', 500:'#3b82f6',
+                            600:'#2563eb', 700:'#1d4ed8', 800:'#1e40af', 900:'#1e3a8a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; color: #0f172a; }
+
+        /* Hero */
+        .profile-hero {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #4f46e5 100%);
+            position: relative; overflow: hidden;
+        }
+        .profile-hero::before {
+            content: ''; position: absolute; inset: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        /* Badges */
+        .badge-verified { display:inline-flex;align-items:center;gap:.3rem;background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;font-size:.7rem;font-weight:800;padding:.25rem .65rem;border-radius:999px; }
+        .badge-lang { display:inline-flex;align-items:center;gap:.35rem;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-size:.75rem;font-weight:700;padding:.3rem .75rem;border-radius:999px; }
+        .cert-badge { display:inline-flex;align-items:center;gap:.4rem;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border:1px solid #fcd34d;font-size:.72rem;font-weight:800;padding:.3rem .75rem;border-radius:8px; }
+        .skill-tag { background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;font-size:.72rem;font-weight:600;padding:.28rem .7rem;border-radius:8px;transition:all .2s;cursor:default; }
+        .skill-tag:hover { background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;transform:translateY(-1px); }
+
+        /* Review */
+        .review-card { border-bottom:1px solid #f1f5f9;padding-bottom:1.25rem;margin-bottom:1.25rem; }
+        .review-card:last-child { border-bottom:none;margin-bottom:0;padding-bottom:0; }
+
+        /* Tabs */
+        .tier-tab { flex:1;padding:.65rem;font-size:.75rem;font-weight:700;text-align:center;cursor:pointer;border-bottom:2px solid transparent;color:#64748b;transition:all .2s; }
+        .tier-tab.active { color:#2563eb;border-bottom-color:#2563eb;background:#fff; }
+        .tier-tab:hover:not(.active) { background:#f8fafc;color:#334155; }
+        .tier-panel { display:none; }
+        .tier-panel.active { display:block;animation:fadeIn .25s ease; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+        @media (min-width:1024px) { .sidebar-sticky { position:sticky;top:5.5rem; } }
+
+        /* Buttons */
+        .btn-chat { background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;font-weight:800;border-radius:14px;padding:.85rem 1.5rem;display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.875rem;cursor:pointer;border:none;box-shadow:0 4px 20px rgba(37,99,235,.4);transition:all .22s;width:100%;text-decoration:none; }
+        .btn-chat:hover { transform:translateY(-2px);box-shadow:0 8px 28px rgba(37,99,235,.55); }
+        .btn-book { background:#fff;color:#2563eb;font-weight:700;border-radius:14px;padding:.75rem 1.5rem;display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.875rem;border:2px solid #2563eb;cursor:pointer;transition:all .22s;width:100%;text-decoration:none;margin-top:.75rem; }
+        .btn-book:hover { background:#eff6ff; }
+
+        /* Progress bars */
+        .prog-bar { height:6px;border-radius:999px;background:#e2e8f0;overflow:hidden; }
+        .prog-fill { height:100%;border-radius:999px;background:linear-gradient(90deg,#2563eb,#4f46e5);width:0;transition:width .9s cubic-bezier(.4,0,.2,1); }
+
+        /* Avatar */
+        .avatar-ring { border:4px solid #fff;box-shadow:0 0 0 3px #2563eb,0 8px 24px rgba(37,99,235,.3); }
+
+        /* Card hover */
+        .card-hover { transition:transform .22s,box-shadow .22s; }
+        .card-hover:hover { transform:translateY(-3px);box-shadow:0 14px 40px -4px rgba(15,23,42,.13); }
+
+        /* Timeline */
+        .timeline-line { position:absolute;left:17px;top:0;bottom:0;width:2px;background:linear-gradient(180deg,#2563eb,#c7d2fe); }
+        .timeline-dot { width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;flex-shrink:0;position:relative;z-index:1;box-shadow:0 0 0 3px #fff,0 0 0 5px #bfdbfe; }
+
+        /* Portfolio */
+        .portfolio-card { border:1px solid #e2e8f0;border-radius:16px;padding:1.1rem;transition:all .22s;cursor:pointer;background:#fff; }
+        .portfolio-card:hover { border-color:#93c5fd;box-shadow:0 8px 24px -4px rgba(37,99,235,.12);transform:translateY(-2px); }
+
+        /* FAQ */
+        .faq-item { border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;transition:all .2s; }
+        .faq-item.open { border-color:#93c5fd;box-shadow:0 4px 16px rgba(37,99,235,.08); }
+        .faq-btn { width:100%;text-align:left;padding:1rem 1.2rem;font-size:.875rem;font-weight:700;color:#1e293b;display:flex;justify-content:space-between;align-items:center;background:transparent;border:none;cursor:pointer; }
+        .faq-icon { width:22px;height:22px;border-radius:50%;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:900;flex-shrink:0;transition:transform .25s; }
+        .faq-item.open .faq-icon { transform:rotate(45deg);background:#2563eb;color:#fff; }
+        .faq-body { max-height:0;overflow:hidden;transition:max-height .35s ease; }
+        .faq-body.open { max-height:300px; }
+        .faq-body-inner { padding:0 1.2rem .9rem; }
+
+        /* Scroll reveal */
+        .reveal { opacity:0;transform:translateY(20px);transition:opacity .55s ease,transform .55s ease; }
+        .reveal.visible { opacity:1;transform:translateY(0); }
+
+        @keyframes pulse-ring { 0%{box-shadow:0 0 0 0 rgba(16,185,129,.5)} 70%{box-shadow:0 0 0 8px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+        .online-dot { animation:pulse-ring 2s ease infinite; }
+    </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="bg-white border-b border-slate-200/80 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+        <a href="#" class="font-black text-lg tracking-tight flex items-center gap-1.5" style="color:#2563eb">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/></svg>
+            VietTranslate
+        </a>
+        <div class="flex items-center gap-1 text-xs font-medium text-slate-500">
+            <a href="#" class="hover:text-blue-600 px-1 transition-colors">Trang chủ</a>
+            <span class="text-slate-300">/</span>
+            <a href="#" class="hover:text-blue-600 px-1 transition-colors">Phiên dịch viên</a>
+            <span class="text-slate-300">/</span>
+            <span class="text-slate-800 font-semibold px-1">Nguyễn Ngọc Thương</span>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero -->
+<div class="profile-hero py-12 px-4">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-end gap-6 relative z-10">
+        <div class="relative flex-shrink-0">
+            <div class="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl overflow-hidden avatar-ring bg-white">
+                <img src="C:/Users/Admin/.gemini/antigravity-ide/brain/1d069356-dbab-4e31-afe8-b3e63da96edf/translator_en_avatar_1790817327686.jpg"
+                     alt="Nguyễn Ngọc Thương" class="w-full h-full object-cover object-top"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                <div style="display:none" class="w-full h-full bg-gradient-to-br from-blue-600 to-indigo-600 items-center justify-center text-white text-4xl font-black">T</div>
+            </div>
+            <span class="absolute bottom-2 right-2 w-4 h-4 bg-emerald-400 border-2 border-white rounded-full shadow online-dot"></span>
+        </div>
+        <div class="text-white flex-1 pb-1">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+                <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Nguyễn Ngọc Thương</h1>
+                <span class="badge-verified">
+                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    Đã xác minh
+                </span>
+                <span class="inline-flex items-center gap-1 bg-emerald-400/20 text-emerald-200 text-xs font-bold px-2.5 py-0.5 rounded-full border border-emerald-400/30">🟢 Đang trực tuyến</span>
+            </div>
+            <p class="text-blue-200 text-sm sm:text-base font-medium mb-3">Phiên dịch viên Tiếng Anh Đa Lĩnh Vực &bull; Pháp lý &bull; Tài chính &bull; Thương mại &bull; Hội nghị &bull; 5 năm kinh nghiệm</p>
+            <div class="flex flex-wrap items-center gap-4 text-xs sm:text-sm">
+                <div class="flex items-center gap-1.5">
+                    <span class="text-amber-400 text-base">★★★★★</span>
+                    <span class="font-bold">4.9</span>
+                    <span class="text-blue-300">(134 đánh giá)</span>
+                </div>
+                <span class="text-blue-400/60">&bull;</span>
+                <div class="flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+                    <span class="text-blue-200">TP. Hồ Chí Minh</span>
+                </div>
+                <span class="text-blue-400/60">&bull;</span>
+                <span class="text-blue-200">⚡ Phản hồi trong 1 giờ</span>
+                <span class="text-blue-400/60">&bull;</span>
+                <span class="text-blue-200">🌍 Từ xa &amp; trực tiếp</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex flex-col lg:flex-row gap-8">
+
+        <!-- LEFT -->
+        <div class="flex-1 min-w-0 space-y-6">
+
+            <!-- Stats -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 reveal">
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-4 text-center shadow-sm card-hover">
+                    <div class="text-2xl font-extrabold text-blue-600">4.9</div>
+                    <div class="text-amber-500 text-sm my-0.5">★★★★★</div>
+                    <div class="text-xs text-slate-500 font-medium">Đánh giá TB</div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-4 text-center shadow-sm card-hover">
+                    <div class="text-2xl font-extrabold text-blue-600">215</div>
+                    <div class="text-xs text-slate-400 my-1">dự án</div>
+                    <div class="text-xs text-slate-500 font-medium">Đã hoàn thành</div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-4 text-center shadow-sm card-hover">
+                    <div class="text-2xl font-extrabold text-blue-600">98%</div>
+                    <div class="text-xs text-slate-400 my-1">tỷ lệ</div>
+                    <div class="text-xs text-slate-500 font-medium">Đúng hạn</div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-4 text-center shadow-sm card-hover">
+                    <div class="text-2xl font-extrabold text-blue-600">5</div>
+                    <div class="text-xs text-slate-400 my-1">năm</div>
+                    <div class="text-xs text-slate-500 font-medium">Kinh nghiệm</div>
+                </div>
+            </div>
+
+            <!-- Ngôn ngữ & Chứng chỉ -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm reveal">
+                <h2 class="text-sm font-extrabold text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="w-1.5 h-5 rounded-full bg-blue-600 flex-shrink-0"></span>
+                    Ngôn ngữ &amp; Chứng chỉ
+                </h2>
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <span class="badge-lang">🇬🇧 Tiếng Anh</span>
+                    <span class="badge-lang">🇻🇳 Tiếng Việt</span>
+                    <span class="inline-flex items-center bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold px-3 py-1 rounded-full">Anh ↔ Việt</span>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <span class="cert-badge">🏆 IELTS 8.0</span>
+                    <span class="cert-badge">📜 TOEIC 950</span>
+                    <span class="cert-badge">🎓 ĐH Ngoại ngữ</span>
+                    <span class="cert-badge">⚖️ Dịch công chứng</span>
+                    <span class="cert-badge">🎤 Phiên dịch hội nghị</span>
+                </div>
+            </div>
+
+            <!-- Về tôi -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm reveal">
+                <h2 class="text-sm font-extrabold text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="w-1.5 h-5 rounded-full bg-blue-600 flex-shrink-0"></span>
+                    Về tôi
+                </h2>
+                <div class="text-sm text-slate-600 leading-relaxed space-y-3">
+                    <p>Xin chào! Tôi là <strong class="text-slate-800">Nguyễn Ngọc Thương</strong> — phiên dịch viên Anh–Việt chuyên nghiệp với <strong class="text-slate-800">5 năm kinh nghiệm</strong> trong lĩnh vực pháp lý, tài chính, thương mại quốc tế và phiên dịch hội nghị.</p>
+                    <p>Tốt nghiệp chuyên ngành <strong class="text-slate-800">Biên – Phiên dịch tiếng Anh</strong> tại Đại học Ngoại ngữ (ĐHQGHN), với chứng chỉ IELTS 8.0 và TOEIC 950. Tôi đã cộng tác với nhiều công ty luật, tập đoàn đa quốc gia, ngân hàng và tổ chức phi chính phủ tại Việt Nam và quốc tế.</p>
+                    <p>Tôi tự hào với <strong class="text-slate-800">văn phong dịch tự nhiên, chính xác thuật ngữ chuyên ngành</strong>, luôn giao bài đúng hạn và bảo mật thông tin tuyệt đối. Từ bản dịch văn bản, phiên dịch trực tiếp đến phiên dịch trực tuyến — tôi cam kết mang đến chất lượng tốt nhất.</p>
+                </div>
+            </div>
+
+            <!-- Lĩnh vực -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm reveal">
+                <h2 class="text-sm font-extrabold text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="w-1.5 h-5 rounded-full bg-violet-500 flex-shrink-0"></span>
+                    Lĩnh vực chuyên môn
+                </h2>
+                <div class="flex flex-wrap gap-2">
+                    <span class="skill-tag">⚖️ Pháp lý / Hợp đồng</span>
+                    <span class="skill-tag">💰 Tài chính / Kế toán</span>
+                    <span class="skill-tag">🏦 Ngân hàng</span>
+                    <span class="skill-tag">🏢 Thương mại quốc tế</span>
+                    <span class="skill-tag">🌐 Đầu tư FDI</span>
+                    <span class="skill-tag">📋 Hồ sơ doanh nghiệp</span>
+                    <span class="skill-tag">🎤 Phiên dịch hội nghị</span>
+                    <span class="skill-tag">🔬 Y tế / Dược phẩm</span>
+                    <span class="skill-tag">🎓 Học thuật / Nghiên cứu</span>
+                    <span class="skill-tag">📢 Marketing quốc tế</span>
+                    <span class="skill-tag">✈️ Giấy tờ nhập cư / visa</span>
+                    <span class="skill-tag">📜 Dịch công chứng</span>
+                </div>
+            </div>
+
+            <!-- Kỹ năng -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm reveal" id="skills-section">
+                <h2 class="text-sm font-extrabold text-slate-800 mb-5 flex items-center gap-2">
+                    <span class="w-1.5 h-5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                    Kỹ năng chuyên môn
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1.5"><span>Dịch văn bản pháp lý</span><span class="text-blue-600">97%</span></div>
+                        <div class="prog-bar"><div class="prog-fill" data-width="97"></div></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1.5"><span>Dịch tài chính / báo cáo</span><span class="text-blue-600">93%</span></div>
+                        <div class="prog-bar"><div class="prog-fill" data-width="93"></div></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1.5"><span>Phiên dịch hội nghị</span><span class="text-blue-600">90%</span></div>
+                        <div class="prog-bar"><div class="prog-fill" data-width="90"></div></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1.5"><span>Dịch công chứng nhà nước</span><span class="text-blue-600">95%</span></div>
+                        <div class="prog-bar"><div class="prog-fill" data-width="95"></div></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1.5"><span>Dịch y tế / dược phẩm</span><span class="text-blue-600">85%</span></div>
+                        <div class="prog-bar"><div class="prog-fill" data-width="85"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kinh nghiệm làm việc -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm reveal">
+                <h2 class="text-sm font-extrabold text-slate-800 mb-6 flex items-center gap-2">
+                    <span class="w-1.5 h-5 rounded-full bg-blue-600 flex-shrink-0"></span>
+                    Kinh nghiệm làm việc
+                </h2>
+                <div class="relative pl-12">
+                    <div class="timeline-line"></div>
+
+                    <div class="relative mb-7">
+                        <div class="absolute -left-12 top-0 timeline-dot bg-blue-600 text-white">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        </div>
+                        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                            <div class="flex flex-wrap items-start justify-between gap-2 mb-1.5">
+                                <div>
+                                    <div class="font-bold text-sm text-slate-900">Phiên dịch viên Tự do (Freelance)</div>
+                                    <div class="text-xs text-blue-600 font-semibold mt-0.5">VietTranslate Platform</div>
+                                </div>
+                                <span class="text-[11px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full flex-shrink-0">2022 – nay</span>
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed">Hoàn thành hơn 150 dự án dịch thuật đa lĩnh vực (pháp lý, tài chính, y tế, thương mại). Duy trì rating 4.9/5.0 và tỷ lệ khách hàng quay lại 78%.</p>
+                        </div>
+                    </div>
+
+                    <div class="relative mb-7">
+                        <div class="absolute -left-12 top-0 timeline-dot bg-indigo-500 text-white">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/></svg>
+                        </div>
+                        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                            <div class="flex flex-wrap items-start justify-between gap-2 mb-1.5">
+                                <div>
+                                    <div class="font-bold text-sm text-slate-900">Phiên dịch viên Tiếng Anh</div>
+                                    <div class="text-xs text-indigo-600 font-semibold mt-0.5">Công ty Luật TNHH LP Việt Nam, TP.HCM</div>
+                                </div>
+                                <span class="text-[11px] bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded-full flex-shrink-0">2021 – 2022</span>
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed">Dịch hợp đồng thương mại quốc tế, tư vấn pháp lý song ngữ, phiên dịch trực tiếp cho các buổi đàm phán với đối tác Anh, Mỹ, Úc.</p>
+                        </div>
+                    </div>
+
+                    <div class="relative mb-7">
+                        <div class="absolute -left-12 top-0 timeline-dot bg-emerald-500 text-white">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                        </div>
+                        <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                            <div class="flex flex-wrap items-start justify-between gap-2 mb-1.5">
+                                <div>
+                                    <div class="font-bold text-sm text-slate-900">Biên phiên dịch Tiếng Anh</div>
+                                    <div class="text-xs text-emerald-600 font-semibold mt-0.5">Tập đoàn FDI – Samsung Vietnam, Hà Nội</div>
+                                </div>
+                                <span class="text-[11px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full flex-shrink-0">2020 – 2021</span>
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed">Hỗ trợ biên phiên dịch nội bộ cho ban lãnh đạo. Dịch tài liệu kỹ thuật, quy trình sản xuất, báo cáo quản trị song ngữ Anh–Việt.</p>
+                        </div>
+                    </div>
+
+                    <div class="relative">
+                        <div class="absolute -left-12 top-0 timeline-dot bg-amber-500 text-white">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 14l9-5-9-5-9 5 9 5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+                        </div>
+                        <div class="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                            <div class="flex flex-wrap items-start justify-between gap-2 mb-1.5">
+                                <div>
+                                    <div class="font-bold text-sm text-slate-900">Thực tập sinh Biên – Phiên dịch</div>
+                                    <div class="text-xs text-amber-600 font-semibold mt-0.5">Văn phòng Đại diện USAID tại Việt Nam</div>
+                                </div>
+                                <span class="text-[11px] bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full flex-shrink-0">2019 – 2020</span>
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed">Dịch tài liệu dự án phát triển, báo cáo chính sách và phiên dịch hội thảo, sự kiện cộng đồng song ngữ.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Portfolio -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm reveal">
+                <h2 class="text-sm font-extrabold text-slate-800 mb-5 flex items-center gap-2">
+                    <span class="w-1.5 h-5 rounded-full bg-violet-500 flex-shrink-0"></span>
+                    Mẫu dịch thuật nổi bật
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="portfolio-card">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-lg bg-blue-50">⚖️</div>
+                            <div class="min-w-0">
+                                <div class="font-bold text-xs text-slate-900 mb-0.5">Hợp đồng mua bán cổ phần (SPA)</div>
+                                <div class="text-[11px] text-slate-500 mb-2">58 trang &bull; Anh → Việt &bull; Pháp lý M&amp;A</div>
+                                <div class="flex gap-1.5 flex-wrap">
+                                    <span class="text-[10px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Pháp lý</span>
+                                    <span class="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full">Công chứng</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="portfolio-card">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-lg bg-amber-50">💰</div>
+                            <div class="min-w-0">
+                                <div class="font-bold text-xs text-slate-900 mb-0.5">Báo cáo tài chính hợp nhất 2023</div>
+                                <div class="text-[11px] text-slate-500 mb-2">120 trang &bull; Anh ↔ Việt &bull; Tài chính</div>
+                                <div class="flex gap-1.5 flex-wrap">
+                                    <span class="text-[10px] font-bold bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">Tài chính</span>
+                                    <span class="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">IFRS</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="portfolio-card">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-lg bg-emerald-50">🎤</div>
+                            <div class="min-w-0">
+                                <div class="font-bold text-xs text-slate-900 mb-0.5">Hội thảo Đầu tư ASEAN 2024</div>
+                                <div class="text-[11px] text-slate-500 mb-2">2 ngày &bull; 500 đại biểu &bull; Phiên dịch liên tiếp</div>
+                                <div class="flex gap-1.5 flex-wrap">
+                                    <span class="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full">Hội nghị</span>
+                                    <span class="text-[10px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Liên tiếp</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="portfolio-card">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-lg bg-violet-50">🔬</div>
+                            <div class="min-w-0">
+                                <div class="font-bold text-xs text-slate-900 mb-0.5">Hồ sơ đăng ký thuốc (dossier)</div>
+                                <div class="text-[11px] text-slate-500 mb-2">200+ trang &bull; Việt → Anh &bull; Dược phẩm</div>
+                                <div class="flex gap-1.5 flex-wrap">
+                                    <span class="text-[10px] font-bold bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full">Y tế</span>
+                                    <span class="text-[10px] font-bold bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full">Dược phẩm</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-400 text-center mt-4">* Thông tin đã được ẩn danh để bảo mật khách hàng</p>
+            </div>
+
+            <!-- Đánh giá -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm reveal">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-sm font-extrabold text-slate-800 flex items-center gap-2">
+                        <span class="w-1.5 h-5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                        Đánh giá từ khách hàng
+                        <span class="bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2 py-0.5 rounded-full">134</span>
+                    </h2>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-amber-500 font-bold text-sm">★★★★★</span>
+                        <span class="font-extrabold text-slate-800">4.9</span>
+                    </div>
+                </div>
+                <div class="space-y-1.5 mb-6 pb-6 border-b border-slate-100">
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="w-5 text-slate-500 font-semibold text-right">5★</span>
+                        <div class="prog-bar flex-1"><div style="width:91%;height:100%;border-radius:999px;background:linear-gradient(90deg,#f59e0b,#d97706)"></div></div>
+                        <span class="w-8 text-slate-500 font-semibold">91%</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="w-5 text-slate-500 font-semibold text-right">4★</span>
+                        <div class="prog-bar flex-1"><div style="width:7%;height:100%;border-radius:999px;background:linear-gradient(90deg,#fbbf24,#f59e0b)"></div></div>
+                        <span class="w-8 text-slate-500 font-semibold">7%</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="w-5 text-slate-500 font-semibold text-right">3★</span>
+                        <div class="prog-bar flex-1"><div style="width:2%;height:100%;border-radius:999px;background:#fcd34d"></div></div>
+                        <span class="w-8 text-slate-500 font-semibold">2%</span>
+                    </div>
+                </div>
+                <div class="space-y-0">
+                    <div class="review-card">
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold flex-shrink-0" style="background:#dbeafe;color:#1d4ed8">T</div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-0.5">
+                                    <span class="font-bold text-sm text-slate-800">Trần Văn Minh</span>
+                                    <span class="text-xs text-slate-400">22/09/2026</span>
+                                </div>
+                                <div class="flex items-center gap-1 mb-2">
+                                    <span class="text-amber-400 text-xs">★★★★★</span>
+                                    <span class="text-xs text-slate-400 font-medium">&bull; Dịch hợp đồng thương mại</span>
+                                </div>
+                                <p class="text-sm text-slate-600 leading-relaxed">Thương dịch rất chính xác và nhanh! Thuật ngữ pháp lý chuẩn, đối tác nước ngoài rất hài lòng. Đây là lần thứ 3 hợp tác và chưa bao giờ thất vọng.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="review-card">
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-extrabold flex-shrink-0">L</div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-0.5">
+                                    <span class="font-bold text-sm text-slate-800">Lê Thị Hương</span>
+                                    <span class="text-xs text-slate-400">10/09/2026</span>
+                                </div>
+                                <div class="flex items-center gap-1 mb-2">
+                                    <span class="text-amber-400 text-xs">★★★★★</span>
+                                    <span class="text-xs text-slate-400 font-medium">&bull; Phiên dịch hội thảo quốc tế</span>
+                                </div>
+                                <p class="text-sm text-slate-600 leading-relaxed">Xuất sắc! Chị Thương phiên dịch liên tiếp rất trôi chảy suốt 2 ngày hội thảo. Phong thái chuyên nghiệp, khách nước ngoài khen ngợi nhiều. Strongly recommended!</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="review-card">
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-extrabold flex-shrink-0">P</div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-0.5">
+                                    <span class="font-bold text-sm text-slate-800">Phạm Quốc Dũng</span>
+                                    <span class="text-xs text-slate-400">28/08/2026</span>
+                                </div>
+                                <div class="flex items-center gap-1 mb-2">
+                                    <span class="text-amber-400 text-xs">★★★★★</span>
+                                    <span class="text-xs text-slate-400 font-medium">&bull; Dịch báo cáo tài chính</span>
+                                </div>
+                                <p class="text-sm text-slate-600 leading-relaxed">Giao hàng trước deadline 1 ngày, thuật ngữ IFRS rất chuẩn xác. Kiểm toán viên nước ngoài chấp nhận luôn không cần chỉnh sửa. Rất ấn tượng!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button class="mt-4 w-full text-center text-xs font-bold py-2.5 border border-slate-100 rounded-xl hover:bg-slate-50 transition text-blue-600">
+                    Xem tất cả 134 đánh giá →
+                </button>
+            </div>
+
+            <!-- FAQ -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm reveal">
+                <h2 class="text-sm font-extrabold text-slate-800 mb-5 flex items-center gap-2">
+                    <span class="w-1.5 h-5 rounded-full bg-blue-600 flex-shrink-0"></span>
+                    Câu hỏi thường gặp
+                </h2>
+                <div class="space-y-2.5">
+                    <div class="faq-item">
+                        <button class="faq-btn" onclick="toggleFaq(this)">
+                            <span>Thời gian giao bài thông thường là bao lâu?</span>
+                            <span class="faq-icon">+</span>
+                        </button>
+                        <div class="faq-body">
+                            <div class="faq-body-inner"><p class="text-sm text-slate-600 leading-relaxed">Tài liệu thông thường dưới 10 trang giao trong 24–48 giờ; tài liệu pháp lý phức tạp trên 30 trang giao trong 3–5 ngày. Tôi cũng nhận dịch khẩn (surcharge áp dụng) với thời gian giao trong ngày.</p></div>
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-btn" onclick="toggleFaq(this)">
+                            <span>Bạn có cung cấp dịch công chứng không?</span>
+                            <span class="faq-icon">+</span>
+                        </button>
+                        <div class="faq-body">
+                            <div class="faq-body-inner"><p class="text-sm text-slate-600 leading-relaxed">Có! Tôi cung cấp dịch thuật có công chứng nhà nước, bao gồm đầy đủ con dấu và chữ ký. Phù hợp cho hồ sơ visa, giấy tờ pháp lý, bằng cấp cần nộp cho cơ quan nhà nước hoặc đại sứ quán.</p></div>
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-btn" onclick="toggleFaq(this)">
+                            <span>Thông tin tài liệu của tôi có được bảo mật không?</span>
+                            <span class="faq-icon">+</span>
+                        </button>
+                        <div class="faq-body">
+                            <div class="faq-body-inner"><p class="text-sm text-slate-600 leading-relaxed">Tuyệt đối! Tôi sẵn sàng ký NDA theo yêu cầu. Tất cả tài liệu được xóa khỏi hệ thống sau khi hoàn thành. Cam kết không chia sẻ thông tin với bên thứ ba.</p></div>
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-btn" onclick="toggleFaq(this)">
+                            <span>Tôi có thể yêu cầu chỉnh sửa sau khi nhận bản dịch không?</span>
+                            <span class="faq-icon">+</span>
+                        </button>
+                        <div class="faq-body">
+                            <div class="faq-body-inner"><p class="text-sm text-slate-600 leading-relaxed">Có. Gói Cơ bản có 1 lần; Tiêu chuẩn có 3 lần; Cao cấp không giới hạn trong 30 ngày. Mọi phản hồi được xử lý trong 24 giờ.</p></div>
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-btn" onclick="toggleFaq(this)">
+                            <span>Bạn có nhận phiên dịch trực tiếp tại địa điểm không?</span>
+                            <span class="faq-icon">+</span>
+                        </button>
+                        <div class="faq-body">
+                            <div class="faq-body-inner"><p class="text-sm text-slate-600 leading-relaxed">Có, tôi nhận phiên dịch liên tiếp và song song tại TP.HCM và lân cận. Các tỉnh thành khác có thể thỏa thuận chi phí đi lại. Liên hệ để được báo giá cụ thể.</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RIGHT SIDEBAR -->
+        <div class="w-full lg:w-80 xl:w-96 flex-shrink-0">
+            <div class="sidebar-sticky space-y-5">
+
+                <!-- Actions -->
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+                    <a href="#" class="btn-chat" id="btn-message">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                        Nhắn tin ngay
+                    </a>
+                    <a href="#service-card" class="btn-book" id="btn-book-service">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        Đặt dịch vụ
+                    </a>
+                    <p class="text-[11px] text-center text-slate-400 mt-2.5">🔒 Thanh toán bảo mật qua Escrow &bull; Hoàn tiền nếu không hài lòng</p>
+                </div>
+
+                <!-- Quick Info -->
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+                    <p class="text-xs font-extrabold text-slate-700 mb-3 uppercase tracking-wider">Thông tin nhanh</p>
+                    <div class="space-y-2.5">
+                        <div class="flex items-center gap-2.5 text-xs text-slate-600"><span class="w-7 h-7 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">📍</span><span>TP. Hồ Chí Minh, Việt Nam</span></div>
+                        <div class="flex items-center gap-2.5 text-xs text-slate-600"><span class="w-7 h-7 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">⏰</span><span>Phản hồi trong <strong>1 giờ</strong></span></div>
+                        <div class="flex items-center gap-2.5 text-xs text-slate-600"><span class="w-7 h-7 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">🗓️</span><span>Hoạt động: Thứ 2 – Chủ nhật</span></div>
+                        <div class="flex items-center gap-2.5 text-xs text-slate-600"><span class="w-7 h-7 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">🌐</span><span>Làm việc từ xa &amp; trực tiếp</span></div>
+                        <div class="flex items-center gap-2.5 text-xs text-slate-600"><span class="w-7 h-7 rounded-xl bg-rose-50 flex items-center justify-center flex-shrink-0">⚡</span><span>Nhận dịch khẩn trong ngày</span></div>
+                    </div>
+                </div>
+
+                <!-- Service Card -->
+                <div id="service-card" class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div class="flex bg-slate-50 border-b border-slate-200/80 text-xs font-bold">
+                        <button onclick="switchTab('basic')" id="tab-basic" class="tier-tab active">Cơ bản</button>
+                        <button onclick="switchTab('standard')" id="tab-standard" class="tier-tab">Tiêu chuẩn</button>
+                        <button onclick="switchTab('premium')" id="tab-premium" class="tier-tab">Cao cấp</button>
+                    </div>
+
+                    <div id="panel-basic" class="tier-panel active p-5">
+                        <div class="mb-3">
+                            <span class="text-[10px] font-extrabold bg-blue-50 text-blue-600 px-2 py-0.5 rounded tracking-wider uppercase">Dịch thuật văn bản</span>
+                            <h3 class="font-extrabold text-slate-900 text-sm mt-2">Dịch tài liệu thông thường</h3>
+                            <p class="text-xs text-slate-500 mt-1 leading-relaxed">Email, báo cáo ngắn, marketing, hồ sơ cá nhân dưới 5 trang.</p>
+                        </div>
+                        <div class="text-3xl font-extrabold text-slate-900 mb-1">150.000 <span class="text-base font-semibold text-slate-400">VNĐ</span></div>
+                        <p class="text-xs text-slate-400 mb-4">/ trang A4 (250 từ)</p>
+                        <ul class="text-xs space-y-2 mb-5 text-slate-600">
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Giao trong <strong>3 ngày làm việc</strong></li>
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>1 lần chỉnh sửa miễn phí</li>
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Cam kết chất lượng</li>
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Bảo vệ Escrow an toàn</li>
+                        </ul>
+                        <a href="#" class="block w-full text-center text-white font-bold text-sm py-3 rounded-xl transition shadow-sm" style="background:#2563eb">Đặt gói cơ bản</a>
+                    </div>
+
+                    <div id="panel-standard" class="tier-panel p-5">
+                        <div class="mb-3">
+                            <span class="text-[10px] font-extrabold bg-blue-50 text-blue-600 px-2 py-0.5 rounded tracking-wider uppercase">Dịch thuật chuyên ngành</span>
+                            <h3 class="font-extrabold text-slate-900 text-sm mt-2">Dịch pháp lý &amp; tài chính</h3>
+                            <p class="text-xs text-slate-500 mt-1 leading-relaxed">Hợp đồng, báo cáo tài chính, điều lệ công ty, hồ sơ nhập cư.</p>
+                        </div>
+                        <div class="text-3xl font-extrabold text-slate-900 mb-1">280.000 <span class="text-base font-semibold text-slate-400">VNĐ</span></div>
+                        <p class="text-xs text-slate-400 mb-4">/ trang A4 (250 từ)</p>
+                        <ul class="text-xs space-y-2 mb-5 text-slate-600">
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Giao trong <strong>2 ngày làm việc</strong></li>
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Thuật ngữ chuyên ngành chuẩn xác</li>
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>3 lần chỉnh sửa miễn phí</li>
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Tư vấn thuật ngữ đặc thù</li>
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Bảo vệ Escrow an toàn</li>
+                        </ul>
+                        <a href="#" class="block w-full text-center text-white font-bold text-sm py-3 rounded-xl transition shadow-sm" style="background:#2563eb">Đặt gói tiêu chuẩn</a>
+                    </div>
+
+                    <div id="panel-premium" class="tier-panel p-5">
+                        <div class="mb-3">
+                            <span class="text-[10px] font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2 py-0.5 rounded tracking-wider uppercase">VIP</span>
+                            <h3 class="font-extrabold text-slate-900 text-sm mt-2">Phiên dịch &amp; Dịch công chứng</h3>
+                            <p class="text-xs text-slate-500 mt-1 leading-relaxed">Phiên dịch trực tiếp hội nghị hoặc dịch thuật kèm công chứng nhà nước.</p>
+                        </div>
+                        <div class="text-3xl font-extrabold text-slate-900 mb-1">500.000 <span class="text-base font-semibold text-slate-400">VNĐ</span></div>
+                        <p class="text-xs text-slate-400 mb-4">/ giờ phiên dịch hoặc / trang (có công chứng)</p>
+                        <ul class="text-xs space-y-2 mb-5 text-slate-600">
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Ưu tiên xử lý <strong>trong ngày</strong></li>
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Hỗ trợ 24/7 qua chat &amp; hotline</li>
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Kèm con dấu công chứng nhà nước</li>
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Chỉnh sửa không giới hạn (30 ngày)</li>
+                            <li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px] flex-shrink-0">✓</span>Bảo vệ Escrow an toàn</li>
+                        </ul>
+                        <a href="#" class="block w-full text-center text-white font-bold text-sm py-3 rounded-xl transition shadow-sm" style="background:linear-gradient(135deg,#2563eb,#4f46e5)">Đặt gói cao cấp</a>
+                    </div>
+                </div>
+
+                <!-- Trust -->
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+                    <p class="text-xs font-extrabold text-slate-700 mb-3 uppercase tracking-wider">Cam kết của VietTranslate</p>
+                    <div class="space-y-2.5">
+                        <div class="flex items-center gap-2.5 text-xs text-slate-600"><span class="w-7 h-7 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">🔒</span><span>Thanh toán bảo mật qua <strong>Escrow</strong></span></div>
+                        <div class="flex items-center gap-2.5 text-xs text-slate-600"><span class="w-7 h-7 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">✅</span><span>Phiên dịch viên <strong>đã xác minh danh tính</strong></span></div>
+                        <div class="flex items-center gap-2.5 text-xs text-slate-600"><span class="w-7 h-7 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">💯</span><span>Hoàn tiền 100% nếu không hài lòng</span></div>
+                        <div class="flex items-center gap-2.5 text-xs text-slate-600"><span class="w-7 h-7 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">🛡️</span><span>Bảo mật <strong>tuyệt đối</strong> thông tin tài liệu</span></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+function switchTab(tier) {
+    ['basic','standard','premium'].forEach(function(t) {
+        document.getElementById('tab-'+t).classList.remove('active');
+        document.getElementById('panel-'+t).classList.remove('active');
+    });
+    document.getElementById('tab-'+tier).classList.add('active');
+    document.getElementById('panel-'+tier).classList.add('active');
+}
+
+function toggleFaq(btn) {
+    var item = btn.parentElement;
+    var body = item.querySelector('.faq-body');
+    var isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(function(el) {
+        el.classList.remove('open');
+        el.querySelector('.faq-body').classList.remove('open');
+    });
+    if (!isOpen) {
+        item.classList.add('open');
+        body.classList.add('open');
+    }
+}
+
+function animateBars() {
+    document.querySelectorAll('.prog-fill[data-width]').forEach(function(bar) {
+        bar.style.width = bar.getAttribute('data-width') + '%';
+    });
+}
+
+var skillsAnimated = false;
+var revealObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            if (entry.target.id === 'skills-section' && !skillsAnimated) {
+                skillsAnimated = true;
+                setTimeout(animateBars, 300);
+            }
+        }
+    });
+}, { threshold: 0.12 });
+
+document.querySelectorAll('.reveal').forEach(function(el) {
+    revealObserver.observe(el);
+});
+</script>
+</body>
+</html>

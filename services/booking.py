@@ -1,8 +1,11 @@
 import logging
+from datetime import datetime, timedelta
 from models import User, Contract, TranslatorSchedule, Job, Proposal
 from services.schedule import normalize_schedule_datetime, is_schedule_complete, check_translator_schedule_conflict, ScheduleCheckError
 
 logger = logging.getLogger(__name__)
+
+TRANSLATOR_CONFIRM_HOURS = 24
 
 class BookingConflictError(Exception):
     pass
@@ -55,6 +58,10 @@ def create_contract_booking(
             if existing:
                 raise BookingConflictError("Công việc này đã được tạo hợp đồng.")
 
+        # Đặt trực tiếp qua dịch vụ: phiên dịch viên phải xác nhận trước khi khách thanh toán.
+        # Đặt qua đề xuất (job) thì PDV đã chủ động ứng tuyển nên bỏ qua bước này.
+        needs_confirmation = bool(service_id) and not job_id
+
         contract = Contract(
             job_id=job_id,
             proposal_id=proposal_id,
@@ -66,29 +73,51 @@ def create_contract_booking(
             scheduled_time_start=start_time,
             scheduled_time_end=end_time,
             location=location or '',
-            status='escrow_pending'
+            status='awaiting_translator' if needs_confirmation else 'escrow_pending'
         )
         db.session.add(contract)
         db.session.flush()
 
         from services.scheduling import reserve_slot, SlotTakenError
+        from services.schedule import parse_job_all_schedule_entries
         
         try:
-            schedule = reserve_slot(
-                translator_id=translator.id,
-                scheduled_date=scheduled_date,
-                start_time=start_time,
-                end_time=end_time,
-                contract_id=contract.id,
-                job_id=job_id,
-                service_id=service_id
-            )
+            if job:
+                entries = parse_job_all_schedule_entries(job)
+                if entries:
+                    for entry in entries:
+                        reserve_slot(
+                            translator_id=translator.id,
+                            scheduled_date=entry['date_str'],
+                            start_time=entry['start_time'].strftime('%H:%M'),
+                            end_time=entry['end_time'].strftime('%H:%M'),
+                            contract_id=contract.id,
+                            job_id=job_id,
+                            service_id=service_id
+                        )
+            else:
+                # Direct booking without job
+                if scheduled_date and start_time and end_time:
+                    reserve_slot(
+                        translator_id=translator.id,
+                        scheduled_date=scheduled_date,
+                        start_time=start_time,
+                        end_time=end_time,
+                        contract_id=contract.id,
+                        job_id=job_id,
+                        service_id=service_id
+                    )
         except SlotTakenError as e:
+            db.session.rollback()
             raise BookingConflictError(str(e))
-        except ScheduleCheckError as e:
-            raise BookingValidationError(str(e))
         except Exception as e:
+            db.session.rollback()
+            if isinstance(e, ScheduleCheckError):
+                raise BookingValidationError(str(e))
             raise BookingValidationError(str(e))
+
+        if needs_confirmation:
+            schedule.expires_at = datetime.utcnow() + timedelta(hours=TRANSLATOR_CONFIRM_HOURS)
 
         if proposal_id:
             proposal = Proposal.query.get(proposal_id)
@@ -105,8 +134,11 @@ def create_contract_booking(
                 create_notification(
                     user_id=translator.id,
                     notification_type='CONTRACT_CREATED',
-                    title='Hợp đồng mới được tạo',
-                    message=f'Khách hàng {current_user.name} đã đặt lịch với bạn.',
+                    title='Yêu cầu đặt lịch mới' if needs_confirmation else 'Hợp đồng mới được tạo',
+                    message=(f'Khách hàng {current_user.name} muốn đặt lịch với bạn. '
+                             f'Vui lòng xác nhận trong {TRANSLATOR_CONFIRM_HOURS} giờ.') if needs_confirmation
+                            else f'Khách hàng {current_user.name} đã đặt lịch với bạn.',
+                    url=f'/transaction/{contract.id}',
                     related_contract_id=contract.id
                 )
             except Exception:
