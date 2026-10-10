@@ -137,6 +137,11 @@ class TranslatorPreference(db.Model):
     languages = db.Column(db.Text, default='')
     language_pairs = db.Column(db.Text, default='')
     service_types = db.Column(db.Text, default='')
+    # Phục vụ ghép cặp với hồ sơ khách (xem services/matching.py)
+    specialties = db.Column(db.Text, default='')    # CSV nhãn HIRING_FIELDS
+    city = db.Column(db.String(100))
+    work_mode = db.Column(db.String(20))            # onsite / online / both
+    offers_certified = db.Column(db.Boolean, default=False)
     notify_new_jobs = db.Column(db.Boolean, default=True)
     notify_messages = db.Column(db.Boolean, default=True)
     notify_contracts = db.Column(db.Boolean, default=True)
@@ -172,6 +177,17 @@ class HirerProfile(db.Model):
     # Dùng chung
     contact_phone = db.Column(db.String(30))
     logo = db.Column(db.Text)  # logo công ty / ảnh đại diện, lưu dạng data URI (đã giới hạn dung lượng)
+
+    # Đánh giá nhận được từ phiên dịch viên và nhu cầu thuê (phục vụ gợi ý phiên dịch viên)
+    total_reviews = db.Column(db.Integer, default=0)
+    is_verified = db.Column(db.Boolean, default=False)
+    work_mode = db.Column(db.String(20))            # onsite / online / both
+    hiring_frequency = db.Column(db.String(20))     # one_time / occasional / regular
+    typical_budget_min = db.Column(db.Integer)
+    typical_budget_max = db.Column(db.Integer)
+    needs_nda = db.Column(db.Boolean, default=False)
+    needs_certified = db.Column(db.Boolean, default=False)
+    special_requirements = db.Column(db.Text)
 
     @property
     def is_business(self):

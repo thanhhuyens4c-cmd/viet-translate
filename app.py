@@ -756,6 +756,8 @@ def _apply_hirer_profile_form(user, profile, form, files):
         profile.hiring_services = ', '.join(services)
         profile.about = get('about')[:500]
 
+    from services.hirer import apply_hirer_hiring_needs
+    apply_hirer_hiring_needs(profile, form)
     profile.contact_phone = phone
     user.phone = phone
     if logo:
@@ -766,7 +768,7 @@ def _apply_hirer_profile_form(user, profile, form, files):
 def _ensure_new_columns():
     """db.create_all() không thêm cột vào bảng đã có -> tự thêm cột mới của hirer_profile."""
     from sqlalchemy import inspect, text
-    for model in (HirerProfile,):
+    for model in (HirerProfile, TranslatorPreference):
         table = model.__table__
         try:
             existing = {c['name'] for c in inspect(db.engine).get_columns(table.name)}
@@ -2189,6 +2191,10 @@ def account_profile():
             
             pref.languages = ",".join(request.form.getlist('languages'))
             pref.service_types = ",".join(request.form.getlist('service_types'))
+            pref.specialties = ",".join(f for f in HIRING_FIELDS if f in request.form.getlist('specialties'))
+            pref.city = request.form.get('city', '').strip()[:100] or None
+            pref.work_mode = request.form.get('work_mode') if request.form.get('work_mode') in ('onsite', 'online', 'both') else None
+            pref.offers_certified = 'offers_certified' in request.form
             pref.notify_new_jobs = 'notify_new_jobs' in request.form
             pref.notify_messages = 'notify_messages' in request.form
             pref.notify_contracts = 'notify_contracts' in request.form
@@ -3197,11 +3203,12 @@ def hirer_profile(hirer_id):
         
     profile = user.hirer_profile
     
-    # Calculate stats
-    total_jobs = Job.query.filter_by(hirer_id=hirer_id).count()
-    completed_contracts = Contract.query.join(Job).filter(Job.hirer_id == hirer_id, Contract.status == 'completed').count()
-    
-    return render_template('hirer_profile.html', user=user, profile=profile, total_jobs=total_jobs, completed_contracts=completed_contracts)
+    from services.hirer import get_hirer_stats
+    stats = get_hirer_stats(hirer_id)
+    reviews = Review.query.filter_by(reviewee_id=hirer_id, is_hidden=False).order_by(Review.created_at.desc()).limit(10).all()
+
+    return render_template('hirer_profile.html', user=user, profile=profile, reviews=reviews, stats=stats,
+                           total_jobs=stats['total_jobs'], completed_contracts=stats['completed_contracts'])
 
 @app.route('/translator/<string:lang_slug>')
 def translator_language(lang_slug):
@@ -4105,6 +4112,12 @@ def submit_review(contract_id):
                             reviewee_id=reviewee_id, rating=rating, comment=comment)
             db.session.add(review)
 
+        if reviewer_id == contract.translator_id:
+            # Phiên dịch viên đánh giá khách -> tính lại điểm của khách từ các review hiển thị
+            db.session.flush()
+            from services.hirer import recalculate_hirer_rating
+            recalculate_hirer_rating(contract.hirer_id)
+
         if reviewer_id == contract.hirer_id:
             prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
             if prof:
@@ -4723,6 +4736,11 @@ def admin_toggle_review(review_id):
         description=f"{msg} #{r.id} của {r.reviewer.name}",
     )
     
+    if r.reviewee and r.reviewee.role == 'hirer':
+        db.session.flush()
+        from services.hirer import recalculate_hirer_rating
+        recalculate_hirer_rating(r.reviewee_id)
+
     db.session.commit()
     flash(msg, 'success')
     return redirect(url_for('admin_reviews'))
