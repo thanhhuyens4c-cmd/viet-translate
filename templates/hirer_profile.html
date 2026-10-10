@@ -5,18 +5,36 @@
 {% block content %}
 <div class="mesh-hero-bg border-b border-slate-200/70 py-12 md:py-16">
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-    <div class="w-24 h-24 mx-auto bg-gradient-to-br from-brand-600 to-indigo-600 rounded-3xl flex items-center justify-center text-white text-4xl font-extrabold shadow-md mb-6 transform -rotate-3 hover:rotate-0 transition duration-300">
-      {{ user.name[:1]|upper }}
+    {% set hirer_avatar = user.avatar_url or (profile.logo if profile and profile.logo else None) %}
+    <div class="relative w-24 h-24 mx-auto mb-6 group">
+      <div class="w-full h-full rounded-3xl overflow-hidden shadow-lg border-2 border-white/90 bg-slate-100 flex items-center justify-center">
+        {% if hirer_avatar %}
+        <img src="{{ hirer_avatar }}" alt="{{ user.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover">
+        {% endif %}
+        <div style="{% if hirer_avatar %}display:none;{% else %}display:flex;{% endif %}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 flex items-center justify-center text-white text-4xl font-extrabold transform -rotate-3 hover:rotate-0 transition duration-300">
+          {{ user.name[:1]|upper }}
+        </div>
+      </div>
+      {% if current_user and current_user.id == user.id %}
+      <a href="{{ url_for('account_profile') }}" title="{{ t('account_profile_page.btn_change_photo') }}"
+        class="absolute -bottom-1 -right-1 p-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-md border-2 border-white transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </a>
+      {% endif %}
     </div>
-    
-    <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">{{ user.name }}</h1>
-    
-    {% if profile and profile.title %}
-    <p class="text-brand-600 font-bold text-base md:text-lg mb-1">{{ profile.title }}</p>
+
+    <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">{% if profile and profile.is_business and profile.company %}{{ profile.company }}{% else %}{{ user.name }}{% endif %}</h1>
+    {% if profile and profile.is_business and profile.rep_name %}
+    <p class="text-slate-500 text-sm mb-1">Đại diện: {{ profile.rep_name }}{% if profile.title %} · {{ profile.title }}{% endif %}</p>
     {% endif %}
     
-    {% if profile and profile.company %}
-    <p class="text-slate-600 font-semibold mb-4">{{ profile.company }}</p>
+    {% if profile and not profile.is_business %}
+      {% if profile.title %}<p class="text-brand-600 font-bold text-base md:text-lg mb-1">{{ profile.title }}</p>{% endif %}
+      {% if profile.company %}<p class="text-slate-600 font-semibold mb-4">{{ profile.company }}</p>{% endif %}
+      {% if profile.hiring_field %}<p class="text-slate-600 font-semibold mb-4">Thường thuê phiên dịch: {{ profile.hiring_field }}</p>{% endif %}
     {% endif %}
     
     <div class="flex flex-wrap items-center justify-center gap-3 mt-4 text-xs font-semibold text-slate-500">
@@ -68,5 +86,33 @@
     </div>
 
   </div>
+
+  {% if profile and profile.is_business %}
+  <div class="mt-8 bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-soft">
+    <h2 class="text-sm font-extrabold uppercase tracking-wider text-slate-700 mb-4">Thông tin doanh nghiệp</h2>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+      {% for label, val in [('Mã số thuế', profile.tax_code), ('Lĩnh vực', profile.industry), ('Quy mô', (profile.company_size ~ ' lao động') if profile.company_size else ''), ('Địa chỉ', profile.address), ('Email', profile.company_email), ('Hotline', profile.hotline)] %}
+      {% if val %}
+      <div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">{{ label }}</dt><dd class="text-slate-800 font-medium break-words">{{ val }}</dd></div>
+      {% endif %}
+      {% endfor %}
+      {% if profile.website %}
+      <div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">Website</dt><dd><a href="{{ profile.website }}" target="_blank" rel="noopener nofollow" class="text-brand-600 font-medium break-all hover:underline">{{ profile.website }}</a></dd></div>
+      {% endif %}
+    </dl>
+    {% if profile.about %}
+    <p class="mt-5 text-sm text-slate-600 leading-relaxed whitespace-pre-line">{{ profile.about }}</p>
+    {% endif %}
+  </div>
+  {% elif profile and (profile.hiring_languages or profile.hiring_services or profile.about) %}
+  <div class="mt-8 bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-soft text-sm">
+    <h2 class="text-sm font-extrabold uppercase tracking-wider text-slate-700 mb-4">Nhu cầu thuê phiên dịch</h2>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+      {% if profile.hiring_languages %}<div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">Ngôn ngữ thường cần</dt><dd class="text-slate-800 font-medium">{{ profile.hiring_languages }}</dd></div>{% endif %}
+      {% if profile.hiring_services %}<div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">Hình thức thường thuê</dt><dd class="text-slate-800 font-medium">{{ profile.hiring_services }}</dd></div>{% endif %}
+    </dl>
+    {% if profile.about %}<p class="mt-4 text-slate-600 leading-relaxed whitespace-pre-line">{{ profile.about }}</p>{% endif %}
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

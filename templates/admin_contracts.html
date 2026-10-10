@@ -109,7 +109,7 @@
                     <td>
                         <div class="flex flex-col items-end gap-2">
                             <button class="btn btn-sm btn-ghost" onclick="viewContractDetail({{ c.id }})">Chi tiết</button>
-                            {% if c.schedule %}
+                            {% if c.schedule_entries %}
                                 <a href="{{ url_for('admin_schedules') }}?contract_id={{ c.id }}" class="text-[10px] text-brand hover:underline">Xem lịch trình</a>
                             {% endif %}
                         </div>

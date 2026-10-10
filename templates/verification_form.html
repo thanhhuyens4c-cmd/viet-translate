@@ -1,0 +1,2050 @@
+{% extends "base.html" %}
+
+{% block title %}Khai Báo Thông Tin Xác Minh Phiên Dịch Viên | VietTranslate{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/70 py-8 sm:py-12">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- 1. BREADCRUMB & HEADER -->
+        <nav class="flex items-center gap-2 text-xs text-slate-500 mb-4" aria-label="Breadcrumb">
+            <a href="{{ url_for('index') }}" class="hover:text-brand-600 transition">Trang chủ</a>
+            <span>/</span>
+            <a href="{{ url_for('account_profile') }}" class="hover:text-brand-600 transition">Hồ sơ tài khoản</a>
+            <span>/</span>
+            <span class="text-slate-900 font-semibold">Xác minh phiên dịch viên</span>
+        </nav>
+
+        <div class="bg-white rounded-3xl border border-slate-200/90 shadow-soft p-6 sm:p-8 mb-8 relative overflow-hidden">
+            <!-- Decorative background blob -->
+            <div class="absolute -right-16 -top-16 w-56 h-56 bg-gradient-to-br from-brand-100/60 to-indigo-100/40 rounded-full blur-2xl pointer-events-none"></div>
+
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                <div>
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200/80 mb-2">
+                        <span class="w-2 h-2 rounded-full bg-brand-600 animate-pulse"></span>
+                        Quy trình thẩm định hồ sơ phiên dịch viên
+                    </div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                        Biểu Mẫu Khai Báo Thông Tin Xác Minh
+                    </h1>
+                    <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
+                        Hoàn thành 6 bước khai báo thông tin chuyên môn để chuẩn bị hồ sơ cấp huy hiệu Tích Xanh uy tín. Dữ liệu được tự động lưu nháp an toàn vào hệ thống.
+                    </p>
+                </div>
+
+                <!-- Last saved timestamp indicator -->
+                <div class="shrink-0 flex items-center sm:flex-col sm:items-end gap-2">
+                    <div id="save-status-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm transition-all duration-300">
+                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span id="save-status-text">
+                            {% if verification.updated_at %}
+                            Đã lưu nháp lúc {{ verification.updated_at.strftime('%H:%M') }}
+                            {% else %}
+                            Bản nháp sẵn sàng
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <a href="{{ url_for('verification_status_page') }}" class="text-xs font-bold text-brand-600 hover:text-brand-800 transition underline underline-offset-2">
+                            Theo dõi tiến độ hồ sơ
+                        </a>
+                        <span class="text-slate-300">•</span>
+                        <a href="{{ url_for('account_profile') }}" class="text-xs font-semibold text-slate-500 hover:text-slate-800 transition underline underline-offset-2">
+                            Quay về trang cá nhân
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PROGRESS BAR -->
+            <div class="mt-8 pt-6 border-t border-slate-100">
+                <div class="flex items-center justify-between text-xs font-bold mb-2">
+                    <span class="text-slate-700 flex items-center gap-1.5">
+                        <span>Tiến trình hoàn thiện:</span>
+                        <span id="progress-percentage-text" class="text-brand-600">16%</span>
+                    </span>
+                    <span id="step-counter-text" class="text-slate-500 font-medium">Bước 1 trên 6</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden shadow-inner">
+                    <div id="progress-bar-fill" class="bg-gradient-to-r from-brand-600 to-indigo-600 h-2.5 rounded-full transition-all duration-500 ease-out" style="width: 16.66%;"></div>
+                </div>
+
+                <!-- STEP INDICATORS NAV (Desktop & Tablet) -->
+                <div class="grid grid-cols-6 gap-2 mt-5 select-none" id="step-indicators-container">
+                    <!-- Step 1 -->
+                    <button type="button" onclick="handleStepNavClick(1)" class="step-nav-btn text-left p-2 rounded-xl border transition-all text-xs group" data-step="1">
+                        <div class="flex items-center gap-1.5 font-bold mb-0.5">
+                            <span class="step-badge w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-extrabold bg-brand-600 text-white">1</span>
+                            <span class="step-label truncate text-slate-900 group-hover:text-brand-600">Cá nhân</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 truncate hidden md:block">Thông tin cơ bản</p>
+                    </button>
+
+                    <!-- Step 2 -->
+                    <button type="button" onclick="handleStepNavClick(2)" class="step-nav-btn text-left p-2 rounded-xl border transition-all text-xs group" data-step="2">
+                        <div class="flex items-center gap-1.5 font-bold mb-0.5">
+                            <span class="step-badge w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-extrabold bg-slate-100 text-slate-500">2</span>
+                            <span class="step-label truncate text-slate-600 group-hover:text-brand-600">Ngôn ngữ</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 truncate hidden md:block">Cặp & chiều dịch</p>
+                    </button>
+
+                    <!-- Step 3 -->
+                    <button type="button" onclick="handleStepNavClick(3)" class="step-nav-btn text-left p-2 rounded-xl border transition-all text-xs group" data-step="3">
+                        <div class="flex items-center gap-1.5 font-bold mb-0.5">
+                            <span class="step-badge w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-extrabold bg-slate-100 text-slate-500">3</span>
+                            <span class="step-label truncate text-slate-600 group-hover:text-brand-600">Lĩnh vực</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 truncate hidden md:block">Chuyên ngành dịch</p>
+                    </button>
+
+                    <!-- Step 4 -->
+                    <button type="button" onclick="handleStepNavClick(4)" class="step-nav-btn text-left p-2 rounded-xl border transition-all text-xs group" data-step="4">
+                        <div class="flex items-center gap-1.5 font-bold mb-0.5">
+                            <span class="step-badge w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-extrabold bg-slate-100 text-slate-500">4</span>
+                            <span class="step-label truncate text-slate-600 group-hover:text-brand-600">Học vấn</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 truncate hidden md:block">Bằng cấp & chứng chỉ</p>
+                    </button>
+
+                    <!-- Step 5 -->
+                    <button type="button" onclick="handleStepNavClick(5)" class="step-nav-btn text-left p-2 rounded-xl border transition-all text-xs group" data-step="5">
+                        <div class="flex items-center gap-1.5 font-bold mb-0.5">
+                            <span class="step-badge w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-extrabold bg-slate-100 text-slate-500">5</span>
+                            <span class="step-label truncate text-slate-600 group-hover:text-brand-600">Kinh nghiệm</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 truncate hidden md:block">Dự án tiêu biểu</p>
+                    </button>
+
+                    <!-- Step 6 -->
+                    <button type="button" onclick="handleStepNavClick(6)" class="step-nav-btn text-left p-2 rounded-xl border transition-all text-xs group" data-step="6">
+                        <div class="flex items-center gap-1.5 font-bold mb-0.5">
+                            <span class="step-badge w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-extrabold bg-slate-100 text-slate-500">6</span>
+                            <span class="step-label truncate text-slate-600 group-hover:text-brand-600">Xem lại</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 truncate hidden md:block">Tổng hợp bản nháp</p>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- GLOBAL ERROR ALERT (Shown if step validation fails) -->
+        <div id="step-error-banner" class="hidden mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 shadow-sm transition-all duration-300">
+            <div class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">!</div>
+                <div>
+                    <h3 class="text-xs sm:text-sm font-bold text-rose-950">Vui lòng kiểm tra lại thông tin chưa hợp lệ</h3>
+                    <p id="step-error-banner-message" class="text-xs text-rose-800 mt-0.5">Một số trường dữ liệu bị thiếu hoặc chưa đúng định dạng. Hãy xem thông báo chi tiết màu đỏ bên dưới từng trường.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- FORM CONTAINER -->
+        <form id="verification-multistep-form" onsubmit="return false;" class="space-y-6">
+
+            <!-- ═══════════════════════════════════════════════════════════════
+                 BƯỚC 1: THÔNG TIN CÁ NHÂN
+                 ═══════════════════════════════════════════════════════════════ -->
+            <div id="step-panel-1" class="step-panel bg-white rounded-3xl border border-slate-200/90 shadow-soft p-6 sm:p-8 space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-2 text-brand-600 text-xs font-bold uppercase tracking-wider">
+                        <span>Bước 1</span>
+                        <span>·</span>
+                        <span>Định danh cá nhân</span>
+                    </div>
+                    <h2 class="text-lg font-bold text-slate-900 mt-1">Thông Tin Định Danh & Liên Hệ</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Thông tin này được đối chiếu với danh tính thực của bạn trên VietTranslate.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <!-- Họ và tên -->
+                    <div>
+                        <label for="input-full_name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Họ và tên đầy đủ <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="text" id="input-full_name" name="full_name"
+                            value="{{ draft.full_name or user.name or '' }}"
+                            placeholder="VD: Nguyễn Văn Cường"
+                            class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                        <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-full_name"></p>
+                    </div>
+
+                    <!-- Email (Readonly) -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                            <span>Email tài khoản</span>
+                            <span class="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">✓ Đã xác thực</span>
+                        </label>
+                        <input type="email" value="{{ user.email }}" readonly
+                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-100 text-slate-500 text-xs sm:text-sm cursor-not-allowed">
+                        <p class="text-[11px] text-slate-400 mt-1">Email liên kết với tài khoản hệ thống của bạn.</p>
+                    </div>
+
+                    <!-- Số điện thoại -->
+                    <div>
+                        <label for="input-phone" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Số điện thoại liên hệ <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="tel" id="input-phone" name="phone"
+                            value="{{ draft.phone or user.phone or '' }}"
+                            placeholder="VD: 0901234567"
+                            class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                        <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-phone"></p>
+                    </div>
+
+                    <!-- Giới tính -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Giới tính <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-3 gap-2">
+                            {% set cur_gender = draft.gender or '' %}
+                            <label class="gender-card flex items-center justify-center gap-2 p-2.5 border border-slate-200 rounded-xl cursor-pointer text-xs font-semibold hover:border-brand-500 transition {% if cur_gender == 'male' %}border-brand-600 bg-brand-50/50 text-brand-700{% endif %}">
+                                <input type="radio" name="gender" value="male" class="sr-only" {% if cur_gender == 'male' %}checked{% endif %} onchange="updateRadioCard(this)">
+                                <span>Nam</span>
+                            </label>
+                            <label class="gender-card flex items-center justify-center gap-2 p-2.5 border border-slate-200 rounded-xl cursor-pointer text-xs font-semibold hover:border-brand-500 transition {% if cur_gender == 'female' %}border-brand-600 bg-brand-50/50 text-brand-700{% endif %}">
+                                <input type="radio" name="gender" value="female" class="sr-only" {% if cur_gender == 'female' %}checked{% endif %} onchange="updateRadioCard(this)">
+                                <span>Nữ</span>
+                            </label>
+                            <label class="gender-card flex items-center justify-center gap-2 p-2.5 border border-slate-200 rounded-xl cursor-pointer text-xs font-semibold hover:border-brand-500 transition {% if cur_gender == 'other' %}border-brand-600 bg-brand-50/50 text-brand-700{% endif %}">
+                                <input type="radio" name="gender" value="other" class="sr-only" {% if cur_gender == 'other' %}checked{% endif %} onchange="updateRadioCard(this)">
+                                <span>Khác</span>
+                            </label>
+                        </div>
+                        <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-gender"></p>
+                    </div>
+
+                    <!-- Ngày sinh -->
+                    <div>
+                        <label for="input-dob" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Ngày sinh <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="date" id="input-dob" name="dob"
+                            value="{{ draft.dob or '' }}"
+                            class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                        <p class="text-[11px] text-slate-400 mt-1">Yêu cầu từ 18 tuổi trở lên theo quy định hành nghề.</p>
+                        <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-dob"></p>
+                    </div>
+
+                    <!-- Nơi cư trú -->
+                    <div>
+                        <label for="input-location" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Tỉnh / Thành phố nơi cư trú <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="text" id="input-location" name="location" list="provinces-list"
+                            value="{{ draft.location or '' }}"
+                            placeholder="VD: Hà Nội, TP. Hồ Chí Minh, Đà Nẵng..."
+                            class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                        <datalist id="provinces-list">
+                            <option value="Hà Nội">
+                            <option value="TP. Hồ Chí Minh">
+                            <option value="Đà Nẵng">
+                            <option value="Hải Phòng">
+                            <option value="Cần Thơ">
+                            <option value="Bình Dương">
+                            <option value="Đồng Nai">
+                            <option value="Quảng Ninh">
+                            <option value="Huế">
+                            <option value="Khánh Hòa">
+                        </datalist>
+                        <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-location"></p>
+                    </div>
+                </div>
+
+                <!-- Giới thiệu bản thân -->
+                <div>
+                    <label for="input-bio" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Tóm tắt giới thiệu bản thân & Thế mạnh nghề nghiệp <span class="text-rose-500">*</span></span>
+                        <span id="bio-char-counter" class="text-[11px] text-slate-400 font-normal">Tối thiểu 20 ký tự</span>
+                    </label>
+                    <textarea id="input-bio" name="bio" rows="4"
+                        placeholder="Giới thiệu tóm tắt phong cách làm việc, kinh nghiệm và tinh thần trách nhiệm trong các ca dịch..."
+                        class="form-field w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 leading-relaxed transition">{{ draft.bio or (user.profile.bio if user.profile else '') }}</textarea>
+                    <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-bio"></p>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════
+                 BƯỚC 2: NGÔN NGỮ NGUỒN, NGÔN NGỮ ĐÍCH VÀ CHIỀU PHIÊN DỊCH
+                 ═══════════════════════════════════════════════════════════════ -->
+            <div id="step-panel-2" class="step-panel hidden bg-white rounded-3xl border border-slate-200/90 shadow-soft p-6 sm:p-8 space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-2 text-brand-600 text-xs font-bold uppercase tracking-wider">
+                        <span>Bước 2</span>
+                        <span>·</span>
+                        <span>Năng lực ngôn ngữ</span>
+                    </div>
+                    <h2 class="text-lg font-bold text-slate-900 mt-1">Ngôn Ngữ Nguồn, Ngôn Ngữ Đích & Chiều Dịch</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Xác định cặp ngôn ngữ sở trường chính mà bạn đăng ký thẩm định xác minh.</p>
+                </div>
+
+                <!-- Cặp ngôn ngữ chính -->
+                <div class="p-5 rounded-2xl bg-slate-50/70 border border-slate-200/80 space-y-5">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                            Cặp Ngôn Ngữ Chính Đăng Ký Xác Minh
+                        </h3>
+                        <span class="text-[11px] font-semibold text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-full border border-brand-200">Bắt buộc</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <!-- Ngôn ngữ nguồn -->
+                        <div>
+                            <label for="input-source_language" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Ngôn ngữ nguồn (Source Language) <span class="text-rose-500">*</span>
+                            </label>
+                            {% set cur_src = draft.source_language or 'Tiếng Việt' %}
+                            <select id="input-source_language" name="source_language" class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
+                                <option value="">-- Chọn ngôn ngữ nguồn --</option>
+                                <option value="Tiếng Việt" {% if cur_src == 'Tiếng Việt' %}selected{% endif %}>🇻🇳 Tiếng Việt</option>
+                                {% for lang in LANGUAGES %}
+                                <option value="{{ lang.name_vi }}" {% if cur_src == lang.name_vi %}selected{% endif %}>{{ lang.flag }} {{ lang.name_vi }}</option>
+                                {% endfor %}
+                            </select>
+                            <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-source_language"></p>
+                        </div>
+
+                        <!-- Ngôn ngữ đích -->
+                        <div>
+                            <label for="input-target_language" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Ngôn ngữ đích (Target Language) <span class="text-rose-500">*</span>
+                            </label>
+                            {% set cur_tar = draft.target_language or 'Tiếng Anh' %}
+                            <select id="input-target_language" name="target_language" class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
+                                <option value="">-- Chọn ngôn ngữ đích --</option>
+                                {% for lang in LANGUAGES %}
+                                <option value="{{ lang.name_vi }}" {% if cur_tar == lang.name_vi %}selected{% endif %}>{{ lang.flag }} {{ lang.name_vi }}</option>
+                                {% endfor %}
+                                <option value="Tiếng Việt" {% if cur_tar == 'Tiếng Việt' %}selected{% endif %}>🇻🇳 Tiếng Việt</option>
+                            </select>
+                            <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-target_language"></p>
+                        </div>
+                    </div>
+
+                    <!-- Chiều phiên dịch -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                            Chiều phiên dịch (Translation Direction) <span class="text-rose-500">*</span>
+                        </label>
+                        {% set cur_dir = draft.interpreting_direction or 'two_way' %}
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <label class="direction-card flex flex-col p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:border-brand-500 transition {% if cur_dir == 'two_way' %}border-brand-600 bg-brand-50/40 text-brand-900 ring-2 ring-brand-500/20{% endif %}">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-bold text-slate-900">Hai chiều (Song phương)</span>
+                                    <span class="text-base">⇄</span>
+                                </div>
+                                <span class="text-[11px] text-slate-500 leading-tight">Dịch linh hoạt cả 2 chiều giữa 2 ngôn ngữ</span>
+                                <input type="radio" name="interpreting_direction" value="two_way" class="sr-only" {% if cur_dir == 'two_way' %}checked{% endif %} onchange="updateDirectionCard(this)">
+                            </label>
+
+                            <label class="direction-card flex flex-col p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:border-brand-500 transition {% if cur_dir == 'source_to_target' %}border-brand-600 bg-brand-50/40 text-brand-900 ring-2 ring-brand-500/20{% endif %}">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-bold text-slate-900">Nguồn ➔ Đích</span>
+                                    <span class="text-base">→</span>
+                                </div>
+                                <span class="text-[11px] text-slate-500 leading-tight">Chuyên sâu chiều từ ngôn ngữ nguồn sang đích</span>
+                                <input type="radio" name="interpreting_direction" value="source_to_target" class="sr-only" {% if cur_dir == 'source_to_target' %}checked{% endif %} onchange="updateDirectionCard(this)">
+                            </label>
+
+                            <label class="direction-card flex flex-col p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:border-brand-500 transition {% if cur_dir == 'target_to_source' %}border-brand-600 bg-brand-50/40 text-brand-900 ring-2 ring-brand-500/20{% endif %}">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-bold text-slate-900">Đích ➔ Nguồn</span>
+                                    <span class="text-base">←</span>
+                                </div>
+                                <span class="text-[11px] text-slate-500 leading-tight">Chuyên sâu chiều từ ngôn ngữ đích về nguồn</span>
+                                <input type="radio" name="interpreting_direction" value="target_to_source" class="sr-only" {% if cur_dir == 'target_to_source' %}checked{% endif %} onchange="updateDirectionCard(this)">
+                            </label>
+                        </div>
+                        <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-interpreting_direction"></p>
+                    </div>
+
+                    <!-- Mức độ thành thạo -->
+                    <div>
+                        <label for="input-language_proficiency" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Mức độ thành thạo ngôn ngữ <span class="text-rose-500">*</span>
+                        </label>
+                        {% set cur_prof = draft.language_proficiency or 'c1' %}
+                        <select id="input-language_proficiency" name="language_proficiency" class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
+                            <option value="native" {% if cur_prof == 'native' %}selected{% endif %}>Bản ngữ (Native Speaker / Tiếng mẹ đẻ)</option>
+                            <option value="c2" {% if cur_prof == 'c2' %}selected{% endif %}>C2 / Xuất sắc (Gần bản ngữ - Fluent Academic)</option>
+                            <option value="c1" {% if cur_prof == 'c1' %}selected{% endif %}>C1 / Chuyên gia cao cấp (Advanced Professional)</option>
+                            <option value="b2" {% if cur_prof == 'b2' %}selected{% endif %}>B2 / Thành thạo nghiệp vụ (Upper-Intermediate)</option>
+                        </select>
+                        <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-language_proficiency"></p>
+                    </div>
+                </div>
+
+                <!-- Cặp ngôn ngữ bổ sung (Tùy chọn) -->
+                <div class="p-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/40">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-slate-700">Cặp ngôn ngữ bổ sung (Nếu thành thạo nhiều ngoại ngữ)</span>
+                        <span class="text-[11px] text-slate-400 font-normal">Tùy chọn</span>
+                    </div>
+                    <input type="text" name="secondary_language_pairs" value="{{ draft.secondary_language_pairs or '' }}"
+                        placeholder="VD: Tiếng Hàn ⇄ Tiếng Việt (Topik 5), Tiếng Nhật ➔ Tiếng Việt (N2)"
+                        class="form-field w-full px-4 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    <p class="text-[11px] text-slate-400 mt-1">Bạn có thể liệt kê thêm các cặp ngôn ngữ khác nếu muốn khách hàng tham khảo thêm.</p>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════
+                 BƯỚC 3: LĨNH VỰC CHUYÊN MÔN
+                 ═══════════════════════════════════════════════════════════════ -->
+            <div id="step-panel-3" class="step-panel hidden bg-white rounded-3xl border border-slate-200/90 shadow-soft p-6 sm:p-8 space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-2 text-brand-600 text-xs font-bold uppercase tracking-wider">
+                        <span>Bước 3</span>
+                        <span>·</span>
+                        <span>Chuyên môn & Nghiệp vụ</span>
+                    </div>
+                    <h2 class="text-lg font-bold text-slate-900 mt-1">Lĩnh Vực Chuyên Môn & Hình Thức Dịch</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Chọn các lĩnh vực chuyên sâu bạn am hiểu thuật ngữ và hình thức bạn tự tin đảm nhận.</p>
+                </div>
+
+                <!-- 1. Lĩnh vực chuyên ngành -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center justify-between">
+                        <span>1. Lĩnh vực chuyên môn thế mạnh <span class="text-rose-500">*</span></span>
+                        <span class="text-[11px] text-slate-400 font-normal">Chọn ít nhất 1 lĩnh vực</span>
+                    </label>
+                    <p class="text-xs text-slate-500 mb-3">Hệ thống sẽ gợi ý các dự án dịch thuật phù hợp với chuyên ngành bạn chọn.</p>
+
+                    {% set cur_specs = (draft.specializations or '').split(', ') if draft.specializations else [] %}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="specializations-grid">
+                        {% set spec_options = [
+                            ('Y tế & Dược phẩm', '🩺', 'Thuật ngữ bệnh án, hội thảo y khoa, dược lâm sàng'),
+                            ('Kinh tế, Tài chính & Ngân hàng', '💼', 'Báo cáo kiểm toán, đàm phán M&A, chứng khoán'),
+                            ('Công nghệ thông tin & Viễn thông', '💻', 'Phần mềm, AI, đám mây, an ninh mạng'),
+                            ('Pháp lý, Hợp đồng & Luật', '⚖️', 'Hợp đồng thương mại quốc tế, tranh chấp, phiên tòa'),
+                            ('Kỹ thuật, Cơ khí & Xây dựng', '⚙️', 'Bản vẽ kỹ thuật, chuyển giao công nghệ, nhà xưởng'),
+                            ('Du lịch, Khách sạn & Ẩm thực', '✈️', 'Hướng dẫn viên VIP, sự kiện lữ hành, ẩm thực'),
+                            ('Giáo dục, Đào tạo & Học thuật', '🎓', 'Hội thảo học thuật, giáo trình, du học'),
+                            ('Ngoại giao, Chính trị & Hội nghị', '🏛️', 'Hội nghị thượng đỉnh, ngoại giao đoàn, chính phủ'),
+                            ('Văn hóa, Nghệ thuật & Truyền thông', '🎨', 'Phim ảnh, họp báo, chương trình nghệ thuật'),
+                            ('Thương mại quốc tế & Logistics', '🛍️', 'Chuỗi cung ứng, xuất nhập khẩu, hải quan')
+                        ] %}
+                        {% for title, icon, desc in spec_options %}
+                        {% set is_chk = title in cur_specs %}
+                        <label class="spec-card flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition select-none {% if is_chk %}border-brand-500 bg-brand-50/30 ring-1 ring-brand-500/20{% else %}border-slate-200 hover:border-slate-300 bg-white{% endif %}">
+                            <input type="checkbox" name="specializations" value="{{ title }}" class="sr-only spec-checkbox" {% if is_chk %}checked{% endif %} onchange="updateCheckboxCard(this)">
+                            <div class="spec-check-icon w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 text-xs transition {% if is_chk %}bg-brand-600 border-brand-600 text-white font-bold{% else %}border-slate-300 text-transparent{% endif %}">✓</div>
+                            <div class="flex-grow">
+                                <div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                    <span>{{ icon }}</span>
+                                    <span>{{ title }}</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-0.5 leading-tight">{{ desc }}</p>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p class="error-msg text-xs text-rose-600 mt-2 hidden" id="err-specializations"></p>
+                </div>
+
+                <!-- 2. Hình thức phiên dịch -->
+                <div class="pt-4 border-t border-slate-100">
+                    <label class="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center justify-between">
+                        <span>2. Hình thức phiên dịch có thể đảm nhận <span class="text-rose-500">*</span></span>
+                        <span class="text-[11px] text-slate-400 font-normal">Chọn ít nhất 1 hình thức</span>
+                    </label>
+                    <p class="text-xs text-slate-500 mb-3">Các phương thức bạn có kinh nghiệm và sẵn sàng cung cấp dịch vụ.</p>
+
+                    {% set cur_types = (draft.interpreting_types or '').split(', ') if draft.interpreting_types else [] %}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="interpreting-types-grid">
+                        {% set type_options = [
+                            ('Dịch song song / Cabin (Simultaneous)', '🎙️', 'Dịch đồng thời trong buồng cabin tai nghe'),
+                            ('Dịch nối tiếp / Đuổi (Consecutive)', '🗣️', 'Dịch sau khi người nói tạm ngắt câu/đoạn'),
+                            ('Dịch tháp tùng / Hộ tống (Escort)', '🚶', 'Đi cùng đối tác tham quan, công tác, gặp gỡ'),
+                            ('Dịch từ xa qua Video Call (Remote)', '💻', 'Họp trực tuyến Zoom, Google Meet, MS Teams'),
+                            ('Dịch hội chợ & Triển lãm (Trade Show)', '🎪', 'Gian hàng quốc tế, giới thiệu sản phẩm'),
+                            ('Dịch khảo sát thực địa / Nhà máy', '🏭', 'Kiểm tra dây chuyền sản xuất, công trường')
+                        ] %}
+                        {% for title, icon, desc in type_options %}
+                        {% set is_chk = title in cur_types %}
+                        <label class="type-card flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition select-none {% if is_chk %}border-indigo-500 bg-indigo-50/30 ring-1 ring-indigo-500/20{% else %}border-slate-200 hover:border-slate-300 bg-white{% endif %}">
+                            <input type="checkbox" name="interpreting_types" value="{{ title }}" class="sr-only type-checkbox" {% if is_chk %}checked{% endif %} onchange="updateCheckboxCard(this)">
+                            <div class="type-check-icon w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 text-xs transition {% if is_chk %}bg-indigo-600 border-indigo-600 text-white font-bold{% else %}border-slate-300 text-transparent{% endif %}">✓</div>
+                            <div class="flex-grow">
+                                <div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                    <span>{{ icon }}</span>
+                                    <span>{{ title }}</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-0.5 leading-tight">{{ desc }}</p>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p class="error-msg text-xs text-rose-600 mt-2 hidden" id="err-interpreting_types"></p>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════
+                 BƯỚC 4: HỌC VẤN VÀ CHỨNG CHỈ
+                 ═══════════════════════════════════════════════════════════════ -->
+            <div id="step-panel-4" class="step-panel hidden bg-white rounded-3xl border border-slate-200/90 shadow-soft p-6 sm:p-8 space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-2 text-brand-600 text-xs font-bold uppercase tracking-wider">
+                        <span>Bước 4</span>
+                        <span>·</span>
+                        <span>Nền tảng học thuật</span>
+                    </div>
+                    <h2 class="text-lg font-bold text-slate-900 mt-1">Học Vấn & Chứng Chỉ Ngoại Ngữ</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Khai báo văn bằng học thuật và chứng chỉ năng lực ngôn ngữ quốc tế đã được cấp.</p>
+                </div>
+
+                <!-- Notice: Chưa bắt buộc upload tài liệu -->
+                <div class="p-4 rounded-2xl bg-blue-50/80 border border-blue-200/90 flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 text-sm font-bold shadow-sm shadow-blue-500/20">ℹ️</div>
+                    <div class="text-xs text-blue-900 leading-relaxed">
+                        <strong class="font-bold">Lưu ý chính sách thẩm định:</strong> Ở giai đoạn khai báo thông tin này, bạn chỉ cần điền thông tin chính xác về học vấn và chứng chỉ. <em>Bạn chưa cần tải lên tệp scan tài liệu hay bản chụp văn bằng</em>. Tính năng đính kèm tệp minh chứng sẽ được kích hoạt khi gửi hồ sơ chính thức.
+                    </div>
+                </div>
+
+                <!-- 1. Trình độ học vấn -->
+                <div class="space-y-4">
+                    <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                        1. Trình Độ Học Vấn & Đào Tạo
+                    </h3>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                        <!-- Trình độ cao nhất -->
+                        <div>
+                            <label for="input-education_level" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Trình độ học vấn cao nhất <span class="text-rose-500">*</span>
+                            </label>
+                            {% set cur_edu = draft.education_level or 'Cử nhân (Đại học)' %}
+                            <select id="input-education_level" name="education_level" class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                <option value="Cử nhân (Đại học)" {% if cur_edu == 'Cử nhân (Đại học)' %}selected{% endif %}>Cử nhân (Đại học)</option>
+                                <option value="Thạc sĩ" {% if cur_edu == 'Thạc sĩ' %}selected{% endif %}>Thạc sĩ (Master)</option>
+                                <option value="Tiến sĩ" {% if cur_edu == 'Tiến sĩ' %}selected{% endif %}>Tiến sĩ (PhD)</option>
+                                <option value="Cao đẳng" {% if cur_edu == 'Cao đẳng' %}selected{% endif %}>Cao đẳng chuyên nghiệp</option>
+                                <option value="Khác" {% if cur_edu == 'Khác' %}selected{% endif %}>Khác</option>
+                            </select>
+                            <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-education_level"></p>
+                        </div>
+
+                        <!-- Trường đào tạo -->
+                        <div>
+                            <label for="input-university" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Cơ sở đào tạo / Trường ĐH <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="text" id="input-university" name="university"
+                                value="{{ draft.university or '' }}"
+                                placeholder="VD: ĐH Ngoại ngữ - ĐHQGHN, ĐH Hà Nội..."
+                                class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                            <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-university"></p>
+                        </div>
+
+                        <!-- Chuyên ngành -->
+                        <div>
+                            <label for="input-major" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Chuyên ngành đào tạo <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="text" id="input-major" name="major"
+                                value="{{ draft.major or '' }}"
+                                placeholder="VD: Ngôn ngữ Anh, Biên phiên dịch..."
+                                class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                            <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-major"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Chứng chỉ ngoại ngữ -->
+                <div class="pt-4 border-t border-slate-100 space-y-4">
+                    <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                        2. Chứng Chỉ Ngoại Ngữ Thẩm Định
+                    </h3>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                        <!-- Loại chứng chỉ -->
+                        <div>
+                            <label for="input-certificate_type" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Loại chứng chỉ / Văn bằng <span class="text-rose-500">*</span>
+                            </label>
+                            {% set cur_ct = draft.certificate_type or '' %}
+                            <select id="input-certificate_type" name="certificate_type" class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                <option value="">-- Chọn loại chứng chỉ --</option>
+                                <option value="IELTS" {% if cur_ct == 'IELTS' %}selected{% endif %}>IELTS (Tiếng Anh)</option>
+                                <option value="TOEIC" {% if cur_ct == 'TOEIC' %}selected{% endif %}>TOEIC / VSTEP</option>
+                                <option value="JLPT" {% if cur_ct == 'JLPT' %}selected{% endif %}>JLPT (Tiếng Nhật: N1, N2)</option>
+                                <option value="TOPIK" {% if cur_ct == 'TOPIK' %}selected{% endif %}>TOPIK (Tiếng Hàn: Topik 4, 5, 6)</option>
+                                <option value="HSK" {% if cur_ct == 'HSK' %}selected{% endif %}>HSK (Tiếng Trung: HSK 5, 6)</option>
+                                <option value="DELF/DALF" {% if cur_ct == 'DELF/DALF' %}selected{% endif %}>DELF / DALF (Tiếng Pháp: B2, C1)</option>
+                                <option value="TestDaF/Goethe" {% if cur_ct == 'TestDaF/Goethe' %}selected{% endif %}>TestDaF / Goethe (Tiếng Đức)</option>
+                                <option value="ТРКИ" {% if cur_ct == 'ТРКИ' %}selected{% endif %}>ТРКИ (Tiếng Nga)</option>
+                                <option value="University_Degree" {% if cur_ct == 'University_Degree' %}selected{% endif %}>Bằng Cử Nhân Ngôn Ngữ</option>
+                                <option value="Other" {% if cur_ct == 'Other' %}selected{% endif %}>Chứng chỉ / Bằng cấp khác</option>
+                            </select>
+                            <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-certificate_type"></p>
+                        </div>
+
+                        <!-- Điểm số / Cấp độ -->
+                        <div>
+                            <label for="input-certificate_name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Điểm số / Cấp độ chi tiết <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="text" id="input-certificate_name" name="certificate_name"
+                                value="{{ draft.certificate_name or '' }}"
+                                placeholder="VD: IELTS 8.0, JLPT N1, HSK 6 (260đ)..."
+                                class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                            <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-certificate_name"></p>
+                        </div>
+
+                        <!-- Năm cấp -->
+                        <div>
+                            <label for="input-cert_year" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Năm cấp chứng chỉ <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="number" id="input-cert_year" name="cert_year" min="1980" max="{{ current_year }}"
+                                value="{{ draft.cert_year or current_year }}"
+                                class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                            <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-cert_year"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════
+                 BƯỚC 5: KINH NGHIỆM NGHỀ NGHIỆP
+                 ═══════════════════════════════════════════════════════════════ -->
+            <div id="step-panel-5" class="step-panel hidden bg-white rounded-3xl border border-slate-200/90 shadow-soft p-6 sm:p-8 space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-2 text-brand-600 text-xs font-bold uppercase tracking-wider">
+                        <span>Bước 5</span>
+                        <span>·</span>
+                        <span>Hồ sơ thực chiến</span>
+                    </div>
+                    <h2 class="text-lg font-bold text-slate-900 mt-1">Kinh Nghiệm Nghề Nghiệp & Dự Án Thực Tế</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Minh chứng năng lực phiên dịch thực tế thông qua các mốc thời gian và dự án đã tham gia.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <!-- Số năm kinh nghiệm -->
+                    <div>
+                        <label for="input-experience_years" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Số năm kinh nghiệm phiên dịch <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="number" id="input-experience_years" name="experience_years" min="0" max="50"
+                            value="{{ draft.experience_years if draft.experience_years is not none else 3 }}"
+                            class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                        <p class="text-[11px] text-slate-400 mt-1">Số năm làm việc thực tế trong lĩnh vực dịch thuật.</p>
+                        <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-experience_years"></p>
+                    </div>
+
+                    <!-- Vị trí hiện tại -->
+                    <div>
+                        <label for="input-current_position" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Vị trí / Chức danh hiện tại hoặc gần nhất <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="text" id="input-current_position" name="current_position"
+                            value="{{ draft.current_position or '' }}"
+                            placeholder="VD: Phiên dịch viên Cabin tự do, Chuyên viên dịch thuật..."
+                            class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                        <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-current_position"></p>
+                    </div>
+                </div>
+
+                <!-- Doanh nghiệp / Đối tác tiêu biểu -->
+                <div>
+                    <label for="input-notable_clients" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Doanh nghiệp / Khách hàng tiêu biểu từng cộng tác</span>
+                        <span class="text-[11px] text-slate-400 font-normal">Tùy chọn</span>
+                    </label>
+                    <input type="text" id="input-notable_clients" name="notable_clients"
+                        value="{{ draft.notable_clients or '' }}"
+                        placeholder="VD: Samsung Việt Nam, FPT Software, Đại sứ quán Nhật Bản, Bộ Ngoại giao..."
+                        class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                </div>
+
+                <!-- Các dự án tiêu biểu -->
+                <div>
+                    <label for="input-featured_projects" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Các dự án, sự kiện hoặc hội nghị tiêu biểu đã tham gia <span class="text-rose-500">*</span></span>
+                        <span id="projects-char-counter" class="text-[11px] text-slate-400 font-normal">Tối thiểu 30 ký tự</span>
+                    </label>
+                    <textarea id="input-featured_projects" name="featured_projects" rows="4"
+                        placeholder="Mô tả cụ thể các hội nghị, sự kiện thương mại, đàm phán hợp đồng, dịch tháp tùng bạn từng phụ trách (Ví dụ: Diễn đàn Kinh tế Việt Nam 2024, Hội nghị Thượng đỉnh Khởi nghiệp Á-Âu...)..."
+                        class="form-field w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 leading-relaxed transition">{{ draft.featured_projects or '' }}</textarea>
+                    <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-featured_projects"></p>
+                </div>
+
+                <!-- Lời nhắn gửi Admin -->
+                <div>
+                    <label for="input-notes" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Ghi chú bổ sung hoặc lời nhắn gửi Ban quản trị</span>
+                        <span class="text-[11px] text-slate-400 font-normal">Tùy chọn</span>
+                    </label>
+                    <textarea id="input-notes" name="notes" rows="2"
+                        placeholder="Yêu cầu riêng, thông tin bổ sung về lịch trình hoặc mong muốn hợp tác với VietTranslate..."
+                        class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 leading-relaxed transition">{{ draft.notes or '' }}</textarea>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════
+                 BƯỚC 6: XEM LẠI THÔNG TIN (REVIEW & CONFIRM DRAFT)
+                 ═══════════════════════════════════════════════════════════════ -->
+            <div id="step-panel-6" class="step-panel hidden bg-white rounded-3xl border border-slate-200/90 shadow-soft p-6 sm:p-8 space-y-6">
+                <div class="border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-2 text-brand-600 text-xs font-bold uppercase tracking-wider">
+                        <span>Bước 6</span>
+                        <span>·</span>
+                        <span>Xem lại & Tổng hợp</span>
+                    </div>
+                    <h2 class="text-lg font-bold text-slate-900 mt-1">Xem Lại Thông Tin Khai Báo Hồ Sơ</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Kiểm tra lại toàn bộ thông tin đã nhập. Bạn có thể quay lại chỉnh sửa bất kỳ mục nào trước khi hoàn tất lưu nháp.</p>
+                </div>
+
+                <!-- Status Banner: Tương ứng theo trạng thái hồ sơ -->
+                {% if is_pending %}
+                <div class="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-amber-500/10 border border-amber-300 rounded-2xl p-5 text-amber-950 flex items-start gap-4 shadow-sm">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20 font-bold">
+                        ⏳
+                    </div>
+                    <div class="flex-grow">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-bold text-amber-950">Hồ Sơ Đang Trong Hàng Đợi Xét Duyệt (Chờ Duyệt)</h3>
+                            <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">Phiên bản #{{ verification.submission_version or 1 }}</span>
+                        </div>
+                        <p class="text-xs text-amber-900 mt-1 leading-relaxed">
+                            Hồ sơ đã được gửi tới Ban quản trị vào lúc <strong>{{ verification.submitted_at.strftime('%d/%m/%Y %H:%M') if verification.submitted_at else '' }}</strong>.
+                            Để đảm bảo tính toàn vẹn và minh bạch, biểu mẫu hiện ở chế độ xem lại (chỉ đọc) và không thể chỉnh sửa trong suốt thời gian thẩm định.
+                        </p>
+                    </div>
+                </div>
+                {% elif is_approved %}
+                <div class="bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-emerald-500/10 border border-emerald-300 rounded-2xl p-5 text-emerald-950 flex items-start gap-4 shadow-sm">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/20 font-bold">
+                        ✓
+                    </div>
+                    <div class="flex-grow">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-bold text-emerald-950">Hồ Sơ Đã Được Phê Duyệt Xác Minh Chính Thức</h3>
+                            <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Đã cấp Tích Xanh</span>
+                        </div>
+                        <p class="text-xs text-emerald-900 mt-1 leading-relaxed">
+                            Chúc mừng bạn! Hồ sơ phiên dịch viên của bạn đã hoàn tất xét duyệt và đang hoạt động với huy hiệu uy tín trên toàn bộ hệ thống VietTranslate.
+                        </p>
+                    </div>
+                </div>
+                {% else %}
+                <div class="bg-gradient-to-r from-indigo-50/90 via-purple-50/50 to-blue-50/90 border border-indigo-200/90 rounded-2xl p-5 text-indigo-950 flex items-start gap-4 shadow-sm">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-500/20 font-bold">
+                        📋
+                    </div>
+                    <div class="flex-grow">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-bold text-indigo-950">Hồ Sơ Đang Ở Trạng Thái Bản Nháp (Draft)</h3>
+                            <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">Sẵn sàng gửi</span>
+                        </div>
+                        <p class="text-xs text-indigo-800/90 mt-1 leading-relaxed">
+                            Rà soát lại toàn bộ thông tin và tài liệu đính kèm. Sau khi kiểm tra đầy đủ, bạn có thể nhấn <strong>"Gửi hồ sơ xét duyệt"</strong> để chuyển hồ sơ sang hàng đợi Ban quản trị.
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 5 REVIEW CARDS -->
+                <div class="space-y-4" id="review-cards-container">
+                    <!-- Card 1: Thông tin cá nhân -->
+                    <div class="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 mb-3">
+                            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-extrabold">1</span>
+                                Thông Tin Cá Nhân & Định Danh
+                            </h3>
+                            <button type="button" onclick="goToStep(1)" class="text-xs font-bold text-brand-600 hover:text-brand-800 transition flex items-center gap-1 cursor-pointer">
+                                <span>✏️ Sửa bước 1</span>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                            <div><span class="text-slate-400 block text-[11px]">Họ và tên:</span> <strong id="rev-full_name" class="text-slate-800">-</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Email tài khoản:</span> <strong class="text-slate-800">{{ user.email }}</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Số điện thoại:</span> <strong id="rev-phone" class="text-slate-800">-</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Giới tính:</span> <strong id="rev-gender" class="text-slate-800">-</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Ngày sinh:</span> <strong id="rev-dob" class="text-slate-800">-</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Nơi cư trú:</span> <strong id="rev-location" class="text-slate-800">-</strong></div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-slate-200/60 text-xs">
+                            <span class="text-slate-400 block text-[11px]">Giới thiệu bản thân:</span>
+                            <p id="rev-bio" class="text-slate-700 mt-0.5 italic leading-relaxed">-</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Ngôn ngữ & Chiều dịch -->
+                    <div class="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 mb-3">
+                            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-extrabold">2</span>
+                                Ngôn Ngữ Nguồn, Đích & Chiều Dịch
+                            </h3>
+                            <button type="button" onclick="goToStep(2)" class="text-xs font-bold text-brand-600 hover:text-brand-800 transition flex items-center gap-1 cursor-pointer">
+                                <span>✏️ Sửa bước 2</span>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                            <div><span class="text-slate-400 block text-[11px]">Cặp ngôn ngữ chính:</span> <strong id="rev-lang-pair" class="text-brand-700 font-bold">-</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Chiều phiên dịch:</span> <strong id="rev-direction" class="text-slate-800">-</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Mức độ thành thạo:</span> <strong id="rev-proficiency" class="text-slate-800">-</strong></div>
+                        </div>
+                        <div id="rev-secondary-container" class="mt-2 text-xs text-slate-600 hidden">
+                            <span class="text-slate-400 text-[11px]">Cặp ngôn ngữ bổ sung:</span> <span id="rev-secondary">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Lĩnh vực chuyên môn -->
+                    <div class="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 mb-3">
+                            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-extrabold">3</span>
+                                Lĩnh Vực Chuyên Môn & Hình Thức Dịch
+                            </h3>
+                            <button type="button" onclick="goToStep(3)" class="text-xs font-bold text-brand-600 hover:text-brand-800 transition flex items-center gap-1 cursor-pointer">
+                                <span>✏️ Sửa bước 3</span>
+                            </button>
+                        </div>
+                        <div class="space-y-2 text-xs">
+                            <div>
+                                <span class="text-slate-400 block text-[11px] mb-1">Lĩnh vực chuyên môn thế mạnh:</span>
+                                <div id="rev-specializations" class="flex flex-wrap gap-1.5">-</div>
+                            </div>
+                            <div class="pt-2 border-t border-slate-200/60">
+                                <span class="text-slate-400 block text-[11px] mb-1">Hình thức phiên dịch đảm nhận:</span>
+                                <div id="rev-interpreting-types" class="flex flex-wrap gap-1.5">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 4: Học vấn & Chứng chỉ -->
+                    <div class="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 mb-3">
+                            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-extrabold">4</span>
+                                Học Vấn & Chứng Chỉ Ngoại Ngữ
+                            </h3>
+                            <button type="button" onclick="goToStep(4)" class="text-xs font-bold text-brand-600 hover:text-brand-800 transition flex items-center gap-1 cursor-pointer">
+                                <span>✏️ Sửa bước 4</span>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                            <div><span class="text-slate-400 block text-[11px]">Trình độ học vấn:</span> <strong id="rev-education_level" class="text-slate-800">-</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Cơ sở đào tạo:</span> <strong id="rev-university" class="text-slate-800">-</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Chuyên ngành:</span> <strong id="rev-major" class="text-slate-800">-</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Loại chứng chỉ:</span> <strong id="rev-certificate_type" class="text-slate-800">-</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Điểm số / Cấp độ:</span> <strong id="rev-certificate_name" class="text-emerald-700 font-bold">-</strong></div>
+                            <div><span class="text-slate-400 block text-[11px]">Năm cấp:</span> <strong id="rev-cert_year" class="text-slate-800">-</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- Card 5: Kinh nghiệm nghề nghiệp -->
+                    <div class="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 mb-3">
+                            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-extrabold">5</span>
+                                Kinh Nghiệm Nghề Nghiệp & Dự Án Thực Tế
+                            </h3>
+                            <button type="button" onclick="goToStep(5)" class="text-xs font-bold text-brand-600 hover:text-brand-800 transition flex items-center gap-1 cursor-pointer">
+                                <span>✏️ Sửa bước 5</span>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div><span class="text-slate-400 block text-[11px]">Số năm kinh nghiệm:</span> <strong id="rev-experience_years" class="text-slate-800">-</strong> năm</div>
+                            <div><span class="text-slate-400 block text-[11px]">Vị trí hiện tại:</span> <strong id="rev-current_position" class="text-slate-800">-</strong></div>
+                            <div class="sm:col-span-2"><span class="text-slate-400 block text-[11px]">Đối tác / Khách hàng tiêu biểu:</span> <span id="rev-notable_clients" class="text-slate-700">-</span></div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-slate-200/60 text-xs">
+                            <span class="text-slate-400 block text-[11px]">Các dự án tiêu biểu:</span>
+                            <p id="rev-featured_projects" class="text-slate-700 mt-0.5 leading-relaxed">-</p>
+                        </div>
+                        <div id="rev-notes-container" class="mt-2 text-xs hidden">
+                            <span class="text-slate-400 text-[11px]">Lời nhắn gửi Admin:</span>
+                            <p id="rev-notes" class="text-slate-600 italic mt-0.5">-</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 6: Tài liệu minh chứng đã đính kèm -->
+                    <div class="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition" id="rev-docs-card">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 mb-3">
+                            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-extrabold">6</span>
+                                Tài Liệu Minh Chứng Đính Kèm
+                            </h3>
+                            {% if not is_pending and not is_approved %}
+                            <a href="{{ url_for('account_profile') }}?tab=verification" class="text-xs font-bold text-brand-600 hover:text-brand-800 transition flex items-center gap-1 cursor-pointer">
+                                <span>📎 Quản lý tài liệu</span>
+                            </a>
+                            {% endif %}
+                        </div>
+
+                        <!-- Danh sách tài liệu đính kèm -->
+                        <div class="space-y-2 text-xs" id="rev-docs-list">
+                            {% set has_cv_attached = false %}
+                            {% if verification_documents and (verification_documents | length > 0) %}
+                                {% for doc in verification_documents %}
+                                    {% if doc.document_type == 'cv' %}{% set has_cv_attached = true %}{% endif %}
+                                    <div class="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-xl">
+                                        <div class="flex items-center gap-2.5 min-w-0">
+                                            <span class="w-7 h-7 rounded-lg bg-brand-50 text-brand-700 font-bold text-[10px] flex items-center justify-center shrink-0">{{ doc.file_extension.upper() }}</span>
+                                            <div class="truncate">
+                                                <strong class="text-slate-800 block truncate">{{ doc.original_filename }}</strong>
+                                                <span class="text-[10px] text-slate-400">
+                                                    {% if doc.document_type == 'cv' %}Sơ yếu lý lịch (CV / Resume) — Bắt buộc
+                                                    {% elif doc.document_type == 'certificate' %}Bằng cấp / Chứng chỉ ngoại ngữ
+                                                    {% elif doc.document_type == 'id_card' %}Căn cước công dân (CCCD)
+                                                    {% elif doc.document_type == 'diploma' %}Bằng tốt nghiệp ĐH/CĐ
+                                                    {% else %}Thư giới thiệu / Hợp đồng{% endif %}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200/80 shrink-0">✓ Đã đính kèm</span>
+                                    </div>
+                                {% endfor %}
+                            {% elif verification and verification.cv_url %}
+                                {% set has_cv_attached = true %}
+                                <div class="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-xl">
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 font-bold text-[10px] flex items-center justify-center shrink-0">DOC</span>
+                                        <div>
+                                            <strong class="text-slate-800 block">{{ verification.cv_filename or 'Sơ yếu lý lịch (CV)' }}</strong>
+                                            <span class="text-[10px] text-slate-400">Sơ yếu lý lịch (CV)</span>
+                                        </div>
+                                    </div>
+                                    <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200/80">✓ Đã đính kèm</span>
+                                </div>
+                            {% endif %}
+
+                            {% if not has_cv_attached %}
+                            <div class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 flex items-start gap-2.5" id="cv-missing-warning">
+                                <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                <div class="text-xs">
+                                    <strong class="font-bold text-rose-950">Chưa đính kèm Sơ yếu lý lịch (CV / Resume)!</strong>
+                                    <p class="text-rose-800 mt-0.5">Theo chính sách thẩm định của VietTranslate, tệp CV là <strong>bắt buộc</strong> để hồ sơ đủ điều kiện gửi duyệt.</p>
+                                    <a href="{{ url_for('account_profile') }}?tab=verification" class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-800 mt-1.5 underline">
+                                        Tải lên CV ngay tại Kho tài liệu →
+                                    </a>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Khối Cam Kết Tính Xác Thực Của Thông Tin -->
+                    {% if not is_pending and not is_approved %}
+                    <div class="p-4 sm:p-5 rounded-2xl border-2 border-brand-200 bg-brand-50/40 text-brand-950 space-y-2" id="pledge-container">
+                        <div class="flex items-start gap-3">
+                            <input type="checkbox" id="verification-pledge-checkbox" class="w-4 h-4 mt-1 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer">
+                            <label for="verification-pledge-checkbox" class="text-xs text-slate-800 leading-relaxed font-semibold cursor-pointer select-none">
+                                Tôi xin cam đoan toàn bộ thông tin khai báo và các tài liệu minh chứng đính kèm là hoàn toàn chính xác, trung thực. Tôi hiểu rằng sau khi gửi, hồ sơ sẽ được lưu thành phiên bản bất biến (Snapshot) chuyển sang hàng đợi Ban quản trị và không thể tự ý sửa đổi âm thầm trong suốt quá trình thẩm định.
+                            </label>
+                        </div>
+                        <p class="text-[11px] text-slate-500 pl-7">Trường cam kết bắt buộc theo quy chế kiểm duyệt phiên dịch viên VietTranslate.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════
+                 ACTION TOOLBAR (BUTTONS: BACK, SAVE DRAFT, NEXT, SUBMIT)
+                 ═══════════════════════════════════════════════════════════════ -->
+            <div class="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-soft flex flex-col sm:flex-row items-center justify-between gap-3">
+                <!-- Nút Quay lại -->
+                <div class="w-full sm:w-auto">
+                    <button type="button" id="btn-back" onclick="handleBackClick()"
+                        class="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                        <span>Quay lại</span>
+                    </button>
+                </div>
+
+                <!-- Nhóm nút bên phải: Lưu nháp & Tiếp tục / Gửi hồ sơ -->
+                <div class="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-3">
+                    <!-- Nút Lưu nháp -->
+                    {% if not is_pending and not is_approved %}
+                    <button type="button" id="btn-save-draft" onclick="handleSaveDraftClick()"
+                        class="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-sm cursor-pointer">
+                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+                        <span id="save-draft-btn-text">Lưu nháp</span>
+                    </button>
+                    {% endif %}
+
+                    <!-- Nút Tiếp tục (Steps 1-5) -->
+                    <button type="button" id="btn-next" onclick="handleNextClick()"
+                        class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-md shadow-brand-500/25 cursor-pointer">
+                        <span>Tiếp tục</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </button>
+
+                    <!-- Nút Gửi hồ sơ xét duyệt (Step 6 only) -->
+                    {% if not is_pending and not is_approved %}
+                    <button type="button" id="btn-submit-verification" onclick="handleSubmitVerificationClick()"
+                        class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-md shadow-brand-500/25 cursor-pointer hidden">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                        <span>Gửi hồ sơ xét duyệt</span>
+                    </button>
+                    {% elif is_pending %}
+                    <div class="px-5 py-2.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                        <span>Đang chờ Ban quản trị duyệt (Khóa chỉnh sửa)</span>
+                    </div>
+                    {% elif is_approved %}
+                    <div class="px-5 py-2.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        <span>Hồ sơ đã được phê duyệt xác minh</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+
+    </div>
+</div>
+
+<!-- MODAL 1: XÁC NHẬN GỬI HỒ SƠ (CONFIRMATION MODAL) -->
+<div id="submit-confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs hidden transition-all">
+    <div class="bg-white rounded-3xl border border-slate-200/90 shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-500 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-brand-500/30 font-bold">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900">Xác Nhận Gửi Hồ Sơ Xác Minh</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Vui lòng rà soát lại thông tin trước khi chuyển hồ sơ sang hàng đợi Ban quản trị.</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-xs space-y-2.5">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-200/70">
+                <span class="text-slate-500">Họ và tên:</span>
+                <strong class="text-slate-900" id="confirm-modal-name">-</strong>
+            </div>
+            <div class="flex justify-between items-center pb-2 border-b border-slate-200/70">
+                <span class="text-slate-500">Cặp ngôn ngữ phiên dịch:</span>
+                <strong class="text-brand-700 font-bold" id="confirm-modal-lang">-</strong>
+            </div>
+            <div class="flex justify-between items-center pb-2 border-b border-slate-200/70">
+                <span class="text-slate-500">Chứng chỉ ngoại ngữ:</span>
+                <strong class="text-emerald-700 font-bold" id="confirm-modal-cert">-</strong>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-slate-500">Số tài liệu minh chứng:</span>
+                <strong class="text-slate-800" id="confirm-modal-docs-count">{{ verification_documents | length }} tệp</strong>
+            </div>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2.5">
+            <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <p class="leading-relaxed">
+                <strong>Lưu ý quan trọng:</strong> Sau khi gửi, hồ sơ sẽ được lưu thành phiên bản bất biến và chuyển sang hàng đợi Ban quản trị. Biểu mẫu sẽ được <strong>khóa chỉnh sửa</strong> để bảo đảm tính minh bạch trong suốt thời gian thẩm định.
+            </p>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+            <button type="button" onclick="closeSubmitConfirmModal()"
+                class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs sm:text-sm transition cursor-pointer">
+                Xem lại thông tin
+            </button>
+            <button type="button" id="modal-confirm-submit-btn" onclick="executeVerificationSubmit()"
+                class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white font-bold text-xs sm:text-sm flex items-center gap-2 transition shadow-md shadow-brand-500/25 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                <span>Xác nhận & Gửi hồ sơ</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 2: HIỂN THỊ DANH SÁCH LỖI NẾU HỒ SƠ CHƯA ĐỦ ĐIỀU KIỆN -->
+<div id="submit-errors-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs hidden transition-all">
+    <div class="bg-white rounded-3xl border border-rose-200 shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 font-bold">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900">Hồ Sơ Chưa Đủ Điều Kiện Gửi Xét Duyệt</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Vui lòng hoàn thiện các yêu cầu bắt buộc bên dưới trước khi gửi.</p>
+            </div>
+        </div>
+
+        <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-xs max-h-60 overflow-y-auto space-y-2">
+            <strong class="font-bold text-rose-950 block">Danh sách các mục cần bổ sung:</strong>
+            <ul id="submit-errors-list" class="space-y-1.5 text-rose-800 list-disc list-inside"></ul>
+        </div>
+
+        <p class="text-[11px] text-slate-500">
+            Dữ liệu bản nháp của bạn đã được bảo lưu an toàn. Bạn có thể quay lại các bước tương ứng để bổ sung mà không làm mất thông tin đã nhập.
+        </p>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+            <button type="button" onclick="closeSubmitErrorsModal()"
+                class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm transition cursor-pointer">
+                Đã hiểu, để tôi kiểm tra lại
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 3: KẾT QUẢ GỬI THÀNH CÔNG -->
+<div id="submit-success-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs hidden transition-all">
+    <div class="bg-white rounded-3xl border border-emerald-200 shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 text-center animate-in fade-in zoom-in-95 duration-200">
+        <div class="w-16 h-16 rounded-3xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-2xl font-bold shadow-lg shadow-emerald-500/20">
+            ✓
+        </div>
+        <div>
+            <h3 class="text-lg font-extrabold text-slate-900">Hồ Sơ Đã Được Gửi Thành Công!</h3>
+            <p class="text-xs sm:text-sm text-slate-600 mt-1">
+                Hồ sơ của bạn đã được lưu thành <strong class="text-slate-900" id="success-modal-version">Phiên bản #1</strong> và chuyển vào hàng đợi thẩm định của Ban quản trị.
+            </p>
+        </div>
+
+        <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-xs text-emerald-900 text-left space-y-2">
+            <div class="flex justify-between">
+                <span>Thời điểm gửi:</span>
+                <strong id="success-modal-time">-</strong>
+            </div>
+            <div class="flex justify-between">
+                <span>Trạng thái hàng đợi:</span>
+                <strong class="text-emerald-700">Đang chờ Admin duyệt</strong>
+            </div>
+            <div class="flex justify-between">
+                <span>Thời gian xét duyệt dự kiến:</span>
+                <strong>24 – 48 giờ làm việc</strong>
+            </div>
+        </div>
+
+        <div class="pt-2">
+            <a href="{{ url_for('verification_status_page') }}"
+                class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm transition shadow-md shadow-emerald-500/25">
+                <span>Xem trang theo dõi tiến độ hồ sơ</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- FLOATING TOAST NOTIFICATION -->
+<div id="toast-notification" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-xs sm:text-sm font-semibold bg-white border-slate-200 text-slate-800" id="toast-inner">
+        <span id="toast-icon">✓</span>
+        <span id="toast-message">Đã lưu nháp thành công</span>
+    </div>
+</div>
+
+<script>
+/**
+ * VietTranslate Multi-step Interpreter Verification Form Controller
+ * Hỗ trợ xác thực dữ liệu tức thì, lưu nháp vào cơ sở dữ liệu và khôi phục khi reload trang.
+ */
+let currentStep = {{ active_step or 1 }};
+const totalSteps = 6;
+let isSaving = false;
+
+// Dữ liệu nháp ban đầu tải từ backend
+let draftData = {{ draft | tojson | safe }};
+
+document.addEventListener('DOMContentLoaded', function () {
+    renderStep(currentStep);
+    initLiveCounters();
+    initFormDirtyListener();
+    {% if is_pending or is_approved %}
+    disableFormForReviewMode();
+    {% endif %}
+});
+
+// Chuyển bước trên giao diện
+function renderStep(step) {
+    currentStep = step;
+
+    // Ẩn tất cả các panel
+    for (let s = 1; s <= totalSteps; s++) {
+        const panel = document.getElementById(`step-panel-${s}`);
+        if (panel) {
+            if (s === step) {
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+    }
+
+    // Ẩn banner lỗi bước trước nếu có
+    hideStepErrorBanner();
+
+    // Cập nhật thanh tiến trình
+    const progressPercent = Math.round((step / totalSteps) * 100);
+    const progressBarFill = document.getElementById('progress-bar-fill');
+    const progressText = document.getElementById('progress-percentage-text');
+    const stepCounterText = document.getElementById('step-counter-text');
+
+    if (progressBarFill) progressBarFill.style.width = `${progressPercent}%`;
+    if (progressText) progressText.innerText = `${progressPercent}%`;
+    if (stepCounterText) stepCounterText.innerText = `Bước ${step} trên ${totalSteps}`;
+
+    // Cập nhật các nút chỉ báo bước (Step indicator buttons)
+    const indicatorButtons = document.querySelectorAll('.step-nav-btn');
+    indicatorButtons.forEach(btn => {
+        const btnStep = parseInt(btn.getAttribute('data-step'));
+        const badge = btn.querySelector('.step-badge');
+        const label = btn.querySelector('.step-label');
+
+        btn.classList.remove('border-brand-500', 'bg-brand-50/40', 'border-slate-200', 'border-emerald-300', 'bg-emerald-50/30');
+
+        if (btnStep === step) {
+            // Bước hiện tại (Active)
+            btn.classList.add('border-brand-500', 'bg-brand-50/40');
+            badge.className = 'step-badge w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-extrabold bg-brand-600 text-white shadow-sm shadow-brand-500/20';
+            badge.innerText = btnStep;
+            label.className = 'step-label truncate text-brand-900 font-extrabold';
+        } else if (btnStep < step) {
+            // Bước đã hoàn thành
+            btn.classList.add('border-emerald-200', 'bg-emerald-50/30');
+            badge.className = 'step-badge w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-extrabold bg-emerald-600 text-white';
+            badge.innerText = '✓';
+            label.className = 'step-label truncate text-slate-700 font-bold';
+        } else {
+            // Bước tương lai
+            btn.classList.add('border-slate-200');
+            badge.className = 'step-badge w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 font-extrabold bg-slate-100 text-slate-400';
+            badge.innerText = btnStep;
+            label.className = 'step-label truncate text-slate-500 font-medium';
+        }
+    });
+
+    // Cập nhật các nút chuyển hướng
+    const btnBack = document.getElementById('btn-back');
+    const btnNext = document.getElementById('btn-next');
+    const btnSubmit = document.getElementById('btn-submit-verification');
+
+    if (btnBack) {
+        btnBack.disabled = (step === 1);
+        if (step === 1) {
+            btnBack.classList.add('opacity-40', 'cursor-not-allowed');
+        } else {
+            btnBack.classList.remove('opacity-40', 'cursor-not-allowed');
+        }
+    }
+
+    if (step === 6) {
+        if (btnNext) btnNext.classList.add('hidden');
+        if (btnSubmit) btnSubmit.classList.remove('hidden');
+        populateReviewStep();
+    } else {
+        if (btnNext) btnNext.classList.remove('hidden');
+        if (btnSubmit) btnSubmit.classList.add('hidden');
+    }
+
+    // Scroll nhẹ lên đầu form
+    window.scrollTo({ top: 120, behavior: 'smooth' });
+}
+
+// Thu thập toàn bộ dữ liệu biểu mẫu
+function getFormData() {
+    const form = document.getElementById('verification-multistep-form');
+    const data = {};
+
+    // Text inputs, selects, textareas
+    const elements = form.querySelectorAll('input[type="text"], input[type="tel"], input[type="date"], input[type="number"], select, textarea');
+    elements.forEach(el => {
+        if (el.name) {
+            data[el.name] = el.value.trim();
+        }
+    });
+
+    // Radios
+    const radios = form.querySelectorAll('input[type="radio"]:checked');
+    radios.forEach(r => {
+        data[r.name] = r.value;
+    });
+
+    // Checkboxes (specializations & interpreting_types)
+    const specs = Array.from(form.querySelectorAll('input[name="specializations"]:checked')).map(cb => cb.value);
+    data['specializations'] = specs;
+
+    const types = Array.from(form.querySelectorAll('input[name="interpreting_types"]:checked')).map(cb => cb.value);
+    data['interpreting_types'] = types;
+
+    return data;
+}
+
+// Kiểm tra client-side cho bước hiện tại
+function validateClientStep(step, data) {
+    const errors = {};
+    const curYear = new Date().getFullYear();
+
+    if (step === 1) {
+        const name = (data.full_name || '').trim();
+        if (!name) {
+            errors['full_name'] = 'Vui lòng nhập họ và tên đầy đủ.';
+        } else if (name.split(/\s+/).length < 2) {
+            errors['full_name'] = 'Họ và tên định danh phải có ít nhất 2 từ (Họ và Tên).';
+        }
+
+        const phone = (data.phone || '').trim().replace(/[\s\-\.]/g, '');
+        if (!phone) {
+            errors['phone'] = 'Vui lòng nhập số điện thoại liên hệ.';
+        } else if (!/^(\+84|0)[3|5|7|8|9][0-9]{8}$/.test(phone) && !/^\d{9,12}$/.test(phone)) {
+            errors['phone'] = 'Số điện thoại không đúng định dạng (Ví dụ: 0901234567).';
+        }
+
+        if (!data.gender) {
+            errors['gender'] = 'Vui lòng chọn giới tính.';
+        }
+
+        if (!data.dob) {
+            errors['dob'] = 'Vui lòng chọn ngày sinh.';
+        } else {
+            const birthDate = new Date(data.dob);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            if (age < 18) {
+                errors['dob'] = 'Bạn phải từ 18 tuổi trở lên để đăng ký xác minh phiên dịch viên.';
+            } else if (age > 80) {
+                errors['dob'] = 'Năm sinh không hợp lệ.';
+            }
+        }
+
+        if (!(data.location || '').trim()) {
+            errors['location'] = 'Vui lòng nhập tỉnh/thành phố nơi bạn cư trú.';
+        }
+
+        const bio = (data.bio || '').trim();
+        if (!bio) {
+            errors['bio'] = 'Vui lòng viết đoạn tóm tắt giới thiệu bản thân.';
+        } else if (bio.length < 20) {
+            errors['bio'] = `Giới thiệu bản thân cần ít nhất 20 ký tự (Hiện tại: ${bio.length} ký tự).`;
+        }
+    } else if (step === 2) {
+        const src = (data.source_language || '').trim();
+        const tar = (data.target_language || '').trim();
+
+        if (!src) errors['source_language'] = 'Vui lòng chọn ngôn ngữ nguồn.';
+        if (!tar) errors['target_language'] = 'Vui lòng chọn ngôn ngữ đích.';
+        if (src && tar && src.toLowerCase() === tar.toLowerCase()) {
+            errors['target_language'] = 'Ngôn ngữ đích phải khác với ngôn ngữ nguồn.';
+        }
+        if (!data.interpreting_direction) {
+            errors['interpreting_direction'] = 'Vui lòng chọn chiều phiên dịch.';
+        }
+        if (!data.language_proficiency) {
+            errors['language_proficiency'] = 'Vui lòng chọn mức độ thành thạo ngôn ngữ.';
+        }
+    } else if (step === 3) {
+        if (!data.specializations || data.specializations.length === 0) {
+            errors['specializations'] = 'Vui lòng chọn ít nhất 1 lĩnh vực chuyên môn thế mạnh.';
+        }
+        if (!data.interpreting_types || data.interpreting_types.length === 0) {
+            errors['interpreting_types'] = 'Vui lòng chọn ít nhất 1 hình thức phiên dịch bạn có thể đảm nhận.';
+        }
+    } else if (step === 4) {
+        if (!(data.education_level || '').trim()) {
+            errors['education_level'] = 'Vui lòng chọn trình độ học vấn cao nhất.';
+        }
+        const uni = (data.university || '').trim();
+        if (!uni) {
+            errors['university'] = 'Vui lòng nhập tên trường hoặc cơ sở đào tạo.';
+        } else if (uni.length < 3) {
+            errors['university'] = 'Tên trường đào tạo phải có ít nhất 3 ký tự.';
+        }
+        if (!(data.major || '').trim()) {
+            errors['major'] = 'Vui lòng nhập chuyên ngành đào tạo.';
+        }
+        if (!data.certificate_type) {
+            errors['certificate_type'] = 'Vui lòng chọn loại chứng chỉ ngoại ngữ.';
+        }
+        const certName = (data.certificate_name || '').trim();
+        if (!certName) {
+            errors['certificate_name'] = 'Vui lòng nhập điểm số hoặc cấp độ chứng chỉ (VD: IELTS 8.0, JLPT N1).';
+        }
+        const certYear = parseInt(data.cert_year, 10);
+        if (isNaN(certYear) || certYear < 1980 || certYear > curYear) {
+            errors['cert_year'] = `Năm cấp chứng chỉ không hợp lệ (1980 - ${curYear}).`;
+        }
+    } else if (step === 5) {
+        const exp = parseInt(data.experience_years, 10);
+        if (isNaN(exp) || exp < 0 || exp > 50) {
+            errors['experience_years'] = 'Số năm kinh nghiệm phải từ 0 đến 50 năm.';
+        }
+        const pos = (data.current_position || '').trim();
+        if (!pos) {
+            errors['current_position'] = 'Vui lòng nhập vị trí/chức danh phiên dịch hiện tại hoặc gần nhất.';
+        } else if (pos.length < 3) {
+            errors['current_position'] = 'Vị trí công tác cần ít nhất 3 ký tự.';
+        }
+        const projects = (data.featured_projects || '').trim();
+        if (!projects) {
+            errors['featured_projects'] = 'Vui lòng mô tả các dự án, sự kiện phiên dịch tiêu biểu đã tham gia.';
+        } else if (projects.length < 30) {
+            errors['featured_projects'] = `Mô tả dự án tiêu biểu cần ít nhất 30 ký tự để minh chứng năng lực (Hiện tại: ${projects.length} ký tự).`;
+        }
+    }
+
+    return errors;
+}
+
+// Hiển thị lỗi inline tại các trường
+function displayInlineErrors(errors) {
+    // Xóa lỗi cũ
+    clearAllInlineErrors();
+
+    const keys = Object.keys(errors);
+    if (keys.length === 0) return;
+
+    // Hiển thị banner lỗi chung
+    showStepErrorBanner('Vui lòng kiểm tra và hoàn thành các trường bắt buộc màu đỏ bên dưới.');
+
+    let firstErrorEl = null;
+
+    keys.forEach(field => {
+        const msg = errors[field];
+        const errEl = document.getElementById(`err-${field}`);
+        if (errEl) {
+            errEl.innerText = msg;
+            errEl.classList.remove('hidden');
+        }
+
+        const inputEl = document.getElementById(`input-${field}`);
+        if (inputEl) {
+            inputEl.classList.add('border-rose-500', 'bg-rose-50/20', 'ring-2', 'ring-rose-200');
+            if (!firstErrorEl) firstErrorEl = inputEl;
+        }
+    });
+
+    if (firstErrorEl) {
+        firstErrorEl.focus();
+        firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+// Xóa toàn bộ lỗi inline
+function clearAllInlineErrors() {
+    hideStepErrorBanner();
+    document.querySelectorAll('.error-msg').forEach(el => {
+        el.innerText = '';
+        el.classList.add('hidden');
+    });
+    document.querySelectorAll('.form-field').forEach(el => {
+        el.classList.remove('border-rose-500', 'bg-rose-50/20', 'ring-2', 'ring-rose-200');
+    });
+}
+
+function showStepErrorBanner(msg) {
+    const banner = document.getElementById('step-error-banner');
+    const msgEl = document.getElementById('step-error-banner-message');
+    if (banner && msgEl) {
+        msgEl.innerText = msg;
+        banner.classList.remove('hidden');
+    }
+}
+
+function hideStepErrorBanner() {
+    const banner = document.getElementById('step-error-banner');
+    if (banner) banner.classList.add('hidden');
+}
+
+// Nút Tiếp tục (Next step)
+async function handleNextClick() {
+    clearAllInlineErrors();
+    const data = getFormData();
+    
+    // Kiểm tra Client-side trước
+    const clientErrors = validateClientStep(currentStep, data);
+    if (Object.keys(clientErrors).length > 0) {
+        displayInlineErrors(clientErrors);
+        return;
+    }
+
+    // Gửi request validate & save backend
+    const nextBtn = document.getElementById('btn-next');
+    const originalText = nextBtn.innerHTML;
+    nextBtn.disabled = true;
+    nextBtn.innerHTML = `
+        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span>Đang kiểm tra...</span>
+    `;
+
+    try {
+        const payload = Object.assign({}, data, {
+            action: 'next_step',
+            step: currentStep
+        });
+
+        const resp = await fetch('{{ url_for("verification_form") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const res = await resp.json();
+
+        if (res.success) {
+            updateSaveTimestamp(res.last_saved);
+            draftData = res.draft_data || data;
+            renderStep(res.next_step);
+            showToast('✓ Đã lưu bước ' + currentStep + ' thành công');
+        } else {
+            if (res.errors) {
+                displayInlineErrors(res.errors);
+            } else {
+                showStepErrorBanner(res.message || 'Lỗi kiểm tra dữ liệu.');
+            }
+        }
+    } catch (err) {
+        showStepErrorBanner('Không thể kết nối máy chủ. Vui lòng thử lại.');
+    } finally {
+        nextBtn.disabled = false;
+        nextBtn.innerHTML = originalText;
+    }
+}
+
+// Nút Quay lại (Back step)
+function handleBackClick() {
+    clearAllInlineErrors();
+    if (currentStep > 1) {
+        // Tự động lưu nháp dữ liệu trước khi lùi bước
+        const data = getFormData();
+        saveDraftSilent(data, currentStep - 1);
+        renderStep(currentStep - 1);
+    }
+}
+
+// Nhảy trực tiếp tới bước (từ Review step hoặc Indicator)
+function goToStep(step) {
+    clearAllInlineErrors();
+    if (step >= 1 && step <= totalSteps) {
+        renderStep(step);
+    }
+}
+
+function handleStepNavClick(targetStep) {
+    // Chỉ cho phép nhảy tự do nếu lùi bước hoặc click lại bước hiện tại
+    if (targetStep <= currentStep) {
+        goToStep(targetStep);
+    } else {
+        // Nếu nhảy tiến lên, yêu cầu hoàn thành bước hiện tại
+        handleNextClick();
+    }
+}
+
+// Nút Lưu nháp chủ động (Save Draft Button)
+async function handleSaveDraftClick() {
+    clearAllInlineErrors();
+    const data = getFormData();
+    const btnText = document.getElementById('save-draft-btn-text');
+    const saveBtn = document.getElementById('btn-save-draft');
+
+    saveBtn.disabled = true;
+    btnText.innerText = 'Đang lưu...';
+
+    try {
+        const payload = Object.assign({}, data, {
+            action: 'save_draft',
+            step: currentStep,
+            target_step: currentStep
+        });
+
+        const resp = await fetch('{{ url_for("verification_form") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const res = await resp.json();
+
+        if (res.success) {
+            updateSaveTimestamp(res.last_saved);
+            draftData = res.draft_data || data;
+            showToast('✓ ' + (res.message || 'Đã lưu bản nháp thành công'));
+        } else {
+            showToast('✕ Lỗi: ' + (res.message || 'Không thể lưu nháp'), true);
+        }
+    } catch (err) {
+        showToast('✕ Lỗi kết nối mạng khi lưu nháp', true);
+    } finally {
+        saveBtn.disabled = false;
+        btnText.innerText = 'Lưu nháp';
+    }
+}
+
+// Lưu nháp ngầm không chặn UI
+async function saveDraftSilent(data, targetStep) {
+    try {
+        const payload = Object.assign({}, data, {
+            action: 'save_draft',
+            step: currentStep,
+            target_step: targetStep || currentStep
+        });
+
+        const resp = await fetch('{{ url_for("verification_form") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const res = await resp.json();
+        if (res.success && res.last_saved) {
+            updateSaveTimestamp(res.last_saved);
+        }
+    } catch (e) {
+        // Ignore background error
+    }
+}
+
+// Nút Xác nhận hoàn tất bản nháp (Step 6 fallback)
+async function handleConfirmDraftClick() {
+    const data = getFormData();
+    const confirmBtn = document.getElementById('btn-confirm-draft');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = `<span>Đang lưu...</span>`;
+    }
+
+    try {
+        const payload = Object.assign({}, data, {
+            action: 'confirm_draft',
+            step: 6
+        });
+
+        const resp = await fetch('{{ url_for("verification_form") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const res = await resp.json();
+        if (res.success) {
+            showToast('✓ Bản nháp đã được lưu hoàn tất! Đang chuyển hướng...');
+            setTimeout(() => {
+                window.location.href = res.redirect_url || '{{ url_for("account_profile") }}?tab=verification';
+            }, 1000);
+        } else {
+            showStepErrorBanner(res.message || 'Lỗi lưu bản nháp.');
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = `<span>Xác nhận hoàn tất bản nháp</span>`;
+            }
+        }
+    } catch (err) {
+        showStepErrorBanner('Không thể kết nối máy chủ.');
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = `<span>Xác nhận hoàn tất bản nháp</span>`;
+        }
+    }
+}
+
+let isSubmitting = false;
+
+// 1. Click nút "Gửi hồ sơ xét duyệt" ở Bước 6 -> Mở Confirmation Modal
+function handleSubmitVerificationClick() {
+    clearAllInlineErrors();
+    const pledgeCheckbox = document.getElementById('verification-pledge-checkbox');
+    if (!pledgeCheckbox || !pledgeCheckbox.checked) {
+        showToast('✕ Vui lòng tích chọn cam kết tính chính xác trước khi gửi hồ sơ', true);
+        if (pledgeCheckbox) {
+            pledgeCheckbox.focus();
+            const container = document.getElementById('pledge-container');
+            if (container) {
+                container.classList.add('ring-2', 'ring-rose-500');
+                setTimeout(() => container.classList.remove('ring-2', 'ring-rose-500'), 3000);
+            }
+        }
+        return;
+    }
+
+    // Cập nhật thông tin vào Modal xác nhận
+    const data = getFormData();
+    setText('confirm-modal-name', data.full_name || '{{ user.name }}');
+    setText('confirm-modal-lang', `${data.source_language || 'Tiếng Việt'} ➔ ${data.target_language || 'Tiếng Anh'}`);
+    setText('confirm-modal-cert', `${data.certificate_name || '-'} (${data.certificate_type || '-'})`);
+
+    const modal = document.getElementById('submit-confirm-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeSubmitConfirmModal() {
+    const modal = document.getElementById('submit-confirm-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function closeSubmitErrorsModal() {
+    const modal = document.getElementById('submit-errors-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+// 2. Thực thi gửi hồ sơ thực tế (chống gửi lặp đa tầng)
+async function executeVerificationSubmit() {
+    if (isSubmitting) return;
+    isSubmitting = true;
+
+    const modalBtn = document.getElementById('modal-confirm-submit-btn');
+    const mainSubmitBtn = document.getElementById('btn-submit-verification');
+    const origModalHtml = modalBtn ? modalBtn.innerHTML : 'Gửi hồ sơ';
+
+    if (modalBtn) {
+        modalBtn.disabled = true;
+        modalBtn.innerHTML = `
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>Đang gửi hồ sơ tới Admin...</span>
+        `;
+    }
+    if (mainSubmitBtn) mainSubmitBtn.disabled = true;
+
+    const data = getFormData();
+    const payload = Object.assign({}, data, {
+        action: 'submit_verification',
+        confirmed: true
+    });
+
+    try {
+        const resp = await fetch('{{ url_for("submit_verification") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const res = await resp.json();
+        closeSubmitConfirmModal();
+
+        if (res.success) {
+            // Khóa toàn bộ form ngay lập tức sau khi gửi thành công
+            disableFormForReviewMode();
+            setText('success-modal-version', `Phiên bản #${res.version || 1}`);
+            setText('success-modal-time', res.submitted_at || 'Vừa xong');
+            const sModal = document.getElementById('submit-success-modal');
+            if (sModal) sModal.classList.remove('hidden');
+            showToast('✓ ' + (res.message || 'Gửi hồ sơ thành công!'));
+        } else {
+            // Thất bại: hiển thị danh sách lỗi rõ ràng
+            displaySubmissionErrors(res);
+        }
+    } catch (err) {
+        closeSubmitConfirmModal();
+        showToast('✕ Lỗi kết nối mạng khi gửi hồ sơ. Dữ liệu chưa bị mất, bạn có thể thử lại.', true);
+        showStepErrorBanner('Không thể kết nối máy chủ để gửi hồ sơ. Vui lòng kiểm tra đường truyền và thử gửi lại.');
+    } finally {
+        isSubmitting = false;
+        if (modalBtn) {
+            modalBtn.disabled = false;
+            modalBtn.innerHTML = origModalHtml;
+        }
+        if (mainSubmitBtn) mainSubmitBtn.disabled = false;
+    }
+}
+
+// 3. Hiển thị danh sách lỗi khi hồ sơ chưa đủ điều kiện gửi
+function displaySubmissionErrors(res) {
+    const listEl = document.getElementById('submit-errors-list');
+    if (listEl) {
+        listEl.innerHTML = '';
+        const errors = res.error_list || [res.message || 'Hồ sơ chưa đủ điều kiện.'];
+        errors.forEach(err => {
+            const li = document.createElement('li');
+            li.className = 'flex items-start gap-2';
+            li.innerHTML = `<span class="text-rose-500 font-bold shrink-0">•</span><span>${err}</span>`;
+            listEl.appendChild(li);
+        });
+    }
+
+    if (res.errors) {
+        displayInlineErrors(res.errors);
+    }
+
+    const errModal = document.getElementById('submit-errors-modal');
+    if (errModal) {
+        errModal.classList.remove('hidden');
+    } else {
+        showStepErrorBanner(res.message || 'Hồ sơ chưa đủ điều kiện gửi.');
+    }
+}
+
+// 4. Khóa toàn bộ form ở chế độ Chỉ đọc sau khi hồ sơ đã gửi hoặc đã duyệt
+function disableFormForReviewMode() {
+    const form = document.getElementById('verification-multistep-form');
+    if (form) {
+        form.querySelectorAll('input, select, textarea').forEach(el => {
+            el.disabled = true;
+            if (el.type !== 'radio' && el.type !== 'checkbox') {
+                el.classList.add('bg-slate-100', 'cursor-not-allowed');
+            }
+        });
+    }
+    const saveBtn = document.getElementById('btn-save-draft');
+    if (saveBtn) saveBtn.remove();
+    const submitBtn = document.getElementById('btn-submit-verification');
+    if (submitBtn) submitBtn.remove();
+}
+
+// Đổ dữ liệu vào Bước 6 (Review & Summary)
+function populateReviewStep() {
+    const data = getFormData();
+
+    // Bước 1
+    setText('rev-full_name', data.full_name || '{{ user.name }}');
+    setText('rev-phone', data.phone || '{{ user.phone or "-" }}');
+    setText('rev-gender', data.gender === 'male' ? 'Nam' : (data.gender === 'female' ? 'Nữ' : (data.gender === 'other' ? 'Khác' : '-')));
+    setText('rev-dob', data.dob || '-');
+    setText('rev-location', data.location || '-');
+    setText('rev-bio', data.bio ? `"${data.bio}"` : '-');
+
+    // Bước 2
+    const src = data.source_language || 'Tiếng Việt';
+    const tar = data.target_language || 'Tiếng Anh';
+    let dirText = '⇄ Hai chiều (Song phương)';
+    if (data.interpreting_direction === 'source_to_target') dirText = '→ Nguồn sang Đích';
+    if (data.interpreting_direction === 'target_to_source') dirText = '← Đích về Nguồn';
+
+    let profText = 'C1 (Chuyên gia cao cấp)';
+    if (data.language_proficiency === 'native') profText = 'Bản ngữ (Native Speaker)';
+    if (data.language_proficiency === 'c2') profText = 'C2 / Xuất sắc';
+    if (data.language_proficiency === 'b2') profText = 'B2 / Thành thạo nghiệp vụ';
+
+    setText('rev-lang-pair', `${src} ➔ ${tar}`);
+    setText('rev-direction', dirText);
+    setText('rev-proficiency', profText);
+
+    const secCont = document.getElementById('rev-secondary-container');
+    const secEl = document.getElementById('rev-secondary');
+    if (data.secondary_language_pairs && data.secondary_language_pairs.trim()) {
+        secCont.classList.remove('hidden');
+        secEl.innerText = data.secondary_language_pairs;
+    } else {
+        secCont.classList.add('hidden');
+    }
+
+    // Bước 3
+    const specsEl = document.getElementById('rev-specializations');
+    specsEl.innerHTML = '';
+    if (data.specializations && data.specializations.length > 0) {
+        data.specializations.forEach(s => {
+            const badge = document.createElement('span');
+            badge.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-50 text-brand-800 border border-brand-200/80';
+            badge.innerText = s;
+            specsEl.appendChild(badge);
+        });
+    } else {
+        specsEl.innerText = 'Chưa chọn lĩnh vực';
+    }
+
+    const typesEl = document.getElementById('rev-interpreting-types');
+    typesEl.innerHTML = '';
+    if (data.interpreting_types && data.interpreting_types.length > 0) {
+        data.interpreting_types.forEach(t => {
+            const badge = document.createElement('span');
+            badge.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200/80';
+            badge.innerText = t;
+            typesEl.appendChild(badge);
+        });
+    } else {
+        typesEl.innerText = 'Chưa chọn hình thức';
+    }
+
+    // Bước 4
+    setText('rev-education_level', data.education_level || '-');
+    setText('rev-university', data.university || '-');
+    setText('rev-major', data.major || '-');
+    setText('rev-certificate_type', data.certificate_type || '-');
+    setText('rev-certificate_name', data.certificate_name || '-');
+    setText('rev-cert_year', data.cert_year || '-');
+
+    // Bước 5
+    setText('rev-experience_years', data.experience_years !== undefined ? data.experience_years : '-');
+    setText('rev-current_position', data.current_position || '-');
+    setText('rev-notable_clients', data.notable_clients || 'Không đề cập');
+    setText('rev-featured_projects', data.featured_projects || '-');
+
+    const notesCont = document.getElementById('rev-notes-container');
+    const notesEl = document.getElementById('rev-notes');
+    if (data.notes && data.notes.trim()) {
+        notesCont.classList.remove('hidden');
+        notesEl.innerText = `"${data.notes}"`;
+    } else {
+        notesCont.classList.add('hidden');
+    }
+}
+
+function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = text;
+}
+
+// Cập nhật timestamp lưu nháp
+function updateSaveTimestamp(timeStr) {
+    const badge = document.getElementById('save-status-text');
+    if (badge && timeStr) {
+        badge.innerText = `Đã lưu nháp lúc ${timeStr}`;
+    }
+}
+
+// Hiển thị Toast thông báo
+function showToast(message, isError = false) {
+    const toast = document.getElementById('toast-notification');
+    const inner = document.getElementById('toast-inner');
+    const msg = document.getElementById('toast-message');
+    const icon = document.getElementById('toast-icon');
+
+    if (!toast) return;
+
+    msg.innerText = message;
+    if (isError) {
+        inner.className = 'flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-xs sm:text-sm font-semibold bg-rose-50 border-rose-200 text-rose-800';
+        icon.innerText = '✕';
+    } else {
+        inner.className = 'flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-xs sm:text-sm font-semibold bg-white border-emerald-200 text-emerald-800 shadow-emerald-500/10';
+        icon.innerText = '✓';
+    }
+
+    toast.classList.remove('translate-y-20', 'opacity-0');
+    toast.classList.add('translate-y-0', 'opacity-100');
+
+    setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+    }, 3500);
+}
+
+// Quản lý style của Gender Radio Cards
+function updateRadioCard(input) {
+    const cards = document.querySelectorAll('.gender-card');
+    cards.forEach(card => {
+        const radio = card.querySelector('input[type="radio"]');
+        if (radio && radio.checked) {
+            card.classList.add('border-brand-600', 'bg-brand-50/50', 'text-brand-700');
+            card.classList.remove('border-slate-200');
+        } else {
+            card.classList.remove('border-brand-600', 'bg-brand-50/50', 'text-brand-700');
+            card.classList.add('border-slate-200');
+        }
+    });
+    // Xóa lỗi nếu có
+    const err = document.getElementById('err-gender');
+    if (err) err.classList.add('hidden');
+}
+
+// Quản lý style của Direction Cards
+function updateDirectionCard(input) {
+    const cards = document.querySelectorAll('.direction-card');
+    cards.forEach(card => {
+        const radio = card.querySelector('input[type="radio"]');
+        if (radio && radio.checked) {
+            card.classList.add('border-brand-600', 'bg-brand-50/40', 'text-brand-900', 'ring-2', 'ring-brand-500/20');
+            card.classList.remove('border-slate-200');
+        } else {
+            card.classList.remove('border-brand-600', 'bg-brand-50/40', 'text-brand-900', 'ring-2', 'ring-brand-500/20');
+            card.classList.add('border-slate-200');
+        }
+    });
+    const err = document.getElementById('err-interpreting_direction');
+    if (err) err.classList.add('hidden');
+}
+
+// Quản lý style của Checkbox Cards (Specializations & Interpreting Types)
+function updateCheckboxCard(input) {
+    const card = input.closest('label');
+    const isChecked = input.checked;
+    const isSpec = input.classList.contains('spec-checkbox');
+    const icon = card.querySelector(isSpec ? '.spec-check-icon' : '.type-check-icon');
+
+    if (isChecked) {
+        if (isSpec) {
+            card.classList.add('border-brand-500', 'bg-brand-50/30', 'ring-1', 'ring-brand-500/20');
+            card.classList.remove('border-slate-200', 'hover:border-slate-300', 'bg-white');
+            icon.className = 'spec-check-icon w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 text-xs transition bg-brand-600 border-brand-600 text-white font-bold';
+        } else {
+            card.classList.add('border-indigo-500', 'bg-indigo-50/30', 'ring-1', 'ring-indigo-500/20');
+            card.classList.remove('border-slate-200', 'hover:border-slate-300', 'bg-white');
+            icon.className = 'type-check-icon w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 text-xs transition bg-indigo-600 border-indigo-600 text-white font-bold';
+        }
+    } else {
+        card.classList.remove('border-brand-500', 'bg-brand-50/30', 'ring-1', 'ring-brand-500/20', 'border-indigo-500', 'bg-indigo-50/30', 'ring-1', 'ring-indigo-500/20');
+        card.classList.add('border-slate-200', 'hover:border-slate-300', 'bg-white');
+        icon.className = (isSpec ? 'spec-check-icon' : 'type-check-icon') + ' w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 text-xs transition border-slate-300 text-transparent';
+    }
+
+    if (isSpec) {
+        const err = document.getElementById('err-specializations');
+        if (err) err.classList.add('hidden');
+    } else {
+        const err = document.getElementById('err-interpreting_types');
+        if (err) err.classList.add('hidden');
+    }
+}
+
+// Character counter listeners
+function initLiveCounters() {
+    const bioInput = document.getElementById('input-bio');
+    const bioCounter = document.getElementById('bio-char-counter');
+    if (bioInput && bioCounter) {
+        const updateBioCount = () => {
+            const len = bioInput.value.trim().length;
+            bioCounter.innerText = `${len} ký tự (Tối thiểu 20)`;
+            if (len >= 20) {
+                bioCounter.classList.add('text-emerald-600', 'font-semibold');
+                bioCounter.classList.remove('text-slate-400', 'text-rose-600');
+            } else {
+                bioCounter.classList.remove('text-emerald-600', 'font-semibold');
+            }
+        };
+        bioInput.addEventListener('input', updateBioCount);
+        updateBioCount();
+    }
+
+    const projInput = document.getElementById('input-featured_projects');
+    const projCounter = document.getElementById('projects-char-counter');
+    if (projInput && projCounter) {
+        const updateProjCount = () => {
+            const len = projInput.value.trim().length;
+            projCounter.innerText = `${len} ký tự (Tối thiểu 30)`;
+            if (len >= 30) {
+                projCounter.classList.add('text-emerald-600', 'font-semibold');
+                projCounter.classList.remove('text-slate-400', 'text-rose-600');
+            } else {
+                projCounter.classList.remove('text-emerald-600', 'font-semibold');
+            }
+        };
+        projInput.addEventListener('input', updateProjCount);
+        updateProjCount();
+    }
+}
+
+// Xóa viền đỏ và text lỗi khi người dùng gõ
+function initFormDirtyListener() {
+    const inputs = document.querySelectorAll('.form-field');
+    inputs.forEach(input => {
+        input.addEventListener('input', function () {
+            this.classList.remove('border-rose-500', 'bg-rose-50/20', 'ring-2', 'ring-rose-200');
+            const fieldName = this.name || this.id.replace('input-', '');
+            const errEl = document.getElementById(`err-${fieldName}`);
+            if (errEl) errEl.classList.add('hidden');
+        });
+    });
+}
+</script>
+{% endblock %}

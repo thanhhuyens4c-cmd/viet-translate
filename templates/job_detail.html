@@ -90,9 +90,21 @@
                 </p>
 
                 <!-- Bảng tóm tắt thông tin thời gian & địa điểm -->
-                {% if job.event_date or job.event_location or job.event_time_start or job.deadline %}
+                {% if job.event_date or job.event_location or job.schedules or job.event_time_start or job.deadline %}
                 <div class="bg-slate-50 rounded-xl p-4 sm:p-5 border border-slate-200/70 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs text-slate-600">
-                    {% if job.event_date %}
+                    {% if job.schedules %}
+                    <div class="flex items-start gap-2.5">
+                        <span class="text-base leading-none">📅</span>
+                        <div>
+                            <span class="text-slate-500 block mb-0.5">{{ t('job_detail_page.time_label') }}</span>
+                            <ul class="mt-1 space-y-1">
+                                {% for sched in job.schedules %}
+                                <li><strong class="text-slate-800 font-semibold">{{ sched.scheduled_date.strftime('%d/%m/%Y') if sched.scheduled_date else '' }}</strong> ({{ sched.start_time }} - {{ sched.end_time }})</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% elif job.event_date %}
                     <div class="flex items-start gap-2.5">
                         <span class="text-base leading-none">📅</span>
                         <div>
@@ -350,6 +362,91 @@
             </div>
             {% endif %}
 
+            <script>
+                function toggleCompletionType() {
+                    const type = document.querySelector('input[name="completion_type"]:checked').value;
+                    if (type === 'duration') {
+                        document.getElementById('duration_input_group').classList.remove('hidden');
+                        document.getElementById('deadline_input_group').classList.add('hidden');
+                    } else {
+                        document.getElementById('duration_input_group').classList.add('hidden');
+                        document.getElementById('deadline_input_group').classList.remove('hidden');
+                    }
+                }
+
+                (function () {
+                    const badge = document.getElementById('schedule-status');
+                    const btn = document.getElementById('submit-proposal-btn');
+                    if (!badge || !btn) return;
+
+                    fetch('/api/jobs/{{ job.id }}/schedule-check')
+                        .then(r => r.json())
+                        .then(data => {
+                            badge.classList.remove('hidden');
+                            const hint = btn.nextElementSibling;
+                            if (hint) hint.remove();
+
+                            if (data.available) {
+                                badge.textContent = "{{ t('job_detail_page.schedule_available') }}";
+                                badge.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
+                            } else {
+                                let conflictMsg = "<div>⚠️ <strong>" + "{{ t('job_detail_page.schedule_conflict_prefix') }}" + "</strong><ul class='mt-1 ml-4 list-disc text-xs font-normal space-y-1'>";
+                                if (data.days && data.days.length > 0) {
+                                    data.days.forEach(day => {
+                                        if (!day.available) {
+                                            conflictMsg += `<li><span class='font-bold'>${day.date_display}:</span> ${day.message}</li>`;
+                                        }
+                                    });
+                                } else {
+                                    conflictMsg += `<li>${data.message || 'Lịch bị trùng'}</li>`;
+                                }
+                                conflictMsg += "</ul></div>";
+
+                                badge.innerHTML = conflictMsg;
+                                badge.classList.remove('flex', 'items-center', 'gap-2'); // Đổi sang block hiển thị list tốt hơn
+                                badge.classList.add('bg-red-50', 'text-red-800', 'border-red-200', 'block');
+                                btn.classList.replace('bg-brand-600', 'bg-slate-400');
+                                btn.classList.remove('hover:bg-brand-700');
+
+                                const desktopBtn = document.getElementById('desktop-apply-btn');
+                                if (desktopBtn) {
+                                    desktopBtn.textContent = 'KHÔNG THỂ NHẬN LỊCH';
+                                    desktopBtn.classList.replace('bg-brand-600', 'bg-slate-400');
+                                    desktopBtn.classList.remove('hover:bg-brand-700');
+                                    desktopBtn.removeAttribute('href');
+                                    desktopBtn.style.cursor = 'not-allowed';
+                                    desktopBtn.onclick = (e) => e.preventDefault();
+                                }
+
+                                const mobileBtn = document.getElementById('mobile-apply-btn');
+                                if (mobileBtn) {
+                                    mobileBtn.textContent = 'KHÔNG THỂ NHẬN LỊCH';
+                                    mobileBtn.classList.replace('bg-brand-600', 'bg-slate-400');
+                                    mobileBtn.classList.remove('hover:bg-brand-700');
+                                    mobileBtn.removeAttribute('href');
+                                    mobileBtn.style.cursor = 'not-allowed';
+                                    mobileBtn.onclick = (e) => e.preventDefault();
+                                }
+                            }
+                        })
+                        .catch(() => {
+                            /* pre-check failed silently – backend will still validate */
+                            const hint = btn.nextElementSibling;
+                            if (hint) hint.remove();
+                        });
+                })();
+                function updateProposalPricePreview(val) {
+                    const prev = document.getElementById('proposal-price-preview');
+                    if (!prev) return;
+                    const num = parseFloat(val);
+                    if (!isNaN(num) && num > 0) {
+                        prev.textContent = '≈ ' + Number(num).toLocaleString('en-US') + ' VND';
+                        prev.classList.remove('hidden');
+                    } else {
+                        prev.classList.add('hidden');
+                    }
+                }
+            </script>
             <!-- ═══ KHU VỰC KHÁCH THUÊ (QUẢN LÝ ỨNG VIÊN & ĐỀ XUẤT) ═══ -->
             {% if current_user and current_user.id == job.hirer_id %}
 
