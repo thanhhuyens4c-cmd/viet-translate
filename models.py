@@ -157,7 +157,7 @@ class HirerProfile(db.Model):
     account_type = db.Column(db.String(20), default='individual')
     # Doanh nghiệp: `company` = tên công ty, `title` = chức vụ người đại diện
     tax_code = db.Column(db.String(13))
-    industry = db.Column(db.String(150))
+    industry = db.Column(db.Text)  # nhiều lĩnh vực, cách nhau bởi ", "
     company_size = db.Column(db.String(20))
     address = db.Column(db.String(300))
     company_email = db.Column(db.String(150))

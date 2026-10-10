@@ -641,8 +641,12 @@ HIRING_FIELDS = ('Du lịch', 'Y tế', 'Đàm phán / Thương mại', 'Hội n
 HIRING_LANGUAGES = ('Tiếng Anh', 'Tiếng Trung', 'Tiếng Nhật', 'Tiếng Hàn', 'Tiếng Pháp', 'Tiếng Đức',
                     'Tiếng Nga', 'Tiếng Thái', 'Ngôn ngữ khác')
 HIRING_SERVICES = ('Phiên dịch trực tiếp', 'Phiên dịch online', 'Phiên dịch tháp tùng', 'Dịch tài liệu / Biên dịch')
+BUSINESS_INDUSTRIES = ('Sản xuất / Công nghiệp', 'Thương mại / Xuất nhập khẩu', 'Du lịch / Khách sạn / Nhà hàng',
+                       'Y tế / Dược', 'Giáo dục / Đào tạo', 'Công nghệ / IT', 'Tài chính / Ngân hàng / Bảo hiểm',
+                       'Xây dựng / Bất động sản', 'Pháp lý / Tư vấn', 'Truyền thông / Sự kiện',
+                       'Logistics / Vận tải', 'Nông nghiệp / Thực phẩm', 'Tổ chức phi lợi nhuận / NGO', 'Khác')
 app.jinja_env.globals.update(HIRING_FIELDS=HIRING_FIELDS, HIRING_LANGUAGES=HIRING_LANGUAGES,
-                             HIRING_SERVICES=HIRING_SERVICES)
+                             HIRING_SERVICES=HIRING_SERVICES, BUSINESS_INDUSTRIES=BUSINESS_INDUSTRIES)
 LOGO_MAX_BYTES = 300 * 1024
 LOGO_MIME = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'webp': 'image/webp'}
 
@@ -671,9 +675,17 @@ def _apply_hirer_profile_form(user, profile, form, files):
     def clean_phone(v):
         return re.sub(r'[\s.\-]', '', v)
 
+    def pick(name, options):
+        """Chỉ nhận giá trị nằm trong danh sách có sẵn, giữ đúng thứ tự danh sách."""
+        chosen = set(form.getlist(name))
+        return [o for o in options if o in chosen]
+
     account_type = get('account_type')
     if account_type not in ('business', 'individual'):
         return ['Vui lòng chọn loại khách hàng: Doanh nghiệp / Tổ chức hoặc Cá nhân.']
+    # Mỗi tài khoản chỉ thuộc một loại: đã lưu hồ sơ (có SĐT) thì không được đổi loại
+    if profile.contact_phone and profile.account_type and profile.account_type != account_type:
+        return ['Loại khách hàng đã được xác lập và không thể thay đổi. Mỗi tài khoản chỉ được là Doanh nghiệp / Tổ chức hoặc Cá nhân.']
 
     phone = clean_phone(get('contact_phone'))
     if not phone_re.match(phone):
@@ -692,7 +704,8 @@ def _apply_hirer_profile_form(user, profile, form, files):
     if account_type == 'business':
         company = get('company')
         tax_code = re.sub(r'[\s\-]', '', get('tax_code'))
-        industry = get('industry')
+        industries = pick('industry', BUSINESS_INDUSTRIES)
+        industry = ', '.join(industries)
         size = get('company_size')
         address = get('address')
         email = get('company_email').lower()
@@ -703,7 +716,7 @@ def _apply_hirer_profile_form(user, profile, form, files):
         if not company: errors.append('Vui lòng nhập tên công ty / tổ chức.')
         if not re.fullmatch(r'\d{10}|\d{13}', tax_code):
             errors.append('Mã số thuế phải gồm 10 hoặc 13 chữ số.')
-        if not industry: errors.append('Vui lòng nhập lĩnh vực hoạt động.')
+        if not industry: errors.append('Vui lòng chọn ít nhất một lĩnh vực hoạt động.')
         if size not in HIRER_COMPANY_SIZES: errors.append('Vui lòng chọn quy mô công ty.')
         if not address: errors.append('Vui lòng nhập địa chỉ trụ sở / chi nhánh.')
         if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
@@ -726,10 +739,6 @@ def _apply_hirer_profile_form(user, profile, form, files):
     else:
         full_name = get('full_name')
         province = get('location')
-        # Các lựa chọn có sẵn: chỉ nhận giá trị nằm trong danh sách, giữ đúng thứ tự danh sách
-        def pick(name, options):
-            chosen = set(form.getlist(name))
-            return [o for o in options if o in chosen]
         fields = pick('hiring_field', HIRING_FIELDS)
         languages = pick('hiring_languages', HIRING_LANGUAGES)
         services = pick('hiring_services', HIRING_SERVICES)

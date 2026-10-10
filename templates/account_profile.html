@@ -1647,18 +1647,34 @@
 
                         <form method="POST" action="{{ url_for('account_profile') }}" enctype="multipart/form-data" class="space-y-6" id="hirer-profile-form">
                             <input type="hidden" name="action" value="hirer_profile">
+                                {% macro chips(name, options, saved) %}
+                                <div class="flex flex-wrap gap-2">
+                                    {% for o in options %}
+                                    <label class="chip-opt cursor-pointer">
+                                        <input type="checkbox" name="{{ name }}" value="{{ o }}" class="sr-only" {% if o in (saved or '').split(', ') %}checked{% endif %}>
+                                        <span class="inline-block px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600 transition">{{ o }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {% endmacro %}
 
                             <!-- Chọn loại khách -->
                             <div class="grid grid-cols-2 gap-3">
-                                <label class="border rounded-xl p-4 cursor-pointer flex items-center gap-3 hirer-type-opt">
-                                    <input type="radio" name="account_type" value="business" {% if atype == 'business' %}checked{% endif %} class="text-brand-600">
+                                {% set type_locked = hp and hp.contact_phone and hp.account_type %}
+                                <label class="border rounded-xl p-4 flex items-center gap-3 hirer-type-opt {% if type_locked and atype != 'business' %}opacity-40 cursor-not-allowed{% else %}cursor-pointer{% endif %}">
+                                    <input type="radio" name="account_type" value="business" {% if atype == 'business' %}checked{% endif %} {% if type_locked and atype != 'business' %}disabled{% endif %} class="text-brand-600">
                                     <span class="font-bold text-sm text-slate-800">Doanh nghiệp / Tổ chức</span>
                                 </label>
-                                <label class="border rounded-xl p-4 cursor-pointer flex items-center gap-3 hirer-type-opt">
-                                    <input type="radio" name="account_type" value="individual" {% if atype != 'business' %}checked{% endif %} class="text-brand-600">
+                                <label class="border rounded-xl p-4 flex items-center gap-3 hirer-type-opt {% if type_locked and atype == 'business' %}opacity-40 cursor-not-allowed{% else %}cursor-pointer{% endif %}">
+                                    <input type="radio" name="account_type" value="individual" {% if atype != 'business' %}checked{% endif %} {% if type_locked and atype == 'business' %}disabled{% endif %} class="text-brand-600">
                                     <span class="font-bold text-sm text-slate-800">Cá nhân</span>
                                 </label>
                             </div>
+                            {% if type_locked %}
+                            <p class="text-xs text-slate-500 -mt-3">Loại khách hàng đã được xác lập là <strong>{{ 'Doanh nghiệp / Tổ chức' if atype == 'business' else 'Cá nhân' }}</strong> và không thể thay đổi. Mỗi tài khoản chỉ thuộc một loại.</p>
+                            {% else %}
+                            <p class="text-xs text-amber-600 -mt-3">Lưu ý: sau khi lưu hồ sơ, bạn không thể đổi sang loại khách hàng còn lại.</p>
+                            {% endif %}
 
                             <!-- DOANH NGHIỆP -->
                             <div id="hirer-business" class="space-y-6">
@@ -1678,7 +1694,7 @@
                                             </select></div>
                                     </div>
                                     <div class="space-y-1.5"><label class="{{ lbl }}">Lĩnh vực hoạt động <span class="text-red-500">*</span></label>
-                                        <input type="text" name="industry" value="{{ (hp.industry if hp else '') or '' }}" placeholder="VD: Sản xuất, Du lịch, Y tế..." class="{{ inp }}" data-biz-required></div>
+                                        {{ chips('industry', BUSINESS_INDUSTRIES, hp.industry if hp else '') }}</div>
                                 </fieldset>
 
                                 <fieldset class="space-y-4">
@@ -1718,16 +1734,6 @@
                                     <input type="text" name="full_name" value="{{ user.name }}" class="{{ inp }}" data-ind-required></div>
                                 <div class="space-y-1.5"><label class="{{ lbl }}">Tỉnh / thành phố <span class="text-red-500">*</span></label>
                                     <input type="text" name="location" value="{{ (hp.location if hp and atype != 'business' else '') or '' }}" placeholder="VD: Hà Nội, TP. Hồ Chí Minh" class="{{ inp }}" data-ind-required></div>
-                                {% macro chips(name, options, saved) %}
-                                <div class="flex flex-wrap gap-2">
-                                    {% for o in options %}
-                                    <label class="chip-opt cursor-pointer">
-                                        <input type="checkbox" name="{{ name }}" value="{{ o }}" class="sr-only" {% if o in (saved or '').split(', ') %}checked{% endif %}>
-                                        <span class="inline-block px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600 transition">{{ o }}</span>
-                                    </label>
-                                    {% endfor %}
-                                </div>
-                                {% endmacro %}
                                 <div class="space-y-2"><label class="{{ lbl }}">Lĩnh vực thường thuê phiên dịch <span class="text-red-500">*</span> <span class="normal-case font-normal text-slate-400">(chọn một hoặc nhiều)</span></label>
                                     {{ chips('hiring_field', HIRING_FIELDS, hp.hiring_field if hp else '') }}</div>
                                 <div class="space-y-2"><label class="{{ lbl }}">Ngôn ngữ thường cần <span class="normal-case font-normal text-slate-400">(không bắt buộc)</span></label>
