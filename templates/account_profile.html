@@ -489,17 +489,32 @@
 
 {% block scripts %}
 <script>
-    function switchTab(tab) {
+    function switchTab(tab, btnElement) {
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => {
             b.classList.remove('active');
             b.classList.add('text-slate-600', 'hover:bg-slate-50');
         });
 
-        document.getElementById('tab-' + tab).classList.add('active');
-        event.target.classList.add('active');
-        event.target.classList.remove('text-slate-600', 'hover:bg-slate-50');
+        const panel = document.getElementById('tab-' + tab);
+        if (panel) panel.classList.add('active');
+
+        const btn = btnElement || (window.event && window.event.target ? window.event.target : document.querySelector(`.tab-btn[onclick*="'${tab}'"]`));
+        if (btn) {
+            btn.classList.add('active');
+            btn.classList.remove('text-slate-600', 'hover:bg-slate-50');
+        }
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        const hash = window.location.hash.replace('#', '');
+        const targetTab = tabParam || (hash && hash.startsWith('tab-') ? hash.replace('tab-', '') : hash);
+        if (targetTab && document.getElementById('tab-' + targetTab)) {
+            switchTab(targetTab);
+        }
+    });
 
     function updateLangField() {
         const checks = document.querySelectorAll('input[name="lang_checks"]:checked');
