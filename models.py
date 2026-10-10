@@ -166,11 +166,11 @@ class HirerProfile(db.Model):
     rep_name = db.Column(db.String(100))
     about = db.Column(db.Text)
     # Cá nhân
-    hiring_field = db.Column(db.String(150))
-    social_link = db.Column(db.String(300))
+    hiring_field = db.Column(db.Text)       # nhiều lĩnh vực, cách nhau bởi ", "
+    hiring_languages = db.Column(db.Text)   # ngôn ngữ thường cần
+    hiring_services = db.Column(db.Text)    # hình thức dịch thường thuê
     # Dùng chung
     contact_phone = db.Column(db.String(30))
-    zalo = db.Column(db.String(30))
     logo = db.Column(db.Text)  # logo công ty / ảnh đại diện, lưu dạng data URI (đã giới hạn dung lượng)
 
     @property

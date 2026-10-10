@@ -635,6 +635,14 @@ FREE_EMAIL_DOMAINS = {
     'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.com.vn', 'hotmail.com', 'outlook.com',
     'live.com', 'icloud.com', 'me.com', 'msn.com', 'aol.com', 'proton.me', 'protonmail.com',
 }
+HIRING_FIELDS = ('Du lịch', 'Y tế', 'Đàm phán / Thương mại', 'Hội nghị / Sự kiện', 'Pháp lý / Công chứng',
+                 'Giáo dục / Du học', 'Sản xuất / Kỹ thuật', 'Tài chính / Ngân hàng', 'Công nghệ / IT',
+                 'Xuất nhập khẩu / Logistics', 'Khác')
+HIRING_LANGUAGES = ('Tiếng Anh', 'Tiếng Trung', 'Tiếng Nhật', 'Tiếng Hàn', 'Tiếng Pháp', 'Tiếng Đức',
+                    'Tiếng Nga', 'Tiếng Thái', 'Ngôn ngữ khác')
+HIRING_SERVICES = ('Phiên dịch trực tiếp', 'Phiên dịch online', 'Phiên dịch tháp tùng', 'Dịch tài liệu / Biên dịch')
+app.jinja_env.globals.update(HIRING_FIELDS=HIRING_FIELDS, HIRING_LANGUAGES=HIRING_LANGUAGES,
+                             HIRING_SERVICES=HIRING_SERVICES)
 LOGO_MAX_BYTES = 300 * 1024
 LOGO_MIME = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'webp': 'image/webp'}
 
@@ -668,15 +676,12 @@ def _apply_hirer_profile_form(user, profile, form, files):
         return ['Vui lòng chọn loại khách hàng: Doanh nghiệp / Tổ chức hoặc Cá nhân.']
 
     phone = clean_phone(get('contact_phone'))
-    zalo = clean_phone(get('zalo'))
     if not phone_re.match(phone):
         errors.append('Số điện thoại không hợp lệ (VD: 0912345678).')
-    if not phone_re.match(zalo):
-        errors.append('Số Zalo không hợp lệ (VD: 0912345678).')
 
-    social = get('social_link')
+
     website = get('website')
-    for label, url in (('Link Facebook / LinkedIn', social), ('Website / LinkedIn / Fanpage', website)):
+    for label, url in (('Website / LinkedIn / Fanpage', website),):
         if url and not re.match(r'^https?://\S+$', url):
             errors.append(f'{label} phải bắt đầu bằng http:// hoặc https://')
 
@@ -721,18 +726,28 @@ def _apply_hirer_profile_form(user, profile, form, files):
     else:
         full_name = get('full_name')
         province = get('location')
-        hiring_field = get('hiring_field')
+        # Các lựa chọn có sẵn: chỉ nhận giá trị nằm trong danh sách, giữ đúng thứ tự danh sách
+        def pick(name, options):
+            chosen = set(form.getlist(name))
+            return [o for o in options if o in chosen]
+        fields = pick('hiring_field', HIRING_FIELDS)
+        languages = pick('hiring_languages', HIRING_LANGUAGES)
+        services = pick('hiring_services', HIRING_SERVICES)
         if not full_name: errors.append('Vui lòng nhập họ và tên.')
         if not province: errors.append('Vui lòng nhập tỉnh / thành phố.')
-        if not hiring_field: errors.append('Vui lòng nhập lĩnh vực thường thuê phiên dịch.')
+        if not fields: errors.append('Vui lòng chọn ít nhất một lĩnh vực thường thuê phiên dịch.')
         if errors:
             return errors
 
         profile.account_type = 'individual'
         user.name = full_name
-        profile.location, profile.hiring_field, profile.social_link = province, hiring_field, social
+        profile.location = province
+        profile.hiring_field = ', '.join(fields)
+        profile.hiring_languages = ', '.join(languages)
+        profile.hiring_services = ', '.join(services)
+        profile.about = get('about')[:500]
 
-    profile.contact_phone, profile.zalo = phone, zalo
+    profile.contact_phone = phone
     user.phone = phone
     if logo:
         profile.logo = logo
