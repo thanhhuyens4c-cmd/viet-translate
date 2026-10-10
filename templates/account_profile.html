@@ -433,12 +433,12 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            <div class="shrink-0 w-full sm:w-auto">
-                                <button type="button" onclick="switchTab('verification')"
-                                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-amber-500/25 transition cursor-pointer">
+                            <div class="shrink-0 w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+                                <a href="{{ url_for('verification_status_page') }}"
+                                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-amber-500/25 transition">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                     <span>{{ t('account_profile_page.btn_view_verification_status') }}</span>
-                                </button>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -1041,7 +1041,7 @@
                             </div>
                             
                             <!-- Trạng thái hiện tại -->
-                            <div>
+                            <div class="flex items-center gap-2">
                                 {% if user.profile and user.profile.is_verified %}
                                 <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 shadow-sm">
                                     <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
@@ -1062,6 +1062,12 @@
                                     Chưa nộp hồ sơ
                                 </span>
                                 {% endif %}
+
+                                <a href="{{ url_for('verification_status_page') }}"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-brand-700 bg-brand-50 border border-brand-200/80 hover:bg-brand-100 transition shadow-2xs">
+                                    <span>Theo dõi chi tiết</span>
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                </a>
                             </div>
                         </div>
 

@@ -1917,6 +1917,66 @@ def check_verification_eligibility_api():
     })
 
 
+# ─── TRANSLATOR VERIFICATION STATUS TRACKER ROUTES ────────────────────────────
+
+@app.route('/account/verification/status', methods=['GET'])
+@app.route('/verification/status', methods=['GET'])
+@login_required
+def verification_status_page():
+    """
+    Trang theo dõi trạng thái xác minh riêng biệt dành cho phiên dịch viên (VietTranslate).
+    Lấy dữ liệu thực từ hồ sơ của tài khoản đang đăng nhập.
+    Hiển thị đầy đủ:
+    - Trạng thái tổng thể, ngày tạo và ngày gửi hồ sơ.
+    - Tiến độ 6 bước hoàn thành, đang xử lý hoặc cần bổ sung.
+    - Trạng thái từng hạng mục khi có dữ liệu.
+    - Yêu cầu bổ sung và hướng dẫn của Admin.
+    - Lý do từ chối nếu có.
+    - Lịch sử các lần gửi và kết quả.
+    - Hành động tiếp theo phù hợp với trạng thái hiện tại.
+    Quy tắc an toàn:
+    - Người dùng chỉ được xem hồ sơ của chính mình.
+    - Không suy đoán dữ liệu thiếu.
+    - Không lộ kết quả nội bộ không được phép.
+    """
+    uid = session.get('user_id')
+    if uid and not isinstance(uid, int):
+        session.clear()
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
+
+    user = User.query.get(uid)
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        flash('Trang theo dõi trạng thái xác minh chỉ dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import get_translator_verification_status_details
+    data = get_translator_verification_status_details(user)
+
+    return render_template('verification_status.html', user=user, data=data)
+
+
+@app.route('/api/account/verification/status', methods=['GET'])
+@login_required
+def verification_status_api():
+    """
+    API JSON trả về toàn bộ dữ liệu trạng thái xác minh của phiên dịch viên hiện tại.
+    Hỗ trợ tải động realtime qua AJAX.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    from services.verification import get_translator_verification_status_details
+    data = get_translator_verification_status_details(user)
+
+    return jsonify({'success': True, 'data': data})
+
 
 @app.route('/account/avatar/upload', methods=['POST'])
 @login_required

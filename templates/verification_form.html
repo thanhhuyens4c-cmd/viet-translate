@@ -45,9 +45,15 @@
                             {% endif %}
                         </span>
                     </div>
-                    <a href="{{ url_for('account_profile') }}" class="text-xs font-semibold text-slate-500 hover:text-slate-800 transition underline underline-offset-2">
-                        Quay về trang cá nhân
-                    </a>
+                    <div class="flex items-center gap-3">
+                        <a href="{{ url_for('verification_status_page') }}" class="text-xs font-bold text-brand-600 hover:text-brand-800 transition underline underline-offset-2">
+                            Theo dõi tiến độ hồ sơ
+                        </a>
+                        <span class="text-slate-300">•</span>
+                        <a href="{{ url_for('account_profile') }}" class="text-xs font-semibold text-slate-500 hover:text-slate-800 transition underline underline-offset-2">
+                            Quay về trang cá nhân
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -1110,9 +1116,9 @@
         </div>
 
         <div class="pt-2">
-            <a href="{{ url_for('account_profile') }}?tab=verification"
+            <a href="{{ url_for('verification_status_page') }}"
                 class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm transition shadow-md shadow-emerald-500/25">
-                <span>Quay về trang cá nhân để theo dõi</span>
+                <span>Xem trang theo dõi tiến độ hồ sơ</span>
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
             </a>
         </div>
