@@ -1136,7 +1136,11 @@
                                     <h3 class="text-sm font-bold text-amber-950">{{ t('account_profile_page.pending_title') }}</h3>
                                     <p class="text-xs text-amber-800 mt-1 leading-relaxed">{{ t('account_profile_page.pending_desc') }}</p>
                                     <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-amber-700">
-                                        <span>Ngày gửi: <strong>{{ user.latest_verification.created_at.strftime('%d/%m/%Y %H:%M') }}</strong></span>
+                                        <span>Ngày gửi: <strong>{{ (user.latest_verification.submitted_at or user.latest_verification.created_at).strftime('%d/%m/%Y %H:%M') }}</strong></span>
+                                        {% if user.latest_verification.submission_version %}
+                                        <span>·</span>
+                                        <span>Phiên bản hồ sơ: <strong>v{{ user.latest_verification.submission_version }}</strong></span>
+                                        {% endif %}
                                         {% if user.latest_verification.cv_url %}
                                         <span>·</span>
                                         <a href="{{ user.latest_verification.cv_url }}" target="_blank" class="font-bold underline hover:text-amber-900 inline-flex items-center gap-1">
@@ -1508,9 +1512,19 @@
                                             class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white leading-relaxed">{{ user.latest_verification.notes if user.latest_verification else '' }}</textarea>
                                     </div>
 
+                                    <div class="p-3.5 bg-amber-50/60 border border-amber-200/80 rounded-xl">
+                                        <label class="flex items-start gap-2.5 cursor-pointer">
+                                            <input type="checkbox" name="confirmed" value="1" required class="mt-0.5 rounded text-brand-600 focus:ring-brand-500">
+                                            <span class="text-xs text-slate-700 leading-relaxed font-medium">
+                                                Tôi xin cam kết toàn bộ thông tin kê khai và các tài liệu minh chứng đính kèm là hoàn toàn chính xác, trung thực. Tôi chịu hoàn toàn trách nhiệm trước pháp luật và chính sách của VietTranslate.
+                                            </span>
+                                        </label>
+                                    </div>
+
                                     <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
                                         <span class="text-[11px] text-slate-400">VietTranslate cam kết bảo mật toàn bộ dữ liệu giấy tờ cá nhân theo chính sách quyền riêng tư.</span>
-                                        <button type="submit"
+                                        <button type="submit" id="btn-submit-profile-verification"
+                                            onclick="if(this.form.checkValidity()){ this.disabled = true; this.innerHTML = '<span class=\'inline-block animate-spin mr-2\'>⏳</span> Đang gửi hồ sơ...'; this.form.submit(); }"
                                             class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-2 cursor-pointer">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                             <span>{% if user.latest_verification and user.latest_verification.status == 'rejected' %}{{ t('account_profile_page.resubmit_verification_btn') }}{% else %}{{ t('account_profile_page.submit_verification_btn') }}{% endif %}</span>

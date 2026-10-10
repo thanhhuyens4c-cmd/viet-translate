@@ -14,7 +14,8 @@ from flask import current_app
 
 from models import (
     db, User, TranslatorProfile, TranslatorVerification, VerificationDocument,
-    AdminNotification, Notification, ADMIN_AUDIT_ACTIONS, AdminAuditLog
+    AdminNotification, Notification, ADMIN_AUDIT_ACTIONS, AdminAuditLog,
+    VerificationSubmissionVersion
 )
 
 # ─── POLICY CẤU HÌNH CÁC LOẠI TÀI LIỆU MINH CHỨNG ĐƯỢC PHÉP ───────────────────
@@ -471,10 +472,298 @@ def delete_private_document(doc_id, user):
     return True, 'Đã xóa tài liệu minh chứng thành công.'
 
 
+def validate_verification_eligibility(verification, additional_data=None, require_confirmation=True):
+    """
+    Kiểm tra toàn diện tính hợp lệ của hồ sơ trước khi gửi xét duyệt:
+    1. Kiểm tra trạng thái hồ sơ: Không cho gửi lặp lại nếu đang pending hoặc đã approved.
+    2. Kiểm tra dữ liệu bắt buộc của tất cả các bước (Bước 1 đến Bước 5).
+    3. Kiểm tra tài liệu cần thiết theo chính sách (CV là tài liệu bắt buộc theo chính sách).
+    4. Kiểm tra sự xác nhận cam kết trung thực từ phía người dùng.
+    
+    Trả về: (is_eligible: bool, errors_dict: dict[str, str], error_messages: list[str])
+    """
+    errors_dict = {}
+    error_messages = []
+
+    if not verification:
+        return False, {'verification': 'Chưa khởi tạo hồ sơ.'}, ['Không tìm thấy hồ sơ xác minh để kiểm tra.']
+
+    # Kiểm tra trạng thái
+    st = getattr(verification, 'status', 'draft') or 'draft'
+    if st == 'pending':
+        errors_dict['status'] = 'Hồ sơ đang trong quá trình Ban quản trị thẩm định, không thể gửi lặp lại.'
+        error_messages.append('Hồ sơ của bạn đã được gửi trước đó và đang trong hàng đợi xử lý của Ban quản trị.')
+        return False, errors_dict, error_messages
+    elif st == 'approved':
+        errors_dict['status'] = 'Hồ sơ đã được phê duyệt xác minh chính thức.'
+        error_messages.append('Hồ sơ của bạn đã được phê duyệt xác minh chính thức.')
+        return False, errors_dict, error_messages
+
+    # Thu thập toàn bộ dữ liệu từ draft và additional_data
+    data = verification.get_draft_dict()
+    if additional_data and isinstance(additional_data, dict):
+        for k, v in additional_data.items():
+            if v is not None and v != '':
+                data[k] = v
+
+    # 1. Kiểm tra dữ liệu từng bước (1 -> 5)
+    step_titles = {
+        1: 'Thông tin cá nhân & Định danh',
+        2: 'Ngôn ngữ nguồn, ngôn ngữ đích & Chiều dịch',
+        3: 'Lĩnh vực chuyên môn & Hình thức dịch',
+        4: 'Học vấn & Chứng chỉ ngoại ngữ',
+        5: 'Kinh nghiệm nghề nghiệp & Dự án'
+    }
+
+    for step_num in range(1, 6):
+        ok, step_errs = validate_step_data(step_num, data)
+        if not ok:
+            for f_name, f_msg in step_errs.items():
+                errors_dict[f_name] = f_msg
+                error_messages.append(f"Bước {step_num} ({step_titles[step_num]}): {f_msg}")
+
+    # 2. Kiểm tra tài liệu cần thiết theo chính sách DOCUMENT_POLICIES
+    active_docs = [d for d in verification.documents if getattr(d, 'is_active', False)] if verification.id else []
+    active_types = {d.document_type for d in active_docs}
+
+    for p_code, policy in DOCUMENT_POLICIES.items():
+        if policy.get('required'):
+            has_doc = (p_code in active_types)
+            # Tương thích ngược: nếu cv_url đã có sẵn
+            if p_code == 'cv' and (getattr(verification, 'cv_url', None) or data.get('cv_url')):
+                has_doc = True
+            
+            if not has_doc:
+                errors_dict[f'document_{p_code}'] = f"Thiếu tài liệu bắt buộc theo chính sách: {policy['name']}."
+                error_messages.append(f"Tài liệu minh chứng: Chưa đính kèm {policy['name']} (bắt buộc theo chính sách VietTranslate).")
+
+    # 3. Yêu cầu người dùng xác nhận thông tin trước khi gửi
+    if require_confirmation:
+        confirmed = False
+        if additional_data:
+            c_val = additional_data.get('confirmed') or additional_data.get('confirm_accuracy') or additional_data.get('pledge_confirmed')
+            if c_val in (True, 'true', '1', 1, 'on', 'yes'):
+                confirmed = True
+        if not confirmed:
+            errors_dict['confirmed'] = 'Vui lòng xác nhận cam kết tính chính xác và trung thực của hồ sơ trước khi gửi.'
+            error_messages.append('Cam kết tính chính xác: Bạn cần tích chọn xác nhận cam kết thông tin và tài liệu trước khi gửi.')
+
+    is_eligible = (len(error_messages) == 0)
+    return is_eligible, errors_dict, error_messages
+
+
+def submit_verification_for_review(user, form_data=None, confirmed=False, ip_address=None, user_agent=None):
+    """
+    Hành động gửi hồ sơ xác minh phiên dịch viên tới Ban quản trị:
+    - Kiểm tra dữ liệu bắt buộc ở backend (tất cả các bước 1-5).
+    - Kiểm tra tài liệu cần thiết theo chính sách (CV là bắt buộc).
+    - Hiển thị danh sách lỗi chi tiết nếu hồ sơ chưa đủ điều kiện gửi.
+    - Yêu cầu người dùng xác nhận cam kết trước khi gửi.
+    - Ngăn chặn gửi lặp do bấm nút nhiều lần (idempotency, lock theo trạng thái).
+    - Lưu snapshot phiên bản hồ sơ được gửi (versioning + bất biến).
+    - Ghi thời điểm gửi (submitted_at) và trạng thái tương ứng (pending).
+    - Chuyển hồ sơ sang hàng đợi Admin (AdminNotification).
+    - Sau khi gửi, ngăn không cho sửa âm thầm phiên bản đã gửi.
+    - Nếu thao tác thất bại, cho phép người dùng xử lý và thử lại mà không tạo hồ sơ trùng.
+    
+    Trả về: (thành_công: bool, thông_báo: str, metadata: dict)
+    """
+    if not user or user.role != 'translator':
+        return False, 'Chỉ tài khoản phiên dịch viên mới có quyền gửi hồ sơ xác minh.', {'error_list': ['Chỉ tài khoản phiên dịch viên mới có quyền gửi hồ sơ xác minh.']}
+
+    # Lấy hồ sơ xác minh hiện tại của người dùng
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    if not verification:
+        return False, 'Không tìm thấy hồ sơ xác minh. Vui lòng hoàn thành biểu mẫu khai báo trước khi gửi.', {'error_list': ['Chưa tìm thấy hồ sơ xác minh.']}
+
+    # 1. NGĂN GỬI LẶP KHI ĐÃ TRONG TRẠNG THÁI PENDING HOẶC APPROVED
+    current_status = getattr(verification, 'status', 'draft') or 'draft'
+    if current_status == 'pending':
+        return False, 'Hồ sơ của bạn đã được gửi trước đó và đang trong hàng đợi xử lý của Ban quản trị. Vui lòng không gửi lặp lại.', {
+            'is_duplicate': True,
+            'status': 'pending',
+            'submitted_at': verification.submitted_at.strftime('%d/%m/%Y %H:%M') if verification.submitted_at else None,
+            'version': verification.submission_version or 1,
+            'error_list': ['Hồ sơ đã được gửi và đang chờ xét duyệt. Vui lòng không gửi lặp lại.']
+        }
+    if current_status == 'approved':
+        return False, 'Hồ sơ của bạn đã được phê duyệt xác minh chính thức. Không cần gửi lại.', {
+            'is_already_approved': True,
+            'status': 'approved',
+            'error_list': ['Hồ sơ đã được phê duyệt xác minh chính thức.']
+        }
+
+    # Nếu có form_data truyền kèm: cập nhật nháp trước khi kiểm tra
+    if form_data and isinstance(form_data, dict):
+        draft = verification.get_draft_dict()
+        field_mappings = [
+            'full_name', 'phone', 'gender', 'dob', 'location', 'bio',
+            'source_language', 'target_language', 'interpreting_direction', 'language_proficiency',
+            'specializations', 'interpreting_types',
+            'education_level', 'university', 'major', 'certificate_type', 'certificate_name',
+            'current_position', 'notable_clients', 'featured_projects', 'notes'
+        ]
+        for f in field_mappings:
+            if f in form_data and form_data[f] is not None:
+                val = form_data[f]
+                if isinstance(val, list):
+                    val = ', '.join([str(v).strip() for v in val if v])
+                elif isinstance(val, str):
+                    val = val.strip()
+                draft[f] = val
+                setattr(verification, f, val)
+
+        if 'cert_year' in form_data and form_data['cert_year']:
+            try:
+                cy = int(form_data['cert_year'])
+                draft['cert_year'] = cy
+                verification.cert_year = cy
+            except (ValueError, TypeError):
+                pass
+
+        if 'experience_years' in form_data and form_data['experience_years'] != '':
+            try:
+                ey = int(form_data['experience_years'])
+                draft['experience_years'] = ey
+                verification.experience_years = ey
+            except (ValueError, TypeError):
+                pass
+
+        if verification.source_language and verification.target_language:
+            verification.primary_language = f"{verification.source_language} ➔ {verification.target_language}"
+
+        verification.draft_data = json.dumps(draft, ensure_ascii=False)
+
+    # 2. KIỂM TRA TÍNH HỢP LỆ VÀ ĐIỀU KIỆN GỬI HỒ SƠ
+    data_for_check = {'confirmed': confirmed}
+    if form_data:
+        data_for_check.update(form_data)
+
+    is_eligible, errors_dict, error_messages = validate_verification_eligibility(
+        verification,
+        additional_data=data_for_check,
+        require_confirmation=True
+    )
+
+    if not is_eligible:
+        return False, 'Hồ sơ chưa đủ điều kiện gửi xét duyệt. Vui lòng kiểm tra và hoàn thiện danh sách bên dưới.', {
+            'errors': errors_dict,
+            'error_list': error_messages,
+            'status': verification.status
+        }
+
+    # 3. LẬP PHIÊN BẢN VÀ SNAPSHOT BẤT BIẾN
+    now = datetime.utcnow()
+    next_version = (getattr(verification, 'submission_version', 0) or 0) + 1
+
+    active_docs = [d for d in verification.documents if getattr(d, 'is_active', False)]
+    docs_snapshot = [
+        {
+            'id': d.id,
+            'document_type': d.document_type,
+            'type_name': get_document_type_label(d.document_type),
+            'original_filename': d.original_filename,
+            'stored_filename': d.stored_filename,
+            'file_size': d.file_size,
+            'file_size_formatted': format_file_size(d.file_size),
+            'mime_type': d.mime_type,
+            'file_hash': d.file_hash,
+            'file_extension': d.file_extension,
+            'created_at': d.created_at.strftime('%d/%m/%Y %H:%M') if d.created_at else None
+        }
+        for d in active_docs
+    ]
+
+    snapshot_data = {
+        'version': next_version,
+        'submitted_at': now.strftime('%Y-%m-%d %H:%M:%S'),
+        'user': {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'phone': user.phone
+        },
+        'form_data': verification.get_draft_dict(),
+        'documents': docs_snapshot,
+        'pledge_confirmed': True,
+        'ip_address': ip_address,
+        'user_agent': user_agent
+    }
+    snapshot_json = json.dumps(snapshot_data, ensure_ascii=False)
+
+    # 4. CẬP NHẬT TRẠNG THÁI HỒ SƠ
+    verification.submission_version = next_version
+    verification.submitted_at = now
+    verification.submitted_snapshot = snapshot_json
+    verification.status = 'pending'
+    verification.rejection_reason = None
+    verification.reviewed_by = None
+    verification.reviewed_at = None
+    verification.current_step = 6
+    verification.updated_at = now
+
+    # Lưu bản ghi lịch sử phiên bản
+    submission_version_record = VerificationSubmissionVersion(
+        verification_id=verification.id,
+        user_id=user.id,
+        version_number=next_version,
+        status='pending',
+        snapshot_data=snapshot_json,
+        submitted_at=now,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+    db.session.add(submission_version_record)
+
+    # 5. CHUYỂN HỒ SƠ SANG HÀNG ĐỢI ADMIN (AdminNotification)
+    try:
+        admin_notif = AdminNotification(
+            type='NEW_TRANSLATOR',
+            title='Yêu cầu xác minh hồ sơ mới',
+            message=f'Phiên dịch viên {user.name} ({user.email}) vừa nộp hồ sơ xác minh năng lực (Phiên bản #{next_version}).',
+            url='/admin/translators?show=pending',
+            related_id=verification.id
+        )
+        db.session.add(admin_notif)
+    except Exception as e:
+        print(f"[ADMIN NOTIF ERROR] {e}", file=sys.stderr)
+
+    # Gửi thông báo cho phiên dịch viên
+    try:
+        user_notif = Notification(
+            user_id=user.id,
+            type='VERIFICATION_SUBMITTED',
+            title='Hồ sơ xác minh đã gửi thành công! ⏳',
+            message=f'Hồ sơ của bạn (Phiên bản #{next_version}) đã được chuyển tới hàng đợi xét duyệt của Ban quản trị. Chúng tôi sẽ phản hồi trong vòng 24–48 giờ.',
+            url='/account/profile?tab=verification'
+        )
+        db.session.add(user_notif)
+    except Exception as e:
+        print(f"[USER NOTIF ERROR] {e}", file=sys.stderr)
+
+    # 6. COMMIT TRANSACTION AN TOÀN
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        # Đảm bảo hồ sơ vẫn giữ nguyên trạng thái cũ, không bị trùng lặp bản ghi
+        return False, f'Lỗi kết nối cơ sở dữ liệu khi gửi hồ sơ: {str(e)}', {
+            'error_list': ['Lỗi kết nối cơ sở dữ liệu. Dữ liệu của bạn được bảo lưu an toàn, vui lòng thử gửi lại.']
+        }
+
+    success_msg = f'Hồ sơ xác minh (Phiên bản #{next_version}) đã được gửi thành công tới Ban quản trị! Thời gian xét duyệt dự kiến 24–48 giờ.'
+    return True, success_msg, {
+        'version': next_version,
+        'submitted_at': now.strftime('%d/%m/%Y %H:%M'),
+        'status': 'pending',
+        'snapshot': snapshot_data
+    }
+
+
 def submit_verification_request(user, form_data, files):
     """
-    Xử lý nộp hồ sơ xác minh từ phiên dịch viên.
-    Tự động cập nhật bản ghi cũ hoặc tạo mới nếu chưa có.
+    Hàm tương thích ngược: Xử lý tệp đính kèm trực tiếp (nếu có)
+    rồi chuyển tiếp tới hệ thống kiểm tra và lập phiên bản submit_verification_for_review.
     """
     if not user or user.role != 'translator':
         return False, 'Chỉ tài khoản phiên dịch viên mới có thể nộp hồ sơ xác minh.'
@@ -487,67 +776,36 @@ def submit_verification_request(user, form_data, files):
 
     # Lấy bản ghi xác minh hiện có hoặc tạo mới
     verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
-    is_new = False
     if not verification:
-        verification = TranslatorVerification(user_id=user.id)
+        verification = TranslatorVerification(user_id=user.id, status='draft', current_step=1)
         db.session.add(verification)
-        is_new = True
+        db.session.flush()
 
-    # Xử lý tệp CV
+    # Xử lý tệp CV nếu có truyền trực tiếp
     cv_file = files.get('cv_file')
     if cv_file and cv_file.filename:
         ok, doc, err = save_private_document(cv_file, user, doc_type='cv', verification=verification)
         if not ok:
             return False, err
-    elif is_new or not verification.cv_url:
-        return False, 'Vui lòng tải lên sơ yếu lý lịch (CV) định dạng PDF hoặc Word.'
 
-    # Xử lý tệp Chứng chỉ
+    # Xử lý tệp Chứng chỉ nếu có
     cert_file = files.get('certificate_file')
     if cert_file and cert_file.filename:
         ok, doc, err = save_private_document(cert_file, user, doc_type='certificate', verification=verification)
         if not ok:
             return False, err
 
-    # Xử lý tệp CCCD / Giấy tờ tùy thân (Tùy chọn)
+    # Xử lý tệp CCCD nếu có
     id_card_file = files.get('id_card_file')
     if id_card_file and id_card_file.filename:
         ok, doc, err = save_private_document(id_card_file, user, doc_type='id_card', verification=verification)
         if not ok:
             return False, err
 
-    # Các thông tin biểu mẫu
-    verification.certificate_type = form_data.get('certificate_type', '').strip()
-    verification.certificate_name = form_data.get('certificate_name', '').strip()
-    verification.primary_language = form_data.get('primary_language', '').strip()
-
-    try:
-        verification.experience_years = int(form_data.get('experience_years') or 0)
-    except ValueError:
-        verification.experience_years = 0
-
-    verification.notes = form_data.get('notes', '').strip()
-    verification.status = 'pending'
-    verification.rejection_reason = None
-    verification.reviewed_by = None
-    verification.reviewed_at = None
-    verification.updated_at = datetime.utcnow()
-
-    # Thông báo cho Ban quản trị (Admin)
-    try:
-        admin_notif = AdminNotification(
-            type='NEW_TRANSLATOR',
-            title='Yêu cầu xác minh hồ sơ mới',
-            message=f'Phiên dịch viên {user.name} ({user.email}) vừa nộp hồ sơ xác minh năng lực.',
-            url='/admin/translators?show=pending',
-            related_id=verification.id
-        )
-        db.session.add(admin_notif)
-    except Exception as e:
-        print(f"[VERIFICATION NOTIF ERROR] {e}", file=sys.stderr)
-
-    db.session.commit()
-    return True, 'Hồ sơ xác minh đã được gửi thành công! Ban quản trị sẽ xét duyệt trong vòng 24–48 giờ.'
+    # Gọi hàm gửi chính với cờ xác nhận từ biểu mẫu
+    confirmed = form_data.get('confirmed') in (True, 'true', '1', 1, 'on')
+    ok, msg, meta = submit_verification_for_review(user, form_data=form_data, confirmed=confirmed)
+    return ok, msg
 
 
 def review_verification_request(verification_id, admin_user, action, reason=None, ip_address=None, user_agent=None):
@@ -867,6 +1125,13 @@ def save_verification_draft(user, form_data, target_step=None):
         return False, None, 'Chỉ phiên dịch viên mới có thể lưu bản nháp xác minh.'
 
     verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    if verification:
+        st = getattr(verification, 'status', 'draft') or 'draft'
+        if st == 'pending':
+            return False, None, 'Hồ sơ đang trong quá trình Ban quản trị thẩm định. Bạn không thể chỉnh sửa dữ liệu đã gửi.'
+        if st == 'approved':
+            return False, None, 'Hồ sơ đã được phê duyệt xác minh chính thức. Dữ liệu không thể tự ý thay đổi.'
+
     if not verification:
         verification = TranslatorVerification(user_id=user.id, status='draft', current_step=1)
         db.session.add(verification)
