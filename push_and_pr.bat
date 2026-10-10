@@ -26,7 +26,7 @@ echo.
 echo Dang mo trang tao Pull Request tren GitHub...
 echo.
 
-start "" "https://github.com/thanhhuyens4c-cmd/viet-translate/compare/main...phuonganh/admin?expand=1&title=Th%%C3%%AAm+t%%C3%%ADnh+n%%C4%%83ng+upload+%%E1%%BA%%A3nh+trong+chat&body=%%23%%23+T%%C3%%ADnh+n%%C4%%83ng+m%%E1%%BB%%9Bi%%0A-+Th%%C3%%AAm+n%%C3%%BAt+upload+%%E1%%BA%%A3nh+trong+chat%%0A-+Preview+%%E1%%BA%%A3nh+tr%%C6%%B0%%E1%%BB%%9Bc+khi+g%%E1%%BB%%ADi%%0A-+H%%E1%%BB%%97+tr%%E1%%BB%%A3+drag+%%26+drop+v%%C3%%A0+paste+t%%E1%%BB%%AB+clipboard%%0A-+Lightbox+xem+%%E1%%BA%%A3nh+full-screen%%0A-+%%C3%%81p+d%%E1%%BB%%A5ng+cho+c%%E1%%BA%%A3+Direct+Chat+v%%C3%%A0+Contract+Chat"
+start "" "https://github.com/thanhhuyens4c-cmd/viet-translate/compare/main...phuonganh/admin?expand=1&title=Hoan+thien+trang+Tong+quan+(Dashboard)+cho+phien+dich+vien&body=%%23%%23+Noi+dung+thay+doi%%0A-+Hoan+thien+toan+bo+7+thanh+phan+tren+Dashboard+Interpreter+(/interpreter/dashboard):%%0A--+1.+Thong+tin+ho+so+va+xac+minh%%0A--+2.+Thong+ke+cong+viec%%0A--+3.+Thong+ke+thu+nhap%%0A--+4.+Ca+lam+sap+toi%%0A--+5.+Viec+lam+de+xuat%%0A--+6.+Viec+can+xu+ly%%0A--+7.+Thong+bao+gan+day%%0A-+Cap+nhat+menu+Sidebar+dieu+huong+va+dong+bo+trang+thai"
 
 echo.
 echo ===========================================
