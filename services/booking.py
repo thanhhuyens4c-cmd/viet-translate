@@ -83,23 +83,41 @@ def create_contract_booking(
         db.session.flush()
 
         from services.scheduling import reserve_slot, SlotTakenError
+        from services.schedule import parse_job_all_schedule_entries
         
         try:
-            schedule = reserve_slot(
-                translator_id=translator.id,
-                scheduled_date=scheduled_date,
-                start_time=start_time,
-                end_time=end_time,
-                daily_schedules=daily_schedules,
-                contract_id=contract.id,
-                job_id=job_id,
-                service_id=service_id
-            )
+            if job:
+                entries = parse_job_all_schedule_entries(job)
+                if entries:
+                    for entry in entries:
+                        reserve_slot(
+                            translator_id=translator.id,
+                            scheduled_date=entry['date_str'],
+                            start_time=entry['start_time'].strftime('%H:%M'),
+                            end_time=entry['end_time'].strftime('%H:%M'),
+                            contract_id=contract.id,
+                            job_id=job_id,
+                            service_id=service_id
+                        )
+            else:
+                # Direct booking without job — supports daily_schedules
+                reserve_slot(
+                    translator_id=translator.id,
+                    scheduled_date=scheduled_date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    daily_schedules=daily_schedules,
+                    contract_id=contract.id,
+                    job_id=job_id,
+                    service_id=service_id
+                )
         except SlotTakenError as e:
+            db.session.rollback()
             raise BookingConflictError(str(e))
-        except ScheduleCheckError as e:
-            raise BookingValidationError(str(e))
         except Exception as e:
+            db.session.rollback()
+            if isinstance(e, ScheduleCheckError):
+                raise BookingValidationError(str(e))
             raise BookingValidationError(str(e))
 
         if proposal_id:

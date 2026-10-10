@@ -49,6 +49,7 @@ class User(db.Model):
     admin_role = db.Column(db.String(50), nullable=True) # 'super_admin', 'moderator', 'finance'
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    avatar = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     profile = db.relationship('TranslatorProfile', backref='user', uselist=False, cascade='all, delete-orphan')
@@ -61,6 +62,11 @@ class User(db.Model):
 
     @property
     def avatar_url(self):
+        if self.avatar:
+            if self.avatar.startswith('http://') or self.avatar.startswith('https://') or self.avatar.startswith('/'):
+                return self.avatar
+            return f'/static/uploads/avatars/{self.avatar}'
+
         email_map = {
             'trans_kr@test.com': '/static/avatars/avatar_dung.jpg',
             'trans_ru@test.com': '/static/avatars/avatar_ha.jpg',
@@ -104,6 +110,7 @@ class TranslatorProfile(db.Model):
     total_jobs = db.Column(db.Integer, default=0)
     response_time = db.Column(db.String(50), default='2 giờ')
     is_verified = db.Column(db.Boolean, default=False)
+    certificates = db.Column(db.Text)
 
     services = db.relationship('Service', backref='profile', lazy=True)
 
@@ -174,6 +181,7 @@ class Job(db.Model):
 
     proposals = db.relationship('Proposal', backref='job', lazy=True, cascade='all, delete-orphan')
     contract = db.relationship('Contract', backref='job', uselist=False, cascade='all, delete-orphan')
+    schedules = db.relationship('JobSchedule', backref='job', lazy=True, cascade='all, delete-orphan', order_by='JobSchedule.scheduled_date')
 
     @property
     def display_category_group(self):
@@ -214,6 +222,175 @@ class Job(db.Model):
     @property
     def applicant_count(self):
         return Proposal.query.filter_by(job_id=self.id).count()
+
+
+# ─── JOB SCHEDULE MODEL (TASK 1 / TASK 2) ────────────────────────────────────
+
+class JobSchedule(db.Model):
+    """
+    Lưu lịch làm việc chi tiết cho từng ngày của một Job.
+    Mỗi ngày = một bản ghi, với giờ bắt đầu/kết thúc riêng.
+
+    Backward compatibility:
+    - Nếu Job có JobSchedule entries → dùng JobSchedule.
+    - Nếu không có → fallback về legacy fields (event_date, event_time_start, event_time_end).
+    """
+    __tablename__ = 'job_schedule'
+
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(
+        db.Integer,
+        db.ForeignKey('job.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+    scheduled_date = db.Column(db.Date, nullable=False)
+    start_time = db.Column(db.String(10), nullable=False)   # "HH:MM"
+    end_time = db.Column(db.String(10), nullable=False)     # "HH:MM"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        """Serialize sang dict để dùng trong API / template."""
+        return {
+            'id': self.id,
+            'job_id': self.job_id,
+            'scheduled_date': self.scheduled_date.strftime('%Y-%m-%d') if self.scheduled_date else None,
+            'scheduled_date_display': self.scheduled_date.strftime('%d/%m/%Y') if self.scheduled_date else None,
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+        }
+
+
+# ─── SCHEDULE HELPERS (TASK 1) ────────────────────────────────────────────────
+
+def get_job_schedule_entries(job):
+    """
+    Trả về danh sách schedule entries cho một Job.
+
+    Ưu tiên:
+    1. JobSchedule entries (multi-day với giờ riêng)
+    2. Fallback: legacy fields (event_date, event_time_start, event_time_end)
+
+    Returns:
+        list[dict] với keys: scheduled_date (date), start_time (str), end_time (str),
+                              scheduled_date_display (str)
+        Trả về list rỗng nếu không có dữ liệu hợp lệ.
+    """
+    # Ưu tiên JobSchedule entries
+    if job.schedules:
+        return [s.to_dict() for s in sorted(job.schedules, key=lambda s: s.scheduled_date)]
+
+    # Fallback: legacy fields
+    event_date = getattr(job, 'event_date', None)
+    event_time_start = getattr(job, 'event_time_start', None)
+    event_time_end = getattr(job, 'event_time_end', None)
+
+    if not event_date:
+        return []
+
+    # Parse date range ("2024-11-30 to 2024-12-02" hoặc single date)
+    try:
+        from services.schedule import parse_date_range
+        dates = parse_date_range(event_date)
+    except Exception:
+        return []
+
+    if not dates:
+        return []
+
+    entries = []
+    for d in dates:
+        entries.append({
+            'id': None,
+            'job_id': job.id,
+            'scheduled_date': d.strftime('%Y-%m-%d'),
+            'scheduled_date_display': d.strftime('%d/%m/%Y'),
+            'start_time': event_time_start or '',
+            'end_time': event_time_end or '',
+            'is_legacy': True,
+        })
+    return entries
+
+
+def validate_schedule_entries(entries):
+    """
+    Validate danh sách schedule entries từ form hoặc API.
+
+    Args:
+        entries: list[dict] với keys: scheduled_date (str), start_time (str), end_time (str)
+
+    Returns:
+        (is_valid: bool, errors: list[dict])
+        errors: list[{'index': int, 'field': str, 'message': str}]
+
+    Raises không có exception — luôn trả về tuple.
+    """
+    from datetime import datetime, date as date_type
+
+    if not entries:
+        return False, [{'index': 0, 'field': 'entries', 'message': 'Phải có ít nhất một ngày làm việc.'}]
+
+    errors = []
+    seen_dates = set()
+    DATE_FMTS = ['%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y']
+    TIME_FMTS = ['%H:%M', '%H:%M:%S']
+
+    def _parse_date(val):
+        for fmt in DATE_FMTS:
+            try:
+                return datetime.strptime(str(val).strip(), fmt).date()
+            except ValueError:
+                continue
+        return None
+
+    def _parse_time(val):
+        for fmt in TIME_FMTS:
+            try:
+                return datetime.strptime(str(val).strip(), fmt).time()
+            except ValueError:
+                continue
+        return None
+
+    for i, entry in enumerate(entries):
+        raw_date = (entry.get('scheduled_date') or '').strip()
+        raw_start = (entry.get('start_time') or '').strip()
+        raw_end = (entry.get('end_time') or '').strip()
+
+        # Validate date
+        parsed_date = _parse_date(raw_date) if raw_date else None
+        if not raw_date:
+            errors.append({'index': i, 'field': 'scheduled_date', 'message': f'Ngày {i+1} chưa được chọn.'})
+        elif parsed_date is None:
+            errors.append({'index': i, 'field': 'scheduled_date', 'message': f'Ngày {i+1} không hợp lệ.'})
+        elif parsed_date < datetime.utcnow().date():
+            errors.append({'index': i, 'field': 'scheduled_date', 'message': f'Ngày {i+1} không được nằm trong quá khứ.'})
+        elif raw_date in seen_dates or (parsed_date and parsed_date.strftime('%Y-%m-%d') in seen_dates):
+            errors.append({'index': i, 'field': 'scheduled_date', 'message': f'Ngày {i+1} đã bị trùng với một ngày khác.'})
+        else:
+            if parsed_date:
+                seen_dates.add(parsed_date.strftime('%Y-%m-%d'))
+
+        # Validate start_time
+        parsed_start = _parse_time(raw_start) if raw_start else None
+        if not raw_start:
+            errors.append({'index': i, 'field': 'start_time', 'message': f'Ngày {i+1} chưa có giờ bắt đầu.'})
+        elif parsed_start is None:
+            errors.append({'index': i, 'field': 'start_time', 'message': f'Giờ bắt đầu ngày {i+1} không hợp lệ.'})
+
+        # Validate end_time
+        parsed_end = _parse_time(raw_end) if raw_end else None
+        if not raw_end:
+            errors.append({'index': i, 'field': 'end_time', 'message': f'Ngày {i+1} chưa có giờ kết thúc.'})
+        elif parsed_end is None:
+            errors.append({'index': i, 'field': 'end_time', 'message': f'Giờ kết thúc ngày {i+1} không hợp lệ.'})
+
+        # Validate start < end
+        if parsed_start and parsed_end and parsed_end <= parsed_start:
+            errors.append({'index': i, 'field': 'end_time', 'message': f'Ngày {i+1}: Giờ kết thúc phải sau giờ bắt đầu.'})
+
+    is_valid = len(errors) == 0
+    return is_valid, errors
 
 
 class Proposal(db.Model):
@@ -265,6 +442,7 @@ class Message(db.Model):
     contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False)
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    image_url = db.Column(db.Text, nullable=True)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -281,6 +459,7 @@ class DirectMessage(db.Model):
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    image_url = db.Column(db.Text, nullable=True)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -348,7 +527,7 @@ SCHEDULE_STATUS = ('reserved', 'active', 'completed', 'cancelled')
 class TranslatorSchedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
-    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True, index=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True)
     job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)
 
@@ -366,7 +545,7 @@ class TranslatorSchedule(db.Model):
     expires_at = db.Column(db.DateTime, nullable=True, index=True)
 
     translator = db.relationship('User', backref=db.backref('schedules', lazy=True))
-    contract = db.relationship('Contract', backref=db.backref('schedule_entries', lazy=True))
+    contract = db.relationship('Contract')
 
 
 # ─── REPORT MODEL (TASK 11) ────────────────────────────────────────────────────
