@@ -153,6 +153,30 @@ class HirerProfile(db.Model):
     location = db.Column(db.String(100))
     rating = db.Column(db.Float, default=0.0)
 
+    # ── Hồ sơ mở rộng: 'business' (Doanh nghiệp / Tổ chức) hoặc 'individual' (Cá nhân)
+    account_type = db.Column(db.String(20), default='individual')
+    # Doanh nghiệp: `company` = tên công ty, `title` = chức vụ người đại diện
+    tax_code = db.Column(db.String(13))
+    industry = db.Column(db.String(150))
+    company_size = db.Column(db.String(20))
+    address = db.Column(db.String(300))
+    company_email = db.Column(db.String(150))
+    website = db.Column(db.String(300))
+    hotline = db.Column(db.String(30))
+    rep_name = db.Column(db.String(100))
+    about = db.Column(db.Text)
+    # Cá nhân
+    hiring_field = db.Column(db.String(150))
+    social_link = db.Column(db.String(300))
+    # Dùng chung
+    contact_phone = db.Column(db.String(30))
+    zalo = db.Column(db.String(30))
+    logo = db.Column(db.Text)  # logo công ty / ảnh đại diện, lưu dạng data URI (đã giới hạn dung lượng)
+
+    @property
+    def is_business(self):
+        return self.account_type == 'business'
+
 
 class Service(db.Model):
     id = db.Column(db.Integer, primary_key=True)

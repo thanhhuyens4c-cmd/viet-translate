@@ -209,6 +209,7 @@ let scheduleRowCount = 0;
 
 function addScheduleRow() {
     scheduleRowCount++;
+    const idx = scheduleRowCount; // chỉ số riêng của dòng này, tránh callback ghi nhầm vào dòng mới nhất
     const rowId = 'schedule-row-' + scheduleRowCount;
     const container = document.getElementById('schedule-container');
     
@@ -249,18 +250,18 @@ function addScheduleRow() {
     container.insertAdjacentHTML('beforeend', rowHtml);
     
     // Init flatpickr for new row
-    flatpickr(\`#date-display-\${scheduleRowCount}\`, {
+    flatpickr('#date-display-' + idx, {
         {% if current_lang == 'vi' %}locale: 'vn',{% endif %}
         minDate: 'today',
         dateFormat: 'Y-m-d',
         altInput: true,
         altFormat: 'D, d/m/Y',
         onChange: function(sel, str) {
-            document.getElementById(\`date-hidden-\${scheduleRowCount}\`).value = str;
+            document.getElementById('date-hidden-' + idx).value = str;
         }
     });
 
-    flatpickr(\`#time-start-\${scheduleRowCount}\`, {
+    flatpickr('#time-start-' + idx, {
         enableTime: true,
         noCalendar: true,
         dateFormat: 'H:i',
@@ -268,11 +269,11 @@ function addScheduleRow() {
         minuteIncrement: 15,
         defaultHour: 8,
         onChange: function(sel, str) {
-            document.getElementById(\`time-start-hidden-\${scheduleRowCount}\`).value = str;
+            document.getElementById('time-start-hidden-' + idx).value = str;
         }
     });
 
-    flatpickr(\`#time-end-\${scheduleRowCount}\`, {
+    flatpickr('#time-end-' + idx, {
         enableTime: true,
         noCalendar: true,
         dateFormat: 'H:i',
@@ -280,7 +281,7 @@ function addScheduleRow() {
         minuteIncrement: 15,
         defaultHour: 17,
         onChange: function(sel, str) {
-            document.getElementById(\`time-end-hidden-\${scheduleRowCount}\`).value = str;
+            document.getElementById('time-end-hidden-' + idx).value = str;
         }
     });
 }
