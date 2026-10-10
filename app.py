@@ -1376,6 +1376,154 @@ def submit_verification():
     return redirect(url_for('account_profile') + '?tab=verification')
 
 
+@app.route('/account/verification/form', methods=['GET', 'POST'])
+@app.route('/verification/apply', methods=['GET', 'POST'])
+@login_required
+def verification_form():
+    """
+    Biểu mẫu nhiều bước khai báo thông tin xác minh phiên dịch viên (VietTranslate).
+    Bao gồm 6 bước:
+    1. Thông tin cá nhân
+    2. Ngôn ngữ nguồn, ngôn ngữ đích và chiều phiên dịch
+    3. Lĩnh vực chuyên môn & Hình thức dịch
+    4. Học vấn và chứng chỉ
+    5. Kinh nghiệm nghề nghiệp
+    6. Xem lại thông tin (Review & Confirm Draft)
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        flash('Biểu mẫu xác minh chỉ dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import (
+        get_or_create_verification_draft,
+        validate_step_data,
+        save_verification_draft
+    )
+
+    verification = get_or_create_verification_draft(user)
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.is_json
+
+    if request.method == 'POST':
+        action = request.form.get('action') or (request.json.get('action') if request.is_json else 'save_draft')
+        step = request.form.get('step', type=int) or (request.json.get('step') if request.is_json else verification.current_step or 1)
+        
+        # Lấy dữ liệu biểu mẫu
+        if request.is_json:
+            form_data = request.json or {}
+        else:
+            raw = request.form.to_dict(flat=False)
+            form_data = {}
+            for k, v in raw.items():
+                if k in ('specializations', 'interpreting_types'):
+                    form_data[k] = v
+                elif len(v) == 1:
+                    form_data[k] = v[0]
+                else:
+                    form_data[k] = v
+
+        if action == 'save_draft':
+            # Lưu nháp bất kỳ bước nào mà không bắt buộc hoàn thiện
+            target_step = request.form.get('target_step', type=int) or (request.json.get('target_step') if request.is_json else step)
+            ok, verif, err = save_verification_draft(user, form_data, target_step=target_step)
+            if not ok:
+                if is_ajax:
+                    return jsonify({'success': False, 'message': err}), 500
+                flash(err, 'error')
+                return redirect(url_for('verification_form', step=step))
+            
+            last_saved = verif.updated_at.strftime('%H:%M:%S') if verif.updated_at else datetime.utcnow().strftime('%H:%M:%S')
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': f'Đã lưu nháp an toàn vào hệ thống lúc {last_saved}',
+                    'last_saved': last_saved,
+                    'current_step': verif.current_step,
+                    'draft_data': verif.get_draft_dict()
+                })
+            flash(f'Đã lưu bản nháp thành công lúc {last_saved}', 'success')
+            return redirect(url_for('verification_form', step=step))
+
+        elif action == 'next_step':
+            # Kiểm tra dữ liệu bước hiện tại
+            is_valid, errors = validate_step_data(step, form_data)
+            if not is_valid:
+                if is_ajax:
+                    return jsonify({
+                        'success': False,
+                        'errors': errors,
+                        'message': 'Vui lòng kiểm tra và sửa các trường thông tin chưa hợp lệ trước khi tiếp tục.'
+                    }), 400
+                for f_name, f_err in errors.items():
+                    flash(f_err, 'error')
+                return redirect(url_for('verification_form', step=step))
+
+            # Hợp lệ -> Lưu nháp dữ liệu và tăng sang bước tiếp theo
+            next_step = min(6, step + 1)
+            ok, verif, err = save_verification_draft(user, form_data, target_step=next_step)
+            if not ok:
+                if is_ajax:
+                    return jsonify({'success': False, 'message': err}), 500
+                flash(err, 'error')
+                return redirect(url_for('verification_form', step=step))
+
+            last_saved = verif.updated_at.strftime('%H:%M:%S') if verif.updated_at else datetime.utcnow().strftime('%H:%M:%S')
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': 'Dữ liệu hợp lệ. Đã chuyển sang bước tiếp theo.',
+                    'next_step': next_step,
+                    'last_saved': last_saved,
+                    'draft_data': verif.get_draft_dict()
+                })
+            return redirect(url_for('verification_form', step=next_step))
+
+        elif action == 'goto_step':
+            # Nhảy tới bước chỉ định (từ nút Sửa ở Bước 6 hoặc quay lại)
+            target = request.form.get('target_step', type=int) or (request.json.get('target_step') if request.is_json else 1)
+            if 1 <= target <= 6:
+                save_verification_draft(user, form_data, target_step=target)
+                if is_ajax:
+                    return jsonify({'success': True, 'target_step': target})
+                return redirect(url_for('verification_form', step=target))
+
+        elif action == 'confirm_draft':
+            # Xác nhận hoàn tất khai báo nháp, chuẩn bị cho giai đoạn nộp tài liệu sau này
+            ok, verif, err = save_verification_draft(user, form_data, target_step=6)
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': 'Bản nháp hồ sơ xác minh đã được lưu trữ an toàn! Bạn có thể xem lại hoặc chỉnh sửa bất kỳ lúc nào.',
+                    'redirect_url': url_for('account_profile') + '?tab=verification'
+                })
+            flash('Bản nháp hồ sơ xác minh đã được lưu trữ an toàn trong tài khoản của bạn.', 'success')
+            return redirect(url_for('account_profile') + '?tab=verification')
+
+    # GET Request
+    # Ưu tiên tham số URL ?step=X, nếu không thì lấy từ verification.current_step
+    requested_step = request.args.get('step', type=int)
+    active_step = requested_step if requested_step and 1 <= requested_step <= 6 else (verification.current_step or 1)
+    
+    current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    draft_dict = verification.get_draft_dict()
+
+    return render_template(
+        'verification_form.html',
+        user=user,
+        verification=verification,
+        draft=draft_dict,
+        active_step=active_step,
+        LANGUAGES=get_localized_languages(current_lang),
+        current_year=datetime.utcnow().year
+    )
+
+
 @app.route('/account/avatar/upload', methods=['POST'])
 @login_required
 def upload_avatar_endpoint():
