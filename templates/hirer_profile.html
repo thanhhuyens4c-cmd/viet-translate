@@ -42,6 +42,9 @@
         <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         {{ t('auto.tham_gia_từ') }} {{ user.created_at.strftime('%m/%Y') }}
       </span>
+      {% if profile and profile.is_verified %}
+      <span class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1 rounded-full shadow-sm">✓ Khách hàng đã xác minh</span>
+      {% endif %}
       {% if profile and profile.location %}
       <span class="bg-white/80 border border-slate-200/60 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
         <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.242-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -82,7 +85,7 @@
           --
         {% endif %}
       </div>
-      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ t('auto.đánh_giá_1') }}</div>
+      <div class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ t('auto.đánh_giá_1') }}{% if profile and profile.total_reviews %} ({{ profile.total_reviews }}){% endif %}</div>
     </div>
 
   </div>
@@ -113,6 +116,40 @@
     </dl>
     {% if profile.about %}<p class="mt-4 text-slate-600 leading-relaxed whitespace-pre-line">{{ profile.about }}</p>{% endif %}
   </div>
+  {% endif %}
+
+  {% if stats and stats.completion_rate is not none %}
+  <p class="mt-5 text-center text-sm text-slate-600">Tỉ lệ hoàn thành hợp đồng: <strong>{{ stats.completion_rate }}%</strong></p>
+  {% endif %}
+
+  {% if profile and (profile.work_mode or profile.hiring_frequency or profile.typical_budget_min or profile.typical_budget_max or profile.needs_nda or profile.needs_certified or profile.special_requirements) %}
+  <div class="mt-8 bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-soft text-sm">
+    <h2 class="text-sm font-extrabold uppercase tracking-wider text-slate-700 mb-4">Nhu cầu thuê</h2>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+      {% if profile.work_mode %}<div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">Hình thức làm việc</dt><dd class="text-slate-800 font-medium">{{ {'onsite': 'Trực tiếp', 'online': 'Online', 'both': 'Trực tiếp & online'}.get(profile.work_mode, '') }}</dd></div>{% endif %}
+      {% if profile.hiring_frequency %}<div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">Tần suất thuê</dt><dd class="text-slate-800 font-medium">{{ {'one_time': 'Một lần', 'occasional': 'Thỉnh thoảng', 'regular': 'Thường xuyên / dài hạn'}.get(profile.hiring_frequency, '') }}</dd></div>{% endif %}
+      {% if profile.typical_budget_min or profile.typical_budget_max %}<div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">Ngân sách thường dùng</dt><dd class="text-slate-800 font-medium">{{ '{:,}'.format(profile.typical_budget_min or 0) }}{% if profile.typical_budget_max %} – {{ '{:,}'.format(profile.typical_budget_max) }}{% endif %} VND</dd></div>{% endif %}
+      {% if profile.needs_nda or profile.needs_certified %}<div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">Yêu cầu</dt><dd class="text-slate-800 font-medium">{% if profile.needs_nda %}Bảo mật (NDA). {% endif %}{% if profile.needs_certified %}Bản dịch có chứng nhận.{% endif %}</dd></div>{% endif %}
+    </dl>
+    {% if profile.special_requirements %}<p class="mt-4 text-slate-600 leading-relaxed whitespace-pre-line">{{ profile.special_requirements }}</p>{% endif %}
+  </div>
+  {% endif %}
+
+  <h2 class="mt-10 mb-4 text-base font-bold text-slate-900">Đánh giá từ phiên dịch viên</h2>
+  {% if reviews %}
+  <div class="space-y-3">
+    {% for r in reviews %}
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-soft">
+      <div class="flex items-center justify-between text-sm">
+        <span class="font-semibold text-slate-800">{{ r.reviewer.name if r.reviewer else 'Phiên dịch viên' }}</span>
+        <span class="text-amber-500 font-bold">{{ '★' * r.rating }}<span class="text-slate-300">{{ '★' * (5 - r.rating) }}</span></span>
+      </div>
+      {% if r.comment %}<p class="mt-2 text-sm text-slate-600">{{ r.comment }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-500">Chưa có đánh giá nào.</p>
   {% endif %}
 </div>
 {% endblock %}

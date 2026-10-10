@@ -1600,6 +1600,40 @@
                                 </div>
                             </div>
 
+                            {% set pref_specialties = (pref.specialties or '').split(',') if pref else [] %}
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Lĩnh vực chuyên môn <span class="normal-case font-normal text-slate-400">(giúp hệ thống gợi ý job đúng ngành)</span></label>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                    {% for f in HIRING_FIELDS %}
+                                    <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
+                                        <input type="checkbox" name="specialties" value="{{ f }}" class="rounded text-brand-600" {% if f in pref_specialties %}checked{% endif %}>
+                                        <span>{{ f }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Thành phố / nơi làm việc chính</label>
+                                    <input type="text" name="city" maxlength="100" value="{{ pref.city if pref and pref.city else '' }}" placeholder="Hà Nội, TP. Hồ Chí Minh…"
+                                        class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Hình thức làm việc</label>
+                                    <select name="work_mode" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+                                        <option value="">—</option>
+                                        {% for v, lbl in [('onsite','Trực tiếp'),('online','Online'),('both','Trực tiếp & online')] %}
+                                        <option value="{{ v }}" {% if pref and pref.work_mode == v %}selected{% endif %}>{{ lbl }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <label class="flex items-center gap-2 text-xs font-medium">
+                                <input type="checkbox" name="offers_certified" class="rounded text-brand-600" {% if pref and pref.offers_certified %}checked{% endif %}>
+                                Tôi có thể cung cấp bản dịch có chứng nhận / công chứng
+                            </label>
+
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{
                                     t('account_profile_page.label_notifications') }}</label>
@@ -1763,6 +1797,31 @@
                                 <div class="space-y-1.5"><label class="{{ lbl }}">Giới thiệu ngắn / lưu ý khi làm việc</label>
                                     <textarea name="about" rows="3" maxlength="500" placeholder="VD: Hay thuê phiên dịch cho các chuyến công tác ngắn ngày, ưu tiên người có kinh nghiệm y tế." class="{{ inp }}">{{ (hp.about if hp and atype != 'business' else '') or '' }}</textarea></div>
                             </div>
+
+                            <!-- NHU CẦU THUÊ (không bắt buộc) — dùng để gợi ý phiên dịch viên phù hợp -->
+                            <fieldset class="space-y-4 border-t border-slate-100 pt-5">
+                                <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Nhu cầu thuê <span class="normal-case font-normal text-slate-400">(không bắt buộc, giúp gợi ý phiên dịch viên phù hợp hơn)</span></legend>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Hình thức làm việc</label>
+                                        <select name="work_mode" class="{{ inp }}"><option value="">—</option>
+                                            {% for v, l in [('onsite','Trực tiếp'),('online','Online'),('both','Trực tiếp & online')] %}<option value="{{ v }}" {% if hp and hp.work_mode == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+                                        </select></div>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Tần suất thuê</label>
+                                        <select name="hiring_frequency" class="{{ inp }}"><option value="">—</option>
+                                            {% for v, l in [('one_time','Một lần'),('occasional','Thỉnh thoảng'),('regular','Thường xuyên / dài hạn')] %}<option value="{{ v }}" {% if hp and hp.hiring_frequency == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+                                        </select></div>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Ngân sách thường dùng từ (VND)</label>
+                                        <input type="number" min="0" name="typical_budget_min" value="{{ hp.typical_budget_min if hp and hp.typical_budget_min else '' }}" class="{{ inp }}"></div>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Ngân sách thường dùng đến (VND)</label>
+                                        <input type="number" min="0" name="typical_budget_max" value="{{ hp.typical_budget_max if hp and hp.typical_budget_max else '' }}" class="{{ inp }}"></div>
+                                </div>
+                                <div class="flex flex-wrap gap-5 text-xs font-medium">
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="needs_nda" class="rounded text-brand-600" {% if hp and hp.needs_nda %}checked{% endif %}> Yêu cầu bảo mật (NDA)</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="needs_certified" class="rounded text-brand-600" {% if hp and hp.needs_certified %}checked{% endif %}> Cần bản dịch có chứng nhận / công chứng</label>
+                                </div>
+                                <div class="space-y-1.5"><label class="{{ lbl }}">Yêu cầu đặc biệt</label>
+                                    <textarea name="special_requirements" rows="2" maxlength="1000" class="{{ inp }}">{{ (hp.special_requirements if hp else '') or '' }}</textarea></div>
+                            </fieldset>
 
                             <!-- DÙNG CHUNG -->
                             <div class="space-y-4 border-t border-slate-100 pt-5">

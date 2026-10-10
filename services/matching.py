@@ -41,13 +41,68 @@ def normalize_text(value):
         return ''
     return unicodedata.normalize('NFKD', str(value)).encode('ASCII', 'ignore').decode('utf-8').lower().strip()
 
+CITY_ALIASES = {
+    'hn': ('ha noi', 'hanoi'),
+    'hcm': ('ho chi minh', 'hcm', 'sai gon', 'saigon'),
+    'dn': ('da nang',),
+    'hp': ('hai phong',),
+    'ct': ('can tho',),
+}
+
+def canonical_city(value):
+    text = normalize_text(value)
+    for key, aliases in CITY_ALIASES.items():
+        if any(a in text for a in aliases):
+            return key
+    return text
+
+def calculate_client_fit(pref, hirer_profile, job, lang='vi'):
+    """Điểm tối đa 12: ngành (5) + hình thức làm việc (3) + chứng nhận (4)."""
+    from translations import t as t_lookup
+    reasons = []
+    total = 0.0
+
+    # Ngành
+    from services.hirer import hirer_expertise_fields
+    specialties = {s.strip() for s in (getattr(pref, 'specialties', None) or '').split(',') if s.strip()} if pref else set()
+    needed_fields = hirer_expertise_fields(hirer_profile)
+    if needed_fields and specialties:
+        if needed_fields & specialties:
+            total += 5
+            reasons.append(t_lookup('match_reasons.industry_match', lang))
+    else:
+        total += 3
+
+    # Hình thức làm việc (job ghi online thì coi như online)
+    job_loc = normalize_text(job.event_location)
+    job_mode = 'online' if ('online' in job_loc or 'tu xa' in job_loc) else (hirer_profile.work_mode if hirer_profile else None)
+    t_mode = getattr(pref, 'work_mode', None) if pref else None
+    if job_mode and t_mode:
+        if t_mode == 'both' or job_mode == 'both' or job_mode == t_mode:
+            total += 3
+            reasons.append(t_lookup('match_reasons.mode_match', lang))
+    else:
+        total += 1.8
+
+    # Chứng nhận / công chứng
+    if hirer_profile and hirer_profile.needs_certified:
+        if pref and pref.offers_certified:
+            total += 4
+            reasons.append(t_lookup('match_reasons.certified_match', lang))
+        elif not pref:
+            total += 2.4
+    else:
+        total += 4
+
+    return int(round(total)), reasons
+
 def calculate_job_match_score(translator, job, lang='vi'):
     from translations import t as t_lookup
     # Base score 0 to 100
     score = 0
     reasons = []
     
-    # 1. Language (40 points)
+    # 1. Language (35 points)
     pref = translator.preference
     prof = translator.profile
     
@@ -61,10 +116,10 @@ def calculate_job_match_score(translator, job, lang='vi'):
         pairs = [normalize_text(p).replace(' ', '') for p in pairs_str.split(',')]
         
         if exact_pair in pairs:
-            score += 40
+            score += 35
             reasons.append(t_lookup('match_reasons.exact_language_pair', lang))
         elif reverse_pair in pairs:
-            score += 20
+            score += 18
             reasons.append(t_lookup('match_reasons.reverse_language_pair', lang))
         else:
             translator_langs = set()
@@ -74,7 +129,7 @@ def calculate_job_match_score(translator, job, lang='vi'):
                     translator_langs.add(src)
                     translator_langs.add(tgt)
             if source_norm in translator_langs or target_norm in translator_langs:
-                score += 10
+                score += 9
                 reasons.append(t_lookup('match_reasons.partial_language', lang))
     else:
         translator_langs = []
@@ -84,13 +139,13 @@ def calculate_job_match_score(translator, job, lang='vi'):
             translator_langs = [normalize_text(l) for l in prof.languages.split(',')]
 
         if source_norm in translator_langs and target_norm in translator_langs:
-            score += 40
+            score += 35
             reasons.append(t_lookup('match_reasons.language_match', lang))
         elif source_norm in translator_langs or target_norm in translator_langs:
-            score += 20
+            score += 18
             reasons.append(t_lookup('match_reasons.partial_language', lang))
 
-    # 2. Service Type (25 points)
+    # 2. Service Type (20 points)
     job_group = job.display_category_group
     job_type = job.display_service_type
     
@@ -121,13 +176,13 @@ def calculate_job_match_score(translator, job, lang='vi'):
 
     if pref_services:
         if any(s in pref_services for s in exact_match_texts):
-            score += 25
+            score += 20
             reasons.append(t_lookup('match_reasons.exact_job_type', lang))
         elif any(s in pref_services for s in group_match_texts):
-            score += 15
+            score += 12
             reasons.append(t_lookup('match_reasons.group_match', lang))
     else:
-        score += 25
+        score += 20
         
     # 3. Experience (15 points)
     exp_score = 0
@@ -148,13 +203,25 @@ def calculate_job_match_score(translator, job, lang='vi'):
     if exp_score >= 10:
         reasons.append(t_lookup('match_reasons.experience_match', lang))
         
+    hirer_profile = None
+    try:
+        hirer_profile = job.hirer.hirer_profile if job.hirer else None
+    except Exception:
+        hirer_profile = None
+
     # 4. Location (10 points)
     loc_score = 10
-    job_loc_norm = normalize_text(job.event_location)
-    
+    # Job không ghi địa điểm thì dùng khu vực của khách
+    job_loc_norm = normalize_text(job.event_location) or (normalize_text(hirer_profile.location) if hirer_profile else '')
+
     if job_loc_norm:
-        if "online" in job_loc_norm or "tu xa" in job_loc_norm:
+        if "online" in job_loc_norm or "tu xa" in job_loc_norm or "toan quoc" in job_loc_norm:
             reasons.append(t_lookup('match_reasons.remote_work', lang))
+        elif pref and pref.city:
+            if canonical_city(pref.city) and canonical_city(pref.city) == canonical_city(job_loc_norm):
+                reasons.append(t_lookup('match_reasons.location_match', lang))
+            elif pref.work_mode != 'online':
+                loc_score = 5
         elif prof and prof.bio and normalize_text(prof.bio):
             bio_norm = normalize_text(prof.bio)
             if "ha noi" in job_loc_norm and "ha noi" not in bio_norm:
@@ -167,15 +234,23 @@ def calculate_job_match_score(translator, job, lang='vi'):
             pass # No penalty if lack of info
     score += loc_score
 
-    # 5. Budget (10 points)
-    budget_score = 10
-    if job.budget_min and prof:
+    # 5. Budget (8 points)
+    budget_score = 8
+    # Job thỏa thuận (budget_min = 0) thì tham chiếu ngân sách thường dùng của khách
+    budget_ref = job.budget_min or (hirer_profile.typical_budget_min if hirer_profile else None)
+    if budget_ref and prof:
         min_price = min([s.basic_price for s in prof.services if s.basic_price], default=None)
-        if min_price and job.budget_min < (min_price * 0.7):
-            budget_score = 5
-        elif min_price and job.budget_min >= min_price:
+        if min_price and budget_ref < (min_price * 0.7):
+            budget_score = 4
+        elif min_price and budget_ref >= min_price:
             reasons.append(t_lookup('match_reasons.budget_match', lang))
     score += budget_score
+
+    # 6. Client fit (12 points): ngành, hình thức làm việc, yêu cầu chứng nhận
+    # Thiếu dữ liệu một phía -> điểm trung tính (60%), khớp -> 100%, lệch -> 0
+    fit_score, fit_reasons = calculate_client_fit(pref, hirer_profile, job, lang)
+    score += fit_score
+    reasons.extend(fit_reasons)
 
     # Limit score to 100
     score = min(score, 100)
