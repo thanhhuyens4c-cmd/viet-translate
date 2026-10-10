@@ -1546,6 +1546,15 @@ def book_service(service_id):
         time_start_str = request.form.get('time_start', '')
         time_end_str = request.form.get('time_end', '')
         
+        daily_schedules = None
+        daily_schedules_raw = request.form.get('daily_schedules')
+        if daily_schedules_raw:
+            import json
+            try:
+                daily_schedules = json.loads(daily_schedules_raw)
+            except Exception:
+                daily_schedules = None
+
         from services.booking import create_contract_booking, BookingConflictError, BookingValidationError
         from services.schedule import ScheduleCheckError
         
@@ -1557,6 +1566,7 @@ def book_service(service_id):
                 scheduled_date=scheduled_date_str,
                 start_time=time_start_str,
                 end_time=time_end_str,
+                daily_schedules=daily_schedules,
                 location=request.form.get('location', ''),
                 service_id=service.id
             )

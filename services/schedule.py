@@ -74,12 +74,19 @@ def parse_date_range(value):
     if not raw:
         return []
 
-    # Check for range separator " to " (used by flatpickr range mode)
-    if ' to ' in raw:
-        parts = raw.split(' to ', 1)
+    # Check for range separators (Flatpickr English ' to ', Flatpickr Vietnamese ' đến ', etc.)
+    parts = None
+    for sep in [' to ', ' đến ', ' - ', ' – ', '->', '➜']:
+        if sep in raw:
+            parts = raw.split(sep, 1)
+            break
+
+    if parts:
         start_date = _parse_date(parts[0].strip())
         end_date = _parse_date(parts[1].strip())
-        if start_date and end_date and end_date >= start_date:
+        if start_date and end_date:
+            if end_date < start_date:
+                start_date, end_date = end_date, start_date
             from datetime import timedelta
             days = []
             current = start_date
@@ -88,7 +95,6 @@ def parse_date_range(value):
                 current += timedelta(days=1)
             return days
         elif start_date:
-            # End date invalid, return at least the start
             return [start_date]
         return []
 

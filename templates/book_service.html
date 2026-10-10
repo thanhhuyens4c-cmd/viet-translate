@@ -132,46 +132,66 @@
 
                         <!-- Section 2: Chọn giờ -->
                         <div>
-                            <h2 class="text-sm sm:text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
-                                <span
-                                    class="w-6 h-6 rounded-lg bg-brand-600 text-white flex items-center justify-center text-xs font-bold">02</span>
-                                {{ t('auto.thời_gian_bắt_đầu__k') }} <span class="text-red-500">*</span>
-                            </h2>
+                            <div class="flex items-center justify-between mb-3">
+                                <h2 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                                    <span
+                                        class="w-6 h-6 rounded-lg bg-brand-600 text-white flex items-center justify-center text-xs font-bold">02</span>
+                                    {{ t('auto.thời_gian_bắt_đầu__k') }} <span class="text-red-500">*</span>
+                                </h2>
+                                <button type="button" id="btn-sync-times" class="hidden text-xs text-brand-600 hover:text-brand-800 font-semibold flex items-center gap-1">
+                                    <span>🔄</span> {{ 'Đồng bộ giờ cho tất cả các ngày' if current_lang == 'vi' else 'Apply to all days' }}
+                                </button>
+                            </div>
 
-                            <div class="grid grid-cols-2 gap-3 sm:gap-4">
-                                <div>
-                                    <label
-                                        class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{{
-                                        t('auto.giờ_bắt_đầu') }}</label>
-                                    <div class="relative">
-                                        <input type="text" id="time-start-display" placeholder="08:00" readonly
-                                            class="cal-display w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500 text-center bg-slate-50/50">
-                                        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        <input type="hidden" name="time_start" id="time-start-hidden" value="08:00">
+                            <input type="hidden" name="daily_schedules" id="daily-schedules-hidden">
+
+                            <!-- Single Day / Default Time Section -->
+                            <div id="single-day-time-section">
+                                <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                                    <div>
+                                        <label
+                                            class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{{
+                                            t('auto.giờ_bắt_đầu') }}</label>
+                                        <div class="relative">
+                                            <input type="text" id="time-start-display" placeholder="08:00" readonly
+                                                class="cal-display w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500 text-center bg-slate-50/50">
+                                            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <input type="hidden" name="time_start" id="time-start-hidden" value="08:00">
+                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <label
-                                        class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{{
-                                        t('auto.giờ_kết_thúc') }}</label>
-                                    <div class="relative">
-                                        <input type="text" id="time-end-display" placeholder="17:00" readonly
-                                            class="cal-display w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500 text-center bg-slate-50/50">
-                                        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        <input type="hidden" name="time_end" id="time-end-hidden" value="17:00">
+                                    <div>
+                                        <label
+                                            class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{{
+                                            t('auto.giờ_kết_thúc') }}</label>
+                                        <div class="relative">
+                                            <input type="text" id="time-end-display" placeholder="17:00" readonly
+                                                class="cal-display w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500 text-center bg-slate-50/50">
+                                            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <input type="hidden" name="time_end" id="time-end-hidden" value="17:00">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <p class="text-[11px] text-slate-400 mt-1.5 ml-1">
-                                {{ '💡 Khung giờ này sẽ áp dụng cho tất cả các ngày làm việc đã chọn.' if current_lang == 'vi' else '💡 This time slot applies to all scheduled work days.' }}
+
+                            <!-- Multi-Day Detail Section -->
+                            <div id="multi-day-detail-section" class="hidden space-y-3 mt-3">
+                                <div class="text-xs font-semibold text-slate-600 flex items-center justify-between">
+                                    <span>{{ 'Lịch làm việc chi tiết từng ngày:' if current_lang == 'vi' else 'Daily schedule breakdown:' }}</span>
+                                    <span class="text-[11px] text-slate-400 font-normal">{{ '(Có thể chỉnh giờ khác nhau cho từng ngày)' if current_lang == 'vi' else '(Custom hours per day supported)' }}</span>
+                                </div>
+                                <div id="daily-schedule-rows" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+                            </div>
+
+                            <p class="text-[11px] text-slate-400 mt-2 ml-1" id="time-helper-note">
+                                {{ '💡 Khung giờ này sẽ áp dụng cho lịch làm việc của phiên dịch viên.' if current_lang == 'vi' else '💡 This schedule applies to the translator\'s booking.' }}
                             </p>
                         </div>
 
@@ -325,64 +345,183 @@
     today.setHours(0, 0, 0, 0);
 
     const fixedDays = {{ fixed_days| tojson }};
-    let isRangeMode = fixedDays === null || fixedDays > 1;
+    const dailySchedulesHidden = document.getElementById('daily-schedules-hidden');
+    const singleDayTimeSection = document.getElementById('single-day-time-section');
+    const multiDayDetailSection = document.getElementById('multi-day-detail-section');
+    const dailyScheduleRows = document.getElementById('daily-schedule-rows');
+    const btnSyncTimes = document.getElementById('btn-sync-times');
+    const timeHelperNote = document.getElementById('time-helper-note');
+
+    function getDatesInRange(startDate, endDate) {
+        const dates = [];
+        let curr = new Date(startDate);
+        const end = new Date(endDate);
+        while (curr <= end) {
+            dates.push(new Date(curr));
+            curr.setDate(curr.getDate() + 1);
+        }
+        return dates;
+    }
+
+    function renderDailyScheduleInputs(dates) {
+        if (!dates || dates.length <= 1) {
+            multiDayDetailSection.classList.add('hidden');
+            btnSyncTimes.classList.add('hidden');
+            singleDayTimeSection.classList.remove('hidden');
+            dailySchedulesHidden.value = '';
+            timeHelperNote.textContent = isEn 
+                ? '💡 This schedule applies to the translator\'s booking.' 
+                : '💡 Khung giờ này sẽ áp dụng cho lịch làm việc của phiên dịch viên.';
+            return;
+        }
+
+        multiDayDetailSection.classList.remove('hidden');
+        btnSyncTimes.classList.remove('hidden');
+        singleDayTimeSection.classList.add('hidden');
+        timeHelperNote.textContent = isEn
+            ? '💡 You can customize specific working hours for each day above, or click Sync to apply uniform hours.'
+            : '💡 Bạn có thể tùy chỉnh giờ làm việc cụ thể cho từng ngày ở trên, hoặc bấm "Đồng bộ giờ" để áp dụng cùng một khung giờ.';
+
+        const defaultStart = document.getElementById('time-start-hidden').value || '08:00';
+        const defaultEnd = document.getElementById('time-end-hidden').value || '17:00';
+
+        dailyScheduleRows.innerHTML = '';
+        dates.forEach((d, idx) => {
+            const dateISO = flatpickr.formatDate(d, 'Y-m-d');
+            const dayName = d.toLocaleDateString(isEn ? 'en-US' : 'vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            const row = document.createElement('div');
+            row.className = 'p-2.5 bg-slate-50/80 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5';
+            row.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="w-5 h-5 rounded-full bg-brand-100 text-brand-700 font-bold text-[11px] flex items-center justify-center shrink-0">${idx + 1}</span>
+                    <span class="font-bold text-slate-800 text-xs sm:text-sm capitalize">${dayName}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="relative">
+                        <input type="time" class="daily-start-time px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-500 bg-white" value="${defaultStart}" data-date="${dateISO}">
+                    </div>
+                    <span class="text-slate-400 text-xs font-bold">➜</span>
+                    <div class="relative">
+                        <input type="time" class="daily-end-time px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-500 bg-white" value="${defaultEnd}" data-date="${dateISO}">
+                    </div>
+                </div>
+            `;
+            dailyScheduleRows.appendChild(row);
+        });
+
+        // Add event listeners on input change
+        dailyScheduleRows.querySelectorAll('input').forEach(inp => {
+            inp.addEventListener('change', syncDailySchedulesHidden);
+        });
+
+        syncDailySchedulesHidden();
+    }
+
+    function syncDailySchedulesHidden() {
+        const starts = dailyScheduleRows.querySelectorAll('.daily-start-time');
+        const ends = dailyScheduleRows.querySelectorAll('.daily-end-time');
+        if (starts.length === 0) {
+            dailySchedulesHidden.value = '';
+            return;
+        }
+
+        const schedules = [];
+        starts.forEach((sInp, i) => {
+            const eInp = ends[i];
+            schedules.push({
+                date: sInp.dataset.date,
+                start_time: sInp.value,
+                end_time: eInp.value
+            });
+        });
+
+        dailySchedulesHidden.value = JSON.stringify(schedules);
+        
+        // Also update the primary start/end fallbacks
+        if (schedules.length > 0) {
+            document.getElementById('time-start-hidden').value = schedules[0].start_time;
+            document.getElementById('time-end-hidden').value = schedules[0].end_time;
+        }
+        updateSummary();
+    }
+
+    btnSyncTimes.addEventListener('click', () => {
+        const starts = dailyScheduleRows.querySelectorAll('.daily-start-time');
+        const ends = dailyScheduleRows.querySelectorAll('.daily-end-time');
+        if (starts.length > 0) {
+            const firstStart = starts[0].value;
+            const firstEnd = ends[0].value;
+            starts.forEach(s => s.value = firstStart);
+            ends.forEach(e => e.value = firstEnd);
+            syncDailySchedulesHidden();
+        }
+    });
 
     const datePicker = flatpickr(datePickerEl, {
         inline: true,
-    {% if current_lang == 'vi' %}locale: 'vn', {% endif %}
-    minDate: 'today',
+        {% if current_lang == 'vi' %}locale: 'vn',{% endif %}
+        minDate: 'today',
         dateFormat: 'Y-m-d',
-            theme: 'airbnb',
-                disableMobile: true,
-                    mode: (fixedDays === null || fixedDays > 1) ? 'range' : 'single',
-                        onChange: function(selectedDates, dateStr, instance) {
-                            if (selectedDates.length > 0) {
-                                let displayStr = '';
-                                const localeStr = isEn ? 'en-US' : 'vi-VN';
+        theme: 'airbnb',
+        disableMobile: true,
+        mode: (fixedDays === null || fixedDays > 1) ? 'range' : 'single',
+        onChange: function(selectedDates, dateStr, instance) {
+            if (selectedDates.length > 0) {
+                let displayStr = '';
+                const localeStr = isEn ? 'en-US' : 'vi-VN';
+                let activeDateList = [];
 
-                                if (fixedDays !== null && fixedDays > 1) {
-                                    if (selectedDates.length === 1) {
-                                        const startD = selectedDates[0];
-                                        const endD = new Date(startD);
-                                        endD.setDate(startD.getDate() + fixedDays - 1);
+                if (fixedDays !== null && fixedDays > 1) {
+                    if (selectedDates.length === 1) {
+                        const startD = selectedDates[0];
+                        const endD = new Date(startD);
+                        endD.setDate(startD.getDate() + fixedDays - 1);
+                        instance.setDate([startD, endD], false);
 
-                                        instance.setDate([startD, endD], false);
+                        displayStr = '📅 ' + startD.toLocaleDateString(localeStr) + ' ➜ ' + endD.toLocaleDateString(localeStr);
+                        hiddenDate.value = flatpickr.formatDate(startD, 'Y-m-d') + ' to ' + flatpickr.formatDate(endD, 'Y-m-d');
+                        activeDateList = getDatesInRange(startD, endD);
+                    } else {
+                        const startD = selectedDates[0];
+                        const endD = selectedDates[1];
+                        displayStr = '📅 ' + startD.toLocaleDateString(localeStr) + ' ➜ ' + endD.toLocaleDateString(localeStr);
+                        hiddenDate.value = flatpickr.formatDate(startD, 'Y-m-d') + ' to ' + flatpickr.formatDate(endD, 'Y-m-d');
+                        activeDateList = getDatesInRange(startD, endD);
+                    }
+                } else if (fixedDays === 1) {
+                    const d = selectedDates[0];
+                    displayStr = '📅 ' + d.toLocaleDateString(localeStr);
+                    hiddenDate.value = flatpickr.formatDate(d, 'Y-m-d');
+                    activeDateList = [d];
+                } else {
+                    // fixedDays === null ("Theo lịch")
+                    if (selectedDates.length === 2) {
+                        const startD = selectedDates[0];
+                        const endD = selectedDates[1];
+                        displayStr = '📅 ' + startD.toLocaleDateString(localeStr) + ' ➜ ' + endD.toLocaleDateString(localeStr);
+                        hiddenDate.value = flatpickr.formatDate(startD, 'Y-m-d') + ' to ' + flatpickr.formatDate(endD, 'Y-m-d');
+                        activeDateList = getDatesInRange(startD, endD);
+                    } else {
+                        // User selected 1 date so far
+                        const d = selectedDates[0];
+                        displayStr = '📅 ' + d.toLocaleDateString(localeStr);
+                        hiddenDate.value = flatpickr.formatDate(d, 'Y-m-d');
+                        activeDateList = [d];
+                    }
+                }
 
-                                        const formattedStart = startD.toLocaleDateString(localeStr);
-                                        const formattedEnd = endD.toLocaleDateString(localeStr);
-                                        displayStr = '📅 ' + formattedStart + ' ➜ ' + formattedEnd;
-                                        hiddenDate.value = flatpickr.formatDate(startD, 'Y-m-d') + ' to ' + flatpickr.formatDate(endD, 'Y-m-d');
-                                    } else {
-                                        const startD = selectedDates[0];
-                                        const endD = selectedDates[1];
-                                        displayStr = '📅 ' + startD.toLocaleDateString(localeStr) + ' ➜ ' + endD.toLocaleDateString(localeStr);
-                                        hiddenDate.value = dateStr;
-                                    }
-                                } else if (fixedDays === 1) {
-                                    const d = selectedDates[0];
-                                    displayStr = '📅 ' + d.toLocaleDateString(localeStr);
-                                    hiddenDate.value = flatpickr.formatDate(d, 'Y-m-d');
-                                } else {
-                                    if (selectedDates.length === 2) {
-                                        const formattedStart = selectedDates[0].toLocaleDateString(localeStr);
-                                        const formattedEnd = selectedDates[1].toLocaleDateString(localeStr);
-                                        displayStr = '📅 ' + formattedStart + ' ➜ ' + formattedEnd;
-                                        hiddenDate.value = dateStr;
-                                    } else {
-                                        displayStr = '📅 ' + selectedDates[0].toLocaleDateString(localeStr) + ' ➜ ...';
-                                        hiddenDate.value = '';
-                                    }
-                                }
-
-                                calDisplay.value = displayStr;
-                                updateSummary();
-                            } else {
-                                calDisplay.value = '';
-                                hiddenDate.value = '';
-                                updateSummary();
-                            }
-                        }
-});
+                calDisplay.value = displayStr;
+                renderDailyScheduleInputs(activeDateList);
+                updateSummary();
+            } else {
+                calDisplay.value = '';
+                hiddenDate.value = '';
+                renderDailyScheduleInputs([]);
+                updateSummary();
+            }
+        }
+    });
 
     calDisplay.addEventListener('click', () => {
         datePickerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -426,9 +565,28 @@
         if (d) {
             document.getElementById('booking-summary').classList.remove('hidden');
             document.getElementById('summary-date').textContent = d.replace('📅 ', '');
-            if (ts && te) {
-                const perDayText = (fixedDays !== null && fixedDays > 1) ? (isEn ? ' (daily)' : ' (mỗi ngày)') : '';
-                document.getElementById('summary-time').textContent = ts + ' → ' + te + perDayText;
+            
+            if (dailySchedulesHidden.value) {
+                try {
+                    const scheds = JSON.parse(dailySchedulesHidden.value);
+                    if (scheds.length > 1) {
+                        const first = scheds[0];
+                        const allSame = scheds.every(s => s.start_time === first.start_time && s.end_time === first.end_time);
+                        if (allSame) {
+                            document.getElementById('summary-time').textContent = `${first.start_time} → ${first.end_time} (${scheds.length} ${isEn ? 'days' : 'ngày'})`;
+                        } else {
+                            document.getElementById('summary-time').textContent = isEn 
+                                ? `Custom hours (${scheds.length} days)` 
+                                : `Giờ linh hoạt (${scheds.length} ngày)`;
+                        }
+                    } else if (scheds.length === 1) {
+                        document.getElementById('summary-time').textContent = `${scheds[0].start_time} → ${scheds[0].end_time}`;
+                    }
+                } catch (e) {
+                    document.getElementById('summary-time').textContent = ts + ' → ' + te;
+                }
+            } else if (ts && te) {
+                document.getElementById('summary-time').textContent = ts + ' → ' + te;
             } else {
                 document.getElementById('summary-time').textContent = isEn ? 'Not set' : 'Chưa chọn giờ';
             }
@@ -446,18 +604,37 @@
             return;
         }
 
-        const startVal = document.getElementById('time-start-hidden').value;
-        const endVal = document.getElementById('time-end-hidden').value;
-        if (!startVal || !endVal) {
-            e.preventDefault();
-            alert(isEn ? 'Please select both start time and end time!' : 'Vui lòng chọn đầy đủ giờ bắt đầu và giờ kết thúc!');
-            return;
-        }
+        if (dailySchedulesHidden.value) {
+            try {
+                const scheds = JSON.parse(dailySchedulesHidden.value);
+                for (let i = 0; i < scheds.length; i++) {
+                    const s = scheds[i];
+                    if (!s.start_time || !s.end_time) {
+                        e.preventDefault();
+                        alert((isEn ? 'Please fill all hours for ' : 'Vui lòng điền đủ giờ làm việc cho ') + s.date);
+                        return;
+                    }
+                    if (s.start_time >= s.end_time) {
+                        e.preventDefault();
+                        alert((isEn ? 'End time must be after start time on ' : 'Giờ kết thúc phải sau giờ bắt đầu vào ngày ') + s.date);
+                        return;
+                    }
+                }
+            } catch (err) {}
+        } else {
+            const startVal = document.getElementById('time-start-hidden').value;
+            const endVal = document.getElementById('time-end-hidden').value;
+            if (!startVal || !endVal) {
+                e.preventDefault();
+                alert(isEn ? 'Please select both start time and end time!' : 'Vui lòng chọn đầy đủ giờ bắt đầu và giờ kết thúc!');
+                return;
+            }
 
-        if (startVal >= endVal) {
-            e.preventDefault();
-            alert(isEn ? 'End time must be after start time!' : 'Giờ kết thúc phải sau giờ bắt đầu!');
-            return;
+            if (startVal >= endVal) {
+                e.preventDefault();
+                alert(isEn ? 'End time must be after start time!' : 'Giờ kết thúc phải sau giờ bắt đầu!');
+                return;
+            }
         }
     });
 </script>
