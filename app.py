@@ -2651,8 +2651,8 @@ def post_job():
                 js = JobSchedule(
                     job_id=job.id,
                     scheduled_date=parsed_date,
-                    start_time=parsed_start,
-                    end_time=parsed_end
+                    start_time=parsed_start.strftime('%H:%M'),
+                    end_time=parsed_end.strftime('%H:%M')
                 )
                 db.session.add(js)
 
