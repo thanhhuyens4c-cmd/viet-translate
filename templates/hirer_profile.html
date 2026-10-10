@@ -104,9 +104,14 @@
     <p class="mt-5 text-sm text-slate-600 leading-relaxed whitespace-pre-line">{{ profile.about }}</p>
     {% endif %}
   </div>
-  {% elif profile and profile.social_link %}
-  <div class="mt-8 text-center">
-    <a href="{{ profile.social_link }}" target="_blank" rel="noopener nofollow" class="text-brand-600 font-semibold text-sm hover:underline">Trang cá nhân (Facebook / LinkedIn)</a>
+  {% elif profile and (profile.hiring_languages or profile.hiring_services or profile.about) %}
+  <div class="mt-8 bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-soft text-sm">
+    <h2 class="text-sm font-extrabold uppercase tracking-wider text-slate-700 mb-4">Nhu cầu thuê phiên dịch</h2>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+      {% if profile.hiring_languages %}<div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">Ngôn ngữ thường cần</dt><dd class="text-slate-800 font-medium">{{ profile.hiring_languages }}</dd></div>{% endif %}
+      {% if profile.hiring_services %}<div><dt class="text-xs font-bold uppercase tracking-wider text-slate-400">Hình thức thường thuê</dt><dd class="text-slate-800 font-medium">{{ profile.hiring_services }}</dd></div>{% endif %}
+    </dl>
+    {% if profile.about %}<p class="mt-4 text-slate-600 leading-relaxed whitespace-pre-line">{{ profile.about }}</p>{% endif %}
   </div>
   {% endif %}
 </div>
