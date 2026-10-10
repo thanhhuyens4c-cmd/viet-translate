@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta, date, time
 from sqlalchemy.exc import IntegrityError
-from models import User, TranslatorSchedule
+from models import User, TranslatorSchedule, Contract
 from app import db
 from services.schedule import (
     normalize_schedule_datetime,
@@ -74,6 +74,10 @@ def _release_expired_schedules():
         if is_expired:
             s.status = 'cancelled'
             count += 1
+            # Hợp đồng chưa xác nhận/thanh toán mà hết hạn giữ lịch thì hủy luôn
+            contract = Contract.query.get(s.contract_id) if s.contract_id else None
+            if contract and contract.status in ('awaiting_translator', 'escrow_pending'):
+                contract.status = 'cancelled'
             
     if count > 0:
         db.session.flush()

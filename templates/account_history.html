@@ -94,7 +94,11 @@
                                     {{ contract.agreed_price|vnd }} VND
                                 </td>
                                 <td class="py-4">
-                                    {% if contract.status == 'escrow_pending' %}
+                                    {% if contract.status == 'awaiting_translator' %}
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200/70">{{ 'Chờ PDV xác nhận' if current_lang == 'vi' else 'Awaiting translator' }}</span>
+                                    {% elif contract.status == 'cancelled' %}
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-200">{{ 'Đã hủy' if current_lang == 'vi' else 'Cancelled' }}</span>
+                                    {% elif contract.status == 'escrow_pending' %}
                                     <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200/70">{{ t('auto.chờ_escrow') }}</span>
                                     {% elif contract.status == 'in_progress' %}
                                     <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-brand-50 text-brand-800 border border-brand-200/70">{{ t('auto.đang_thực_hiện') }}</span>
