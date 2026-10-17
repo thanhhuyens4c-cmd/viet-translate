@@ -133,5 +133,65 @@ class AuditFixesRegressionTest(unittest.TestCase):
             self.assertIn("PDV cũ (#88888)", rendered)
             self.assertIn("#CTR-99999", rendered)
 
+    def test_09_defensive_rendering_orphaned_reports(self):
+        """Xác minh render admin_reports.html không crash khi reporter bị xóa / mồ côi (ERR-EAD435CF)."""
+        with app.test_request_context():
+            from flask import render_template
+            class MockReport:
+                id = 1
+                reporter_id = 99999
+                reporter = None  # ORPHAN REPORTER
+                target_type = 'job'
+                target_id = 123
+                reason = 'Vi phạm tiêu chuẩn'
+                description = 'Mô tả chi tiết'
+                status = 'new'
+                created_at = datetime.utcnow()
+
+            rendered = render_template('admin_reports.html', reports=[MockReport()], status_filter='all')
+            self.assertIn("Người dùng cũ (#99999)", rendered)
+            self.assertIn("#RPT-1", rendered)
+
+    def test_10_defensive_rendering_orphaned_payments(self):
+        """Xác minh render admin_payments.html không crash khi user thanh toán bị xóa / mồ côi."""
+        with app.test_request_context():
+            from flask import render_template
+            class MockPayment:
+                id = 555
+                contract_id = 12
+                user_id = 88888
+                user = None  # ORPHAN USER
+                amount = 2500000
+                payment_method = 'VNPAY'
+                transaction_ref = 'VN123456'
+                status = 'completed'
+                created_at = datetime.utcnow()
+
+            rendered = render_template('admin_payments.html', payments=[MockPayment()], status_filter='all')
+            self.assertIn("Người dùng cũ (#88888)", rendered)
+            self.assertIn("#CTR-12", rendered)
+
+    def test_11_defensive_rendering_orphaned_reviews(self):
+        """Xác minh render admin_reviews.html không crash khi reviewer/reviewee bị xóa / mồ côi."""
+        with app.test_request_context():
+            from flask import render_template
+            class MockReview:
+                id = 777
+                contract_id = 15
+                reviewer_id = 11111
+                reviewer = None  # ORPHAN REVIEWER
+                reviewee_id = 22222
+                reviewee = None  # ORPHAN REVIEWEE
+                rating = 5
+                comment = 'Dịch vụ tuyệt vời'
+                is_hidden = False
+                created_at = datetime.utcnow()
+
+            rendered = render_template('admin_reviews.html', reviews=[MockReview()])
+            self.assertIn("Người dùng cũ (#11111)", rendered)
+            self.assertIn("Người dùng cũ (#22222)", rendered)
+            self.assertIn("#REV-777", rendered)
+
 if __name__ == '__main__':
     unittest.main()
+

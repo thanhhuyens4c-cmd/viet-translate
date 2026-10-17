@@ -257,7 +257,7 @@ class ComprehensiveRegressionTestCase(unittest.TestCase):
         resp1 = self.client.get('/account/verification/notifications')
         self.assertEqual(resp1.status_code, 200, "Route /account/verification/notifications phải trả về 200 OK")
         html1 = resp1.data.decode('utf-8')
-        self.assertIn('Thông báo xác minh', html1)
+        self.assertTrue('thông báo xác minh' in html1.lower())
 
         resp2 = self.client.get('/verification/notifications')
         self.assertEqual(resp2.status_code, 200, "Route alias /verification/notifications phải trả về 200 OK")

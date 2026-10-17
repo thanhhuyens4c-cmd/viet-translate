@@ -224,7 +224,7 @@
 <script>
 const CURRENT_LANG = "{{ current_lang }}";
 
-const emptyFilters = () => ({ languages: [], pairs: [], specialties: [], minJobs: null, priceRange: null, minRating: null, badges: [], demoType: 'all', query: '' });
+const emptyFilters = () => ({ languages: [], pairs: [], specialties: [], locations: [], workModes: [], minJobs: null, priceRange: null, minRating: null, badges: [], demoType: 'all', query: '' });
 let filters = emptyFilters();
 let allFreelancers = [];
 let sortBy = 'rating';
@@ -295,7 +295,14 @@ const EXP_LEVELS = CURRENT_LANG === 'en' ? [
 
 function facet(list, key) {
   const m = new Map();
-  list.forEach(fl => (fl[key] || []).forEach(v => m.set(v, (m.get(v) || 0) + 1)));
+  list.forEach(fl => {
+    const val = fl[key];
+    if (Array.isArray(val)) {
+      val.forEach(v => { if (v) m.set(v, (m.get(v) || 0) + 1); });
+    } else if (val) {
+      m.set(val, (m.get(val) || 0) + 1);
+    }
+  });
   return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 }
 
@@ -315,11 +322,11 @@ function buildFilterForm(s) {
   const typeHeader = CURRENT_LANG === 'en' ? 'Profile Type' : 'Phân loại hồ sơ';
   const TYPE_OPTIONS = CURRENT_LANG === 'en' ? [
     { label: 'All Profiles', value: 'all' },
-    { label: 'Demo Sample Profiles (100)', value: 'demo' },
+    { label: 'Demo Sample Profiles (50)', value: 'demo' },
     { label: 'Verified Interpreters Only', value: 'verified' },
   ] : [
     { label: 'Tất cả hồ sơ', value: 'all' },
-    { label: 'Hồ sơ mẫu demo (100 Demo)', value: 'demo' },
+    { label: 'Hồ sơ mẫu demo (50 Demo)', value: 'demo' },
     { label: 'Đã thẩm định minh chứng', value: 'verified' },
   ];
   html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${typeHeader}</h4><div class="space-y-1">`;
@@ -342,6 +349,8 @@ function buildFilterForm(s) {
 
   html += cbSection(CURRENT_LANG === 'en' ? 'Language pairs' : 'Cặp ngôn ngữ', 'pair-cb', s, facet(allFreelancers, 'language_pairs'));
   html += cbSection(CURRENT_LANG === 'en' ? 'Specialty' : 'Lĩnh vực chuyên môn', 'spec-cb', s, facet(allFreelancers, 'specialties'));
+  html += cbSection(CURRENT_LANG === 'en' ? 'Location' : 'Khu vực / Tỉnh thành', 'loc-cb', s, facet(allFreelancers, 'location'));
+  html += cbSection(CURRENT_LANG === 'en' ? 'Work format' : 'Hình thức làm việc (Online/Offline)', 'mode-cb', s, facet(allFreelancers, 'work_modes'));
 
   const expHeader = CURRENT_LANG === 'en' ? 'Experience' : 'Kinh nghiệm';
   html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${expHeader}</h4><div class="space-y-1">`;
@@ -402,6 +411,8 @@ function filterFreelancers(list, f) {
     }
     if (f.pairs.length && !f.pairs.some(p => (fl.language_pairs || []).includes(p))) return false;
     if (f.specialties.length && !f.specialties.some(p => (fl.specialties || []).includes(p))) return false;
+    if (f.locations && f.locations.length && !f.locations.includes(fl.location)) return false;
+    if (f.workModes && f.workModes.length && !f.workModes.some(m => (fl.work_modes || []).includes(m))) return false;
     if (f.minJobs !== null && (fl.total_jobs || 0) < f.minJobs) return false;
     if (f.priceRange) {
       const r = PRICE_RANGES.find(p => p.value === f.priceRange);
@@ -428,7 +439,7 @@ function sortFreelancers(list, by) {
 
 function countActiveFilters() {
   let c = 0;
-  ['languages', 'pairs', 'specialties', 'badges'].forEach(k => { if (filters[k].length) c++; });
+  ['languages', 'pairs', 'specialties', 'locations', 'workModes', 'badges'].forEach(k => { if (filters[k] && filters[k].length) c++; });
   if (filters.priceRange) c++;
   if (filters.minRating !== null) c++;
   if (filters.minJobs !== null) c++;
@@ -480,6 +491,8 @@ function syncFiltersFromDOM(s) {
   filters.languages = checked(`.lang-cb-${s}`);
   filters.pairs = checked(`.pair-cb-${s}`);
   filters.specialties = checked(`.spec-cb-${s}`);
+  filters.locations = checked(`.loc-cb-${s}`);
+  filters.workModes = checked(`.mode-cb-${s}`);
   const pe = document.querySelector(`.price-rb-${s}:checked`); filters.priceRange = pe ? pe.value : null;
   const re = document.querySelector(`.rating-rb-${s}:checked`); filters.minRating = re ? parseFloat(re.value) : null;
   const xe = document.querySelector(`.exp-rb-${s}:checked`); filters.minJobs = xe ? parseInt(xe.value, 10) : null;
@@ -492,7 +505,9 @@ function syncDOMFromFilters(s) {
   document.querySelectorAll(`.type-rb-${s}`).forEach(e => { e.checked = e.value === (filters.demoType || 'all'); });
   document.querySelectorAll(`.lang-cb-${s}`).forEach(e => { e.checked = filters.languages.includes(e.value); });
   document.querySelectorAll(`.pair-cb-${s}`).forEach(e => { e.checked = filters.pairs.includes(e.value); });
-  document.querySelectorAll(`.spec-cb-${s}`).forEach(e => { e.checked = filters.specialties.includes(e.value); });
+  document.querySelectorAll(`.spec-cb-${s}`).forEach(e => { e.checked = (filters.specialties || []).includes(e.value); });
+  document.querySelectorAll(`.loc-cb-${s}`).forEach(e => { e.checked = (filters.locations || []).includes(e.value); });
+  document.querySelectorAll(`.mode-cb-${s}`).forEach(e => { e.checked = (filters.workModes || []).includes(e.value); });
   document.querySelectorAll(`.price-rb-${s}`).forEach(e => { e.checked = e.value === filters.priceRange; });
   document.querySelectorAll(`.rating-rb-${s}`).forEach(e => { e.checked = parseFloat(e.value) === filters.minRating; });
   document.querySelectorAll(`.exp-rb-${s}`).forEach(e => { e.checked = parseInt(e.value, 10) === filters.minJobs; });

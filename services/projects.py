@@ -149,6 +149,9 @@ def accept_delivery(contract_id, hirer_id):
     c = _get_owned(contract_id, hirer_id)
     if c.status != 'in_progress':
         raise ProjectError('Dự án không ở trạng thái cho phép nghiệm thu.', 409)
+    from disputes import active_dispute
+    if active_dispute(c.id):
+        raise ProjectError('Hợp đồng đang có khiếu nại chưa giải quyết, chưa thể nghiệm thu.', 409)
     if Deliverable.query.filter_by(contract_id=c.id).count() == 0:
         raise ProjectError('Phiên dịch viên chưa bàn giao tệp nào để nghiệm thu.', 409)
     claimed = (Contract.query.filter(Contract.id == c.id, Contract.status == 'in_progress')

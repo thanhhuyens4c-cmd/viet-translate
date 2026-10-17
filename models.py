@@ -79,9 +79,13 @@ class User(db.Model):
     @property
     def avatar_url(self):
         if self.avatar:
-            if self.avatar.startswith('http://') or self.avatar.startswith('https://') or self.avatar.startswith('/'):
-                return self.avatar
-            return f'/static/uploads/avatars/{self.avatar}'
+            avatar_val = str(self.avatar).strip()
+            if (avatar_val.startswith('http://') or 
+                avatar_val.startswith('https://') or 
+                avatar_val.startswith('/') or 
+                avatar_val.startswith('data:')):
+                return avatar_val
+            return f'/static/uploads/avatars/{avatar_val}'
 
         email_map = {
             'trans_kr@test.com': '/static/avatars/avatar_dung.jpg',
@@ -469,6 +473,36 @@ class TranslatorProfile(db.Model):
         return val
 
     @property
+    def active_cv_document(self):
+        """
+        Trả về tệp CV đang hoạt động của phiên dịch viên (bất kể cờ is_cv_public bật hay tắt).
+        Dùng cho chính chủ, Quản trị viên hoặc Người thuê có ứng viên nộp hồ sơ.
+        """
+        try:
+            doc = VerificationDocument.query.filter_by(
+                user_id=self.user_id,
+                document_type='cv',
+                is_active=True
+            ).order_by(VerificationDocument.created_at.desc()).first()
+            if doc:
+                return doc
+        except Exception:
+            pass
+
+        if self.latest_verification and hasattr(self.latest_verification, 'documents'):
+            for doc in self.latest_verification.documents:
+                if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                    return doc
+
+        if self.user and hasattr(self.user, 'verifications') and self.user.verifications:
+            for v in self.user.verifications:
+                if hasattr(v, 'documents'):
+                    for doc in v.documents:
+                        if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                            return doc
+        return None
+
+    @property
     def public_cv_document(self):
         """
         Trả về đối tượng tài liệu CV hợp lệ khi người dùng CHỦ ĐỘNG chọn công khai (is_cv_public=True).
@@ -476,11 +510,7 @@ class TranslatorProfile(db.Model):
         """
         if not self.is_cv_public:
             return None
-        if self.latest_verification and hasattr(self.latest_verification, 'documents'):
-            for doc in self.latest_verification.documents:
-                if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
-                    return doc
-        return None
+        return self.active_cv_document
 
     @property
     def has_public_cv(self):
@@ -605,6 +635,20 @@ class HirerProfile(db.Model):
     @property
     def is_business(self):
         return self.account_type == 'business'
+
+    @property
+    def avatar_url(self):
+        """Ảnh đại diện hoặc logo của hồ sơ người thuê."""
+        try:
+            if self.logo:
+                logo_val = str(self.logo).strip()
+                if logo_val:
+                    if logo_val.startswith('http://') or logo_val.startswith('https://') or logo_val.startswith('/') or logo_val.startswith('data:'):
+                        return logo_val
+                    return f"/static/uploads/logos/{logo_val}"
+            return self.user.avatar_url if self.user else None
+        except Exception:
+            return None
 
 
 class Service(db.Model):
@@ -1590,6 +1634,64 @@ class Report(db.Model):
     reporter = db.relationship('User', foreign_keys=[reporter_id], backref='reports_submitted')
     related_job = db.relationship('Job', foreign_keys=[related_job_id])
     related_contract = db.relationship('Contract', foreign_keys=[related_contract_id])
+
+# ─── DISPUTE MODEL (KHIẾU NẠI ĐƠN THUÊ) ────────────────────────────────────────
+
+class Dispute(db.Model):
+    """Khiếu nại của khách về một hợp đồng khi tiền còn được giữ (chưa giải ngân).
+
+    pending_review  -> chờ admin xác nhận
+    rejected        -> admin bác bỏ
+    awaiting_response -> admin chuyển bước tiếp theo, PDV có 24h kháng đơn
+    under_review    -> đã có thông tin 2 chiều, admin xem xét
+    resolved        -> admin đã kết luận (xem resolution)
+    """
+    STATUSES = ('pending_review', 'rejected', 'awaiting_response', 'under_review', 'resolved')
+    CATEGORIES = {'late': 'Trễ hạn', 'quality': 'Chất lượng', 'no_contact': 'Mất liên lạc'}
+    RESOLUTIONS = {'keep_100': 'Giữ nguyên thanh toán 100%',
+                   'refund_50': 'Giảm 50% tiền thanh toán',
+                   'cancel_payment': 'Hủy thanh toán (hoàn tiền cho khách)'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    category = db.Column(db.String(20), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default='pending_review', nullable=False, index=True)
+
+    admin_note = db.Column(db.Text)  # lý do bác bỏ / ghi chú khi chuyển bước
+    forwarded_at = db.Column(db.DateTime)
+    response_deadline = db.Column(db.DateTime)
+    translator_response = db.Column(db.Text)
+    translator_responded_at = db.Column(db.DateTime)
+
+    resolution = db.Column(db.String(20))
+    resolution_note = db.Column(db.Text)
+    original_amount = db.Column(db.Integer)
+    final_amount = db.Column(db.Integer)
+    resolved_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    resolved_at = db.Column(db.DateTime)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    contract = db.relationship('Contract', backref=db.backref('disputes', lazy=True))
+    hirer = db.relationship('User', foreign_keys=[hirer_id])
+    translator = db.relationship('User', foreign_keys=[translator_id])
+    evidence = db.relationship('DisputeEvidence', backref='dispute', lazy=True,
+                               cascade='all, delete-orphan', order_by='DisputeEvidence.id')
+
+
+class DisputeEvidence(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    dispute_id = db.Column(db.Integer, db.ForeignKey('dispute.id'), nullable=False, index=True)
+    uploader_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    side = db.Column(db.String(10), nullable=False)  # 'hirer' | 'translator'
+    filename = db.Column(db.String(255), nullable=False)
+    filepath = db.Column(db.String(500), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 # ─── PAYMENT MODEL (TASK 13) ───────────────────────────────────────────────────
 

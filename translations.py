@@ -28,6 +28,8 @@ TRANSLATIONS = {
             'lang_en': 'English',
             'messages_tooltip': 'Tin nhắn',
             'notifications_tooltip': 'Thông báo',
+            'help_tooltip': 'Trợ giúp & Hỗ trợ',
+            'settings_tooltip': 'Cài đặt & Bảo mật',
             'default_title': 'VietTranslate – Nền Tảng Kết Nối Phiên Dịch Viên Chuyên Nghiệp Toàn Cầu',
         },
 
@@ -991,6 +993,8 @@ TRANSLATIONS = {
             'lang_en': 'English',
             'messages_tooltip': 'Messages',
             'notifications_tooltip': 'Notifications',
+            'help_tooltip': 'Help & Support',
+            'settings_tooltip': 'Settings & Security',
             'default_title': 'VietTranslate – Premier Global Translator & Interpreter Connection Platform',
         },
 

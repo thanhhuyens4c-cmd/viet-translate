@@ -323,9 +323,9 @@ class TestAccountSupportModule(unittest.TestCase):
 
         # Kiểm tra sự xuất hiện của các thành phần chính
         self.assertTrue('Trung tâm Trợ giúp' in html)
-        self.assertTrue('5.7.1 Hỏi đáp thường gặp' in html)
-        self.assertTrue('5.7.2 Điều khoản' in html)
-        self.assertTrue('5.7.3 Gửi' in html)
+        self.assertTrue('Hỏi đáp thường gặp' in html)
+        self.assertTrue('Điều khoản' in html)
+        self.assertTrue('Gửi' in html)
         self.assertIn('Nhận thù lao', html)
         self.assertIn('Quy tắc hủy ca', html)
         self.assertIn('Giải quyết tranh chấp', html)

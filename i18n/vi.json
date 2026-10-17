@@ -20,6 +20,8 @@
     "default_title": "VietTranslate | Nền Tảng Kết Nối Phiên Dịch Chuyên Nghiệp",
     "messages_tooltip": "Tin nhắn",
     "notifications_tooltip": "Thông báo",
+    "help_tooltip": "Trợ giúp & Hỗ trợ",
+    "settings_tooltip": "Cài đặt & Bảo mật",
     "my_jobs": "Việc làm của tôi",
     "find_jobs": "Tìm việc",
     "recommended_jobs": "Việc phù hợp",

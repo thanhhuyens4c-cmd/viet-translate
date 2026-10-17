@@ -53,11 +53,29 @@
                 <tr>
                     <!-- Translator info -->
                     <td>
-                        <div style="font-weight: 600; color: #f1f5f9;">{{ v.user.name }}</div>
-                        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">{{ v.user.email }}</div>
-                        {% if v.user.phone %}
-                        <div style="font-size: 10px; color: #94a3b8;">📞 {{ v.user.phone }}</div>
-                        {% endif %}
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="position: relative; width: 38px; height: 38px; flex-shrink: 0;">
+                                {% if v.user and v.user.avatar_url %}
+                                <img src="{{ v.user.avatar_url }}" alt="{{ v.user.name }}"
+                                     style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.15);"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div style="display: none; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; font-weight: 700; font-size: 14px; align-items: center; justify-content: center; text-transform: uppercase;">
+                                    {{ (v.user.name or 'P')[0]|upper }}
+                                </div>
+                                {% else %}
+                                <div style="display: flex; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; font-weight: 700; font-size: 14px; align-items: center; justify-content: center; text-transform: uppercase;">
+                                    {{ (v.user.name or 'P')[0]|upper if v.user else 'P' }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div style="font-weight: 600; color: #f1f5f9;">{{ v.user.name if v.user else 'PDV #' ~ v.user_id }}</div>
+                                <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">{{ v.user.email if v.user else '--' }}</div>
+                                {% if v.user and v.user.phone %}
+                                <div style="font-size: 10px; color: #94a3b8;">📞 {{ v.user.phone }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </td>
 
                     <!-- Credentials info -->
@@ -123,7 +141,7 @@
 
                     <!-- Actions -->
                     <td style="text-align: right; white-space: nowrap;">
-                        <a href="{{ url_for('translator_profile', profile_id=v.user.profile.id if v.user.profile else 1) }}" target="_blank" class="btn btn-ghost btn-sm mr-1">
+                        <a href="{{ url_for('translator_profile', profile_id=v.user.profile.id if (v.user and v.user.profile) else 1) }}" target="_blank" class="btn btn-ghost btn-sm mr-1">
                             {{ t('admin_page.action_view_profile') }}
                         </a>
 
@@ -168,8 +186,27 @@
                 {% for profile in profiles %}
                 <tr>
                     <td>
-                        <div style="font-weight: 600; color: #f1f5f9;">{{ profile.user.name }}</div>
-                        <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">{{ profile.user.email }}</div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="position: relative; width: 38px; height: 38px; flex-shrink: 0;">
+                                {% set trans_avatar = profile.avatar_url or (profile.user.avatar_url if profile.user else None) %}
+                                {% if trans_avatar %}
+                                <img src="{{ trans_avatar }}" alt="{{ profile.user.name if profile.user else 'PDV' }}"
+                                     style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.15);"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div style="display: none; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; font-weight: 700; font-size: 14px; align-items: center; justify-content: center; text-transform: uppercase;">
+                                    {{ (profile.user.name or 'P')[0]|upper if profile.user else 'P' }}
+                                </div>
+                                {% else %}
+                                <div style="display: flex; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; font-weight: 700; font-size: 14px; align-items: center; justify-content: center; text-transform: uppercase;">
+                                    {{ (profile.user.name or 'P')[0]|upper if profile.user else 'P' }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div style="font-weight: 600; color: #f1f5f9;">{{ profile.user.name if profile.user else 'PDV #' ~ profile.user_id }}</div>
+                                <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">{{ profile.user.email if profile.user else '--' }}</div>
+                            </div>
+                        </div>
                     </td>
                     <td>
                         <div style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1;" title="{{ profile.languages }}">

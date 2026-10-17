@@ -336,7 +336,7 @@
                     <p class="text-xs text-slate-500 mt-0.5">Theo dõi doanh thu thực tế, tiền đã giải ngân và ký quỹ Escrow theo kỳ (Múi giờ UTC+7)</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <a href="{{ url_for('account_history') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1" title="Xem toàn bộ lịch sử giao dịch và ví">
+                    <a href="{{ url_for('interpreter_income_transactions') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1" title="Xem toàn bộ lịch sử giao dịch và ví">
                         Xem chi tiết lịch sử ví →
                     </a>
                 </div>
@@ -345,7 +345,7 @@
             <!-- Grid 3 thẻ chỉ số thu nhập chính -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                 <!-- Thẻ 1: Thu nhập trong kỳ hiện tại -->
-                <a href="{{ url_for('account_history', period='current_month', status='completed') }}"
+                <a href="{{ url_for('interpreter_income_details', status='paid') }}"
                     class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-amber-50/30 border border-slate-200/90 hover:border-amber-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
                     title="Nhấn để xem danh sách hợp đồng hoàn tất giải ngân trong {{ income_stats.period_label }}">
                     <div class="flex items-start justify-between">
@@ -382,7 +382,7 @@
                 </a>
 
                 <!-- Thẻ 2: Thu nhập đã thanh toán (Tích lũy) -->
-                <a href="{{ url_for('account_history', status='completed') }}"
+                <a href="{{ url_for('interpreter_income_transactions', status='completed') }}"
                     class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-emerald-50/30 border border-slate-200/90 hover:border-emerald-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                     title="Nhấn để xem toàn bộ danh sách hợp đồng đã giải ngân hoàn tất">
                     <div class="flex items-start justify-between">
@@ -419,7 +419,7 @@
                 </a>
 
                 <!-- Thẻ 3: Khoản thu nhập đang chờ xử lý -->
-                <a href="{{ url_for('account_history', status='in_progress') }}"
+                <a href="{{ url_for('interpreter_income_payouts', status='escrow_held') }}"
                     class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-blue-50/30 border border-slate-200/90 hover:border-blue-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                     title="Nhấn để xem các hợp đồng đang thực hiện với tiền được ký quỹ Escrow bảo đảm">
                     <div class="flex items-start justify-between">
@@ -456,6 +456,128 @@
                 </a>
             </div>
 
+            <!-- Khung biểu đồ biến động thu nhập 6 tháng gần nhất (Tầng 3) -->
+            <div class="mt-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-slate-50/70 via-white to-white border border-slate-200/90 shadow-2xs">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <h3 class="text-sm sm:text-base font-bold text-slate-900">Biến động thu nhập 6 tháng gần nhất</h3>
+                            {% if income_stats.chart_data and income_stats.chart_data.start_month and income_stats.chart_data.end_month %}
+                            <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                                {{ income_stats.chart_data.start_month }} - {{ income_stats.chart_data.end_month }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">Xu hướng tăng trưởng thù lao thực nhận từ các hợp đồng hoàn tất nghiệm thu (Múi giờ UTC+7)</p>
+                    </div>
+                    {% if income_stats.chart_data and income_stats.chart_data.has_data %}
+                    <div class="flex items-center gap-3 self-start sm:self-auto">
+                        <div class="text-left sm:text-right">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Tổng 6 tháng gần nhất</span>
+                            <span class="text-base sm:text-lg font-black text-emerald-700">
+                                {{ income_stats.chart_data.total_earned|vnd }} <span class="text-xs font-semibold text-slate-400">VND</span>
+                            </span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if income_stats.chart_data and income_stats.chart_data.has_data %}
+                <!-- Biểu đồ SVG Area / Line Chart tương tác -->
+                <div class="relative mt-5">
+                    <div class="w-full overflow-hidden">
+                        <svg viewBox="0 0 600 180" class="w-full h-44 sm:h-56 overflow-visible" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="incomeAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#10b981" stop-opacity="0.25" />
+                                    <stop offset="60%" stop-color="#10b981" stop-opacity="0.06" />
+                                    <stop offset="100%" stop-color="#10b981" stop-opacity="0.0" />
+                                </linearGradient>
+                                <filter id="pointShadow" x="-30%" y="-30%" width="160%" height="160%">
+                                    <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.15" />
+                                </filter>
+                            </defs>
+
+                            <!-- Horizontal dashed gridlines -->
+                            {% for g in income_stats.chart_data.grid_lines %}
+                            <line x1="45" y1="{{ g.y }}" x2="565" y2="{{ g.y }}" stroke="#f1f5f9" stroke-dasharray="4 4" stroke-width="1" />
+                            <text x="38" y="{{ g.y + 3 }}" font-size="9" font-weight="600" fill="#94a3b8" text-anchor="end">
+                                {% if g.val >= 1000000 %}
+                                    {{ (g.val / 1000000)|round(1) }}M
+                                {% elif g.val > 0 %}
+                                    {{ (g.val / 1000)|round(0)|int }}K
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </text>
+                            {% endfor %}
+
+                            <!-- Area Path -->
+                            <path d="{{ income_stats.chart_data.area_path }}" fill="url(#incomeAreaGradient)" />
+
+                            <!-- Stroke Line -->
+                            <path d="{{ income_stats.chart_data.line_path }}" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+
+                            <!-- Point Circles & Native Tooltips -->
+                            {% for pt in income_stats.chart_data.points %}
+                            <g class="group cursor-pointer">
+                                <!-- Point Circle -->
+                                <circle cx="{{ pt.x }}" cy="{{ pt.y }}" r="{% if pt.is_current %}6.5{% else %}4.5{% endif %}"
+                                        fill="{% if pt.is_current %}#10b981{% else %}#ffffff{% endif %}"
+                                        stroke="#10b981"
+                                        stroke-width="{% if pt.is_current %}3{% else %}2.5{% endif %}"
+                                        filter="url(#pointShadow)"
+                                        class="transition-all duration-200 group-hover:scale-125" />
+                                {% if pt.is_current %}
+                                <circle cx="{{ pt.x }}" cy="{{ pt.y }}" r="2" fill="#ffffff" />
+                                {% endif %}
+
+                                <!-- Hit Area for Hover -->
+                                <circle cx="{{ pt.x }}" cy="{{ pt.y }}" r="18" fill="transparent" />
+
+                                <title>{{ pt.full_label }}: {{ pt.earned|vnd }} VND ({{ pt.count }} ca hoàn thành)</title>
+                            </g>
+                            {% endfor %}
+                        </svg>
+                    </div>
+
+                    <!-- X-Axis Labels row -->
+                    <div class="flex items-center justify-between px-2 sm:px-4 mt-3 pt-2.5 border-t border-slate-100 text-[11px] sm:text-xs font-medium">
+                        {% for pt in income_stats.chart_data.points %}
+                        <div class="flex flex-col items-center flex-1 text-center">
+                            <span class="{% if pt.is_current %}font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs{% else %}text-slate-600{% endif %}">
+                                {{ pt.label }}
+                            </span>
+                            <span class="text-[10px] text-slate-400 mt-1 hidden sm:inline-block">
+                                {% if pt.earned > 0 %}{{ pt.earned|vnd }} đ{% else %}0 đ{% endif %}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% else %}
+                <!-- Empty State khi chưa có dữ liệu thu nhập -->
+                <div class="py-10 px-4 text-center">
+                    <div class="w-12 h-12 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-xs sm:text-sm font-bold text-slate-800">Chưa phát sinh biến động thu nhập 6 tháng gần nhất</h4>
+                    <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                        Hệ thống sẽ tự động vẽ biểu đồ trực quan hóa xu hướng tăng trưởng ngay khi bạn hoàn tất nghiệm thu ca phiên dịch đầu tiên.
+                    </p>
+                    <div class="mt-4">
+                        <a href="{{ url_for('job_list') }}" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-xl transition border border-brand-200 shadow-2xs">
+                            Khám phá việc làm mới →
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
             <!-- Box bảo chứng thanh toán Escrow & liên kết nhanh -->
             <div class="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-slate-500">
                 <div class="flex items-start sm:items-center gap-2.5">
@@ -469,7 +591,7 @@
                         {% endif %}
                     </span>
                 </div>
-                <a href="{{ url_for('account_history') }}" class="font-bold text-slate-700 hover:text-brand-600 hover:underline flex-shrink-0">
+                <a href="{{ url_for('interpreter_income_transactions') }}" class="font-bold text-slate-700 hover:text-brand-600 hover:underline flex-shrink-0">
                     Xem toàn bộ lịch sử giao dịch →
                 </a>
             </div>
@@ -823,332 +945,6 @@
             </div>
             {% endif %}
         </div>
-
-        <!-- ═══════════════════════════════════════════════════════════════
-             6. VIỆC CẦN XỬ LÝ (ID: section-tasks)
-             ═══════════════════════════════════════════════════════════════ -->
-        <div id="section-tasks" class="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-slate-100">
-                <div>
-                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2.5">
-                        <span class="w-3 h-3 rounded-full {% if action_items %}bg-rose-500 animate-pulse{% else %}bg-emerald-500{% endif %}"></span>
-                        Việc cần xử lý
-                    </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Tổng hợp các tác vụ cần bạn hoàn thiện hồ sơ, phản hồi lời mời hoặc cập nhật tiến độ</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="px-3 py-1 text-xs font-bold rounded-full border {% if action_items %}bg-rose-50 text-rose-700 border-rose-200{% else %}bg-emerald-50 text-emerald-700 border-emerald-200{% endif %}">
-                        {% if action_items %}{{ action_items|length }} việc cần làm{% else %}Đã hoàn tất tất cả{% endif %}
-                    </span>
-                </div>
-            </div>
-
-            {% if action_items %}
-            <div class="space-y-3.5">
-                {% for item in action_items %}
-                <div class="p-4 sm:p-5 rounded-2xl bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-slate-300 hover:shadow-md transition duration-200 flex flex-col md:flex-row md:items-center justify-between gap-4 group">
-                    <div class="flex items-start gap-4 min-w-0">
-                        <!-- Icon phân loại -->
-                        <div class="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-xs
-                            {% if item.icon_type == 'invitation' %}bg-rose-100 text-rose-600 border border-rose-200
-                            {% elif item.icon_type == 'profile' %}bg-amber-100 text-amber-600 border border-amber-200
-                            {% elif item.icon_type == 'verification' %}bg-blue-100 text-blue-600 border border-blue-200
-                            {% elif item.icon_type == 'contract' %}bg-emerald-100 text-emerald-600 border border-emerald-200
-                            {% elif item.icon_type == 'escrow' %}bg-amber-100 text-amber-600 border border-amber-200
-                            {% else %}bg-slate-100 text-slate-600 border border-slate-200{% endif %}">
-                            {% if item.icon_type == 'invitation' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                            {% elif item.icon_type == 'profile' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                            {% elif item.icon_type == 'verification' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                            {% elif item.icon_type == 'contract' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            {% elif item.icon_type == 'escrow' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            {% else %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-                            {% endif %}
-                        </div>
-
-                        <!-- Nội dung tác vụ -->
-                        <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2 mb-1">
-                                <span class="px-2 py-0.5 text-[11px] font-bold rounded-md border {{ item.priority_badge }}">
-                                    {{ item.priority_label }}
-                                </span>
-                                <span class="px-2 py-0.5 text-[11px] font-medium rounded-md bg-slate-200/70 text-slate-700">
-                                    {{ item.status_label }}
-                                </span>
-                            </div>
-                            <h3 class="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition">
-                                {{ item.title }}
-                            </h3>
-                            <p class="text-xs text-slate-600 mt-1 leading-relaxed line-clamp-2">
-                                {{ item.description }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Nút thao tác điều hướng -->
-                    <div class="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 flex-shrink-0 self-end md:self-center">
-                        <a href="{{ item.url }}"
-                            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white transition shadow-sm
-                            {% if item.icon_type == 'invitation' %}bg-rose-600 hover:bg-rose-700
-                            {% elif item.icon_type == 'profile' %}bg-amber-600 hover:bg-amber-700
-                            {% elif item.icon_type == 'verification' %}bg-blue-600 hover:bg-blue-700
-                            {% else %}bg-brand-600 hover:bg-brand-700{% endif %}">
-                            <span>{{ item.action_text }}</span>
-                        </a>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <!-- Trạng thái không có tác vụ nào tồn đọng -->
-            <div class="text-center py-10 px-6 rounded-2xl bg-gradient-to-b from-emerald-50/40 to-slate-50/60 border border-emerald-100/80">
-                <div class="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3 shadow-sm border border-emerald-200">
-                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                </div>
-                <h3 class="text-base font-bold text-slate-900">Bạn không có việc cần xử lý lúc này</h3>
-                <p class="text-xs text-slate-600 max-w-md mx-auto mt-1.5 leading-relaxed">
-                    Tuyệt vời! Hồ sơ cá nhân của bạn đã đầy đủ, không có lời mời nào đang chờ phản hồi và tất cả hợp đồng đều đang diễn ra thuận lợi.
-                </p>
-                <div class="flex items-center justify-center gap-3 mt-5">
-                    <a href="{{ url_for('job_list') }}" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 transition">
-                        Khám phá việc làm mới →
-                    </a>
-                    <a href="#section-schedule" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition">
-                        Kiểm tra lịch làm việc
-                    </a>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- ═══════════════════════════════════════════════════════════════
-             7. THÔNG BÁO GẦN ĐÂY (ID: section-notifications)
-             ═══════════════════════════════════════════════════════════════ -->
-        <div id="section-notifications" class="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-slate-100">
-                <div>
-                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2.5">
-                        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
-                        Thông báo gần đây
-                    </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">5 thông báo mới nhất gửi đến tài khoản của bạn</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    {% if unread_notifications_count > 0 %}
-                    <span id="dashboard-notif-unread-pill" class="px-2.5 py-1 text-xs font-bold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                        {{ unread_notifications_count }} chưa đọc
-                    </span>
-                    <button id="dashboard-mark-all-read" type="button" class="text-xs font-semibold text-slate-500 hover:text-brand-600 px-2.5 py-1 rounded-xl hover:bg-slate-100 border border-transparent hover:border-slate-200 transition inline-flex items-center gap-1 cursor-pointer">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                        <span>Đã đọc tất cả</span>
-                    </button>
-                    {% endif %}
-                    <a href="{{ url_for('notifications_page') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1">
-                        <span>Xem tất cả</span>
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                    </a>
-                </div>
-            </div>
-
-            {% if recent_notifications %}
-            <div id="dashboard-notif-list" class="space-y-3">
-                {% for n in recent_notifications %}
-                <div data-id="{{ n.id }}" data-url="{{ n.target_url }}" data-is-read="{{ 'true' if n.is_read else 'false' }}"
-                    class="dashboard-notif-item p-4 sm:p-5 rounded-2xl border transition duration-200 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 group
-                    {% if not n.is_read %}bg-brand-50/30 hover:bg-brand-50/60 border-brand-200/80 shadow-xs{% else %}bg-slate-50/50 hover:bg-white border-slate-200/70 hover:border-slate-300 hover:shadow-sm{% endif %}">
-                    <div class="flex items-start gap-4 min-w-0">
-                        <!-- Icon phân loại thông báo -->
-                        <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 {{ n.icon_bg }} shadow-xs">
-                            {% if n.icon_kind == 'invitation' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                            {% elif n.icon_kind == 'match' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            {% elif n.icon_kind == 'accepted' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            {% elif n.icon_kind == 'rejected' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            {% elif n.icon_kind == 'contract' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            {% elif n.icon_kind == 'payment' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            {% elif n.icon_kind == 'message' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                            {% elif n.icon_kind == 'review' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-                            {% elif n.icon_kind == 'verification' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                            {% else %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                            {% endif %}
-                        </div>
-
-                        <!-- Chi tiết thông báo -->
-                        <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2 mb-1">
-                                <span class="px-2 py-0.5 text-[11px] font-bold rounded-md border {{ n.cat_badge }}">
-                                    {{ n.cat_label }}
-                                </span>
-                                {% if not n.is_read %}
-                                <span class="unread-tag inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-md bg-rose-50 text-rose-600 border border-rose-200">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                                    Chưa đọc
-                                </span>
-                                {% endif %}
-                                <span class="text-[11px] text-slate-400 font-medium" title="{{ n.created_at_display }}">
-                                    {{ n.time_ago }}
-                                </span>
-                            </div>
-                            <h3 class="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition notif-title">
-                                {{ n.title }}
-                            </h3>
-                            <p class="text-xs text-slate-600 mt-1 leading-relaxed line-clamp-2 notif-msg">
-                                {{ n.message }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Nút thao tác điều hướng & đánh dấu đã đọc -->
-                    <div class="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 flex-shrink-0 self-end md:self-center">
-                        {% if not n.is_read %}
-                        <button type="button" class="quick-read-btn p-2 rounded-xl text-slate-400 hover:text-brand-600 hover:bg-white border border-transparent hover:border-slate-200 transition" title="Đánh dấu đã đọc">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                        </button>
-                        {% endif %}
-                        <span class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 group-hover:text-brand-700 group-hover:translate-x-0.5 transition whitespace-nowrap">
-                            <span>Xem chi tiết</span>
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                        </span>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <!-- Trạng thái không có thông báo -->
-            <div class="text-center py-10 px-6 rounded-2xl bg-slate-50/60 border border-dashed border-slate-200">
-                <div class="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
-                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                    </svg>
-                </div>
-                <h3 class="text-base font-bold text-slate-800">Bạn chưa có thông báo mới</h3>
-                <p class="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
-                    Mọi cập nhật về công việc, lời mời, tin nhắn và hợp đồng sẽ xuất hiện tại đây ngay khi có phát sinh.
-                </p>
-            </div>
-            {% endif %}
-        </div>
-
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const list = document.getElementById('dashboard-notif-list');
-    const markAllBtn = document.getElementById('dashboard-mark-all-read');
-    const unreadPill = document.getElementById('dashboard-notif-unread-pill');
-
-    function syncNavBadge() {
-        const notifBadge = document.getElementById('notif-badge');
-        const commonNotifBadge = document.getElementById('nav-common-notif-badge');
-        fetch('/api/notifications/unread-count')
-            .then(r => r.json())
-            .then(data => {
-                const count = data.count || 0;
-                if (unreadPill) {
-                    if (count > 0) {
-                        unreadPill.textContent = `${count} chưa đọc`;
-                        unreadPill.style.display = 'inline-block';
-                    } else {
-                        unreadPill.style.display = 'none';
-                        if (markAllBtn) markAllBtn.style.display = 'none';
-                    }
-                }
-                const txt = count > 99 ? '99+' : count;
-                [notifBadge, commonNotifBadge].forEach(badge => {
-                    if (!badge) return;
-                    if (count > 0) {
-                        badge.textContent = txt;
-                        badge.classList.remove('hidden');
-                        badge.style.display = 'flex';
-                    } else {
-                        badge.classList.add('hidden');
-                        badge.style.display = 'none';
-                    }
-                });
-            })
-            .catch(() => {});
-    }
-
-    if (list) {
-        list.addEventListener('click', function(e) {
-            const item = e.target.closest('.dashboard-notif-item');
-            if (!item) return;
-
-            const id = item.dataset.id;
-            const targetUrl = item.dataset.url || '#';
-            const isRead = item.dataset.isRead === 'true';
-
-            // Xử lý nút đánh dấu đã đọc nhanh
-            const quickBtn = e.target.closest('.quick-read-btn');
-            if (quickBtn) {
-                e.stopPropagation();
-                if (!isRead && id) {
-                    fetch(`/api/notifications/${id}/read`, { method: 'POST' })
-                        .then(() => {
-                            item.dataset.isRead = 'true';
-                            item.classList.remove('bg-brand-50/30', 'hover:bg-brand-50/60', 'border-brand-200/80', 'shadow-xs');
-                            item.classList.add('bg-slate-50/50', 'hover:bg-white', 'border-slate-200/70', 'hover:border-slate-300', 'hover:shadow-sm');
-                            const tag = item.querySelector('.unread-tag');
-                            if (tag) tag.remove();
-                            quickBtn.remove();
-                            syncNavBadge();
-                        })
-                        .catch(err => console.error('Mark read error:', err));
-                }
-                return;
-            }
-
-            // Click vào toàn bộ card thông báo
-            if (!isRead && id) {
-                fetch(`/api/notifications/${id}/read`, { method: 'POST' })
-                    .finally(() => {
-                        if (targetUrl && targetUrl !== '#') {
-                            window.location.href = targetUrl;
-                        }
-                    });
-            } else {
-                if (targetUrl && targetUrl !== '#') {
-                    window.location.href = targetUrl;
-                }
-            }
-        });
-    }
-
-    if (markAllBtn) {
-        markAllBtn.addEventListener('click', function() {
-            fetch('/api/notifications/read-all', { method: 'POST' })
-                .then(() => {
-                    if (list) {
-                        list.querySelectorAll('.dashboard-notif-item').forEach(item => {
-                            item.dataset.isRead = 'true';
-                            item.classList.remove('bg-brand-50/30', 'hover:bg-brand-50/60', 'border-brand-200/80', 'shadow-xs');
-                            item.classList.add('bg-slate-50/50', 'hover:bg-white', 'border-slate-200/70', 'hover:border-slate-300', 'hover:shadow-sm');
-                            const tag = item.querySelector('.unread-tag');
-                            if (tag) tag.remove();
-                            const btn = item.querySelector('.quick-read-btn');
-                            if (btn) btn.remove();
-                        });
-                    }
-                    syncNavBadge();
-                })
-                .catch(err => console.error('Mark all read error:', err));
-        });
-    }
-});
-</script>
 {% endblock %}

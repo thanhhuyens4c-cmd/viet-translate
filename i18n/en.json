@@ -20,6 +20,8 @@
     "default_title": "VietTranslate | Professional Language Services Marketplace",
     "messages_tooltip": "Messages",
     "notifications_tooltip": "Notifications",
+    "help_tooltip": "Help & Support",
+    "settings_tooltip": "Settings & Security",
     "my_jobs": "My Jobs",
     "find_jobs": "Find Work",
     "recommended_jobs": "Recommended Jobs",
