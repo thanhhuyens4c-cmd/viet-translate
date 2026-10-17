@@ -3,284 +3,109 @@
 {% block title %}Lịch làm việc | VietTranslate{% endblock %}
 
 {% block content %}
-<div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex flex-col md:flex-row gap-8">
-        
-        <!-- Sidebar -->
-        <aside class="w-full md:w-64 shrink-0">
-            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden sticky top-24">
-                <div class="p-6 text-center border-b border-slate-100 bg-slate-50/40">
-                    <div class="w-20 h-20 bg-gradient-to-br from-brand-600 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white text-2xl font-black shadow-soft mb-3">
-                        {{ current_user.name[0] | upper }}
-                    </div>
-                    <h2 class="font-bold text-slate-900 text-sm sm:text-base">{{ current_user.name }}</h2>
-                    <p class="text-xs text-slate-400 mt-0.5">
-                        {{ t('auto.phiên_dịch_viên') }}
-                    </p>
-                </div>
-                <nav class="p-3 space-y-1">
-                    <a href="{{ url_for('account_profile') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
-                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        {{ t('account_history_page.nav_profile') }}
-                    </a>
-                    <a href="{{ url_for('account_history') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
-                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
-                        {{ t('account_history_page.nav_history') }}
-                    </a>
-                    <div class="pt-1.5 border-t border-slate-100 space-y-1">
-                        <div class="px-3.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                            Lịch làm việc
-                        </div>
-                        <a href="{{ url_for('my_schedule') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 {% if current_tab != 'busy' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition">
-                            <svg class="w-4 h-4 {% if current_tab != 'busy' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            <span>Lịch tổng quan & Ca làm</span>
-                        </a>
-                        <a href="{{ url_for('my_schedule', tab='busy') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 {% if current_tab == 'busy' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition">
-                            <svg class="w-4 h-4 {% if current_tab == 'busy' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <span>Thời gian không khả dụng</span>
-                            {% if busy_schedules %}
-                                <span class="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{{ busy_schedules|length }}</span>
-                            {% endif %}
-                        </a>
-                    </div>
-                </nav>
-            </div>
-        </aside>
-
-        <!-- Main Content: Lịch làm việc tổng quan -->
-        <div class="flex-grow space-y-6">
+<div class="bg-slate-50/60 min-h-screen py-6 sm:py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="w-full space-y-6">
+            
+            <!-- Thẻ Lịch Làm Việc Chính -->
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-7">
                 
-                <!-- Header trang & Thanh thao tác -->
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                <!-- 1. Header trang & Thanh thao tác -->
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-100">
                     <div>
-                        <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2.5">
+                        <h1 class="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
                             <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
-                            {% if current_tab == 'busy' %}
-                                Quản lý thời gian không khả dụng
-                            {% else %}
-                                {{ t('nav.my_schedule') }}
-                            {% endif %}
+                            Lịch làm việc
                         </h1>
                         <p class="text-xs sm:text-sm text-slate-500 mt-1">
-                            {% if current_tab == 'busy' %}
-                                Khai báo các khoảng thời gian bận để hệ thống tự động loại trừ khi ghép nối công việc.
-                            {% else %}
-                                Quản lý thời gian, theo dõi các ca làm việc đã xác nhận và sắp diễn ra.
-                            {% endif %}
+                            Quản lý ca làm và thời gian không khả dụng của bạn.
                         </p>
                     </div>
 
-                    <!-- Thanh nút hành động -->
-                    <div class="flex items-center flex-wrap gap-2">
+                    <!-- Thanh nút hành động nhanh -->
+                    <div class="flex items-center flex-wrap gap-2.5">
                         <button type="button" onclick="openAddBusyModal()"
-                            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-xs"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-xs focus:ring-2 focus:ring-slate-900/20"
                             id="btn-add-busy-top">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                             <span>Thêm thời gian bận</span>
                         </button>
                         <button type="button" id="btn-refresh-schedule" 
-                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition shadow-xs"
-                            title="Làm mới lịch">
+                            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:text-brand-600 transition shadow-xs"
+                            title="Làm mới và đồng bộ dữ liệu">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             <span>Đồng bộ</span>
                         </button>
                         <a href="{{ url_for('job_list', recommended=1) }}" 
-                            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand-50 text-brand-700 text-xs font-semibold hover:bg-brand-100 transition shadow-xs">
+                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-50 text-brand-700 text-xs font-bold hover:bg-brand-100 transition shadow-xs border border-brand-200/60">
                             <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             <span>Tìm việc phù hợp</span>
                         </a>
                     </div>
                 </div>
 
-                <!-- Tabs điều hướng nhanh giữa Lịch và Danh sách thời gian bận -->
-                <div class="flex items-center gap-2 border-b border-slate-200 pt-3">
-                    <a href="{{ url_for('my_schedule') }}" 
-                       class="pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-2 {% if current_tab != 'busy' %}border-brand-600 text-brand-700{% else %}border-transparent text-slate-500 hover:text-slate-800{% endif %}">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                        <span>Lịch tổng quan & Ca làm</span>
-                    </a>
-                    <a href="{{ url_for('my_schedule', tab='busy') }}" 
-                       class="pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-2 {% if current_tab == 'busy' %}border-brand-600 text-brand-700{% else %}border-transparent text-slate-500 hover:text-slate-800{% endif %}">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <span>Quản lý thời gian bận</span>
-                        <span id="tab-busy-count-badge" class="text-[11px] font-bold px-2 py-0.2 rounded-full {% if current_tab == 'busy' %}bg-brand-100 text-brand-800{% else %}bg-slate-100 text-slate-600{% endif %}">
-                            {{ busy_schedules|length }}
-                        </span>
-                    </a>
-                </div>
-
-                {% if current_tab == 'busy' %}
-                <!-- KHỐI BẢNG QUẢN LÝ THỜI GIAN KHÔNG KHẢ DỤNG (CHỨC NĂNG 3.3) -->
-                <div id="busy-management-container" class="py-4 space-y-4">
-                    <div class="bg-slate-50/80 rounded-2xl p-4 sm:p-5 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                            <h2 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                                <span>🔒</span>
-                                <span>Thời gian bận đang thiết lập</span>
-                            </h2>
-                            <p class="text-xs text-slate-500 mt-1 max-w-xl">
-                                Trong các khung giờ này, khách hàng không thể gửi yêu cầu đặt lịch hẹn. Hệ thống cam kết giữ nguyên các ca làm việc bạn đã xác nhận trước đó.
-                            </p>
-                        </div>
-                        <button type="button" onclick="openAddBusyModal()"
-                            class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition shadow-xs shrink-0">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                            <span>Thêm khoảng bận mới</span>
-                        </button>
-                    </div>
-
-                    <!-- Bảng danh sách các khoảng bận -->
-                    <div id="busy-table-wrapper" class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-xs text-slate-600">
-                                <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-bold border-b border-slate-200">
-                                    <tr>
-                                        <th class="px-4 py-3">Ngày diễn ra</th>
-                                        <th class="px-4 py-3">Khung giờ</th>
-                                        <th class="px-4 py-3">Ghi chú</th>
-                                        <th class="px-4 py-3">Trạng thái</th>
-                                        <th class="px-4 py-3 text-right">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="busy-table-body" class="divide-y divide-slate-100">
-                                    {% if busy_schedules %}
-                                        {% for b in busy_schedules %}
-                                        <tr class="hover:bg-slate-50/60 transition" id="busy-row-{{ b.id }}">
-                                            <td class="px-4 py-3 font-bold text-slate-900 whitespace-nowrap">
-                                                📅 {{ b.scheduled_date.strftime('%d/%m/%Y') if b.scheduled_date else '—' }}
-                                            </td>
-                                            <td class="px-4 py-3 whitespace-nowrap">
-                                                {% if b.is_all_day or (b.start_time.hour == 0 and b.start_time.minute == 0 and b.end_time.hour == 23 and b.end_time.minute >= 50) %}
-                                                    <span class="inline-flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-full text-[11px]">
-                                                        <span>🌙</span> Cả ngày
-                                                    </span>
-                                                {% else %}
-                                                    <span class="font-medium text-slate-700">
-                                                        {{ b.start_time.strftime('%H:%M') if b.start_time else '' }} - {{ b.end_time.strftime('%H:%M') if b.end_time else '' }}
-                                                    </span>
-                                                {% endif %}
-                                            </td>
-                                            <td class="px-4 py-3 max-w-xs truncate text-slate-600">
-                                                {{ b.note or 'Bận việc riêng' }}
-                                            </td>
-                                            <td class="px-4 py-3 whitespace-nowrap">
-                                                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
-                                                    <span>Đang áp dụng</span>
-                                                </span>
-                                            </td>
-                                            <td class="px-4 py-3 text-right whitespace-nowrap">
-                                                <div class="inline-flex items-center gap-1.5">
-                                                    <button type="button" 
-                                                        onclick="openEditBusyModal({
-                                                            id: {{ b.id }},
-                                                            date: '{{ b.scheduled_date.strftime('%Y-%m-%d') if b.scheduled_date else '' }}',
-                                                            is_all_day: {{ 'true' if b.is_all_day else 'false' }},
-                                                            start_time: '{{ b.start_time.strftime('%H:%M') if b.start_time else '' }}',
-                                                            end_time: '{{ b.end_time.strftime('%H:%M') if b.end_time else '' }}',
-                                                            note: '{{ (b.note or '')|replace('\'', '\\\'')|replace('\"', '\\\"') }}'
-                                                        })" 
-                                                        class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:text-brand-600 hover:bg-brand-50 border border-slate-200 transition">
-                                                        Sửa
-                                                    </button>
-                                                    <button type="button" 
-                                                        onclick="openConfirmDeleteBusy({{ b.id }}, '{{ b.scheduled_date.strftime('%d/%m/%Y') if b.scheduled_date else '' }}', '{{ 'Cả ngày' if b.is_all_day else ((b.start_time.strftime('%H:%M') if b.start_time else '') ~ ' - ' ~ (b.end_time.strftime('%H:%M') if b.end_time else '')) }}', '{{ (b.note or '')|replace('\'', '\\\'')|replace('\"', '\\\"') }}')"
-                                                        class="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition">
-                                                        Xóa
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    {% else %}
-                                        <tr id="busy-table-empty-row">
-                                            <td colspan="5" class="py-10 text-center text-slate-400">
-                                                <div class="text-2xl mb-1">⏳</div>
-                                                <div class="font-medium text-xs">Chưa có khoảng thời gian không khả dụng nào được thiết lập.</div>
-                                                <div class="text-[11px] text-slate-400 mt-0.5">Nhấn "Thêm khoảng bận mới" ở trên để cài đặt thời gian bận.</div>
-                                            </td>
-                                        </tr>
-                                    {% endif %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
-                        <span class="text-xs font-bold text-slate-700">Lịch trực quan tương ứng:</span>
-                        <span class="text-xs text-slate-400">Bạn cũng có thể xem và thao tác trực tiếp trên các ô lịch bên dưới</span>
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- Toolbar Điều hướng thời gian & Bộ chuyển chế độ xem -->
+                <!-- 2. Thanh Toolbar Điều hướng thời gian & Chuyển chế độ xem -->
                 <div class="py-4 space-y-4">
-                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         
                         <!-- Cụm điều hướng Kỳ trước / Hôm nay / Kỳ sau & Tiêu đề kỳ -->
                         <div class="flex items-center flex-wrap gap-2.5 sm:gap-3">
                             <div class="inline-flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-xs">
                                 <button type="button" id="btn-cal-prev" 
-                                    class="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition" 
+                                    class="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition" 
                                     title="Kỳ trước">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
                                 </button>
                                 <button type="button" id="btn-cal-today" 
-                                    class="px-2.5 py-1 text-xs font-bold text-brand-600 hover:bg-brand-50 rounded-lg transition">
+                                    class="px-3 py-1.5 text-xs font-bold text-brand-600 hover:bg-brand-50 rounded-lg transition">
                                     Hôm nay
                                 </button>
                                 <button type="button" id="btn-cal-next" 
-                                    class="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition" 
+                                    class="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition" 
                                     title="Kỳ tiếp theo">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
                                 </button>
                             </div>
 
                             <!-- Tiêu đề khoảng thời gian động -->
-                            <h2 id="cal-period-title" class="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                                <!-- JS update dynamically -->
-                            </h2>
+                            <h2 id="cal-period-title" class="text-base sm:text-lg font-bold text-slate-900 tracking-tight"></h2>
                         </div>
 
-                        <!-- Cụm Bộ chọn ngày & Chế độ xem (Tháng / Tuần / Ngày / Danh sách) -->
+                        <!-- Cụm Bộ chọn ngày trực tiếp & Bộ chuyển đổi chế độ xem -->
                         <div class="flex items-center flex-wrap gap-2.5">
                             
                             <!-- Bộ chọn ngày trực tiếp -->
                             <div class="relative">
                                 <input type="date" id="cal-date-picker" 
-                                    class="text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-xs cursor-pointer"
-                                    title="Chọn ngày trực tiếp">
+                                    class="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-xs cursor-pointer"
+                                    title="Chọn ngày cụ thể">
                             </div>
 
-                            <!-- Bộ chuyển đổi chế độ xem -->
+                            <!-- Bộ chuyển đổi chế độ xem (Tháng / Tuần / Ngày / Danh sách) -->
                             <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 shadow-xs">
                                 <button type="button" id="btn-view-month" 
-                                    class="view-tab-btn px-3 py-1 text-xs font-bold rounded-lg transition bg-white text-brand-700 shadow-xs">
+                                    class="view-tab-btn px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-brand-700 shadow-xs">
                                     Tháng
                                 </button>
                                 <button type="button" id="btn-view-week" 
-                                    class="view-tab-btn px-3 py-1 text-xs font-medium rounded-lg transition text-slate-600 hover:text-slate-900">
+                                    class="view-tab-btn px-3 py-1.5 text-xs font-medium rounded-lg transition text-slate-600 hover:text-slate-900">
                                     Tuần
                                 </button>
                                 <button type="button" id="btn-view-day" 
-                                    class="view-tab-btn px-3 py-1 text-xs font-medium rounded-lg transition text-slate-600 hover:text-slate-900">
+                                    class="view-tab-btn px-3 py-1.5 text-xs font-medium rounded-lg transition text-slate-600 hover:text-slate-900">
                                     Ngày
                                 </button>
                                 <button type="button" id="btn-view-list" 
-                                    class="view-tab-btn px-3 py-1 text-xs font-medium rounded-lg transition text-slate-600 hover:text-slate-900">
+                                    class="view-tab-btn px-3 py-1.5 text-xs font-medium rounded-lg transition text-slate-600 hover:text-slate-900">
                                     Danh sách
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Tóm tắt số ca & Chú thích trạng thái -->
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 text-xs">
-                        <div id="cal-summary-badge" class="font-medium text-slate-600">
-                            <!-- JS updates -->
-                        </div>
+                    <!-- Tóm tắt số ca & Chú thích các loại sự kiện -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 text-xs border-t border-slate-100">
+                        <div id="cal-summary-badge" class="font-medium text-slate-600"></div>
                         <div class="flex items-center flex-wrap gap-3 text-[11px] text-slate-500">
                             <span class="inline-flex items-center gap-1.5">
                                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
@@ -367,24 +192,23 @@
                     <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-xs border border-slate-100">
                         <svg class="w-7 h-7 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     </div>
-                    <h3 id="cal-empty-title" class="text-slate-900 font-semibold text-sm sm:text-base mb-1">Không có ca làm việc nào trong khoảng thời gian này</h3>
+                    <h3 id="cal-empty-title" class="text-slate-900 font-semibold text-sm sm:text-base mb-1">Không có ca làm việc hoặc khoảng bận nào trong kỳ này</h3>
                     <p id="cal-empty-subtitle" class="text-slate-500 text-xs sm:text-sm max-w-md mx-auto mb-4">
-                        Bạn chưa có lịch hẹn hoặc ca phiên dịch nào được phân công. Hãy kiểm tra các khoảng thời gian khác hoặc khám phá các việc làm phù hợp.
+                        Bạn chưa có lịch hẹn, ca phiên dịch hay khoảng thời gian bận nào được thiết lập trong giai đoạn này.
                     </p>
                     <div class="flex items-center justify-center gap-3">
-                        <button type="button" onclick="goToToday()" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition shadow-xs">
+                        <button type="button" onclick="goToToday()" class="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition shadow-xs">
                             Quay lại hôm nay
                         </button>
-                        <a href="{{ url_for('job_list', recommended=1) }}" class="px-3.5 py-1.5 rounded-xl bg-brand-600 text-xs font-semibold text-white hover:bg-brand-700 transition shadow-xs">
-                            Khám phá việc làm
-                        </a>
+                        <button type="button" onclick="openAddBusyModal()" class="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-xs">
+                            Thêm thời gian bận
+                        </button>
                     </div>
                 </div>
 
             </div>
         </div>
     </div>
-</div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -700,7 +524,7 @@
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Loại sự cố phát sinh <span class="text-rose-500">*</span></label>
+                <label for="report-reason" class="block text-xs font-bold text-slate-700 mb-1">Loại sự cố phát sinh <span class="text-rose-500">*</span></label>
                 <select id="report-reason" required
                     class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-medium focus:bg-white focus:ring-2 focus:ring-rose-500 focus:border-rose-500">
                     <option value="">-- Chọn loại sự cố --</option>
@@ -714,7 +538,7 @@
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Mô tả chi tiết và hướng xử lý đề xuất</label>
+                <label for="report-desc" class="block text-xs font-bold text-slate-700 mb-1">Mô tả chi tiết và hướng xử lý đề xuất</label>
                 <textarea id="report-desc" rows="3" placeholder="Nhập chi tiết tình hình thực tế, thời gian dự kiến giải quyết hoặc yêu cầu hỗ trợ từ điều phối viên..."
                     class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:bg-white focus:ring-2 focus:ring-rose-500 focus:border-rose-500"></textarea>
             </div>
@@ -756,7 +580,7 @@
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Ghi chú hoàn thành / Báo cáo tóm tắt</label>
+                <label for="complete-note" class="block text-xs font-bold text-slate-700 mb-1">Ghi chú hoàn thành / Báo cáo tóm tắt</label>
                 <textarea id="complete-note" rows="3" placeholder="Nhập tóm tắt thời lượng thực hiện, biên bản xác nhận tại chỗ (nếu có) hoặc gửi lời cảm ơn tới khách hàng..."
                     class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500"></textarea>
             </div>
@@ -778,6 +602,7 @@
         </form>
     </div>
 </div>
+
 <!-- ─── MODAL 3.3.1: THÊM / CHỈNH SỬA THỜI GIAN KHÔNG KHẢ DỤNG ──────────────── -->
 <div id="modal-busy-form" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
     <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" onclick="closeBusyFormModal()"></div>
@@ -812,7 +637,7 @@
                         </label>
                         <input type="date" id="busy-end-date" required
                             class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
-                        <p class="text-[10px] text-slate-400 mt-1">Hỗ trợ khoảng bận nhiều ngày</p>
+                        <p class="text-[10px] text-slate-400 mt-1">Hỗ trợ khoảng bận nhiều ngày liên tiếp</p>
                     </div>
                 </div>
 
@@ -824,7 +649,7 @@
                         <span>Áp dụng cả ngày (Toàn bộ 24 giờ)</span>
                     </label>
                     <p class="text-[11px] text-slate-500 mt-1 pl-6">
-                        Khi chọn tùy chọn này, bạn không cần chọn giờ cụ thể. Hệ thống sẽ khóa toàn bộ thời gian trong ngày.
+                        Khi chọn tùy chọn này, hệ thống sẽ tự động khóa toàn bộ thời gian trong ngày.
                     </p>
                 </div>
 
@@ -851,7 +676,7 @@
                     <label for="busy-note" class="block text-xs font-bold text-slate-700 mb-1">
                         Ghi chú / Lý do (Không bắt buộc)
                     </label>
-                    <textarea id="busy-note" rows="2" placeholder="Ví dụ: Bận việc riêng, đi công tác, lịch cá nhân..."
+                    <textarea id="busy-note" rows="2" placeholder="Ví dụ: Bận việc riêng, lịch cá nhân, đi công tác..."
                         class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500"></textarea>
                 </div>
 
@@ -861,7 +686,7 @@
                         <span>⚠️</span>
                         <span>Quy tắc bảo vệ ca làm việc</span>
                     </div>
-                    <p>Khoảng thời gian bận không được trùng với các ca làm bạn đã xác nhận. Nếu trùng, hệ thống sẽ chặn và thông báo ca làm việc bị ảnh hưởng.</p>
+                    <p>Khoảng thời gian bận không được trùng với các ca làm bạn đã xác nhận. Nếu trùng, hệ thống sẽ cảnh báo chi tiết và giữ nguyên ca làm của bạn.</p>
                 </div>
 
                 <!-- Footer nút bấm -->
@@ -907,7 +732,7 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                         </div>
                         <div>
-                            <div class="text-[11px] text-slate-400">Ngày diễn ra</div>
+                            <div class="text-[11px] text-slate-400 font-medium">Ngày diễn ra</div>
                             <div class="font-bold text-slate-900 text-sm" id="busy-detail-date"></div>
                         </div>
                     </div>
@@ -917,7 +742,7 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </div>
                         <div>
-                            <div class="text-[11px] text-slate-400">Khung giờ</div>
+                            <div class="text-[11px] text-slate-400 font-medium">Khung giờ</div>
                             <div class="font-bold text-slate-900 text-sm" id="busy-detail-time"></div>
                             <div class="text-[11px] text-slate-500" id="busy-detail-duration"></div>
                         </div>
@@ -925,7 +750,7 @@
                 </div>
 
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-600">
-                    ℹ️ Trong khoảng thời gian này, khách hàng và hệ thống sẽ không thể lên lịch ca làm việc cho bạn. Các ca làm việc đã xác nhận trước đó vẫn giữ nguyên.
+                    ℹ️ Trong khoảng thời gian này, khách hàng không thể gửi yêu cầu đặt lịch hẹn mới. Các ca làm việc đã xác nhận trước đó luôn được bảo toàn nguyên vẹn.
                 </div>
             </div>
 
@@ -1003,6 +828,39 @@
     // Cấu hình ngôn ngữ Tiếng Việt cho Thứ và Tháng
     const VN_DAYS = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
     const VN_MONTHS = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // THÔNG BÁO TOAST HIỆN ĐẠI
+    // ──────────────────────────────────────────────────────────────────────────
+    function showToast(message, type = 'success') {
+        let container = document.getElementById('schedule-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'schedule-toast-container';
+            container.className = 'fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none';
+            document.body.appendChild(container);
+        }
+        const toast = document.createElement('div');
+        const isSuccess = type === 'success';
+        const isError = type === 'error';
+        toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs sm:text-sm font-semibold transition-all transform duration-200 translate-y-2 opacity-0 ${
+            isSuccess ? 'bg-emerald-50 text-emerald-900 border-emerald-200' :
+            isError ? 'bg-rose-50 text-rose-900 border-rose-200' :
+            'bg-slate-900 text-white border-slate-800'
+        }`;
+        toast.innerHTML = `
+            <span>${isSuccess ? '✓' : isError ? '✕' : 'ℹ'}</span>
+            <span>${escapeHtml(message)}</span>
+        `;
+        container.appendChild(toast);
+        requestAnimationFrame(() => {
+            toast.classList.remove('translate-y-2', 'opacity-0');
+        });
+        setTimeout(() => {
+            toast.classList.add('opacity-0', 'translate-y-2');
+            setTimeout(() => toast.remove(), 250);
+        }, 3500);
+    }
 
     // ──────────────────────────────────────────────────────────────────────────
     // TIỆN ÍCH NGÀY THÁNG
@@ -1152,8 +1010,8 @@
         const grid = document.getElementById('month-grid');
         grid.innerHTML = '';
 
-        const today = new Date();
-        let monthEventsCount = 0;
+        let monthShiftsCount = 0;
+        let monthBusyCount = 0;
 
         // Ngày của tháng trước (Padding cells)
         for (let i = firstDayIndex; i > 0; i--) {
@@ -1168,7 +1026,13 @@
             const dateObj = new Date(year, month, dayNum);
             const dateStr = formatDateISO(dateObj);
             const dayEvents = getEventsForDate(dateStr);
-            monthEventsCount += dayEvents.length;
+            dayEvents.forEach(e => {
+                if (e.event_type === 'busy' || e.status === 'busy') {
+                    monthBusyCount++;
+                } else {
+                    monthShiftsCount++;
+                }
+            });
             grid.appendChild(createMonthCell(dateObj, dayNum, false, dayEvents));
         }
 
@@ -1181,20 +1045,22 @@
             grid.appendChild(createMonthCell(padDate, i, true, getEventsForDate(dateStr)));
         }
 
-        // Tóm tắt số ca
-        document.getElementById('cal-summary-badge').textContent = 
-            `Trong tháng có: ${monthEventsCount} ca làm việc`;
+        // Tóm tắt số ca & khoảng bận
+        let summaryText = `Trong tháng có: ${monthShiftsCount} ca làm việc`;
+        if (monthBusyCount > 0) {
+            summaryText += ` · ${monthBusyCount} khoảng bận`;
+        }
+        document.getElementById('cal-summary-badge').textContent = summaryText;
 
-        toggleEmptyState(monthEventsCount === 0);
+        toggleEmptyState((monthShiftsCount + monthBusyCount) === 0);
     }
 
     function createMonthCell(dateObj, dayNum, isPadding, events) {
         const cell = document.createElement('div');
         const dateStr = formatDateISO(dateObj);
         const isToday = isSameDate(dateObj, new Date());
-        const isSelected = isSameDate(dateObj, currentDate);
 
-        cell.className = `min-h-[100px] sm:min-h-[115px] p-1.5 sm:p-2 bg-white flex flex-col justify-between transition hover:bg-slate-50 cursor-pointer ${isPadding ? 'bg-slate-50/50 opacity-60' : ''}`;
+        cell.className = `min-h-[105px] sm:min-h-[120px] p-1.5 sm:p-2 bg-white flex flex-col justify-between transition hover:bg-slate-50 cursor-pointer ${isPadding ? 'bg-slate-50/50 opacity-60' : ''}`;
         
         // Header ô ngày
         const header = document.createElement('div');
@@ -1223,25 +1089,33 @@
             const pill = document.createElement('div');
             const colorClasses = getEventColorBadge(ev);
             pill.className = `text-[11px] font-medium px-1.5 py-0.5 rounded truncate border transition flex items-center gap-1 ${colorClasses.pillBg} ${colorClasses.pillText} ${colorClasses.pillBorder}`;
-            pill.title = `${ev.start_time} - ${ev.end_time}: ${ev.title} (${ev.status_label})`;
+            
             const isBusy = ev.event_type === 'busy' || ev.status === 'busy';
-            const displayTime = ev.is_all_day ? 'Cả ngày' : ev.start_time;
-            pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full shrink-0 ${colorClasses.dotBg}"></span><span class="truncate font-semibold">${isBusy ? '🔒 ' : ''}${displayTime} ${ev.title}</span>`;
-            pill.onclick = (e) => {
-                e.stopPropagation();
-                if (isBusy) {
+            if (isBusy) {
+                const busyLabel = ev.is_all_day 
+                    ? `Không khả dụng – Cả ngày` 
+                    : `Bận – ${ev.start_time}–${ev.end_time}`;
+                pill.title = `${busyLabel}${ev.note ? ' (' + ev.note + ')' : ''}`;
+                pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full shrink-0 ${colorClasses.dotBg}"></span><span class="truncate font-semibold">🔒 ${busyLabel}</span>`;
+                pill.onclick = (e) => {
+                    e.stopPropagation();
                     openBusyDetailModal(ev);
-                } else {
+                };
+            } else {
+                pill.title = `${ev.start_time} - ${ev.end_time}: ${ev.title} (${ev.status_label})`;
+                pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full shrink-0 ${colorClasses.dotBg}"></span><span class="truncate font-semibold">${ev.start_time} ${ev.title}</span>`;
+                pill.onclick = (e) => {
+                    e.stopPropagation();
                     openShiftDetail(ev);
-                }
-            };
+                };
+            }
             eventsContainer.appendChild(pill);
         });
 
         if (events.length > displayLimit) {
             const moreBtn = document.createElement('div');
             moreBtn.className = 'text-[10px] font-bold text-brand-600 hover:text-brand-800 px-1 py-0.5';
-            moreBtn.textContent = `+${events.length - displayLimit} ca nữa`;
+            moreBtn.textContent = `+${events.length - displayLimit} mục nữa`;
             moreBtn.onclick = (e) => {
                 e.stopPropagation();
                 currentDate = new Date(dateObj);
@@ -1252,7 +1126,7 @@
 
         cell.appendChild(eventsContainer);
 
-        // Click ô ngày -> chọn ngày và có thể chuyển view
+        // Click ô ngày -> chọn ngày và chuyển sang view Ngày
         cell.onclick = () => {
             currentDate = new Date(dateObj);
             switchView('day');
@@ -1306,31 +1180,41 @@
             colBody.className = 'p-2 space-y-2 flex-1 min-h-[160px] bg-white';
 
             if (events.length === 0) {
-                colBody.innerHTML = `<div class="h-full flex items-center justify-center text-slate-300 text-xs py-8 italic font-light">—</div>`;
+                colBody.innerHTML = `<div class="h-full flex items-center justify-center text-slate-300 text-xs py-8 italic font-light">— Trống —</div>`;
             } else {
                 events.forEach(ev => {
                     const card = document.createElement('div');
                     const color = getEventColorBadge(ev);
-                    card.className = `p-2 rounded-lg border text-xs cursor-pointer transition hover:shadow-xs ${color.pillBg} ${color.pillBorder}`;
+                    card.className = `p-2.5 rounded-lg border text-xs cursor-pointer transition hover:shadow-xs ${color.pillBg} ${color.pillBorder}`;
                     const isBusy = ev.event_type === 'busy' || ev.status === 'busy';
-                    const timeRange = ev.is_all_day ? 'Cả ngày' : `${ev.start_time} - ${ev.end_time}`;
-                    card.innerHTML = `
-                        <div class="flex items-center justify-between gap-1 mb-1">
-                            <span class="font-bold text-[11px] text-slate-800">${timeRange}</span>
-                            <span class="text-[9px] px-1.5 py-0.2 rounded font-bold ${color.badgeBg} ${color.badgeText}">${ev.status_label}</span>
-                        </div>
-                        <div class="font-semibold text-slate-900 line-clamp-2 leading-tight">${isBusy ? '🔒 ' : ''}${ev.title}</div>
-                        <div class="text-[10px] text-slate-500 mt-1 truncate flex items-center gap-1">
-                            <span>${isBusy ? '📝' : '📍'}</span><span>${isBusy ? (ev.note || 'Không khả dụng') : ev.location}</span>
-                        </div>
-                    `;
-                    card.onclick = () => {
-                        if (isBusy) {
-                            openBusyDetailModal(ev);
-                        } else {
-                            openShiftDetail(ev);
-                        }
-                    };
+                    
+                    if (isBusy) {
+                        const timeRange = ev.is_all_day ? 'Cả ngày' : `${ev.start_time} – ${ev.end_time}`;
+                        card.innerHTML = `
+                            <div class="flex items-center justify-between gap-1 mb-1">
+                                <span class="font-bold text-[11px] text-slate-800">${timeRange}</span>
+                                <span class="text-[9px] px-1.5 py-0.2 rounded font-bold ${color.badgeBg} ${color.badgeText}">Không khả dụng</span>
+                            </div>
+                            <div class="font-semibold text-slate-900 line-clamp-2 leading-tight">🔒 ${ev.note ? escapeHtml(ev.note) : 'Bận việc riêng'}</div>
+                            <div class="text-[10px] text-slate-500 mt-1 truncate flex items-center gap-1">
+                                <span>📝</span><span>${ev.is_all_day ? 'Khóa 24h cả ngày' : 'Khóa khung giờ bận'}</span>
+                            </div>
+                        `;
+                        card.onclick = () => openBusyDetailModal(ev);
+                    } else {
+                        const timeRange = `${ev.start_time} - ${ev.end_time}`;
+                        card.innerHTML = `
+                            <div class="flex items-center justify-between gap-1 mb-1">
+                                <span class="font-bold text-[11px] text-slate-800">${timeRange}</span>
+                                <span class="text-[9px] px-1.5 py-0.2 rounded font-bold ${color.badgeBg} ${color.badgeText}">${ev.status_label}</span>
+                            </div>
+                            <div class="font-semibold text-slate-900 line-clamp-2 leading-tight">${ev.title}</div>
+                            <div class="text-[10px] text-slate-500 mt-1 truncate flex items-center gap-1">
+                                <span>📍</span><span>${ev.location}</span>
+                            </div>
+                        `;
+                        card.onclick = () => openShiftDetail(ev);
+                    }
                     colBody.appendChild(card);
                 });
             }
@@ -1339,7 +1223,7 @@
             grid.appendChild(col);
         }
 
-        document.getElementById('cal-summary-badge').textContent = `Trong tuần có: ${weekEventsCount} ca làm việc`;
+        document.getElementById('cal-summary-badge').textContent = `Trong tuần có: ${weekEventsCount} sự kiện`;
         toggleEmptyState(weekEventsCount === 0);
     }
 
@@ -1360,7 +1244,7 @@
         document.getElementById('day-view-header-title').textContent = `${dayName}, ngày ${day} ${VN_MONTHS[month]} năm ${year}`;
 
         const events = getEventsForDate(dateStr);
-        document.getElementById('day-view-badge-count').textContent = `${events.length} ca làm việc`;
+        document.getElementById('day-view-badge-count').textContent = `${events.length} mục trong ngày`;
 
         const timeline = document.getElementById('day-timeline');
         timeline.innerHTML = '';
@@ -1368,92 +1252,94 @@
         if (events.length === 0) {
             timeline.innerHTML = `
                 <div class="text-center py-10 px-4 rounded-xl border border-dashed border-slate-200 bg-white">
-                    <div class="text-slate-400 text-sm font-medium">Không có ca làm việc nào trong ngày này.</div>
-                    <div class="text-slate-400 text-xs mt-1">Bạn có thể chọn một ngày khác hoặc lên lịch tìm kiếm việc làm mới.</div>
+                    <div class="text-slate-400 text-sm font-medium">Không có ca làm việc hoặc khoảng bận nào trong ngày này.</div>
+                    <div class="text-slate-400 text-xs mt-1">Bạn có thể chọn một ngày khác hoặc bấm "Thêm thời gian bận" ở trên để thiết lập lịch.</div>
                 </div>
             `;
-            document.getElementById('cal-summary-badge').textContent = `Ngày ${day}/${month + 1}: Không có ca làm`;
+            document.getElementById('cal-summary-badge').textContent = `Ngày ${day}/${month + 1}: Lịch trình trống`;
             toggleEmptyState(false);
             return;
         }
 
-        document.getElementById('cal-summary-badge').textContent = `Ngày ${day}/${month + 1}: Có ${events.length} ca làm việc`;
+        document.getElementById('cal-summary-badge').textContent = `Ngày ${day}/${month + 1}: Có ${events.length} mục lịch trình`;
         toggleEmptyState(false);
 
-        // Kiểm tra xem có 2 ca trùng giờ nhau không
-        let hasOverlap = false;
-        for (let i = 0; i < events.length; i++) {
-            for (let j = i + 1; j < events.length; j++) {
-                if (events[i].start_time < events[j].end_time && events[i].end_time > events[j].start_time) {
-                    hasOverlap = true;
-                    break;
-                }
-            }
-        }
-
-        if (hasOverlap) {
-            const alertBox = document.createElement('div');
-            alertBox.className = 'p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2 mb-3';
-            alertBox.innerHTML = `
-                <svg class="w-4 h-4 shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <span><strong>Lưu ý lịch trình:</strong> Phát hiện ca làm có thời gian diễn ra trùng hoặc tiếp giáp rất sát nhau trong ngày. Hãy kiểm tra để sắp xếp di chuyển kịp thời.</span>
-            `;
-            timeline.appendChild(alertBox);
-        }
-
-        // Render từng ca trong timeline
+        // Render từng ca / khoảng bận trong timeline
         events.forEach(ev => {
             const card = document.createElement('div');
             const color = getEventColorBadge(ev);
             card.className = `p-4 sm:p-5 rounded-xl border bg-white shadow-xs transition hover:border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden`;
 
             const isBusy = ev.event_type === 'busy' || ev.status === 'busy';
-            const timeRange = ev.is_all_day ? 'Cả ngày' : `${ev.start_time} - ${ev.end_time}`;
 
-            card.innerHTML = `
-                <div class="absolute top-0 left-0 w-1.5 h-full ${color.dotBg}"></div>
-                <div class="pl-2">
-                    <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                        <span class="text-xs font-bold text-slate-900 px-2 py-0.5 rounded bg-slate-100 flex items-center gap-1">
-                            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            ${timeRange}
-                        </span>
-                        <span class="text-xs font-bold px-2.5 py-0.5 rounded-full ${color.badgeBg} ${color.badgeText}">
-                            ${ev.status_label}
-                        </span>
-                        <span class="text-xs font-medium text-slate-400">
-                            ${isBusy ? 'Thời gian bận' : ev.work_type}
-                        </span>
+            if (isBusy) {
+                const timeRange = ev.is_all_day ? 'Cả ngày (00:00 - 23:59)' : `${ev.start_time} – ${ev.end_time}`;
+                card.innerHTML = `
+                    <div class="absolute top-0 left-0 w-1.5 h-full bg-slate-500"></div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                            <span class="text-xs font-bold text-slate-900 px-2.5 py-0.5 rounded bg-slate-100 flex items-center gap-1 border border-slate-200">
+                                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                ${timeRange}
+                            </span>
+                            <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 border border-slate-300">
+                                Bận / Không khả dụng
+                            </span>
+                            <span class="text-xs font-medium text-slate-400">
+                                Lịch cá nhân
+                            </span>
+                        </div>
+                        <h4 class="text-sm sm:text-base font-bold text-slate-900">🔒 ${ev.note ? escapeHtml(ev.note) : 'Thời gian không khả dụng'}</h4>
+                        <div class="text-xs text-slate-500 mt-1.5 flex items-center flex-wrap gap-x-4 gap-y-1">
+                            <span>📝 ${ev.note || 'Bận việc riêng'}</span>
+                            <span>🛡️ Hệ thống tự động chặn lịch hẹn trùng giờ</span>
+                        </div>
                     </div>
-                    <h4 class="text-sm sm:text-base font-bold text-slate-900">${isBusy ? '🔒 ' : ''}${ev.title}</h4>
-                    <div class="text-xs text-slate-500 mt-1.5 flex items-center flex-wrap gap-x-4 gap-y-1">
-                        ${isBusy ? `
-                            <span>📝 ${ev.note || 'Thời gian không khả dụng'}</span>
-                        ` : `
+                    <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button type="button" class="btn-detail-action px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition">
+                            Chi tiết khoảng bận
+                        </button>
+                    </div>
+                `;
+                card.querySelector('.btn-detail-action').onclick = () => openBusyDetailModal(ev);
+            } else {
+                const timeRange = `${ev.start_time} - ${ev.end_time}`;
+                card.innerHTML = `
+                    <div class="absolute top-0 left-0 w-1.5 h-full ${color.dotBg}"></div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                            <span class="text-xs font-bold text-slate-900 px-2 py-0.5 rounded bg-slate-100 flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                ${timeRange}
+                            </span>
+                            <span class="text-xs font-bold px-2.5 py-0.5 rounded-full ${color.badgeBg} ${color.badgeText}">
+                                ${ev.status_label}
+                            </span>
+                            <span class="text-xs font-medium text-slate-400">
+                                ${ev.work_type}
+                            </span>
+                        </div>
+                        <h4 class="text-sm sm:text-base font-bold text-slate-900">${ev.title}</h4>
+                        <div class="text-xs text-slate-500 mt-1.5 flex items-center flex-wrap gap-x-4 gap-y-1">
                             <span>📍 ${ev.location}</span>
                             <span>👤 ${ev.hirer_name}</span>
                             ${ev.contract_id ? `<span class="text-brand-600 font-semibold">HĐ #${ev.contract_id}</span>` : ''}
-                        `}
+                        </div>
                     </div>
-                </div>
-                <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    <button type="button" class="btn-detail-action px-3.5 py-1.5 rounded-xl text-xs font-semibold ${isBusy ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-brand-50 text-brand-700 hover:bg-brand-100'} transition">
-                        ${isBusy ? 'Chi tiết khoảng bận' : 'Xem chi tiết'}
-                    </button>
-                    ${!isBusy && ev.detail_url ? `
-                        <a href="${ev.detail_url}" class="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 transition" title="Mở trang việc làm">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                        </a>
-                    ` : ''}
-                </div>
-            `;
-            card.querySelector('.btn-detail-action').onclick = () => {
-                if (isBusy) {
-                    openBusyDetailModal(ev);
-                } else {
-                    openShiftDetail(ev);
-                }
-            };
+                    <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button type="button" class="btn-detail-action px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-brand-50 text-brand-700 hover:bg-brand-100 transition">
+                            Xem chi tiết
+                        </button>
+                        ${ev.detail_url ? `
+                            <a href="${ev.detail_url}" class="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 transition" title="Mở trang việc làm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                            </a>
+                        ` : ''}
+                    </div>
+                `;
+                card.querySelector('.btn-detail-action').onclick = () => openShiftDetail(ev);
+            }
+
             timeline.appendChild(card);
         });
     }
@@ -1475,7 +1361,7 @@
         const listContainer = document.getElementById('list-container-events');
         listContainer.innerHTML = '';
 
-        document.getElementById('cal-summary-badge').textContent = `Danh sách: ${monthEvents.length} ca làm việc trong tháng`;
+        document.getElementById('cal-summary-badge').textContent = `Danh sách: ${monthEvents.length} sự kiện trong tháng`;
         toggleEmptyState(monthEvents.length === 0);
 
         monthEvents.forEach(ev => {
@@ -1484,47 +1370,64 @@
             card.className = `p-4 sm:p-5 rounded-xl border bg-white shadow-xs transition hover:border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden`;
 
             const isBusy = ev.event_type === 'busy' || ev.status === 'busy';
-            const timeRange = ev.is_all_day ? 'Cả ngày' : `${ev.start_time} - ${ev.end_time}`;
 
-            card.innerHTML = `
-                <div class="absolute top-0 left-0 w-1.5 h-full ${color.dotBg}"></div>
-                <div class="pl-2">
-                    <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                        <span class="text-xs font-bold text-slate-900">${ev.day_of_week}, ${ev.date_display}</span>
-                        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${color.badgeBg} ${color.badgeText}">
-                            ${ev.status_label}
-                        </span>
-                        <span class="text-xs font-medium text-slate-500">${timeRange}</span>
+            if (isBusy) {
+                const timeRange = ev.is_all_day ? 'Cả ngày' : `${ev.start_time} – ${ev.end_time}`;
+                card.innerHTML = `
+                    <div class="absolute top-0 left-0 w-1.5 h-full bg-slate-500"></div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                            <span class="text-xs font-bold text-slate-900">${ev.day_of_week}, ${ev.date_display}</span>
+                            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 border border-slate-300">
+                                Bận / Không khả dụng
+                            </span>
+                            <span class="text-xs font-medium text-slate-500">${timeRange}</span>
+                        </div>
+                        <h4 class="text-sm sm:text-base font-bold text-slate-900">🔒 ${ev.note ? escapeHtml(ev.note) : 'Thời gian không khả dụng'}</h4>
+                        <div class="text-xs text-slate-500 mt-1 flex items-center flex-wrap gap-x-4 gap-y-1">
+                            <span>📝 ${ev.note || 'Bận việc riêng'}</span>
+                        </div>
                     </div>
-                    <h4 class="text-sm sm:text-base font-bold text-slate-900">${isBusy ? '🔒 ' : ''}${ev.title}</h4>
-                    <div class="text-xs text-slate-500 mt-1 flex items-center flex-wrap gap-x-4 gap-y-1">
-                        ${isBusy ? `
-                            <span>📝 ${ev.note || 'Thời gian không khả dụng'}</span>
-                        ` : `
+                    <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button type="button" class="btn-detail-action px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition">
+                            Chi tiết khoảng bận
+                        </button>
+                    </div>
+                `;
+                card.querySelector('.btn-detail-action').onclick = () => openBusyDetailModal(ev);
+            } else {
+                const timeRange = `${ev.start_time} - ${ev.end_time}`;
+                card.innerHTML = `
+                    <div class="absolute top-0 left-0 w-1.5 h-full ${color.dotBg}"></div>
+                    <div class="pl-2">
+                        <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                            <span class="text-xs font-bold text-slate-900">${ev.day_of_week}, ${ev.date_display}</span>
+                            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${color.badgeBg} ${color.badgeText}">
+                                ${ev.status_label}
+                            </span>
+                            <span class="text-xs font-medium text-slate-500">${timeRange}</span>
+                        </div>
+                        <h4 class="text-sm sm:text-base font-bold text-slate-900">${ev.title}</h4>
+                        <div class="text-xs text-slate-500 mt-1 flex items-center flex-wrap gap-x-4 gap-y-1">
                             <span>📍 ${ev.location}</span>
                             <span>👤 ${ev.hirer_name}</span>
                             ${ev.contract_id ? `<span class="text-brand-600 font-semibold">HĐ #${ev.contract_id}</span>` : ''}
-                        `}
+                        </div>
                     </div>
-                </div>
-                <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    <button type="button" class="btn-detail-action px-3.5 py-1.5 rounded-xl text-xs font-semibold ${isBusy ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-brand-50 text-brand-700 hover:bg-brand-100'} transition">
-                        ${isBusy ? 'Chi tiết khoảng bận' : 'Chi tiết ca'}
-                    </button>
-                    ${!isBusy && ev.detail_url ? `
-                        <a href="${ev.detail_url}" class="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 transition" title="Mở trang việc làm">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                        </a>
-                    ` : ''}
-                </div>
-            `;
-            card.querySelector('.btn-detail-action').onclick = () => {
-                if (isBusy) {
-                    openBusyDetailModal(ev);
-                } else {
-                    openShiftDetail(ev);
-                }
-            };
+                    <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button type="button" class="btn-detail-action px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-brand-50 text-brand-700 hover:bg-brand-100 transition">
+                            Chi tiết ca
+                        </button>
+                        ${ev.detail_url ? `
+                            <a href="${ev.detail_url}" class="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 transition" title="Mở trang việc làm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                            </a>
+                        ` : ''}
+                    </div>
+                `;
+                card.querySelector('.btn-detail-action').onclick = () => openShiftDetail(ev);
+            }
+
             listContainer.appendChild(card);
         });
     }
@@ -1536,7 +1439,7 @@
         if (ev.event_type === 'busy' || ev.status === 'busy') {
             return {
                 dotBg: 'bg-slate-500',
-                pillBg: 'bg-slate-100',
+                pillBg: 'bg-slate-100 hover:bg-slate-200/80',
                 pillText: 'text-slate-800',
                 pillBorder: 'border-slate-300',
                 badgeBg: 'bg-slate-200',
@@ -1546,7 +1449,7 @@
         if (ev.is_ongoing) {
             return {
                 dotBg: 'bg-cyan-500',
-                pillBg: 'bg-cyan-50',
+                pillBg: 'bg-cyan-50 hover:bg-cyan-100/80',
                 pillText: 'text-cyan-800',
                 pillBorder: 'border-cyan-200',
                 badgeBg: 'bg-cyan-100',
@@ -1556,7 +1459,7 @@
         if (ev.status === 'completed' || ev.is_past) {
             return {
                 dotBg: 'bg-emerald-500',
-                pillBg: 'bg-emerald-50',
+                pillBg: 'bg-emerald-50 hover:bg-emerald-100/80',
                 pillText: 'text-emerald-800',
                 pillBorder: 'border-emerald-200',
                 badgeBg: 'bg-emerald-100',
@@ -1566,7 +1469,7 @@
         if (ev.status === 'reserved') {
             return {
                 dotBg: 'bg-amber-500',
-                pillBg: 'bg-amber-50',
+                pillBg: 'bg-amber-50 hover:bg-amber-100/80',
                 pillText: 'text-amber-800',
                 pillBorder: 'border-amber-200',
                 badgeBg: 'bg-amber-100',
@@ -1576,7 +1479,7 @@
         // Active / Đã xác nhận
         return {
             dotBg: 'bg-brand-600',
-            pillBg: 'bg-brand-50',
+            pillBg: 'bg-brand-50 hover:bg-brand-100/80',
             pillText: 'text-brand-800',
             pillBorder: 'border-brand-200',
             badgeBg: 'bg-brand-100',
@@ -1854,7 +1757,7 @@
     // ──────────────────────────────────────────────────────────────────────────
     function triggerCheckinFromDetail() {
         if (!currentDetailEvent || !currentDetailEvent.contract_id) {
-            alert('Ca làm này không gắn với hợp đồng có thể check-in.');
+            showToast('Ca làm này không gắn với hợp đồng có thể check-in.', 'error');
             return;
         }
 
@@ -1876,18 +1779,17 @@
             btn.disabled = false;
             btn.innerHTML = origText;
             if (data.success) {
-                alert(data.message);
-                // Đồng bộ lại lịch và cập nhật modal ngay tại chỗ
+                showToast(data.message, 'success');
                 syncScheduleData(currentDetailEvent.id);
             } else {
-                alert('Lỗi: ' + data.message);
+                showToast('Lỗi: ' + data.message, 'error');
             }
         })
         .catch(err => {
             btn.disabled = false;
             btn.innerHTML = origText;
             console.error('Lỗi checkin:', err);
-            alert('Lỗi kết nối máy chủ khi thực hiện check-in.');
+            showToast('Lỗi kết nối máy chủ khi thực hiện check-in.', 'error');
         });
     }
 
@@ -1919,7 +1821,7 @@
         const btn = document.getElementById('btn-submit-report');
 
         if (!reason) {
-            alert('Vui lòng chọn loại sự cố.');
+            showToast('Vui lòng chọn loại sự cố.', 'error');
             return;
         }
 
@@ -1937,16 +1839,16 @@
             btn.innerHTML = 'Gửi báo cáo sự cố';
             if (data.success) {
                 closeReportIssueModal();
-                alert(data.message);
+                showToast(data.message, 'success');
                 syncScheduleData(currentDetailEvent ? currentDetailEvent.id : null);
             } else {
-                alert('Lỗi: ' + data.message);
+                showToast('Lỗi: ' + data.message, 'error');
             }
         })
         .catch(() => {
             btn.disabled = false;
             btn.innerHTML = 'Gửi báo cáo sự cố';
-            alert('Lỗi kết nối máy chủ.');
+            showToast('Lỗi kết nối máy chủ khi gửi báo cáo.', 'error');
         });
     }
 
@@ -1989,16 +1891,16 @@
             btn.innerHTML = 'Xác nhận kết thúc ca';
             if (data.success) {
                 closeCompleteShiftModal();
-                alert(data.message);
+                showToast(data.message, 'success');
                 syncScheduleData(currentDetailEvent ? currentDetailEvent.id : null);
             } else {
-                alert('Lỗi: ' + data.message);
+                showToast('Lỗi: ' + data.message, 'error');
             }
         })
         .catch(() => {
             btn.disabled = false;
             btn.innerHTML = 'Xác nhận kết thúc ca';
-            alert('Lỗi kết nối máy chủ.');
+            showToast('Lỗi kết nối máy chủ.', 'error');
         });
     }
 
@@ -2014,7 +1916,7 @@
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // ĐỒNG BỘ DỮ LIỆU TỪ BACKEND API MÀ KHÔNG LÀM MẤT NGÀY ĐANG XEM
+    // ĐỒNG BỘ DỮ LIỆU TỪ BACKEND API MÀ KHÔNG LÀM MẤT VỊ TRÍ ĐANG XEM
     // ──────────────────────────────────────────────────────────────────────────
     function syncScheduleData(reopenEventId) {
         return fetch('/api/my-schedule')
@@ -2040,9 +1942,6 @@
                             }
                         }
                     }
-                    if (Array.isArray(data.busy_schedules)) {
-                        renderBusyTable(data.busy_schedules);
-                    }
                 }
             })
             .catch(err => {
@@ -2061,9 +1960,10 @@
         document.getElementById('busy-form-modal-title').innerHTML = '<span class="text-slate-700">🔒</span><span>Thêm thời gian không khả dụng</span>';
         document.getElementById('btn-submit-busy-form-text').textContent = 'Lưu thời gian bận';
         
-        const todayStr = formatDateISO(new Date());
-        document.getElementById('busy-start-date').value = todayStr;
-        document.getElementById('busy-end-date').value = todayStr;
+        // Mặc định ngày bắt đầu/kết thúc theo ngày đang chọn trên lịch
+        const defaultDateStr = formatDateISO(currentDate || new Date());
+        document.getElementById('busy-start-date').value = defaultDateStr;
+        document.getElementById('busy-end-date').value = defaultDateStr;
         document.getElementById('busy-end-date-wrapper').classList.remove('hidden');
         
         const allDayCb = document.getElementById('busy-is-all-day');
@@ -2088,7 +1988,7 @@
         document.getElementById('busy-form-modal-title').innerHTML = '<span class="text-slate-700">✏️</span><span>Chỉnh sửa thời gian không khả dụng</span>';
         document.getElementById('btn-submit-busy-form-text').textContent = 'Cập nhật thay đổi';
         
-        const dateVal = data.date || data.start_date || formatDateISO(new Date());
+        const dateVal = data.date || data.start_date || formatDateISO(currentDate || new Date());
         document.getElementById('busy-start-date').value = dateVal;
         document.getElementById('busy-end-date').value = data.end_date || dateVal;
         
@@ -2179,7 +2079,7 @@
             }
         }
 
-        // Chống nhấn nút nhiều lần tạo bản ghi trùng
+        // Chống nhấn nút nhiều lần
         submitBtn.disabled = true;
         const origBtnText = btnText.textContent;
         btnText.textContent = 'Đang lưu...';
@@ -2217,7 +2117,7 @@
 
             if (data.success) {
                 closeBusyFormModal();
-                alert(data.message);
+                showToast(data.message || 'Đã lưu thời gian không khả dụng thành công.', 'success');
                 syncScheduleData();
             } else {
                 errBox.textContent = data.message || 'Lỗi khi lưu thời gian bận.';
@@ -2262,7 +2162,7 @@
 
     function triggerEditFromBusyDetail() {
         if (!currentBusyDetail) return;
-        const busyId = currentBusyDetail.busy_id || currentBusyDetail.schedule_id || (currentBusyDetail.id ? currentBusyDetail.id.replace('busy_', '') : null);
+        const busyId = currentBusyDetail.busy_id || currentBusyDetail.schedule_id || (currentBusyDetail.id ? String(currentBusyDetail.id).replace('busy_', '') : null);
         openEditBusyModal({
             id: busyId,
             date: currentBusyDetail.date,
@@ -2275,10 +2175,10 @@
 
     function triggerDeleteFromBusyDetail() {
         if (!currentBusyDetail) return;
-        const busyId = currentBusyDetail.busy_id || currentBusyDetail.schedule_id || (currentBusyDetail.id ? currentBusyDetail.id.replace('busy_', '') : null);
+        const busyId = currentBusyDetail.busy_id || currentBusyDetail.schedule_id || (currentBusyDetail.id ? String(currentBusyDetail.id).replace('busy_', '') : null);
         if (!busyId) return;
 
-        const timeStr = currentBusyDetail.is_all_day ? 'Cả ngày' : `${currentBusyDetail.start_time} - ${currentBusyDetail.end_time}`;
+        const timeStr = currentBusyDetail.is_all_day ? 'Cả ngày' : `${currentBusyDetail.start_time} – ${currentBusyDetail.end_time}`;
         openConfirmDeleteBusy(busyId, currentBusyDetail.date_display || currentBusyDetail.date, timeStr, currentBusyDetail.note);
     }
 
@@ -2313,102 +2213,44 @@
             if (data.success) {
                 closeConfirmDeleteBusyModal();
                 closeBusyDetailModal();
-                alert(data.message);
+                showToast(data.message || 'Đã xóa thời gian bận thành công.', 'success');
                 syncScheduleData();
             } else {
-                alert('Lỗi: ' + data.message);
+                showToast('Lỗi: ' + data.message, 'error');
             }
         })
         .catch(err => {
             btn.disabled = false;
             btn.textContent = origText;
             console.error('Lỗi xóa thời gian bận:', err);
-            alert('Lỗi kết nối máy chủ khi xóa thời gian bận.');
+            showToast('Lỗi kết nối máy chủ khi xóa thời gian bận.', 'error');
         });
     }
 
-    function renderBusyTable(busyList) {
-        const tbody = document.getElementById('busy-table-body');
-        const badge = document.getElementById('tab-busy-count-badge');
-        if (badge) badge.textContent = busyList ? busyList.length : 0;
-
-        if (!tbody) return;
-        tbody.innerHTML = '';
-
-        if (!busyList || busyList.length === 0) {
-            tbody.innerHTML = `
-                <tr id="busy-table-empty-row">
-                    <td colspan="5" class="py-10 text-center text-slate-400">
-                        <div class="text-2xl mb-1">⏳</div>
-                        <div class="font-medium text-xs">Chưa có khoảng thời gian không khả dụng nào được thiết lập.</div>
-                        <div class="text-[11px] text-slate-400 mt-0.5">Nhấn "Thêm khoảng bận mới" ở trên để cài đặt thời gian bận.</div>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        busyList.forEach(b => {
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-50/60 transition';
-            tr.id = `busy-row-${b.id}`;
-
-            const timeHtml = b.is_all_day 
-                ? `<span class="inline-flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-full text-[11px]"><span>🌙</span> Cả ngày</span>`
-                : `<span class="font-medium text-slate-700">${escapeHtml(b.start_time)} - ${escapeHtml(b.end_time)}</span>`;
-
-            tr.innerHTML = `
-                <td class="px-4 py-3 font-bold text-slate-900 whitespace-nowrap">
-                    📅 ${escapeHtml(b.date_display || b.date)}
-                </td>
-                <td class="px-4 py-3 whitespace-nowrap">
-                    ${timeHtml}
-                </td>
-                <td class="px-4 py-3 max-w-xs truncate text-slate-600">
-                    ${escapeHtml(b.note || 'Bận việc riêng')}
-                </td>
-                <td class="px-4 py-3 whitespace-nowrap">
-                    <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                        <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
-                        <span>Đang áp dụng</span>
-                    </span>
-                </td>
-                <td class="px-4 py-3 text-right whitespace-nowrap">
-                    <div class="inline-flex items-center gap-1.5">
-                        <button type="button" class="btn-edit-busy px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:text-brand-600 hover:bg-brand-50 border border-slate-200 transition">
-                            Sửa
-                        </button>
-                        <button type="button" class="btn-del-busy px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition">
-                            Xóa
-                        </button>
-                    </div>
-                </td>
-            `;
-
-            tr.querySelector('.btn-edit-busy').onclick = () => openEditBusyModal(b);
-            tr.querySelector('.btn-del-busy').onclick = () => {
-                const timeStr = b.is_all_day ? 'Cả ngày' : `${b.start_time} - ${b.end_time}`;
-                openConfirmDeleteBusy(b.id, b.date_display || b.date, timeStr, b.note);
-            };
-
-            tbody.appendChild(tr);
-        });
-    }
-
+    // Gắn sự kiện nút Đồng bộ
     document.getElementById('btn-refresh-schedule').addEventListener('click', function() {
         const btn = this;
         const origHtml = btn.innerHTML;
-        btn.innerHTML = `<span>Đang tải...</span>`;
+        btn.innerHTML = `
+            <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <span>Đang đồng bộ...</span>
+        `;
         btn.disabled = true;
 
         syncScheduleData(currentDetailEvent ? currentDetailEvent.id : (currentBusyDetail ? currentBusyDetail.id : null))
+            .then(() => {
+                showToast('Đã đồng bộ dữ liệu lịch làm việc mới nhất.', 'success');
+            })
+            .catch(err => {
+                showToast('Không thể đồng bộ lịch từ máy chủ. Vui lòng thử lại.', 'error');
+            })
             .finally(() => {
                 btn.innerHTML = origHtml;
                 btn.disabled = false;
             });
     });
 
-    // Đóng tất cả modal khi bấm ESC
+    // Đóng tất cả modal khi bấm phím ESC
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeGuidanceModal();
