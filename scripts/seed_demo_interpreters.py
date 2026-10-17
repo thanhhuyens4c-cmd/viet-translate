@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Seed script to generate and deploy exactly 100 unique demo interpreter profiles
-for Viettranslate.
+Seed script to generate and deploy exactly 50 unique demo interpreter profiles
+for VietTranslate.
 
 Idempotent: Re-running this script updates existing demo profiles without creating duplicates.
 Real accounts are never touched.
 
 Strict 10 Languages:
-1. Tiếng Anh (English)
-2. Tiếng Trung (Chinese)
-3. Tiếng Nhật (Japanese)
-4. Tiếng Hàn (Korean)
-5. Tiếng Pháp (French)
-6. Tiếng Đức (German)
-7. Tiếng Nga (Russian)
-8. Tiếng Tây Ban Nha (Spanish)
-9. Tiếng Thái (Thai)
-10. Tiếng Bồ Đào Nha (Portuguese)
-(Paired with Tiếng Việt or global pairs among them).
+1. Tiếng Anh (10 profiles)
+2. Tiếng Trung (8 profiles)
+3. Tiếng Nhật (8 profiles)
+4. Tiếng Hàn (6 profiles)
+5. Tiếng Pháp (4 profiles)
+6. Tiếng Đức (4 profiles)
+7. Tiếng Nga (3 profiles)
+8. Tiếng Tây Ban Nha (3 profiles)
+9. Tiếng Thái (2 profiles)
+10. Tiếng Bồ Đào Nha (2 profiles)
+Total: Exactly 50 profiles.
 """
 
 import sys
@@ -41,29 +41,23 @@ from models import (
     TranslatorVerification,
 )
 
-# ─── 100 DIVERSE DEMO PROFILES SPECIFICATION (STRICT 10 LANGUAGES) ────────────
-LANG_DATA = [
-    # 1-18: Vietnamese - English (18)
+TARGET_DEMO_COUNT = 50
+
+# ─── 50 DIVERSE DEMO PROFILES SPECIFICATION (STRICT 10 LANGUAGES) ─────────────
+LANG_DATA_50 = [
+    # 0-9: Vietnamese - English (10)
     {"src": "Tiếng Việt", "tgt": "Tiếng Anh", "pair": "Tiếng Việt - Tiếng Anh", "langs": "Tiếng Việt, Tiếng Anh", "nat": "Tiếng Việt"},
     {"src": "Tiếng Anh", "tgt": "Tiếng Việt", "pair": "Tiếng Anh - Tiếng Việt", "langs": "Tiếng Anh, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Anh", "pair": "Tiếng Việt - Tiếng Anh", "langs": "Tiếng Việt, Tiếng Anh", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Anh", "tgt": "Tiếng Việt", "pair": "Tiếng Anh - Tiếng Việt", "langs": "Tiếng Anh, Tiếng Việt, Tiếng Pháp", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Anh", "pair": "Tiếng Việt - Tiếng Anh", "langs": "Tiếng Việt, Tiếng Anh", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Anh", "tgt": "Tiếng Việt", "pair": "Tiếng Anh - Tiếng Việt", "langs": "Tiếng Anh, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Anh", "pair": "Tiếng Việt - Tiếng Anh", "langs": "Tiếng Việt, Tiếng Anh, Tiếng Nhật", "nat": "Tiếng Việt"},
+    {"src": "Tiếng Việt", "tgt": "Tiếng Anh", "pair": "Tiếng Việt - Tiếng Anh", "langs": "Tiếng Việt, Tiếng Anh, Tiếng Pháp", "nat": "Tiếng Việt"},
     {"src": "Tiếng Anh", "tgt": "Tiếng Việt", "pair": "Tiếng Anh - Tiếng Việt", "langs": "Tiếng Anh, Tiếng Việt", "nat": "Tiếng Việt"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Anh", "pair": "Tiếng Việt - Tiếng Anh", "langs": "Tiếng Việt, Tiếng Anh", "nat": "Tiếng Việt"},
     {"src": "Tiếng Anh", "tgt": "Tiếng Việt", "pair": "Tiếng Anh - Tiếng Việt", "langs": "Tiếng Anh, Tiếng Việt, Tiếng Trung", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Anh", "pair": "Tiếng Việt - Tiếng Anh", "langs": "Tiếng Việt, Tiếng Anh", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Anh", "tgt": "Tiếng Việt", "pair": "Tiếng Anh - Tiếng Việt", "langs": "Tiếng Anh, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Anh", "pair": "Tiếng Việt - Tiếng Anh", "langs": "Tiếng Việt, Tiếng Anh", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Anh", "tgt": "Tiếng Việt", "pair": "Tiếng Anh - Tiếng Việt", "langs": "Tiếng Anh, Tiếng Việt", "nat": "Tiếng Việt"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Anh", "pair": "Tiếng Việt - Tiếng Anh", "langs": "Tiếng Việt, Tiếng Anh", "nat": "Tiếng Việt"},
     {"src": "Tiếng Anh", "tgt": "Tiếng Việt", "pair": "Tiếng Anh - Tiếng Việt", "langs": "Tiếng Anh, Tiếng Việt, Tiếng Đức", "nat": "Tiếng Việt"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Anh", "pair": "Tiếng Việt - Tiếng Anh", "langs": "Tiếng Việt, Tiếng Anh", "nat": "Tiếng Việt"},
     {"src": "Tiếng Anh", "tgt": "Tiếng Việt", "pair": "Tiếng Anh - Tiếng Việt", "langs": "Tiếng Anh, Tiếng Việt", "nat": "Tiếng Việt"},
 
-    # 19-33: Vietnamese - Chinese (15)
+    # 10-17: Vietnamese - Chinese (8)
     {"src": "Tiếng Việt", "tgt": "Tiếng Trung", "pair": "Tiếng Việt - Tiếng Trung", "langs": "Tiếng Việt, Tiếng Trung", "nat": "Tiếng Việt"},
     {"src": "Tiếng Trung", "tgt": "Tiếng Việt", "pair": "Tiếng Trung - Tiếng Việt", "langs": "Tiếng Trung, Tiếng Việt", "nat": "Tiếng Việt"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Trung", "pair": "Tiếng Việt - Tiếng Trung", "langs": "Tiếng Việt, Tiếng Trung, Tiếng Anh", "nat": "Tiếng Việt"},
@@ -71,16 +65,9 @@ LANG_DATA = [
     {"src": "Tiếng Việt", "tgt": "Tiếng Trung", "pair": "Tiếng Việt - Tiếng Trung", "langs": "Tiếng Việt, Tiếng Trung", "nat": "Tiếng Việt"},
     {"src": "Tiếng Trung", "tgt": "Tiếng Việt", "pair": "Tiếng Trung - Tiếng Việt", "langs": "Tiếng Trung, Tiếng Việt", "nat": "Tiếng Việt"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Trung", "pair": "Tiếng Việt - Tiếng Trung", "langs": "Tiếng Việt, Tiếng Trung", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Trung", "tgt": "Tiếng Việt", "pair": "Tiếng Trung - Tiếng Việt", "langs": "Tiếng Trung, Tiếng Việt", "nat": "Tiếng Trung"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Trung", "pair": "Tiếng Việt - Tiếng Trung", "langs": "Tiếng Việt, Tiếng Trung", "nat": "Tiếng Việt"},
     {"src": "Tiếng Trung", "tgt": "Tiếng Việt", "pair": "Tiếng Trung - Tiếng Việt", "langs": "Tiếng Trung, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Trung", "pair": "Tiếng Việt - Tiếng Trung", "langs": "Tiếng Việt, Tiếng Trung", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Trung", "tgt": "Tiếng Việt", "pair": "Tiếng Trung - Tiếng Việt", "langs": "Tiếng Trung, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Trung", "pair": "Tiếng Việt - Tiếng Trung", "langs": "Tiếng Việt, Tiếng Trung", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Trung", "tgt": "Tiếng Việt", "pair": "Tiếng Trung - Tiếng Việt", "langs": "Tiếng Trung, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Trung", "pair": "Tiếng Việt - Tiếng Trung", "langs": "Tiếng Việt, Tiếng Trung", "nat": "Tiếng Việt"},
 
-    # 34-48: Vietnamese - Japanese (15)
+    # 18-25: Vietnamese - Japanese (8)
     {"src": "Tiếng Việt", "tgt": "Tiếng Nhật", "pair": "Tiếng Việt - Tiếng Nhật", "langs": "Tiếng Việt, Tiếng Nhật", "nat": "Tiếng Việt"},
     {"src": "Tiếng Nhật", "tgt": "Tiếng Việt", "pair": "Tiếng Nhật - Tiếng Việt", "langs": "Tiếng Nhật, Tiếng Việt", "nat": "Tiếng Nhật"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Nhật", "pair": "Tiếng Việt - Tiếng Nhật", "langs": "Tiếng Việt, Tiếng Nhật, Tiếng Anh", "nat": "Tiếng Việt"},
@@ -89,84 +76,47 @@ LANG_DATA = [
     {"src": "Tiếng Nhật", "tgt": "Tiếng Việt", "pair": "Tiếng Nhật - Tiếng Việt", "langs": "Tiếng Nhật, Tiếng Việt", "nat": "Tiếng Nhật"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Nhật", "pair": "Tiếng Việt - Tiếng Nhật", "langs": "Tiếng Việt, Tiếng Nhật", "nat": "Tiếng Việt"},
     {"src": "Tiếng Nhật", "tgt": "Tiếng Việt", "pair": "Tiếng Nhật - Tiếng Việt", "langs": "Tiếng Nhật, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Nhật", "pair": "Tiếng Việt - Tiếng Nhật", "langs": "Tiếng Việt, Tiếng Nhật", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Nhật", "tgt": "Tiếng Việt", "pair": "Tiếng Nhật - Tiếng Việt", "langs": "Tiếng Nhật, Tiếng Việt", "nat": "Tiếng Nhật"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Nhật", "pair": "Tiếng Việt - Tiếng Nhật", "langs": "Tiếng Việt, Tiếng Nhật", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Nhật", "tgt": "Tiếng Việt", "pair": "Tiếng Nhật - Tiếng Việt", "langs": "Tiếng Nhật, Tiếng Việt", "nat": "Tiếng Nhật"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Nhật", "pair": "Tiếng Việt - Tiếng Nhật", "langs": "Tiếng Việt, Tiếng Nhật", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Nhật", "tgt": "Tiếng Việt", "pair": "Tiếng Nhật - Tiếng Việt", "langs": "Tiếng Nhật, Tiếng Việt", "nat": "Tiếng Nhật"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Nhật", "pair": "Tiếng Việt - Tiếng Nhật", "langs": "Tiếng Việt, Tiếng Nhật", "nat": "Tiếng Việt"},
 
-    # 49-63: Vietnamese - Korean (15)
+    # 26-31: Vietnamese - Korean (6)
     {"src": "Tiếng Việt", "tgt": "Tiếng Hàn", "pair": "Tiếng Việt - Tiếng Hàn", "langs": "Tiếng Việt, Tiếng Hàn", "nat": "Tiếng Việt"},
     {"src": "Tiếng Hàn", "tgt": "Tiếng Việt", "pair": "Tiếng Hàn - Tiếng Việt", "langs": "Tiếng Hàn, Tiếng Việt", "nat": "Tiếng Hàn"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Hàn", "pair": "Tiếng Việt - Tiếng Hàn", "langs": "Tiếng Việt, Tiếng Hàn, Tiếng Anh", "nat": "Tiếng Việt"},
     {"src": "Tiếng Hàn", "tgt": "Tiếng Việt", "pair": "Tiếng Hàn - Tiếng Việt", "langs": "Tiếng Hàn, Tiếng Việt", "nat": "Tiếng Việt"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Hàn", "pair": "Tiếng Việt - Tiếng Hàn", "langs": "Tiếng Việt, Tiếng Hàn", "nat": "Tiếng Việt"},
     {"src": "Tiếng Hàn", "tgt": "Tiếng Việt", "pair": "Tiếng Hàn - Tiếng Việt", "langs": "Tiếng Hàn, Tiếng Việt", "nat": "Tiếng Hàn"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Hàn", "pair": "Tiếng Việt - Tiếng Hàn", "langs": "Tiếng Việt, Tiếng Hàn", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Hàn", "tgt": "Tiếng Việt", "pair": "Tiếng Hàn - Tiếng Việt", "langs": "Tiếng Hàn, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Hàn", "pair": "Tiếng Việt - Tiếng Hàn", "langs": "Tiếng Việt, Tiếng Hàn", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Hàn", "tgt": "Tiếng Việt", "pair": "Tiếng Hàn - Tiếng Việt", "langs": "Tiếng Hàn, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Hàn", "pair": "Tiếng Việt - Tiếng Hàn", "langs": "Tiếng Việt, Tiếng Hàn", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Hàn", "tgt": "Tiếng Việt", "pair": "Tiếng Hàn - Tiếng Việt", "langs": "Tiếng Hàn, Tiếng Việt", "nat": "Tiếng Hàn"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Hàn", "pair": "Tiếng Việt - Tiếng Hàn", "langs": "Tiếng Việt, Tiếng Hàn", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Hàn", "tgt": "Tiếng Việt", "pair": "Tiếng Hàn - Tiếng Việt", "langs": "Tiếng Hàn, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Hàn", "pair": "Tiếng Việt - Tiếng Hàn", "langs": "Tiếng Việt, Tiếng Hàn", "nat": "Tiếng Việt"},
 
-    # 64-71: Vietnamese - French (8)
+    # 32-35: Vietnamese - French (4)
     {"src": "Tiếng Việt", "tgt": "Tiếng Pháp", "pair": "Tiếng Việt - Tiếng Pháp", "langs": "Tiếng Việt, Tiếng Pháp", "nat": "Tiếng Việt"},
     {"src": "Tiếng Pháp", "tgt": "Tiếng Việt", "pair": "Tiếng Pháp - Tiếng Việt", "langs": "Tiếng Pháp, Tiếng Việt", "nat": "Tiếng Pháp"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Pháp", "pair": "Tiếng Việt - Tiếng Pháp", "langs": "Tiếng Việt, Tiếng Pháp, Tiếng Anh", "nat": "Tiếng Việt"},
     {"src": "Tiếng Pháp", "tgt": "Tiếng Việt", "pair": "Tiếng Pháp - Tiếng Việt", "langs": "Tiếng Pháp, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Pháp", "pair": "Tiếng Việt - Tiếng Pháp", "langs": "Tiếng Việt, Tiếng Pháp", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Pháp", "tgt": "Tiếng Việt", "pair": "Tiếng Pháp - Tiếng Việt", "langs": "Tiếng Pháp, Tiếng Việt", "nat": "Tiếng Pháp"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Pháp", "pair": "Tiếng Việt - Tiếng Pháp", "langs": "Tiếng Việt, Tiếng Pháp", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Pháp", "tgt": "Tiếng Việt", "pair": "Tiếng Pháp - Tiếng Việt", "langs": "Tiếng Pháp, Tiếng Việt", "nat": "Tiếng Pháp"},
 
-    # 72-79: Vietnamese - German (8)
+    # 36-39: Vietnamese - German (4)
     {"src": "Tiếng Việt", "tgt": "Tiếng Đức", "pair": "Tiếng Việt - Tiếng Đức", "langs": "Tiếng Việt, Tiếng Đức", "nat": "Tiếng Việt"},
     {"src": "Tiếng Đức", "tgt": "Tiếng Việt", "pair": "Tiếng Đức - Tiếng Việt", "langs": "Tiếng Đức, Tiếng Việt", "nat": "Tiếng Đức"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Đức", "pair": "Tiếng Việt - Tiếng Đức", "langs": "Tiếng Việt, Tiếng Đức, Tiếng Anh", "nat": "Tiếng Việt"},
     {"src": "Tiếng Đức", "tgt": "Tiếng Việt", "pair": "Tiếng Đức - Tiếng Việt", "langs": "Tiếng Đức, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Đức", "pair": "Tiếng Việt - Tiếng Đức", "langs": "Tiếng Việt, Tiếng Đức", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Đức", "tgt": "Tiếng Việt", "pair": "Tiếng Đức - Tiếng Việt", "langs": "Tiếng Đức, Tiếng Việt", "nat": "Tiếng Đức"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Đức", "pair": "Tiếng Việt - Tiếng Đức", "langs": "Tiếng Việt, Tiếng Đức", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Đức", "tgt": "Tiếng Việt", "pair": "Tiếng Đức - Tiếng Việt", "langs": "Tiếng Đức, Tiếng Việt", "nat": "Tiếng Đức"},
 
-    # 80-85: Vietnamese - Russian (6)
+    # 40-42: Vietnamese - Russian (3)
     {"src": "Tiếng Việt", "tgt": "Tiếng Nga", "pair": "Tiếng Việt - Tiếng Nga", "langs": "Tiếng Việt, Tiếng Nga", "nat": "Tiếng Việt"},
     {"src": "Tiếng Nga", "tgt": "Tiếng Việt", "pair": "Tiếng Nga - Tiếng Việt", "langs": "Tiếng Nga, Tiếng Việt", "nat": "Tiếng Nga"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Nga", "pair": "Tiếng Việt - Tiếng Nga", "langs": "Tiếng Việt, Tiếng Nga, Tiếng Anh", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Nga", "tgt": "Tiếng Việt", "pair": "Tiếng Nga - Tiếng Việt", "langs": "Tiếng Nga, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Nga", "pair": "Tiếng Việt - Tiếng Nga", "langs": "Tiếng Việt, Tiếng Nga", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Nga", "tgt": "Tiếng Việt", "pair": "Tiếng Nga - Tiếng Việt", "langs": "Tiếng Nga, Tiếng Việt", "nat": "Tiếng Nga"},
 
-    # 86-90: Vietnamese - Thai (5)
-    {"src": "Tiếng Việt", "tgt": "Tiếng Thái", "pair": "Tiếng Việt - Tiếng Thái", "langs": "Tiếng Việt, Tiếng Thái", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Thái", "tgt": "Tiếng Việt", "pair": "Tiếng Thái - Tiếng Việt", "langs": "Tiếng Thái, Tiếng Việt", "nat": "Tiếng Thái"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Thái", "pair": "Tiếng Việt - Tiếng Thái", "langs": "Tiếng Việt, Tiếng Thái, Tiếng Anh", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Thái", "tgt": "Tiếng Việt", "pair": "Tiếng Thái - Tiếng Việt", "langs": "Tiếng Thái, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Thái", "pair": "Tiếng Việt - Tiếng Thái", "langs": "Tiếng Việt, Tiếng Thái", "nat": "Tiếng Việt"},
-
-    # 91-95: Vietnamese - Spanish (5)
+    # 43-45: Vietnamese - Spanish (3)
     {"src": "Tiếng Việt", "tgt": "Tiếng Tây Ban Nha", "pair": "Tiếng Việt - Tiếng Tây Ban Nha", "langs": "Tiếng Việt, Tiếng Tây Ban Nha", "nat": "Tiếng Việt"},
     {"src": "Tiếng Tây Ban Nha", "tgt": "Tiếng Việt", "pair": "Tiếng Tây Ban Nha - Tiếng Việt", "langs": "Tiếng Tây Ban Nha, Tiếng Việt", "nat": "Tiếng Tây Ban Nha"},
     {"src": "Tiếng Việt", "tgt": "Tiếng Tây Ban Nha", "pair": "Tiếng Việt - Tiếng Tây Ban Nha", "langs": "Tiếng Việt, Tiếng Tây Ban Nha, Tiếng Anh", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Tây Ban Nha", "tgt": "Tiếng Việt", "pair": "Tiếng Tây Ban Nha - Tiếng Việt", "langs": "Tiếng Tây Ban Nha, Tiếng Việt", "nat": "Tiếng Việt"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Tây Ban Nha", "pair": "Tiếng Việt - Tiếng Tây Ban Nha", "langs": "Tiếng Việt, Tiếng Tây Ban Nha", "nat": "Tiếng Việt"},
 
-    # 96-98: Vietnamese - Portuguese (3)
+    # 46-47: Vietnamese - Thai (2)
+    {"src": "Tiếng Việt", "tgt": "Tiếng Thái", "pair": "Tiếng Việt - Tiếng Thái", "langs": "Tiếng Việt, Tiếng Thái", "nat": "Tiếng Việt"},
+    {"src": "Tiếng Thái", "tgt": "Tiếng Việt", "pair": "Tiếng Thái - Tiếng Việt", "langs": "Tiếng Thái, Tiếng Việt", "nat": "Tiếng Thái"},
+
+    # 48-49: Vietnamese - Portuguese (2)
     {"src": "Tiếng Việt", "tgt": "Tiếng Bồ Đào Nha", "pair": "Tiếng Việt - Tiếng Bồ Đào Nha", "langs": "Tiếng Việt, Tiếng Bồ Đào Nha", "nat": "Tiếng Việt"},
     {"src": "Tiếng Bồ Đào Nha", "tgt": "Tiếng Việt", "pair": "Tiếng Bồ Đào Nha - Tiếng Việt", "langs": "Tiếng Bồ Đào Nha, Tiếng Việt", "nat": "Tiếng Bồ Đào Nha"},
-    {"src": "Tiếng Việt", "tgt": "Tiếng Bồ Đào Nha", "pair": "Tiếng Việt - Tiếng Bồ Đào Nha", "langs": "Tiếng Việt, Tiếng Bồ Đào Nha, Tiếng Anh", "nat": "Tiếng Việt"},
-
-    # 99-100: Global pairs among the 10 languages (2)
-    {"src": "Tiếng Anh", "tgt": "Tiếng Nhật", "pair": "Tiếng Anh - Tiếng Nhật", "langs": "Tiếng Anh, Tiếng Nhật", "nat": "Tiếng Nhật"},
-    {"src": "Tiếng Anh", "tgt": "Tiếng Trung", "pair": "Tiếng Anh - Tiếng Trung", "langs": "Tiếng Anh, Tiếng Trung", "nat": "Tiếng Trung"},
 ]
 
-# 20 Diverse Industry Specializations
+# 12 Diverse Industry Specializations
 INDUSTRIES = [
     "Đàm phán kinh doanh & Thương mại",
     "Pháp lý & Hợp đồng",
@@ -178,116 +128,39 @@ INDUSTRIES = [
     "Giáo dục & Đào tạo",
     "Xuất nhập khẩu & Logistics",
     "Tài chính & Ngân hàng",
-    "Sự kiện, Triển lãm & Hội nghị",
-    "Ô tô & Tự động hóa",
-    "Marketing & Truyền thông",
-    "Hội nghị cấp cao & Ngoại giao",
-    "Nông nghiệp & Chế biến thực phẩm",
-    "Năng lượng & Môi trường",
-    "Bán lẻ & Chuỗi cung ứng",
-    "Điện tử & Bán dẫn",
-    "Khoa học kỹ thuật & Nghiên cứu",
-    "Hàng không & Vận tải quốc tế",
+    "Năng lượng & Dầu khí",
+    "Hội nghị & Sự kiện quốc tế",
 ]
 
-# Vietnamese Locations
+# Locations (City, Country, Service Areas, Work Modes)
 LOCATIONS = [
-    # Hà Nội (35)
-    *([("Hà Nội", "Việt Nam", "Hà Nội và các tỉnh phía Bắc", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)")] * 15),
-    *([("Hà Nội", "Việt Nam", "Hà Nội & Bắc Bộ", "Hỗn hợp (Hybrid)")] * 10),
-    *([("Hà Nội", "Việt Nam", "Hà Nội & lân cận", "Trực tiếp tại địa điểm (On-site)")] * 5),
-    *([("Hà Nội", "Việt Nam", "Toàn quốc & Trực tuyến", "Trực tuyến / Từ xa (Online)")] * 5),
-
-    # TP. Hồ Chí Minh (35)
-    *([("TP. Hồ Chí Minh", "Việt Nam", "TP.HCM & các tỉnh Đông Nam Bộ", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)")] * 15),
-    *([("TP. Hồ Chí Minh", "Việt Nam", "TP.HCM, Bình Dương, Đồng Nai", "Hỗn hợp (Hybrid)")] * 10),
-    *([("TP. Hồ Chí Minh", "Việt Nam", "TP.HCM & lân cận", "Trực tiếp tại địa điểm (On-site)")] * 5),
-    *([("TP. Hồ Chí Minh", "Việt Nam", "Toàn quốc & Trực tuyến", "Trực tuyến / Từ xa (Online)")] * 5),
-
-    # Đà Nẵng (8)
-    ("Đà Nẵng", "Việt Nam", "Đà Nẵng, Quảng Nam, Huế", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)"),
-    ("Đà Nẵng", "Việt Nam", "Đà Nẵng & miền Trung", "Hỗn hợp (Hybrid)"),
-    ("Đà Nẵng", "Việt Nam", "Đà Nẵng", "Trực tiếp tại địa điểm (On-site)"),
-    ("Đà Nẵng", "Việt Nam", "Đà Nẵng & Remote", "Trực tuyến / Từ xa (Online)"),
-    ("Đà Nẵng", "Việt Nam", "Đà Nẵng, Hội An", "Hỗn hợp (Hybrid)"),
-    ("Đà Nẵng", "Việt Nam", "Đà Nẵng", "Trực tiếp tại địa điểm (On-site)"),
-    ("Đà Nẵng", "Việt Nam", "Đà Nẵng & miền Trung", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)"),
-    ("Đà Nẵng", "Việt Nam", "Đà Nẵng", "Hỗn hợp (Hybrid)"),
-
-    # Hải Phòng (5)
-    ("Hải Phòng", "Việt Nam", "Hải Phòng, KCN Đình Vũ, Quảng Ninh", "Trực tiếp tại địa điểm (On-site)"),
-    ("Hải Phòng", "Việt Nam", "Hải Phòng & Hải Dương", "Hỗn hợp (Hybrid)"),
-    ("Hải Phòng", "Việt Nam", "Hải Phòng", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)"),
-    ("Hải Phòng", "Việt Nam", "Hải Phòng, Cát Bà", "Trực tiếp tại địa điểm (On-site)"),
-    ("Hải Phòng", "Việt Nam", "Hải Phòng & Remote", "Trực tuyến / Từ xa (Online)"),
-
-    # Bắc Ninh (4)
-    ("Bắc Ninh", "Việt Nam", "Bắc Ninh, KCN Yên Phong, Quế Võ", "Trực tiếp tại địa điểm (On-site)"),
-    ("Bắc Ninh", "Việt Nam", "Bắc Ninh & Hà Nội", "Hỗn hợp (Hybrid)"),
-    ("Bắc Ninh", "Việt Nam", "Bắc Ninh, Bắc Giang", "Trực tiếp tại địa điểm (On-site)"),
-    ("Bắc Ninh", "Việt Nam", "Bắc Ninh", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)"),
-
-    # Quảng Ninh (3)
-    ("Quảng Ninh", "Việt Nam", "Hạ Long, Cẩm Phả, Móng Cái", "Trực tiếp tại địa điểm (On-site)"),
-    ("Quảng Ninh", "Việt Nam", "Quảng Ninh & Hải Phòng", "Hỗn hợp (Hybrid)"),
-    ("Quảng Ninh", "Việt Nam", "Móng Cái, cửa khẩu quốc tế", "Trực tiếp tại địa điểm (On-site)"),
-
-    # Bình Dương (4)
-    ("Bình Dương", "Việt Nam", "Thủ Dầu Một, KCN VSIP 1 & 2, Mỹ Phước", "Trực tiếp tại địa điểm (On-site)"),
-    ("Bình Dương", "Việt Nam", "Bình Dương, TP.HCM", "Hỗn hợp (Hybrid)"),
-    ("Bình Dương", "Việt Nam", "Bình Dương, Bến Cát, Tân Uyên", "Trực tiếp tại địa điểm (On-site)"),
-    ("Bình Dương", "Việt Nam", "Bình Dương", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)"),
-
-    # Đồng Nai (3)
-    ("Đồng Nai", "Việt Nam", "Biên Hòa, KCN Amata, Nhơn Trạch", "Trực tiếp tại địa điểm (On-site)"),
-    ("Đồng Nai", "Việt Nam", "Đồng Nai, TP.HCM", "Hỗn hợp (Hybrid)"),
-    ("Đồng Nai", "Việt Nam", "Đồng Nai, Long Thành", "Trực tiếp tại địa điểm (On-site)"),
-
-    # Vũng Tàu (3)
-    ("Vũng Tàu", "Việt Nam", "TP. Vũng Tàu, Phú Mỹ, Cảng Cái Mép", "Trực tiếp tại địa điểm (On-site)"),
-    ("Vũng Tàu", "Việt Nam", "Bà Rịa - Vũng Tàu & TP.HCM", "Hỗn hợp (Hybrid)"),
-    ("Vũng Tàu", "Việt Nam", "Vũng Tàu & Remote", "Trực tuyến / Từ xa (Online)"),
-
-    # Huế (3)
-    ("Huế", "Việt Nam", "TP. Huế & các điểm di sản", "Trực tiếp tại địa điểm (On-site)"),
-    ("Huế", "Việt Nam", "Huế, Đà Nẵng", "Hỗn hợp (Hybrid)"),
-    ("Huế", "Việt Nam", "Huế & Remote", "Trực tuyến / Từ xa (Online)"),
-
-    # Nha Trang (2)
-    ("Nha Trang", "Việt Nam", "Nha Trang, Cam Ranh", "Trực tiếp tại địa điểm (On-site)"),
-    ("Nha Trang", "Việt Nam", "Nha Trang & các resort ven biển", "Hỗn hợp (Hybrid)"),
+    ("Hà Nội", "Việt Nam", "Hà Nội và các tỉnh phía Bắc", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)"),
+    ("TP. Hồ Chí Minh", "Việt Nam", "TP. Hồ Chí Minh và Đông Nam Bộ", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)"),
+    ("Đà Nẵng", "Việt Nam", "Đà Nẵng, Huế, Quảng Nam và miền Trung", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)"),
+    ("Hải Phòng", "Việt Nam", "Hải Phòng, Quảng Ninh và vùng duyên hải", "Trực tiếp tại địa điểm (On-site)"),
+    ("Cần Thơ", "Việt Nam", "Cần Thơ và các tỉnh Đồng bằng sông Cửu Long", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)"),
+    ("Bình Dương", "Việt Nam", "Bình Dương, Đồng Nai và các khu công nghiệp", "Trực tiếp tại địa điểm (On-site)"),
+    ("Bắc Ninh", "Việt Nam", "Bắc Ninh, Bắc Giang, Vĩnh Phúc (Cụm KCN)", "Trực tiếp tại địa điểm (On-site)"),
+    ("Quảng Ninh", "Việt Nam", "Hạ Long, Cẩm Phả và các cửa khẩu phía Bắc", "Trực tiếp tại địa điểm (On-site)"),
+    ("Đồng Nai", "Việt Nam", "Biên Hòa, Long Thành và vùng phụ cận", "Trực tiếp tại địa điểm (On-site)"),
+    ("Vũng Tàu", "Việt Nam", "Bà Rịa - Vũng Tàu và các cảng biển quốc tế", "Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa (Online)"),
 ]
 
-# 100 Unique Names
-NAMES = [
-    "Nguyễn Minh Tuấn", "Trần Thị Bích Ngọc", "Lê Hoàng Long", "Phạm Hải Đăng",
-    "Hoàng Mai Phương", "Vũ Quốc Cường", "Đặng Thùy Dương", "Bùi Anh Khoa",
-    "Đỗ Minh Châu", "Hồ Thanh Tùng", "Ngô Kim Ngân", "Dương Văn Hùng",
-    "Lý Quỳnh Nga", "Phan Gia Huy", "Võ Thị Ánh Tuyết", "Trịnh Đình Trọng",
-    "Mai Thục Trinh", "Đoàn Văn Khánh", "Lâm Mỹ Hạnh", "Lương Đức Minh",
-    "Nguyễn Bảo Trâm", "Trần Hữu Thắng", "Lê Thanh Hằng", "Phạm Trọng Tín",
-    "Hoàng Thu Trang", "Vũ Nhật Nam", "Đặng Yến Nhi", "Bùi Thế Hiển",
-    "Đỗ Phương Linh", "Hồ Văn Đạt", "Ngô Bảo Ngọc", "Dương Kiều Oanh",
-    "Lý Hạo Nhiên", "Phan Cẩm Tú", "Võ Minh Khang", "Trịnh Mỹ Uyên",
-    "Mai Văn Phước", "Đoàn Hồng Nhung", "Lâm Quốc Việt", "Lương Thảo Nguyên",
-    "Nguyễn Trọng Đại", "Trần Như Ý", "Lê Quang Vinh", "Phạm Diệu Thảo",
-    "Hoàng Tiến Đạt", "Vũ Mỹ Dung", "Đặng Khắc Duy", "Bùi Thu Hiền",
-    "Đỗ Thành Công", "Hồ Xuân Trường", "Ngô Thị Cẩm Vân", "Dương Minh Trí",
-    "Lý Lan Chi", "Phan Thanh Sơn", "Võ Thị Diễm My", "Trịnh Hùng Dũng",
-    "Mai Bảo Châu", "Đoàn Đình Hưng", "Lâm Thu Thủy", "Lương Văn Quyết",
-    "Nguyễn Hoài Thương", "Trần Đức Toàn", "Lê Kiều Trang", "Phạm Văn Thiện",
-    "Hoàng Thảo Vy", "Vũ Gia Khiêm", "Đặng Tường Vy", "Bùi Văn Quý",
-    "Đỗ Hương Giang", "Hồ Nguyên Khôi", "Ngô Thị Kim Tuyến", "Dương Quốc Dũng",
-    "Lý Thị Thảo", "Phan Văn Nam", "Võ Cẩm Ly", "Trịnh Ngọc Sơn",
-    "Mai Hoàng Lan", "Đoàn Văn Phúc", "Lâm Khánh Chi", "Lương Hoài Nam",
-    "Nguyễn Ngọc Khánh", "Trần Thùy Trang", "Lê Đức Nhân", "Phạm Thúy Hằng",
-    "Hoàng Minh Quân", "Vũ Thanh Mai", "Đặng Hữu Phúc", "Bùi Ngọc Ánh",
-    "Đỗ Trọng Hiếu", "Hồ Thúy Kiều", "Ngô Đình Trí", "Dương Yến Trang",
-    "Lý Văn Hậu", "Phan Thu Thảo", "Võ Tuấn Kiệt", "Trịnh Thùy Linh",
-    "Mai Văn Thịnh", "Đoàn Phương Mai", "Lâm Bá Thông", "Lương Diệu Linh"
+# 50 Distinct Vietnamese Names
+NAMES_50 = [
+    "Nguyễn Minh Tuấn", "Trần Thị Bích Ngọc", "Lê Hoàng Long", "Phạm Hải Đăng", "Hoàng Mai Phương",
+    "Vũ Đình Trọng", "Đặng Thùy Dương", "Bùi Quốc Anh", "Đỗ Thu Trang", "Ngô Thành Nam",
+    "Dương Cẩm Tú", "Lý Gia Bảo", "Phan Thanh Trúc", "Võ Hữu Phước", "Trịnh Bảo Ngọc",
+    "Mai Anh Dũng", "Đoàn Mỹ Linh", "Lâm Quang Huy", "Lương Thục Quyên", "Chu Mạnh Cường",
+    "Cao Thị Kim Oanh", "Tạ Nhật Minh", "Hà Quỳnh Nga", "Phùng Thế Vinh", "Tô Ánh Nguyệt",
+    "Đinh Hữu Đạt", "Trương Thảo Nhi", "Nguyễn Tiến Phát", "Trần Mỹ Hạnh", "Lê Bảo Lâm",
+    "Phạm Ngọc Trâm", "Hoàng Gia Khiêm", "Vũ Tuyết Mai", "Đặng Minh Quân", "Bùi Khánh Linh",
+    "Đỗ Trọng Hiếu", "Hồ Thúy Kiều", "Ngô Đình Trí", "Dương Yến Trang", "Lý Văn Hậu",
+    "Phan Thu Thảo", "Võ Tuấn Kiệt", "Trịnh Thùy Linh", "Mai Văn Thịnh", "Đoàn Phương Mai",
+    "Lâm Bá Thông", "Lương Diệu Linh", "Chu Quốc Bảo", "Cao Minh Nhật", "Tạ Thanh Huyền"
 ]
 
-# Avatar Assets (10 static images in project)
+# 10 Static Avatar assets in project
 AVATAR_ASSETS = [
     "/static/avatars/avatar_dung.jpg",
     "/static/avatars/avatar_ha.jpg",
@@ -301,7 +174,6 @@ AVATAR_ASSETS = [
     "/static/avatars/avatar_lananh.jpg",
 ]
 
-# Universities
 UNIVERSITIES = [
     ("Đại học Ngoại ngữ - ĐHQGHN", "Ngôn ngữ học ứng dụng"),
     ("Đại học Ngoại thương (FTU)", "Tiếng Anh Thương mại"),
@@ -313,7 +185,6 @@ UNIVERSITIES = [
     ("Học viện Ngoại giao (DAV)", "Quan hệ Quốc tế & Ngoại giao"),
 ]
 
-# Language-specific Certificates (Strict 10 languages)
 CERTIFICATES_MAP = {
     "Tiếng Anh": [("IELTS 8.5 Academic", 2022), ("IELTS 8.0 Academic", 2023), ("TOEIC 985/990", 2021), ("IELTS 7.5 Academic", 2023)],
     "Tiếng Trung": [("HSK 6 (285/300) & HSKK Cao cấp", 2022), ("HSK 6 (270/300)", 2023), ("HSK 5 (260/300)", 2021), ("HSK 6", 2024)],
@@ -328,151 +199,114 @@ CERTIFICATES_MAP = {
 }
 
 EMPLOYMENT_PREFS = [
-    "Freelance (Tự do)",
-    "Hợp đồng theo dự án",
+    "Freelance / Làm tự do theo dự án",
     "Bán thời gian (Part-time)",
+    "Hợp đồng ngắn hạn & Trung hạn",
     "Toàn thời gian (Full-time)",
+    "Linh hoạt theo giờ / Theo ca",
 ]
 
 AVAILABILITY_STATUSES = [
-    "Sẵn sàng nhận việc ngay",
-    "Nhận đặt lịch trước 3-5 ngày",
-    "Sẵn sàng công tác xa",
-    "Nhận dự án trực tuyến & tại chỗ",
-    "Chỉ nhận việc cuối tuần",
+    "Sẵn sàng nhận việc",
+    "Sẵn sàng nhận việc",
+    "Sẵn sàng nhận việc",
+    "Linh hoạt theo lịch hẹn",
+    "Bận dự án ngắn hạn (Nhận việc từ tuần tới)",
 ]
 
 INTERPRETING_TYPES_LIST = [
-    "Phiên dịch nối tiếp (Consecutive), Đàm phán kinh doanh (Business Meeting)",
-    "Phiên dịch cabin / Song song (Simultaneous), Phiên dịch nối tiếp (Consecutive)",
-    "Phiên dịch tháp tùng (Escort), Phiên dịch trực tuyến (Online)",
-    "Đàm phán kinh doanh (Business Meeting), Phiên dịch sự kiện (Event)",
-    "Phiên dịch trực tuyến / Từ xa (Online), Phiên dịch hội thảo (Conference)",
-    "Phiên dịch nối tiếp (Consecutive), Phiên dịch hiện trường (On-site)",
+    "Phiên dịch tháp tùng (Escort), Phiên dịch hội thảo (Consecutive)",
+    "Phiên dịch cabin đồng thời (Simultaneous), Phiên dịch đàm phán hợp đồng",
+    "Phiên dịch tháp tùng công tác, Khảo sát hiện trường nhà máy",
+    "Phiên dịch sự kiện triển lãm quốc tế, Giới thiệu sản phẩm",
+    "Phiên dịch hội nghị trực tuyến (Remote / Zoom), Họp song phương",
 ]
 
-def build_experience_tiers():
+
+def build_experience_tiers_50():
+    """Tạo 50 mức kinh nghiệm, rating, số job và biểu phí đa dạng."""
     tiers = []
 
-    # 15 Junior (0-2 yrs)
-    junior_configs = [
-        {"y": 1, "jobs": 0, "rating": 0.0, "rev": 0, "h_rate": 300000, "d_rate": 2000000, "level": "Cử nhân"},
-        {"y": 1, "jobs": 2, "rating": 4.0, "rev": 2, "h_rate": 350000, "d_rate": 2200000, "level": "Cử nhân"},
-        {"y": 2, "jobs": 3, "rating": 4.2, "rev": 3, "h_rate": 400000, "d_rate": 2500000, "level": "Cử nhân"},
-        {"y": 1, "jobs": 1, "rating": 3.8, "rev": 1, "h_rate": 300000, "d_rate": 2000000, "level": "Cử nhân"},
-        {"y": 2, "jobs": 5, "rating": 4.4, "rev": 4, "h_rate": 450000, "d_rate": 2800000, "level": "Cử nhân"},
-        {"y": 1, "jobs": 0, "rating": 0.0, "rev": 0, "h_rate": 350000, "d_rate": 2200000, "level": "Cử nhân"},
-        {"y": 2, "jobs": 4, "rating": 4.3, "rev": 3, "h_rate": 400000, "d_rate": 2600000, "level": "Cử nhân"},
-        {"y": 2, "jobs": 5, "rating": 4.5, "rev": 5, "h_rate": 500000, "d_rate": 3000000, "level": "Cử nhân"},
-        {"y": 1, "jobs": 2, "rating": 4.1, "rev": 2, "h_rate": 350000, "d_rate": 2300000, "level": "Cử nhân"},
-        {"y": 2, "jobs": 4, "rating": 4.2, "rev": 4, "h_rate": 420000, "d_rate": 2700000, "level": "Cử nhân"},
-        {"y": 1, "jobs": 1, "rating": 3.9, "rev": 1, "h_rate": 320000, "d_rate": 2100000, "level": "Cử nhân"},
-        {"y": 2, "jobs": 3, "rating": 4.3, "rev": 3, "h_rate": 400000, "d_rate": 2500000, "level": "Cử nhân"},
-        {"y": 1, "jobs": 0, "rating": 0.0, "rev": 0, "h_rate": 300000, "d_rate": 2000000, "level": "Cử nhân"},
-        {"y": 2, "jobs": 5, "rating": 4.4, "rev": 4, "h_rate": 450000, "d_rate": 2800000, "level": "Cử nhân"},
-        {"y": 2, "jobs": 4, "rating": 4.2, "rev": 3, "h_rate": 400000, "d_rate": 2600000, "level": "Cử nhân"},
-    ]
-    for cfg in junior_configs:
-        tiers.append({
-            "years": cfg["y"],
-            "level": cfg["level"],
-            "title_pfx": "Phiên dịch viên triển vọng",
-            "jobs": cfg["jobs"],
-            "rating": cfg["rating"],
-            "rev": cfg["rev"],
-            "h_rate": float(cfg["h_rate"]),
-            "d_rate": float(cfg["d_rate"]),
-            "p_basic": int(cfg["d_rate"]),
-            "p_std": int(cfg["d_rate"] * 1.8),
-            "p_prem": int(cfg["d_rate"] * 3.0),
-        })
-
-    # 35 Mid-level (3-5 yrs)
-    for i in range(35):
-        y = 3 + (i % 3)
-        jobs = 12 + (i * 2) % 25
-        rev = int(jobs * 0.75)
-        rating = round(4.4 + ((i * 3) % 5) * 0.1, 1)
-        if rating > 4.9:
-            rating = 4.8
-        base_h = 600000 + ((i * 7) % 8) * 80000
-        base_d = 4000000 + ((i * 5) % 8) * 500000
-        level = "Thạc sĩ" if i % 4 == 0 else "Cử nhân"
-        tiers.append({
-            "years": y,
-            "level": level,
-            "title_pfx": "Phiên dịch viên chuyên nghiệp",
-            "jobs": jobs,
-            "rating": rating,
-            "rev": rev,
-            "h_rate": float(base_h),
-            "d_rate": float(base_d),
-            "p_basic": int(base_d),
-            "p_std": int(base_d * 1.7),
-            "p_prem": int(base_d * 2.8),
-        })
-
-    # 35 Senior (6-10 yrs)
-    for i in range(35):
-        y = 6 + (i % 5)
-        jobs = 38 + (i * 3) % 45
-        rev = int(jobs * 0.78)
-        rating = round(4.7 + ((i * 2) % 4) * 0.1, 1)
-        if rating > 5.0:
-            rating = 5.0
-        base_h = 1000000 + ((i * 9) % 9) * 120000
-        base_d = 7500000 + ((i * 6) % 8) * 800000
-        level = "Tiến sĩ" if i % 7 == 0 else ("Thạc sĩ" if i % 2 == 0 else "Cử nhân")
-        tiers.append({
-            "years": y,
-            "level": level,
-            "title_pfx": "Chuyên gia phiên dịch cao cấp",
-            "jobs": jobs,
-            "rating": rating,
-            "rev": rev,
-            "h_rate": float(base_h),
-            "d_rate": float(base_d),
-            "p_basic": int(base_d),
-            "p_std": int(base_d * 1.8),
-            "p_prem": int(base_d * 2.9),
-        })
-
-    # 15 Expert (11-18 yrs)
-    for i in range(15):
-        y = 11 + (i % 7)
-        jobs = 90 + (i * 6) % 75
+    # 10 Junior (1-2 năm)
+    for i in range(10):
+        y = 1 + (i % 2)
+        jobs = 5 + (i * 3) % 10
         rev = int(jobs * 0.8)
-        rating = 5.0 if i % 3 != 0 else 4.9
-        base_h = 1800000 + ((i * 11) % 7) * 250000
-        base_d = 13000000 + ((i * 8) % 6) * 1500000
-        level = "Tiến sĩ" if i % 3 == 0 else "Thạc sĩ"
+        rating = round(4.3 + (i % 5) * 0.1, 1)
+        h_rate = 300000 + (i % 4) * 50000
+        d_rate = 2200000 + (i % 4) * 300000
         tiers.append({
-            "years": y,
-            "level": level,
+            "years": y, "level": "Cử nhân",
+            "title_pfx": "Phiên dịch viên triển vọng",
+            "jobs": jobs, "rating": rating, "rev": rev,
+            "h_rate": float(h_rate), "d_rate": float(d_rate),
+            "p_basic": int(d_rate), "p_std": int(d_rate * 1.6), "p_prem": int(d_rate * 2.5),
+        })
+
+    # 18 Mid-level (3-5 năm)
+    for i in range(18):
+        y = 3 + (i % 3)
+        jobs = 15 + (i * 2) % 20
+        rev = int(jobs * 0.75)
+        rating = round(4.5 + ((i * 3) % 4) * 0.1, 1)
+        h_rate = 600000 + (i % 5) * 80000
+        d_rate = 4200000 + (i % 5) * 400000
+        level = "Thạc sĩ" if i % 3 == 0 else "Cử nhân"
+        tiers.append({
+            "years": y, "level": level,
+            "title_pfx": "Phiên dịch viên chuyên nghiệp",
+            "jobs": jobs, "rating": rating, "rev": rev,
+            "h_rate": float(h_rate), "d_rate": float(d_rate),
+            "p_basic": int(d_rate), "p_std": int(d_rate * 1.7), "p_prem": int(d_rate * 2.8),
+        })
+
+    # 16 Senior (6-10 năm)
+    for i in range(16):
+        y = 6 + (i % 5)
+        jobs = 38 + (i * 3) % 35
+        rev = int(jobs * 0.8)
+        rating = round(4.7 + (i % 3) * 0.1, 1)
+        h_rate = 1000000 + (i % 5) * 120000
+        d_rate = 7500000 + (i % 5) * 600000
+        level = "Thạc sĩ" if i % 2 == 0 else "Cử nhân"
+        tiers.append({
+            "years": y, "level": level,
+            "title_pfx": "Chuyên gia phiên dịch cao cấp",
+            "jobs": jobs, "rating": rating, "rev": rev,
+            "h_rate": float(h_rate), "d_rate": float(d_rate),
+            "p_basic": int(d_rate), "p_std": int(d_rate * 1.8), "p_prem": int(d_rate * 2.9),
+        })
+
+    # 6 Expert (11-16 năm)
+    for i in range(6):
+        y = 11 + (i * 2)
+        jobs = 85 + (i * 7) % 35
+        rev = int(jobs * 0.85)
+        rating = 5.0 if i % 2 == 0 else 4.9
+        h_rate = 1600000 + i * 200000
+        d_rate = 12000000 + i * 1500000
+        level = "Tiến sĩ" if i % 2 == 0 else "Thạc sĩ"
+        tiers.append({
+            "years": y, "level": level,
             "title_pfx": "Chuyên gia phiên dịch cabin kỳ cựu",
-            "jobs": jobs,
-            "rating": rating,
-            "rev": rev,
-            "h_rate": float(base_h),
-            "d_rate": float(base_d),
-            "p_basic": int(base_d),
-            "p_std": int(base_d * 1.7),
-            "p_prem": int(base_d * 2.7),
+            "jobs": jobs, "rating": rating, "rev": rev,
+            "h_rate": float(h_rate), "d_rate": float(d_rate),
+            "p_basic": int(d_rate), "p_std": int(d_rate * 1.8), "p_prem": int(d_rate * 2.8),
         })
 
     return tiers
 
-ALL_TIERS = build_experience_tiers()
+ALL_TIERS_50 = build_experience_tiers_50()
 
 
 def generate_profile_data(idx):
-    """Tạo dữ liệu chi tiết, thực tế và độc nhất cho hồ sơ thứ idx (0-99)."""
-    lang_info = LANG_DATA[idx % len(LANG_DATA)]
+    """Tạo dữ liệu chi tiết cho hồ sơ thứ idx (0 đến 49)."""
+    lang_info = LANG_DATA_50[idx]
     ind_primary = INDUSTRIES[idx % len(INDUSTRIES)]
-    ind_secondary = INDUSTRIES[(idx + 7) % len(INDUSTRIES)]
+    ind_secondary = INDUSTRIES[(idx + 5) % len(INDUSTRIES)]
     loc_city, loc_country, loc_area, loc_mode = LOCATIONS[idx % len(LOCATIONS)]
-    name = NAMES[idx % len(NAMES)]
-    exp = ALL_TIERS[idx % len(ALL_TIERS)]
+    name = NAMES_50[idx]
+    exp = ALL_TIERS_50[idx]
     uni, major = UNIVERSITIES[idx % len(UNIVERSITIES)]
 
     # Certificate
@@ -508,28 +342,23 @@ def generate_profile_data(idx):
     notable_clients = f"Tập đoàn đa quốc gia ngành {ind_primary}, Đối tác FDI tại {loc_city}, Ban tổ chức sự kiện quốc tế"
     featured_projects = f"Dự án đàm phán hợp đồng hợp tác {ind_primary}; Hội thảo xúc tiến thương mại {ind_secondary}"
 
-    # Verification and Badges logic (75% Verified, 15% Partially verified, 10% Unverified)
-    # Premium: 20% of profiles have Premium badge
-    is_premium = (idx % 5 == 0)  # 20 profiles (0, 5, 10, ...)
-
-    if idx < 75:
-        # Verified
+    # Verification: 38 Verified, 8 Pending, 4 Draft
+    is_premium = (idx % 4 == 0)
+    if idx < 38:
         is_verified = True
         verification_status = "approved"
         badge_list = ["Đã xác minh danh tính", "Đã kiểm tra kỹ năng"]
-        if exp["rating"] >= 4.8 and exp["jobs"] >= 30:
+        if exp["rating"] >= 4.8 and exp["jobs"] >= 25:
             badge_list.append("Top Rated")
         if is_premium:
             badge_list.append("Premium PDV")
-    elif idx < 90:
-        # Partially verified
+    elif idx < 46:
         is_verified = False
-        verification_status = "pending" if idx < 85 else "revision"
+        verification_status = "pending"
         badge_list = ["Đang xác minh hồ sơ KYC"]
         if is_premium:
             badge_list.append("Premium PDV")
     else:
-        # Unverified
         is_verified = False
         verification_status = "draft"
         badge_list = []
@@ -538,11 +367,8 @@ def generate_profile_data(idx):
 
     badges_str = ", ".join(badge_list)
 
-    # Standardized email format
     email = f"pdv{idx+1:03d}@demo.viettranslate.local"
-    # Safe demo phone
     phone = f"0901000{idx+1:03d}"
-    # Valid existing avatar
     avatar = AVATAR_ASSETS[idx % len(AVATAR_ASSETS)]
 
     return {
@@ -578,36 +404,60 @@ def generate_profile_data(idx):
         "rating": exp["rating"],
         "total_reviews": exp["rev"],
         "total_jobs": exp["jobs"],
+        "is_verified": is_verified,
+        "verification_status": verification_status,
         "hourly_rate": exp["h_rate"],
         "daily_rate": exp["d_rate"],
         "currency": "VND",
-        "employment_preference": emp_pref,
-        "availability_status": avail_stat,
         "basic_price": exp["p_basic"],
         "standard_price": exp["p_std"],
         "premium_price": exp["p_prem"],
-        "is_verified": is_verified,
-        "verification_status": verification_status,
-        "is_premium": is_premium,
         "ind_primary": ind_primary,
         "ind_secondary": ind_secondary,
+        "employment_preference": emp_pref,
+        "availability_status": avail_stat,
     }
 
 
-def seed_demo_interpreters():
-    """Tạo hoặc cập nhật đúng 100 hồ sơ phiên dịch viên demo."""
+def seed_demo_interpreters(target_count=TARGET_DEMO_COUNT):
+    """Nạp và đồng bộ chính xác target_count (50) hồ sơ phiên dịch viên demo."""
     with app.app_context():
-        print("[SEED] Bắt đầu khởi tạo/đồng bộ 100 hồ sơ phiên dịch viên demo...")
+        # Đếm số lượng trước khi seed
+        count_users_before = User.query.count()
+        count_demo_users_before = User.query.filter_by(is_demo=True).count()
+        count_profiles_before = TranslatorProfile.query.count()
+        count_demo_profiles_before = TranslatorProfile.query.filter_by(is_demo=True).count()
+
+        print(f"[TRƯỚC KHI SEED] Tổng Users: {count_users_before} (Demo: {count_demo_users_before})")
+        print(f"[TRƯỚC KHI SEED] Tổng Profiles: {count_profiles_before} (Demo: {count_demo_profiles_before})")
 
         created_users = 0
         updated_users = 0
         default_pw_hash = generate_password_hash("Demo@123456", method="pbkdf2:sha256")
 
         try:
-            for i in range(100):
+            # 1. Dọn dẹp các demo account vượt quá số lượng target_count (e.g. pdv051 - pdv100)
+            target_emails = {f"pdv{i+1:03d}@demo.viettranslate.local" for i in range(target_count)}
+            excess_demo_users = User.query.filter(User.is_demo == True, ~User.email.in_(target_emails)).all()
+            if excess_demo_users:
+                print(f"[DỌN DẸP] Phát hiện {len(excess_demo_users)} hồ sơ demo dư thừa ngoài danh sách {target_count}. Tiến hành loại bỏ...")
+                ex_u_ids = [u.id for u in excess_demo_users]
+                ex_profiles = TranslatorProfile.query.filter(TranslatorProfile.user_id.in_(ex_u_ids)).all()
+                ex_p_ids = [p.id for p in ex_profiles]
+                Service.query.filter(Service.profile_id.in_(ex_p_ids)).delete(synchronize_session=False)
+                InterpreterService.query.filter(InterpreterService.user_id.in_(ex_u_ids)).delete(synchronize_session=False)
+                InterpreterPreference.query.filter(InterpreterPreference.user_id.in_(ex_u_ids)).delete(synchronize_session=False)
+                TranslatorPreference.query.filter(TranslatorPreference.translator_id.in_(ex_u_ids)).delete(synchronize_session=False)
+                TranslatorVerification.query.filter(TranslatorVerification.user_id.in_(ex_u_ids)).delete(synchronize_session=False)
+                TranslatorProfile.query.filter(TranslatorProfile.id.in_(ex_p_ids)).delete(synchronize_session=False)
+                User.query.filter(User.id.in_(ex_u_ids)).delete(synchronize_session=False)
+                db.session.commit()
+                print(f"[DỌN DẸP] Đã loại bỏ sạch sẽ các hồ sơ demo dư thừa.")
+
+            # 2. Tạo hoặc cập nhật chính xác target_count hồ sơ demo
+            for i in range(target_count):
                 data = generate_profile_data(i)
 
-                # Idempotency check: Find existing demo user by standardized email or legacy email
                 user = User.query.filter_by(email=data["email"]).first()
                 if not user:
                     user = User.query.filter_by(email=data["legacy_email"]).first()
@@ -793,10 +643,20 @@ def seed_demo_interpreters():
             db.session.commit()
             print(f"[SEED HOÀN TẤT] Tạo mới: {created_users}, Cập nhật: {updated_users}.")
 
-            total_demo = TranslatorProfile.query.filter_by(is_demo=True).count()
-            total_verified = TranslatorProfile.query.filter_by(is_demo=True, is_verified=True).count()
-            total_profiles = TranslatorProfile.query.count()
-            print(f"[DATABASE STATUS] Tổng số hồ sơ demo: {total_demo} (Verified: {total_verified}), Tổng hồ sơ toàn hệ thống: {total_profiles}")
+            count_users_after = User.query.count()
+            count_demo_users_after = User.query.filter_by(is_demo=True).count()
+            count_profiles_after = TranslatorProfile.query.count()
+            count_demo_profiles_after = TranslatorProfile.query.filter_by(is_demo=True).count()
+
+            print(f"[SAU KHI SEED] Tổng Users: {count_users_after} (Demo: {count_demo_users_after})")
+            print(f"[SAU KHI SEED] Tổng Profiles: {count_profiles_after} (Demo: {count_demo_profiles_after})")
+
+            return {
+                "before": {"users": count_users_before, "demo_users": count_demo_users_before, "profiles": count_profiles_before, "demo_profiles": count_demo_profiles_before},
+                "after": {"users": count_users_after, "demo_users": count_demo_users_after, "profiles": count_profiles_after, "demo_profiles": count_demo_profiles_after},
+                "created": created_users,
+                "updated": updated_users,
+            }
 
         except Exception as e:
             db.session.rollback()
@@ -805,4 +665,4 @@ def seed_demo_interpreters():
 
 
 if __name__ == "__main__":
-    seed_demo_interpreters()
+    seed_demo_interpreters(50)
