@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Đặt Dịch Vụ Phiên Dịch {{ isvc.source_lang }} - {{ isvc.target_lang }} | VietTranslate{% endblock %}
+
+{% block head %}
+<!-- Flatpickr CDN -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/vn.js"></script>
+<style>
+    .flatpickr-calendar {
+        border-radius: 16px !important;
+        box-shadow: 0 15px 40px rgba(15, 23, 42, .12) !important;
+        border: 1px solid #e2e8f0 !important;
+        overflow: hidden;
+    }
+    .flatpickr-months {
+        background: #2563eb !important;
+        border-radius: 0 !important;
+        padding: 8px;
+    }
+    .flatpickr-month,
+    .flatpickr-current-month,
+    .flatpickr-monthDropdown-months {
+        color: white !important;
+        fill: white !important;
+    }
+    .flatpickr-prev-month svg,
+    .flatpickr-next-month svg {
+        fill: white !important;
+    }
+    .flatpickr-weekday {
+        color: #64748b !important;
+        font-weight: 700 !important;
+        font-size: 11px;
+    }
+    .flatpickr-day.selected,
+    .flatpickr-day.selected:hover {
+        background: #2563eb !important;
+        border-color: #2563eb !important;
+        border-radius: 8px !important;
+    }
+    .flatpickr-day.today {
+        border-color: #2563eb !important;
+    }
+    .flatpickr-day:hover {
+        border-radius: 8px !important;
+    }
+    .cal-display {
+        cursor: pointer;
+    }
+    .cal-display:hover {
+        border-color: #2563eb !important;
+        background: #eff6ff !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- Breadcrumb -->
+        <div class="mb-6">
+            {% if profile %}
+            <a href="{{ url_for('translator_profile', profile_id=profile.id) }}"
+                class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-brand-600 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Quay lại hồ sơ {{ translator.name }}
+            </a>
+            {% else %}
+            <a href="{{ url_for('translators') }}"
+                class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-brand-600 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Quay lại danh sách phiên dịch viên
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+
+            <!-- LEFT: Form -->
+            <div class="flex-grow min-w-0">
+                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
+
+                    <!-- Header -->
+                    <div class="mesh-cta-bg text-white p-6 sm:p-8">
+                        <div class="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
+                            <div>
+                                <span
+                                    class="text-[11px] font-bold tracking-wider uppercase bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm inline-block">
+                                    {{ rate_label }}
+                                </span>
+                                <h1 class="text-xl sm:text-2xl font-extrabold mt-2.5">
+                                    Phiên dịch {{ isvc.source_lang }} → {{ isvc.target_lang }}
+                                </h1>
+                                <p class="text-blue-100 text-xs sm:text-sm mt-1 leading-relaxed">
+                                    Hình thức: <strong class="text-white">{{ isvc.interpreting_type | title }}</strong>
+                                    {% if isvc.specialization %} · Chuyên môn: <strong class="text-white">{{ isvc.specialization }}</strong>{% endif %}
+                                </p>
+                            </div>
+                            <div class="text-left sm:text-right shrink-0">
+                                <span class="text-xs text-blue-100 block">Đơn giá áp dụng</span>
+                                <span class="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                                    {{ price | vnd }} <span class="text-sm font-semibold">VND</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Booking Form -->
+                    <form method="POST" class="p-6 sm:p-8 space-y-6" id="bookingForm">
+                        <input type="hidden" name="price" value="{{ price }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+                        <!-- Chọn thời gian làm việc -->
+                        <div>
+                            <h2 class="text-sm font-bold text-slate-900 mb-1">Thời gian thực hiện công việc</h2>
+                            <p class="text-xs text-slate-500 mb-4">Chọn ngày và khung giờ cần phiên dịch viên hỗ trợ.</p>
+
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Ngày làm việc *</label>
+                                    <input type="text" id="scheduled_date_picker" name="scheduled_date" required placeholder="Chọn ngày làm việc..."
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 bg-white">
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Giờ bắt đầu *</label>
+                                        <input type="time" name="time_start" required value="08:30"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 bg-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Giờ kết thúc *</label>
+                                        <input type="time" name="time_end" required value="11:30"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 bg-white">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Địa điểm / Hình thức -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Địa điểm làm việc hoặc Link họp Online *</label>
+                            <input type="text" name="location" required placeholder="Ví dụ: Tòa nhà Bitexco, Q.1, TP.HCM hoặc Google Meet / Zoom..."
+                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 bg-white">
+                        </div>
+
+                        <!-- Thông tin cam kết -->
+                        <div class="bg-amber-50/70 border border-amber-200/80 rounded-xl p-4 text-xs text-amber-800 space-y-1.5">
+                            <div class="flex items-center gap-1.5 font-bold">
+                                <span>🛡️</span>
+                                <span>Chính sách đảm bảo VietTranslate</span>
+                            </div>
+                            <p>Khi gửi yêu cầu, số tiền thanh toán sẽ được giữ tại tài khoản Escrow của VietTranslate và chỉ giải ngân sau khi phiên dịch viên hoàn thành dịch vụ và bạn xác nhận nghiệm thu.</p>
+                        </div>
+
+                        <!-- Nút gửi yêu cầu -->
+                        <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                            {% if profile %}
+                            <a href="{{ url_for('translator_profile', profile_id=profile.id) }}"
+                                class="px-5 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 transition">
+                                Hủy bỏ
+                            </a>
+                            {% endif %}
+                            <button type="submit"
+                                class="px-7 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm rounded-xl shadow-md transition">
+                                Xác nhận gửi yêu cầu đặt dịch vụ
+                            </button>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+
+            <!-- RIGHT: Sidebar Info -->
+            <div class="lg:w-80 shrink-0 space-y-6">
+                <!-- Phiên dịch viên info card -->
+                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 text-center">
+                    {% if translator.avatar %}
+                    <img src="{{ translator.avatar }}" alt="{{ translator.name }}" class="w-20 h-20 rounded-full mx-auto object-cover border-2 border-brand-100 mb-3">
+                    {% else %}
+                    <div class="w-20 h-20 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-2xl mx-auto mb-3">
+                        {{ (translator.name[:1] or '?').upper() }}
+                    </div>
+                    {% endif %}
+                    <h3 class="font-bold text-slate-900 text-base">{{ translator.name }}</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Phiên dịch viên chuyên nghiệp</p>
+                    <div class="mt-4 pt-4 border-t border-slate-100 text-left space-y-2 text-xs text-slate-600">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Cặp ngôn ngữ:</span>
+                            <span class="font-semibold text-slate-800">{{ isvc.source_lang }} → {{ isvc.target_lang }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Hình thức:</span>
+                            <span class="font-semibold text-slate-800">{{ isvc.interpreting_type | title }}</span>
+                        </div>
+                        {% if isvc.specialization %}
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Chuyên môn:</span>
+                            <span class="font-semibold text-slate-800">{{ isvc.specialization }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof flatpickr !== 'undefined') {
+            flatpickr('#scheduled_date_picker', {
+                locale: 'vn',
+                dateFormat: 'Y-m-d',
+                altInput: true,
+                altFormat: 'd/m/Y',
+                minDate: 'today',
+                defaultDate: new Date().fp_incr(1)
+            });
+        }
+    });
+</script>
+{% endblock %}

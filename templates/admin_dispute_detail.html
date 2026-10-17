@@ -1,0 +1,74 @@
+{% extends "admin_base.html" %}
+{% block title %}Khiếu nại #{{ d.id }}{% endblock %}
+{% block content %}
+<div class="page-header"><div>
+    <h1 class="page-title">Khiếu nại #{{ d.id }} · Hợp đồng #{{ d.contract_id }}</h1>
+    <p class="page-subtitle"><a href="{{ url_for('admin_disputes') }}" class="text-brand hover:underline">&larr; Danh sách</a> · {{ labels[d.status] }}</p>
+</div></div>
+
+<div class="grid md:grid-cols-3 gap-4">
+<div class="md:col-span-2 space-y-4">
+    <div class="admin-card p-5">
+        <h3 class="font-bold text-white mb-1">Khách: {{ d.hirer.name }} — {{ categories[d.category] }}</h3>
+        <p class="text-sm text-slate-300 whitespace-pre-line">{{ d.description }}</p>
+        {% set files = d.evidence | selectattr('side', 'equalto', 'hirer') | list %}{% include '_dispute_files.html' %}
+    </div>
+    <div class="admin-card p-5">
+        <h3 class="font-bold text-white mb-1">PDV: {{ d.translator.name }}</h3>
+        {% if d.translator_response %}
+        <p class="text-sm text-slate-300 whitespace-pre-line">{{ d.translator_response }}</p>
+        {% set files = d.evidence | selectattr('side', 'equalto', 'translator') | list %}{% include '_dispute_files.html' %}
+        {% elif d.status == 'awaiting_response' %}
+        <p class="text-sm text-amber-400">Chờ phản hồi đến {{ d.response_deadline.strftime('%d/%m/%Y %H:%M') }} (UTC).</p>
+        {% elif d.status == 'pending_review' %}
+        <p class="text-sm text-slate-400">Chưa chuyển cho PDV.</p>
+        {% else %}
+        <p class="text-sm text-slate-400">PDV không phản hồi.</p>
+        {% endif %}
+    </div>
+    <div class="admin-card p-5">
+        <h3 class="font-bold text-white mb-2">Các phiên bản tệp bàn giao</h3>
+        {% for f in deliverables %}
+        <p class="text-xs text-slate-300">V{{ loop.index }} · {{ f.filename }} · <span class="text-slate-500">{{ f.created_at.strftime('%d/%m/%Y %H:%M') }}</span></p>
+        {% else %}<p class="text-xs text-slate-500">Chưa có tệp bàn giao.</p>{% endfor %}
+    </div>
+
+    {% if d.status == 'pending_review' %}
+    <div class="admin-card p-5">
+        <h3 class="font-bold text-white mb-3">Xác nhận đơn</h3>
+        <form method="POST" action="{{ url_for('admin_dispute_action', dispute_id=d.id, action='forward') }}" class="mb-4">
+            <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
+            <textarea name="note" rows="2" class="w-full rounded-lg bg-slate-800 border border-slate-700 text-sm text-white p-2" placeholder="Ghi chú gửi PDV (tuỳ chọn)"></textarea>
+            <button class="btn btn-sm btn-primary mt-2">Chuyển bước tiếp theo (PDV có 24h phản hồi)</button>
+        </form>
+        <form method="POST" action="{{ url_for('admin_dispute_action', dispute_id=d.id, action='reject') }}">
+            <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
+            <textarea name="note" rows="2" required class="w-full rounded-lg bg-slate-800 border border-slate-700 text-sm text-white p-2" placeholder="Lý do bác bỏ (bắt buộc)"></textarea>
+            <button class="btn btn-sm btn-warning mt-2">Bác bỏ đơn khiếu nại</button>
+        </form>
+    </div>
+    {% elif d.status == 'under_review' %}
+    <div class="admin-card p-5">
+        <h3 class="font-bold text-white mb-3">Kết luận (hợp đồng {{ money(d.contract.agreed_price) }} ₫)</h3>
+        <form method="POST" action="{{ url_for('admin_dispute_action', dispute_id=d.id, action='resolve') }}"
+              onsubmit="return confirm('Xác nhận kết luận? Khoản thanh toán sẽ được cập nhật ngay.');" class="space-y-2">
+            <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
+            {% for key, label in resolutions.items() %}
+            <label class="flex items-center gap-2 text-sm text-slate-200"><input type="radio" name="resolution" value="{{ key }}" required> {{ label }}</label>
+            {% endfor %}
+            <textarea name="note" rows="2" class="w-full rounded-lg bg-slate-800 border border-slate-700 text-sm text-white p-2" placeholder="Ghi chú kết luận gửi hai bên"></textarea>
+            <button class="btn btn-sm btn-primary">Chốt kết quả</button>
+        </form>
+    </div>
+    {% elif d.status == 'resolved' %}
+    <div class="admin-card p-5 text-sm text-slate-200">
+        <strong>{{ resolutions[d.resolution] }}</strong> — {{ money(d.original_amount) }} → {{ money(d.final_amount) }} ₫
+        {% if d.resolution_note %}<p class="text-slate-400 mt-1">{{ d.resolution_note }}</p>{% endif %}
+    </div>
+    {% elif d.status == 'rejected' %}
+    <div class="admin-card p-5 text-sm text-slate-300">Đã bác bỏ: {{ d.admin_note }}</div>
+    {% endif %}
+</div>
+<div class="admin-card p-5"><h3 class="font-bold text-white mb-4">Tiến trình</h3>{% include '_dispute_tracker.html' %}</div>
+</div>
+{% endblock %}

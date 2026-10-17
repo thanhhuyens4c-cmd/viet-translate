@@ -45,6 +45,3 @@
 ## Công nghệ sử dụng
 - **Backend:** Flask, Flask-SQLAlchemy (SQLite)
 - **Frontend:** HTML5, Tailwind CSS (via CDN), Vanilla JavaScript
-=======
-# Du-an-phien-dich-1
->>>>>>> 9117594e2197d3f28c750d6771124f7d442b7ff5

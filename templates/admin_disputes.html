@@ -1,0 +1,36 @@
+{% extends "admin_base.html" %}
+{% block title %}Khiếu nại đơn thuê{% endblock %}
+{% block content %}
+<div class="page-header"><div>
+    <h1 class="page-title">Khiếu nại đơn thuê</h1>
+    <p class="page-subtitle">Khiếu nại của khách về hợp đồng đang giữ Escrow</p>
+</div></div>
+<div class="admin-card">
+    <div class="filter-bar">
+        {% for key, label in [('pending_review','Chờ xác nhận'),('awaiting_response','Chờ PDV phản hồi'),('under_review','Đang xem xét'),('resolved','Đã có kết quả'),('rejected','Bác bỏ'),('all','Tất cả')] %}
+        <a href="{{ url_for('admin_disputes', status=key) }}" class="filter-tab {% if status_filter == key %}active{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+    {% if items %}
+    <div class="overflow-x-auto"><table class="admin-table w-full">
+        <thead><tr><th>ID</th><th>Hợp đồng</th><th>Khách</th><th>PDV</th><th>Lý do</th><th>Số tiền</th><th>Trạng thái</th><th>Ngày gửi</th><th></th></tr></thead>
+        <tbody>
+        {% for d in items %}
+        <tr>
+            <td class="font-medium text-brand">#{{ d.id }}</td>
+            <td>#CTR-{{ d.contract_id }}</td>
+            <td>{{ d.hirer.name }}</td>
+            <td>{{ d.translator.name }}</td>
+            <td>{{ categories[d.category] }}</td>
+            <td class="text-emerald-400">{{ money(d.final_amount if d.status == 'resolved' else d.contract.agreed_price) }} ₫</td>
+            <td><span class="badge {% if d.status == 'pending_review' %}badge-yellow{% elif d.status == 'resolved' %}badge-green{% elif d.status == 'rejected' %}badge-gray{% else %}badge-blue{% endif %}">{{ labels[d.status] }}</span></td>
+            <td class="text-xs text-slate-400 whitespace-nowrap">{{ d.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td><a class="btn btn-sm btn-ghost" href="{{ url_for('admin_dispute_detail', dispute_id=d.id) }}">Xem</a></td>
+        </tr>
+        {% endfor %}
+        </tbody></table></div>
+    {% else %}
+    <div class="empty-state"><div class="empty-state-title">Không có khiếu nại nào</div></div>
+    {% endif %}
+</div>
+{% endblock %}

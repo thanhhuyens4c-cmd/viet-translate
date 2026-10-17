@@ -41,7 +41,11 @@
                         <div class="flex items-center gap-2">
                             {% if s.translator %}
                                 {% if s.translator.avatar_url %}
-                                    <img src="{{ s.translator.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar">
+                                    <img src="{{ s.translator.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="w-6 h-6 rounded-full bg-slate-700 items-center justify-center text-[10px] text-white" style="display: none;">
+                                        {{ s.translator.name[:1] | upper }}
+                                    </div>
                                 {% else %}
                                     <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
                                         {{ s.translator.name[:1] | upper }}

@@ -1,0 +1,532 @@
+{% extends "income_base.html" %}
+
+{% block income_title %}Lịch sử giao dịch{% endblock %}
+
+{% block income_breadcrumb_sub %}
+<span>/</span>
+<span class="text-slate-800 font-semibold">Lịch sử giao dịch</span>
+{% endblock %}
+
+{% block income_content %}
+<div class="space-y-6">
+    <!-- Header & Search/Filter Toolbar -->
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
+                    Lịch sử giao dịch
+                </h1>
+                <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                    Nhật ký biến động tài chính, đối soát các khoản thanh toán ký quỹ Escrow và giải ngân thù lao thực nhận.
+                </p>
+            </div>
+
+            <!-- Search and Filter Form -->
+            <form method="GET" action="{{ url_for('interpreter_income_transactions') }}" class="flex flex-wrap items-center gap-2 text-xs">
+                <input type="hidden" name="status" value="{{ status_filter }}">
+
+                <!-- Search box -->
+                <div class="relative min-w-[200px] sm:min-w-[240px]">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </span>
+                    <input type="text" name="q" value="{{ q }}" placeholder="Tìm theo mã GD, Ref, mã ca..."
+                           class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-1 focus:ring-brand-500 text-slate-800 text-xs shadow-2xs">
+                </div>
+
+                <!-- Time Filter Select -->
+                <select name="period" onchange="this.form.submit()"
+                        class="px-3 py-2 border border-slate-200 rounded-xl text-slate-700 bg-white focus:ring-1 focus:ring-brand-500 shadow-2xs">
+                    <option value="all" {% if period_filter == 'all' %}selected{% endif %}>Tất cả thời gian</option>
+                    <option value="current_month" {% if period_filter == 'current_month' %}selected{% endif %}>Tháng này</option>
+                    <option value="last_month" {% if period_filter == 'last_month' %}selected{% endif %}>Tháng trước</option>
+                </select>
+
+                <!-- Sort select -->
+                <select name="sort" onchange="this.form.submit()"
+                        class="px-3 py-2 border border-slate-200 rounded-xl text-slate-700 bg-white focus:ring-1 focus:ring-brand-500 shadow-2xs">
+                    <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Gần đây nhất</option>
+                    <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Cũ nhất</option>
+                    <option value="amount_desc" {% if sort_by == 'amount_desc' %}selected{% endif %}>Số tiền cao nhất</option>
+                    <option value="amount_asc" {% if sort_by == 'amount_asc' %}selected{% endif %}>Số tiền thấp nhất</option>
+                </select>
+
+                <button type="submit" class="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition shadow-xs">
+                    Tìm kiếm
+                </button>
+
+                {% if q or status_filter != 'all' or period_filter != 'all' or sort_by != 'newest' %}
+                <a href="{{ url_for('interpreter_income_transactions') }}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-semibold transition" title="Xóa bộ lọc">
+                    Xóa lọc
+                </a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- 3 Financial Summary KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <!-- Card 1: Tổng thù lao đã giải ngân -->
+        <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 relative overflow-hidden group hover:border-emerald-300 transition">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-500">Thù lao thực nhận đã giải ngân</span>
+                <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+            </div>
+            <div class="text-xl sm:text-2xl font-black text-emerald-700">
+                +{{ "{:,.0f}".format(metrics.total_paid_net) }} <span class="text-xs font-semibold text-emerald-600">đ</span>
+            </div>
+            <div class="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>{{ counts.completed }} giao dịch hoàn tất</span>
+            </div>
+        </div>
+
+        <!-- Card 2: Đang giữ trong Escrow -->
+        <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 relative overflow-hidden group hover:border-sky-300 transition">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-500">Tiền bảo đảm đang giữ Escrow</span>
+                <div class="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </div>
+            </div>
+            <div class="text-xl sm:text-2xl font-black text-sky-700">
+                {{ "{:,.0f}".format(metrics.total_escrow_held_gross) }} <span class="text-xs font-semibold text-sky-600">đ</span>
+            </div>
+            <div class="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                <span>{{ counts.escrow_pending }} giao dịch đang giữ</span>
+            </div>
+        </div>
+
+        <!-- Card 3: Giao dịch hoàn tiền / Hủy -->
+        <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 relative overflow-hidden group hover:border-rose-300 transition">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-500">Giao dịch hoàn trả / Hủy ca</span>
+                <div class="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z"/></svg>
+                </div>
+            </div>
+            <div class="text-xl sm:text-2xl font-black text-slate-700">
+                {{ "{:,.0f}".format(metrics.total_refunded_gross) }} <span class="text-xs font-semibold text-slate-500">đ</span>
+            </div>
+            <div class="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                <span>{{ counts.refunded }} giao dịch đã hủy</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Tabs Toolbar -->
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-2 sm:p-2.5 overflow-x-auto">
+        <div class="flex items-center gap-1 text-xs font-semibold min-w-max">
+            <a href="{{ url_for('interpreter_income_transactions', q=q, period=period_filter, sort=sort_by, status='all') }}"
+               class="px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 {% if status_filter == 'all' %}bg-brand-50 text-brand-700 font-bold border border-brand-200/80 shadow-2xs{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <span>Tất cả</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] {% if status_filter == 'all' %}bg-brand-600 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">{{ counts.all }}</span>
+            </a>
+
+            <a href="{{ url_for('interpreter_income_transactions', q=q, period=period_filter, sort=sort_by, status='completed') }}"
+               class="px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 {% if status_filter == 'completed' %}bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 shadow-2xs{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <span>Đã giải ngân</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] {% if status_filter == 'completed' %}bg-emerald-600 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">{{ counts.completed }}</span>
+            </a>
+
+            <a href="{{ url_for('interpreter_income_transactions', q=q, period=period_filter, sort=sort_by, status='escrow_pending') }}"
+               class="px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 {% if status_filter == 'escrow_pending' %}bg-sky-50 text-sky-700 font-bold border border-sky-200 shadow-2xs{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <span>Đang giữ Escrow</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] {% if status_filter == 'escrow_pending' %}bg-sky-600 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">{{ counts.escrow_pending }}</span>
+            </a>
+
+            <a href="{{ url_for('interpreter_income_transactions', q=q, period=period_filter, sort=sort_by, status='refunded') }}"
+               class="px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 {% if status_filter == 'refunded' %}bg-rose-50 text-rose-700 font-bold border border-rose-200 shadow-2xs{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <span>Đã hoàn tiền / Hủy</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] {% if status_filter == 'refunded' %}bg-rose-600 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">{{ counts.refunded }}</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Error State Notice -->
+    {% if has_error %}
+    <div class="bg-white rounded-2xl shadow-soft border border-rose-200 p-8 text-center">
+        <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 mx-auto flex items-center justify-center mb-3">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        </div>
+        <h2 class="text-base font-bold text-slate-900">Không thể tải lịch sử giao dịch</h2>
+        <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+            Đã xảy ra sự cố trong quá trình truy xuất dữ liệu từ sổ cái thanh toán. Vui lòng thử tải lại trang hoặc liên hệ hỗ trợ.
+        </p>
+        <button type="button" onclick="window.location.reload()"
+                class="mt-4 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl transition shadow-xs">
+            Thử tải lại trang
+        </button>
+    </div>
+
+    <!-- Empty State -->
+    {% elif tx_items|length == 0 %}
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-12 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-200 text-slate-400 mx-auto flex items-center justify-center mb-4">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z"/></svg>
+        </div>
+        <h2 class="text-base font-bold text-slate-900">Không tìm thấy giao dịch nào</h2>
+        <p class="text-xs text-slate-500 mt-1.5 max-w-sm mx-auto">
+            {% if q or status_filter != 'all' or period_filter != 'all' %}
+            Không có bản ghi giao dịch nào khớp với bộ lọc hiện tại. Hãy thử chọn khoảng thời gian khác hoặc xóa lọc.
+            {% else %}
+            Tài khoản của bạn hiện chưa phát sinh giao dịch tài chính nào trên hệ thống VietTranslate.
+            {% endif %}
+        </p>
+        <div class="mt-5 flex items-center justify-center gap-3 text-xs">
+            {% if q or status_filter != 'all' or period_filter != 'all' %}
+            <a href="{{ url_for('interpreter_income_transactions') }}"
+               class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition">
+                Xóa tất cả bộ lọc
+            </a>
+            {% endif %}
+            <a href="{{ url_for('jobs') }}"
+               class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition shadow-xs">
+                Khám phá ca làm mới
+            </a>
+        </div>
+    </div>
+
+    <!-- Transaction Ledger Table -->
+    {% else %}
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr class="border-b border-slate-100 bg-slate-50/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        <th class="py-3.5 px-4">Mã GD & Tham chiếu</th>
+                        <th class="py-3.5 px-4">Ca làm việc / Dự án</th>
+                        <th class="py-3.5 px-4 text-right">Thù lao thực nhận (90%)</th>
+                        <th class="py-3.5 px-4 text-right">Tổng ký quỹ & Phí</th>
+                        <th class="py-3.5 px-4">Phương thức & Thời gian</th>
+                        <th class="py-3.5 px-4 text-center">Trạng thái</th>
+                        <th class="py-3.5 px-4 text-right">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for item in tx_items %}
+                    {% set tx = item.tx %}
+                    {% set c = item.contract %}
+                    <tr class="hover:bg-slate-50/70 transition">
+                        <!-- Mã GD & Ref -->
+                        <td class="py-4 px-4 whitespace-nowrap">
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-mono font-bold text-brand-700 text-xs">#TX-{{ tx.id }}</span>
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-medium {{ item.type_badge }}">
+                                    {{ item.type_label }}
+                                </span>
+                            </div>
+                            {% if tx.transaction_ref %}
+                            <div class="text-[10px] font-mono text-slate-400 mt-1 truncate max-w-[140px]" title="Mã tham chiếu: {{ tx.transaction_ref }}">
+                                Ref: {{ tx.transaction_ref }}
+                            </div>
+                            {% endif %}
+                        </td>
+
+                        <!-- Ca làm việc / Dự án -->
+                        <td class="py-4 px-4 max-w-xs">
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-mono font-semibold text-slate-500 text-[11px]">#CA-{{ c.id }}</span>
+                                <a href="{{ url_for('transaction_detail', contract_id=c.id) }}"
+                                   class="font-bold text-slate-900 hover:text-brand-600 transition truncate block"
+                                   title="{{ c.job.title if c.job else (c.service.name if c.service else 'Hợp đồng #' ~ c.id) }}">
+                                    {{ c.job.title if c.job else (c.service.name if c.service else 'Hợp đồng #' ~ c.id) }}
+                                </a>
+                            </div>
+                            <div class="text-[11px] text-slate-500 mt-0.5 truncate">
+                                Bên thuê: <span class="text-slate-700 font-medium">{{ c.hirer.name }}</span>
+                            </div>
+                        </td>
+
+                        <!-- Thù lao thực nhận (90%) -->
+                        <td class="py-4 px-4 text-right whitespace-nowrap">
+                            {% if tx.status == 'completed' %}
+                            <div class="font-black text-emerald-700 text-sm">
+                                +{{ "{:,.0f}".format(item.net_amount) }} <span class="text-[10px] font-semibold text-emerald-600">đ</span>
+                            </div>
+                            <span class="text-[10px] text-emerald-600 font-medium">Đã ghi nhận</span>
+                            {% elif tx.status == 'escrow_pending' %}
+                            <div class="font-bold text-sky-700 text-sm">
+                                {{ "{:,.0f}".format(item.net_amount) }} <span class="text-[10px] font-semibold text-sky-600">đ</span>
+                            </div>
+                            <span class="text-[10px] text-slate-400 font-medium">Chờ giải ngân</span>
+                            {% elif tx.status == 'refunded' %}
+                            <div class="font-bold text-slate-400 text-sm">
+                                0 <span class="text-[10px] font-semibold">đ</span>
+                            </div>
+                            <span class="text-[10px] text-rose-600 font-medium">Đã hoàn tiền</span>
+                            {% else %}
+                            <div class="font-bold text-slate-700 text-sm">
+                                {{ "{:,.0f}".format(item.net_amount) }} đ
+                            </div>
+                            {% endif %}
+                        </td>
+
+                        <!-- Tổng ký quỹ & Phí Escrow -->
+                        <td class="py-4 px-4 text-right whitespace-nowrap">
+                            <div class="font-semibold text-slate-800 text-xs">
+                                {{ "{:,.0f}".format(item.gross_amount) }} đ
+                            </div>
+                            <div class="text-[11px] text-slate-400">
+                                Phí 10%: -{{ "{:,.0f}".format(item.fee_amount) }} đ
+                            </div>
+                        </td>
+
+                        <!-- Phương thức & Thời gian -->
+                        <td class="py-4 px-4 whitespace-nowrap">
+                            <div class="text-slate-700 font-medium text-xs flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                                <span>{{ tx.payment_method | capitalize if tx.payment_method else 'Escrow' }}</span>
+                            </div>
+                            <div class="text-[11px] text-slate-400 font-mono mt-0.5">
+                                {{ tx.created_at.strftime('%d/%m/%Y %H:%M') if tx.created_at else '' }}
+                            </div>
+                        </td>
+
+                        <!-- Trạng thái -->
+                        <td class="py-4 px-4 text-center whitespace-nowrap">
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border {{ item.status_badge }}">
+                                <span class="w-1.5 h-1.5 rounded-full {{ item.status_dot }}"></span>
+                                {{ item.status_label }}
+                            </span>
+                        </td>
+
+                        <!-- Thao tác -->
+                        <td class="py-4 px-4 text-right whitespace-nowrap">
+                            <div class="inline-flex items-center gap-1">
+                                <!-- Nút xem chi tiết modal -->
+                                <button type="button"
+                                        onclick='openTxDetailModal({{ {
+                                            "tx_id": tx.id,
+                                            "contract_id": c.id,
+                                            "job_title": (c.job.title if c.job else (c.service.name if c.service else "Hợp đồng #" ~ c.id)),
+                                            "hirer_name": c.hirer.name,
+                                            "gross_amount": item.gross_amount,
+                                            "fee_amount": item.fee_amount,
+                                            "net_amount": item.net_amount,
+                                            "status_label": item.status_label,
+                                            "status_badge": item.status_badge,
+                                            "payment_method": (tx.payment_method or "Escrow"),
+                                            "transaction_ref": (tx.transaction_ref or "Chưa có"),
+                                            "created_at": (tx.created_at.strftime("%d/%m/%Y %H:%M") if tx.created_at else ""),
+                                            "updated_at": (tx.updated_at.strftime("%d/%m/%Y %H:%M") if tx.updated_at else "")
+                                        } | tojson }})'
+                                        class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition text-xs shadow-2xs"
+                                        title="Xem chi tiết giao dịch">
+                                    Chi tiết
+                                </button>
+
+                                <!-- Nút trỏ sang Theo dõi thanh toán -->
+                                <a href="{{ url_for('interpreter_income_payouts', q='CA-' ~ c.id) }}"
+                                   class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition"
+                                   title="Xem tiến độ thanh toán ca này">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </a>
+
+                                <!-- Nút trỏ sang Phòng làm việc -->
+                                <a href="{{ url_for('transaction_detail', contract_id=c.id) }}"
+                                   class="p-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 transition"
+                                   title="Vào phòng làm việc hợp đồng">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Bar -->
+        {% if pagination and pagination.pages > 1 %}
+        <div class="px-5 py-4 border-t border-slate-100 bg-slate-50/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div class="text-slate-500">
+                Hiển thị trang <span class="font-bold text-slate-800">{{ pagination.page }}</span> / {{ pagination.pages }} (Tổng <span class="font-semibold">{{ pagination.total }}</span> giao dịch)
+            </div>
+
+            <div class="inline-flex items-center gap-1">
+                <!-- Nút trang trước -->
+                {% if pagination.has_prev %}
+                <a href="{{ url_for('interpreter_income_transactions', page=pagination.prev_num, q=q, status=status_filter, period=period_filter, sort=sort_by) }}"
+                   class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 shadow-2xs transition">
+                    ‹ Trước
+                </a>
+                {% else %}
+                <span class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 font-semibold cursor-not-allowed">
+                    ‹ Trước
+                </span>
+                {% endif %}
+
+                <!-- Các trang -->
+                {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if p %}
+                        {% if p == pagination.page %}
+                        <span class="px-3 py-1.5 rounded-lg bg-brand-600 text-white font-bold shadow-xs">
+                            {{ p }}
+                        </span>
+                        {% else %}
+                        <a href="{{ url_for('interpreter_income_transactions', page=p, q=q, status=status_filter, period=period_filter, sort=sort_by) }}"
+                           class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 shadow-2xs transition">
+                            {{ p }}
+                        </a>
+                        {% endif %}
+                    {% else %}
+                        <span class="px-1.5 text-slate-400">…</span>
+                    {% endif %}
+                {% endfor %}
+
+                <!-- Nút trang sau -->
+                {% if pagination.has_next %}
+                <a href="{{ url_for('interpreter_income_transactions', page=pagination.next_num, q=q, status=status_filter, period=period_filter, sort=sort_by) }}"
+                   class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 shadow-2xs transition">
+                    Sau ›
+                </a>
+                {% else %}
+                <span class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 font-semibold cursor-not-allowed">
+                    Sau ›
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- ==================== TRANSACTION DETAIL MODAL ==================== -->
+<div id="txDetailModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
+                    <span>Biên lai chi tiết giao dịch</span>
+                </h3>
+                <p id="modal-tx-code" class="text-xs font-mono text-slate-400 mt-0.5">#TX-...</p>
+            </div>
+            <button type="button" onclick="closeTxDetailModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Modal Body Content -->
+        <div class="py-4 space-y-4 text-xs">
+            <!-- Project Reference Card -->
+            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
+                <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Dự án / Ca làm việc:</div>
+                <div id="modal-job-title" class="font-bold text-slate-900 text-sm">...</div>
+                <div class="flex items-center justify-between text-slate-600 text-[11px] pt-1">
+                    <span>Mã hợp đồng: <strong id="modal-contract-id" class="font-mono text-slate-800">#CA-...</strong></span>
+                    <span>Bên thuê: <strong id="modal-hirer-name" class="text-slate-800">...</strong></span>
+                </div>
+            </div>
+
+            <!-- Financial Breakdown Table -->
+            <div class="rounded-xl border border-slate-200/90 overflow-hidden divide-y divide-slate-100">
+                <div class="p-3 bg-slate-50/60 flex items-center justify-between">
+                    <span class="text-slate-600 font-medium">Tổng giá trị thanh toán ký quỹ (100%)</span>
+                    <span id="modal-gross-amount" class="font-bold text-slate-900">0 đ</span>
+                </div>
+                <div class="p-3 flex items-center justify-between">
+                    <span class="text-slate-600 font-medium">Khấu trừ phí nền tảng Escrow (10%)</span>
+                    <span id="modal-fee-amount" class="font-bold text-slate-500">-0 đ</span>
+                </div>
+                <div class="p-3.5 bg-brand-50/40 flex items-center justify-between">
+                    <span class="text-brand-900 font-bold">Thù lao thực nhận của phiên dịch viên (90%)</span>
+                    <span id="modal-net-amount" class="font-black text-brand-700 text-sm">0 đ</span>
+                </div>
+            </div>
+
+            <!-- Transaction Metadata Grid -->
+            <div class="grid grid-cols-2 gap-3 text-slate-600">
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="text-[10px] uppercase font-bold text-slate-400">Trạng thái</div>
+                    <div id="modal-status-badge" class="mt-1 font-bold">...</div>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="text-[10px] uppercase font-bold text-slate-400">Phương thức</div>
+                    <div id="modal-payment-method" class="mt-1 font-semibold text-slate-800">...</div>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="text-[10px] uppercase font-bold text-slate-400">Khởi tạo ký quỹ</div>
+                    <div id="modal-created-at" class="mt-1 font-mono text-slate-700">...</div>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="text-[10px] uppercase font-bold text-slate-400">Cập nhật lần cuối</div>
+                    <div id="modal-updated-at" class="mt-1 font-mono text-slate-700">...</div>
+                </div>
+            </div>
+
+            <!-- Reference / Bank Note -->
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div class="text-[10px] uppercase font-bold text-slate-400">Mã tham chiếu đối soát (Ref)</div>
+                <div id="modal-ref-code" class="mt-1 font-mono text-slate-800 text-[11px] break-all">...</div>
+            </div>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+                <a id="modal-link-payouts" href="#"
+                   class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition">
+                    Theo dõi tiến độ ca
+                </a>
+                <a id="modal-link-workspace" href="#"
+                   class="px-3 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold text-xs transition border border-brand-200/60">
+                    Phòng làm việc
+                </a>
+            </div>
+            <button type="button" onclick="closeTxDetailModal()"
+                    class="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+                Đóng
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('vi-VN').format(num) + ' đ';
+    }
+
+    function openTxDetailModal(data) {
+        document.getElementById('modal-tx-code').textContent = `#TX-${data.tx_id}`;
+        document.getElementById('modal-job-title').textContent = data.job_title;
+        document.getElementById('modal-contract-id').textContent = `#CA-${data.contract_id}`;
+        document.getElementById('modal-hirer-name').textContent = data.hirer_name;
+
+        document.getElementById('modal-gross-amount').textContent = formatCurrency(data.gross_amount);
+        document.getElementById('modal-fee-amount').textContent = '-' + formatCurrency(data.fee_amount);
+        document.getElementById('modal-net-amount').textContent = formatCurrency(data.net_amount);
+
+        const statusContainer = document.getElementById('modal-status-badge');
+        statusContainer.innerHTML = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border ${data.status_badge}">${data.status_label}</span>`;
+
+        document.getElementById('modal-payment-method').textContent = data.payment_method;
+        document.getElementById('modal-created-at').textContent = data.created_at || 'Chưa xác định';
+        document.getElementById('modal-updated-at').textContent = data.updated_at || 'Chưa cập nhật';
+        document.getElementById('modal-ref-code').textContent = data.transaction_ref;
+
+        document.getElementById('modal-link-payouts').href = `/interpreter/income/payouts?q=CA-${data.contract_id}`;
+        document.getElementById('modal-link-workspace').href = `/transaction/${data.contract_id}`;
+
+        document.getElementById('txDetailModal').classList.remove('hidden');
+    }
+
+    function closeTxDetailModal() {
+        document.getElementById('txDetailModal').classList.add('hidden');
+    }
+
+    // Close on backdrop click
+    window.addEventListener('click', function(e) {
+        const modal = document.getElementById('txDetailModal');
+        if (e.target === modal) closeTxDetailModal();
+    });
+</script>
+{% endblock %}

@@ -1,390 +1,447 @@
 {% extends "base.html" %}
 
-{% block title %}{{ t('post_job_page.title') }} | VietTranslate{% endblock %}
-
-{% block head %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/vn.js"></script>
-<style>
-    .flatpickr-calendar { border-radius: 16px !important; box-shadow: 0 15px 40px rgba(15,23,42,.12) !important; border: 1px solid #e2e8f0 !important; }
-    .flatpickr-months { background: #2563eb !important; border-radius: 16px 16px 0 0; }
-    .flatpickr-month, .flatpickr-current-month, .flatpickr-monthDropdown-months { color: white !important; fill: white !important; }
-    .flatpickr-prev-month svg, .flatpickr-next-month svg { fill: white !important; }
-    .flatpickr-day.selected, .flatpickr-day.selected:hover { background: #2563eb !important; border-color: #2563eb !important; border-radius: 8px !important; }
-    .flatpickr-day.today { border-color: #2563eb !important; }
-    .flatpickr-day:hover { border-radius: 8px !important; }
-</style>
-{% endblock %}
+{% set editing = job is not none %}
+{% set locked = editing and policy and policy.locked %}
+{% set v = values %}
+{% block title %}{{ 'Chỉnh sửa yêu cầu' if editing else 'Đăng yêu cầu dịch thuật' }} | VietTranslate{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-    
-    <div class="text-center max-w-xl mx-auto mb-8">
-        <span class="inline-block text-xs font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/60 px-3 py-1 rounded-full mb-2">
-            {{ t('post_job_page.badge') }}
-        </span>
-        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-2">
-            {{ t('post_job_page.title') }}
-        </h1>
-        <p class="text-slate-500 text-xs sm:text-sm leading-relaxed">
-            {{ t('post_job_page.subtitle') }}
-        </p>
+{% macro field_error(name) %}{% if errors.get(name) %}<p class="text-xs text-rose-600 font-semibold mt-1" data-server-error="{{ name }}">{{ errors[name] }}</p>{% endif %}{% endmacro %}
+{% set input_cls = 'w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50 disabled:bg-slate-100 disabled:text-slate-500' %}
+{% set label_cls = 'block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider' %}
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+    <div class="mb-6">
+        <a href="{{ url_for('my_jobs') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700">← Yêu cầu của tôi</a>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-2">{{ 'Chỉnh sửa yêu cầu' if editing else 'Đăng yêu cầu dịch thuật' }}</h1>
+        <p class="text-slate-500 text-sm mt-1">Hoàn thành 4 bước ngắn để phiên dịch viên phù hợp gửi báo giá cho bạn.</p>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-10">
-        <form method="POST" action="{{ url_for('post_job') }}" class="space-y-8">
-            
-            <!-- Step 1: Cơ bản -->
-            <div class="border-b border-slate-100 pb-8">
-                <h2 class="text-base sm:text-lg font-bold text-slate-900 mb-5 flex items-center gap-2.5">
-                    <span class="w-7 h-7 rounded-xl bg-brand-600 text-white flex items-center justify-center text-xs font-black">01</span>
-                    {{ t('post_job_page.step1_title') }}
-                </h2>
-                
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
-                            {{ t('post_job_page.job_title_label') }} <span class="text-red-500">*</span>
-                        </label>
-                        <input type="text" name="title" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="{{ t('post_job_page.job_title_placeholder') }}">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
-                            {{ t('post_job_page.desc_label') }} <span class="text-red-500">*</span>
-                        </label>
-                        <textarea name="description" required rows="5" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50 leading-relaxed" placeholder="{{ t('post_job_page.desc_placeholder') }}"></textarea>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auto.nhóm_dịch_vụ') }} <span class="text-red-500">*</span></label>
-                            <select id="category_group" name="category_group" class="w-full px-3.5 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50 mb-3" onchange="updateServiceTypes()">
-                                <option value="translation">{{ t('auto.dịch_thuật') }}</option>
-                                <option value="interpretation_other">{{ t('auto.phiên_dịch__dịch_vụ') }}</option>
-                            </select>
-                            
-                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ 'Loại dịch vụ' if current_lang == 'vi' else 'Service Type' }} <span class="text-red-500">*</span></label>
-                            <select id="service_type" name="service_type" class="w-full px-3.5 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" onchange="updateCategory()">
-                            </select>
-                            <input type="hidden" id="category" name="category" value="">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('post_job_page.lang_pair_label') }} <span class="text-red-500">*</span></label>
-                            {% set lang_options = [
-                                ('Tiếng Việt', 'Vietnamese' if current_lang == 'en' else 'Tiếng Việt'),
-                                ('Tiếng Anh', 'English' if current_lang == 'en' else 'Tiếng Anh'),
-                                ('Tiếng Nhật', 'Japanese' if current_lang == 'en' else 'Tiếng Nhật'),
-                                ('Tiếng Hàn', 'Korean' if current_lang == 'en' else 'Tiếng Hàn'),
-                                ('Tiếng Trung', 'Chinese' if current_lang == 'en' else 'Tiếng Trung'),
-                                ('Tiếng Pháp', 'French' if current_lang == 'en' else 'Tiếng Pháp'),
-                                ('Tiếng Đức', 'German' if current_lang == 'en' else 'Tiếng Đức'),
-                                ('Tiếng Nga', 'Russian' if current_lang == 'en' else 'Tiếng Nga'),
-                                ('Tiếng Thái', 'Thai' if current_lang == 'en' else 'Tiếng Thái'),
-                                ('Tiếng Bồ Đào Nha', 'Portuguese' if current_lang == 'en' else 'Tiếng Bồ Đào Nha'),
-                                ('Tiếng Tây Ban Nha', 'Spanish' if current_lang == 'en' else 'Tiếng Tây Ban Nha')
-                            ] %}
-                            <div class="flex items-center gap-2">
-                                <select name="source_lang" class="w-full px-3 py-3 border border-slate-200 rounded-xl text-xs sm:text-sm bg-slate-50/50">
-                                    {% for val, label in lang_options %}
-                                    <option value="{{ val }}">{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                                <span class="text-slate-400 font-bold">→</span>
-                                <select name="target_lang" class="w-full px-3 py-3 border border-slate-200 rounded-xl text-xs sm:text-sm bg-slate-50/50">
-                                    {% for val, label in lang_options %}
-                                    <option value="{{ val }}" {% if val == 'Tiếng Anh' %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Step 2: Ngân sách & Lịch trình -->
+    {% if not hirer_verified %}
+    <div class="mb-6 p-5 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center gap-4 justify-between text-xs sm:text-sm text-amber-900 shadow-sm">
+        <div class="flex items-start sm:items-center gap-3">
+            <span class="text-xl">🔒</span>
             <div>
-                <h2 class="text-base sm:text-lg font-bold text-slate-900 mb-5 flex items-center gap-2.5">
-                    <span class="w-7 h-7 rounded-xl bg-brand-600 text-white flex items-center justify-center text-xs font-black">02</span>
-                    {{ t('post_job_page.step2_title') }}
-                </h2>
-                
-                <div class="space-y-5">
-                    <div>
-                        <label class="block text-slate-700 font-bold mb-2 text-xs uppercase tracking-wider">{{ t('post_job_page.budget_type_label') }}</label>
-                        <div class="grid grid-cols-3 gap-3">
-                            <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1 transition" id="budget-type-fixed-label">
-                                <input type="radio" name="budget_type" value="fixed" checked class="text-brand-600" onchange="handleBudgetTypeChange(this.value)">
-                                <span class="font-bold text-xs text-slate-800">{{ t('post_job_page.budget_fixed') }}</span>
-                            </label>
-                            <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1 transition" id="budget-type-range-label">
-                                <input type="radio" name="budget_type" value="range" class="text-brand-600" onchange="handleBudgetTypeChange(this.value)">
-                                <span class="font-bold text-xs text-slate-800">{{ t('post_job_page.budget_range') }}</span>
-                            </label>
-                            <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1 transition" id="budget-type-nego-label">
-                                <input type="radio" name="budget_type" value="negotiable" class="text-brand-600" onchange="handleBudgetTypeChange(this.value)">
-                                <span class="font-bold text-xs text-slate-800">{{ t('post_job_page.budget_negotiable') }}</span>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <!-- Fixed / Min Budget Container -->
-                    <div id="budget-input-container">
-                        <div id="fixed-budget-group">
-                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
-                                {{ t('post_job_page.budget_amount_label') }}
-                            </label>
-                            <div class="relative w-full sm:w-1/2">
-                                <input type="number" id="budget_min_input" name="budget_min" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="VD: 3,000,000 VND" oninput="updateLivePricePreview(this.value, 'fixed-preview')">
-                            </div>
-                            <p id="fixed-preview" class="text-xs text-brand-700 font-bold mt-1.5 hidden"></p>
-                        </div>
+                <strong class="block font-bold text-amber-950 mb-0.5">Chức năng đăng tuyển tạm khóa</strong>
+                <span>Bạn cần hoàn thành xác minh người đăng tuyển để bảo vệ an toàn giao dịch trước khi đăng yêu cầu.</span>
+            </div>
+        </div>
+        <a href="{{ url_for('account_profile', tab='hirer_verify') }}" class="shrink-0 text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-5 rounded-xl transition shadow-sm">Hoàn tất xác minh ngay →</a>
+    </div>
+    {% elif not editing %}
+    <div class="mb-6 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs sm:text-sm text-emerald-900">
+        <span class="text-emerald-600 font-extrabold text-base">✓</span>
+        <span class="font-bold">Người đăng đã xác minh danh tính.</span>
+        <span class="text-emerald-700">Yêu cầu sẽ được admin duyệt trước khi hiển thị cho phiên dịch viên.</span>
+    </div>
+    {% endif %}
 
-                        <!-- Range Budget Group (shown when Range selected) -->
-                        <div id="range-budget-group" class="hidden">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
-                                        {{ 'Ngân sách tối thiểu (VND)' if current_lang == 'vi' else 'Minimum Budget (VND)' }}
-                                    </label>
-                                    <input type="number" id="budget_min_range_input" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="VD: 1,000,000 VND" oninput="syncRangeInputs()">
-                                    <p id="range-min-preview" class="text-xs text-brand-700 font-bold mt-1.5 hidden"></p>
-                                </div>
-                                <div>
-                                    <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
-                                        {{ 'Ngân sách tối đa (VND)' if current_lang == 'vi' else 'Maximum Budget (VND)' }}
-                                    </label>
-                                    <input type="number" id="budget_max_input" name="budget_max" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="VD: 5,000,000 VND" oninput="updateLivePricePreview(this.value, 'range-max-preview')">
-                                    <p id="range-max-preview" class="text-xs text-brand-700 font-bold mt-1.5 hidden"></p>
-                                </div>
-                            </div>
-                        </div>
+    <!-- Stepper -->
+    <ol id="stepper" class="grid grid-cols-4 gap-2 mb-6 text-center text-[11px] sm:text-xs font-bold">
+        {% for label in ['Dịch vụ', 'Nội dung', 'Ngân sách', 'Xem lại'] %}
+        <li data-step-ind="{{ loop.index }}" class="rounded-xl py-2 px-1 border border-slate-200 bg-white text-slate-400 transition">
+            <span class="block text-sm">{{ loop.index }}</span>{{ label }}
+        </li>
+        {% endfor %}
+    </ol>
 
-                        <!-- Negotiable Info Note -->
-                        <div id="nego-budget-note" class="hidden p-4 rounded-xl bg-blue-50/70 border border-blue-100 text-xs text-blue-800 leading-relaxed">
-                            💡 <strong>{{ 'Thương lượng tự do:' if current_lang == 'vi' else 'Negotiable Budget:' }}</strong> {{ 'Mức giá sẽ do bạn và các phiên dịch viên thỏa thuận trực tiếp dựa trên tính chất và quy mô công việc.' if current_lang == 'vi' else 'The exact rate will be negotiated directly between you and translators.' }}
-                        </div>
-                    </div>
+    {% if locked %}
+    <div class="mb-5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-4 text-xs leading-relaxed">
+        Yêu cầu đã có <strong>{{ policy.proposal_count }}</strong> báo giá nên ngôn ngữ, loại dịch vụ và ngân sách đã bị khóa để đảm bảo công bằng với các phiên dịch viên đã báo giá. Bạn vẫn có thể sửa tên, mô tả, deadline, tệp và yêu cầu bổ sung.
+    </div>
+    {% endif %}
+    {% if errors.get('_form') %}
+    <div class="mb-5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-4 text-sm font-semibold" role="alert">{{ errors['_form'] }}</div>
+    {% endif %}
+    <div id="client-alert" class="hidden mb-5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-4 text-sm font-semibold" role="alert"></div>
 
-                    <!-- Lịch trình & Địa điểm -->
-                    <div class="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 space-y-4">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">{{ t('post_job_page.schedule_section_title') }}</h3>
+    <form id="job-form" method="POST" enctype="multipart/form-data" novalidate
+          action="{{ url_for('edit_job', job_id=job.id) if editing else url_for('post_job') }}"
+          class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-8">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        {% if not editing %}<input type="hidden" name="form_token" value="{{ form_token }}">{% endif %}
 
-                        <div>
-                            <label class="block text-slate-600 font-medium mb-1.5 text-xs">
-                                {{ t('post_job_page.event_date_picker_label') }}
-                            </label>
-                            <div class="relative">
-                                <input type="text" id="event-date-display" placeholder="{{ t('post_job_page.date_picker_placeholder') }}"
-                                    class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white cursor-pointer"
-                                    readonly>
-                                <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                <input type="hidden" name="event_date" id="event-date-hidden">
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-slate-600 font-medium mb-1.5 text-xs">{{ t('post_job_page.time_start_label') }}</label>
-                                <div class="relative">
-                                    <input type="text" id="time-start-input" placeholder="--:--"
-                                        class="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white text-center cursor-pointer"
-                                        readonly>
-                                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    <input type="hidden" name="event_time_start" id="event-time-start-hidden">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-slate-600 font-medium mb-1.5 text-xs">{{ t('post_job_page.time_end_label') }}</label>
-                                <div class="relative">
-                                    <input type="text" id="time-end-input" placeholder="--:--"
-                                        class="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white text-center cursor-pointer"
-                                        readonly>
-                                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    <input type="hidden" name="event_time_end" id="event-time-end-hidden">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-slate-600 font-medium mb-1.5 text-xs">📍 {{ t('post_job_page.event_location_label') }} <span class="text-slate-400 font-normal">{{ t('post_job_page.location_remote_hint') }}</span></label>
-                            <input type="text" name="event_location"
-                                placeholder="{{ t('post_job_page.event_location_placeholder') }}"
-                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
-                        </div>
-                    </div>
+        <!-- Bước 1 -->
+        <section data-step="1" class="space-y-4">
+            <h2 class="text-lg font-bold text-slate-900">Thông tin dịch vụ</h2>
+            <div>
+                <label class="{{ label_cls }}" for="title">Tên yêu cầu <span class="text-rose-500">*</span></label>
+                <input id="title" name="title" type="text" maxlength="200" value="{{ v.get('title', '') }}" class="{{ input_cls }}" placeholder="VD: Dịch hợp đồng thương mại Anh - Việt">
+                {{ field_error('title') }}
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="{{ label_cls }}" for="category_group">Loại hình <span class="text-rose-500">*</span></label>
+                    <select id="category_group" name="category_group" class="{{ input_cls }}" {{ 'disabled' if locked }}>
+                        <option value="translation" {{ 'selected' if v.get('category_group', 'translation') == 'translation' }}>Dịch tài liệu</option>
+                        <option value="interpretation_other" {{ 'selected' if v.get('category_group') == 'interpretation_other' }}>Phiên dịch trực tiếp</option>
+                    </select>
+                    {{ field_error('category_group') }}
+                </div>
+                <div>
+                    <label class="{{ label_cls }}" for="service_type">Loại dịch vụ <span class="text-rose-500">*</span></label>
+                    <select id="service_type" name="service_type" class="{{ input_cls }}" data-selected="{{ v.get('service_type', '') }}" {{ 'disabled' if locked }}></select>
+                    {{ field_error('service_type') }}
                 </div>
             </div>
-            
-            <div class="flex justify-end pt-6 border-t border-slate-100">
-                <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-sm text-xs sm:text-sm">
-                    {{ t('post_job_page.submit_btn') }}
-                </button>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="{{ label_cls }}" for="source_lang">Ngôn ngữ nguồn <span class="text-rose-500">*</span></label>
+                    <select id="source_lang" name="source_lang" class="{{ input_cls }}" {{ 'disabled' if locked }}>
+                        {% for l in langs %}<option value="{{ l }}" {{ 'selected' if v.get('source_lang', 'Tiếng Việt') == l }}>{{ l }}</option>{% endfor %}
+                    </select>
+                    {{ field_error('source_lang') }}
+                </div>
+                <div>
+                    <label class="{{ label_cls }}" for="target_lang">Ngôn ngữ đích <span class="text-rose-500">*</span></label>
+                    <select id="target_lang" name="target_lang" class="{{ input_cls }}" {{ 'disabled' if locked }}>
+                        {% for l in langs %}<option value="{{ l }}" {{ 'selected' if v.get('target_lang', 'Tiếng Anh') == l }}>{{ l }}</option>{% endfor %}
+                    </select>
+                    {{ field_error('target_lang') }}
+                </div>
             </div>
-        </form>
-    </div>
+            <div>
+                <label class="{{ label_cls }}" for="specialty">Lĩnh vực chuyên môn</label>
+                <select id="specialty" name="specialty" class="{{ input_cls }}">
+                    <option value="">— Chưa xác định —</option>
+                    {% for s in specialties %}<option value="{{ s }}" {{ 'selected' if v.get('specialty') == s }}>{{ s }}</option>{% endfor %}
+                </select>
+                {{ field_error('specialty') }}
+            </div>
+        </section>
+
+        <!-- Bước 2 -->
+        <section data-step="2" class="space-y-4 hidden">
+            <h2 class="text-lg font-bold text-slate-900">Nội dung công việc</h2>
+            <div>
+                <label class="{{ label_cls }}" for="description">Mô tả <span class="text-rose-500">*</span></label>
+                <textarea id="description" name="description" rows="6" maxlength="5000" class="{{ input_cls }} leading-relaxed" placeholder="Mô tả nội dung, yêu cầu về văn phong, thuật ngữ...">{{ v.get('description', '') }}</textarea>
+                <p class="text-[11px] text-slate-400 mt-1">Tối thiểu 20 ký tự.</p>
+                {{ field_error('description') }}
+            </div>
+            <div data-only="translation">
+                <label class="{{ label_cls }}" for="word_count">Số từ / khối lượng (ước tính)</label>
+                <input id="word_count" name="word_count" type="number" min="1" step="1" value="{{ v.get('word_count', '') }}" class="{{ input_cls }}" placeholder="VD: 5000">
+                {{ field_error('word_count') }}
+            </div>
+            <div data-only="interpretation" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4">
+                <div class="flex items-center justify-between gap-3">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Lịch làm việc &amp; địa điểm (phiên dịch trực tiếp)</h3>
+                    <button type="button" id="add-day" class="text-xs font-bold text-brand-600 hover:text-brand-700">+ Thêm ngày</button>
+                </div>
+                <div id="schedule-container" class="space-y-3"></div>
+                <script type="application/json" id="schedule-init">{{ schedule_rows|tojson }}</script>
+                {{ field_error('schedule') }}
+                <div>
+                    <label class="{{ label_cls }}" for="event_location">Địa điểm <span class="text-rose-500">*</span></label>
+                    <input id="event_location" name="event_location" type="text" maxlength="200" value="{{ v.get('event_location', '') }}" class="{{ input_cls }}" placeholder="Địa chỉ hoặc &quot;Trực tuyến&quot;">
+                    {{ field_error('event_location') }}
+                </div>
+            </div>
+            <div>
+                <label class="{{ label_cls }}" for="files">Tệp tham khảo</label>
+                {% if attachments %}
+                <ul class="mb-3 space-y-1.5">
+                    {% for a in attachments %}
+                    <li class="flex items-center justify-between gap-3 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                        <span class="truncate font-semibold text-slate-700">{{ a.original_name }}</span>
+                        <label class="flex items-center gap-1.5 text-rose-600 font-bold shrink-0 cursor-pointer"><input type="checkbox" name="remove_attachment" value="{{ a.id }}"> Xóa</label>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                <input id="files" name="files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.zip"
+                       class="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand-700 file:font-bold hover:file:bg-brand-100">
+                <p class="text-[11px] text-slate-400 mt-1">Tối đa {{ max_files }} tệp, mỗi tệp ≤ 10MB (PDF, Word, Excel, PowerPoint, TXT, CSV, ảnh, ZIP). Tệp chỉ hiển thị cho bạn và phiên dịch viên đã báo giá.</p>
+                <p id="files-error" class="text-xs text-rose-600 font-semibold mt-1">{{ errors.get('files', '') }}</p>
+            </div>
+        </section>
+
+        <!-- Bước 3 -->
+        <section data-step="3" class="space-y-4 hidden">
+            <h2 class="text-lg font-bold text-slate-900">Ngân sách &amp; deadline</h2>
+            <div>
+                <span class="{{ label_cls }}">Hình thức ngân sách</span>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {% for val, lab in [('negotiable', 'Nhận báo giá'), ('fixed', 'Cố định'), ('range', 'Khoảng giá')] %}
+                    <label class="border border-slate-200 rounded-xl p-3 flex items-center gap-2 cursor-pointer hover:border-brand-500 bg-slate-50/60 text-sm font-bold text-slate-800 {{ 'opacity-60' if locked }}">
+                        <input type="radio" name="budget_type" value="{{ val }}" class="text-brand-600" {{ 'checked' if v.get('budget_type', 'negotiable') == val }} {{ 'disabled' if locked }}> {{ lab }}
+                    </label>
+                    {% endfor %}
+                </div>
+                {{ field_error('budget_type') }}
+            </div>
+            <div id="budget-min-wrap" class="hidden">
+                <label class="{{ label_cls }}" for="budget_min"><span id="budget-min-label">Ngân sách (VND)</span></label>
+                <input id="budget_min" name="budget_min" type="number" min="1" step="1000" value="{{ v.get('budget_min', '') if v.get('budget_min', '') not in (0, '0') else '' }}" class="{{ input_cls }}" placeholder="VD: 3000000" {{ 'disabled' if locked }}>
+                {{ field_error('budget_min') }}
+            </div>
+            <div id="budget-max-wrap" class="hidden">
+                <label class="{{ label_cls }}" for="budget_max">Ngân sách tối đa (VND)</label>
+                <input id="budget_max" name="budget_max" type="number" min="1" step="1000" value="{{ v.get('budget_max', '') }}" class="{{ input_cls }}" placeholder="VD: 5000000" {{ 'disabled' if locked }}>
+                {{ field_error('budget_max') }}
+            </div>
+            <p id="budget-nego-note" class="hidden text-xs text-blue-800 bg-blue-50 border border-blue-100 rounded-xl p-3">Phiên dịch viên sẽ gửi báo giá, bạn so sánh và chọn người phù hợp.</p>
+            <div>
+                <label class="{{ label_cls }}" for="deadline">Thời hạn hoàn thành</label>
+                <input id="deadline" name="deadline" type="date" min="{{ today }}" value="{{ v.get('deadline', '') }}" class="{{ input_cls }}">
+                {{ field_error('deadline') }}
+            </div>
+            <div>
+                <label class="{{ label_cls }}" for="extra_requirements">Yêu cầu bổ sung</label>
+                <textarea id="extra_requirements" name="extra_requirements" rows="3" maxlength="2000" class="{{ input_cls }}" placeholder="VD: Có chứng nhận công chứng, giữ nguyên định dạng...">{{ v.get('extra_requirements', '') }}</textarea>
+                {{ field_error('extra_requirements') }}
+            </div>
+        </section>
+
+        <!-- Bước 4 -->
+        <section data-step="4" class="space-y-4 hidden">
+            <h2 class="text-lg font-bold text-slate-900">Xem lại và {{ 'lưu' if editing else 'đăng' }}</h2>
+            <dl id="review" class="divide-y divide-slate-100 text-sm"></dl>
+            <label class="flex items-start gap-2 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-3 cursor-pointer">
+                <input id="confirm" type="checkbox" class="mt-0.5 text-brand-600">
+                <span>Tôi xác nhận thông tin trên chính xác và đồng ý {{ 'lưu thay đổi' if editing else 'đăng yêu cầu này' }}.</span>
+            </label>
+        </section>
+
+        <!-- Điều hướng -->
+        <div class="flex items-center justify-between gap-3 mt-8 pt-5 border-t border-slate-100">
+            <button type="button" id="btn-back" class="hidden px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 transition">← Quay lại</button>
+            <span id="spacer"></span>
+            <button type="button" id="btn-next" class="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold transition shadow-sm">Tiếp tục →</button>
+            <button type="submit" id="btn-submit" {{ 'disabled' if not hirer_verified }} class="hidden px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-bold transition shadow-sm">
+                <span id="submit-label">{{ 'Lưu thay đổi' if editing else 'Đăng yêu cầu' }}</span>
+            </button>
+        </div>
+    </form>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-flatpickr('#event-date-display', {
-    {% if current_lang == 'vi' %}locale: 'vn',{% endif %}
-    minDate: 'today',
-    dateFormat: 'Y-m-d',
-    altInput: true,
-    altFormat: 'D, d/m/Y',
-    onChange: function(sel, str) {
-        document.getElementById('event-date-hidden').value = str;
-    }
-});
+(function () {
+    const SERVICE_TYPES = {{ service_types|tojson }};
+    const MAX_FILES = {{ max_files }};
+    const MAX_BYTES = 10 * 1024 * 1024;
+    const EXTS = ['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv','png','jpg','jpeg','zip'];
+    const LOCKED = {{ 'true' if locked else 'false' }};
+    const VERIFIED = {{ 'true' if hirer_verified else 'false' }};
+    const EXISTING_ATT = {{ attachments|length }};
+    const form = document.getElementById('job-form');
+    const $ = (id) => document.getElementById(id);
+    const val = (id) => ($(id).value || '').trim();
+    let step = 1;
 
-flatpickr('#time-start-input', {
-    enableTime: true,
-    noCalendar: true,
-    dateFormat: 'H:i',
-    time_24hr: true,
-    minuteIncrement: 15,
-    defaultHour: 8,
-    onChange: function(sel, str) {
-        document.getElementById('event-time-start-hidden').value = str;
+    // Loại dịch vụ theo nhóm
+    function fillServiceTypes() {
+        const sel = $('service_type'), group = $('category_group').value;
+        const keep = sel.value || sel.dataset.selected;
+        sel.innerHTML = '';
+        Object.entries(SERVICE_TYPES[group]).forEach(([k, name]) => {
+            const o = document.createElement('option'); o.value = k; o.textContent = name;
+            if (k === keep) o.selected = true; sel.appendChild(o);
+        });
+        document.querySelectorAll('[data-only]').forEach(el => {
+            el.classList.toggle('hidden', (el.dataset.only === 'translation') !== (group === 'translation'));
+        });
     }
-});
+    $('category_group').addEventListener('change', () => { $('service_type').dataset.selected = ''; $('service_type').value = ''; fillServiceTypes(); });
 
-flatpickr('#time-end-input', {
-    enableTime: true,
-    noCalendar: true,
-    dateFormat: 'H:i',
-    time_24hr: true,
-    minuteIncrement: 15,
-    defaultHour: 17,
-    onChange: function(sel, str) {
-        document.getElementById('event-time-end-hidden').value = str;
+    // Ngân sách
+    function budgetType() { const r = form.querySelector('input[name=budget_type]:checked'); return r ? r.value : 'negotiable'; }
+    function syncBudget() {
+        const t = budgetType();
+        $('budget-min-wrap').classList.toggle('hidden', t === 'negotiable');
+        $('budget-max-wrap').classList.toggle('hidden', t !== 'range');
+        $('budget-nego-note').classList.toggle('hidden', t !== 'negotiable');
+        $('budget-min-label').textContent = t === 'range' ? 'Ngân sách tối thiểu (VND)' : 'Ngân sách (VND)';
     }
-});
+    form.querySelectorAll('input[name=budget_type]').forEach(r => r.addEventListener('change', syncBudget));
 
-const serviceData = {% if current_lang == 'en' %}true{% else %}false{% endif %} ? {
-    translation: {
-        document_translation: "Document Translation",
-        website_translation: "Website Translation",
-        subtitle: "Subtitle Translation",
-        proofreading: "Proofreading",
-        localization: "Localization",
-        other_translation: "Other Translation"
-    },
-    interpretation_other: {
-        conference: "Conference / Cabin Interpreting",
-        meeting: "Meeting / Negotiation Interpreting",
-        business: "Business / Commerce Interpreting",
-        travel: "Travel Interpreting",
-        escort: "Escort Interpreting",
-        event: "Event Interpreting",
-        other_interpretation: "Other Service"
-    }
-} : {
-    translation: {
-        document_translation: "Dịch tài liệu",
-        website_translation: "Dịch website",
-        subtitle: "Dịch phụ đề",
-        proofreading: "Hiệu đính",
-        localization: "Bản địa hóa",
-        other_translation: "Dịch thuật khác"
-    },
-    interpretation_other: {
-        conference: "Phiên dịch hội nghị / Cabin",
-        meeting: "Phiên dịch họp / Đàm phán",
-        business: "Phiên dịch kinh doanh / Thương mại",
-        travel: "Phiên dịch du lịch",
-        escort: "Phiên dịch tháp tùng",
-        event: "Phiên dịch sự kiện",
-        other_interpretation: "Dịch vụ khác"
-    }
-};
 
-function updateServiceTypes() {
-    const group = document.getElementById('category_group').value;
-    const typeSelect = document.getElementById('service_type');
-    typeSelect.innerHTML = '';
-    
-    if (serviceData[group]) {
-        for (const [key, val] of Object.entries(serviceData[group])) {
-            const opt = document.createElement('option');
-            opt.value = key;
-            opt.textContent = val;
-            typeSelect.appendChild(opt);
+    // Lịch làm việc nhiều ngày
+    function addDay(r) {
+        r = r || {};
+        const d = document.createElement('div');
+        d.className = 'schedule-row grid grid-cols-2 sm:grid-cols-[1fr_7rem_7rem_auto] gap-2 items-end bg-white border border-slate-200 rounded-xl p-3';
+        const cls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500';
+        d.innerHTML = `
+          <label class="col-span-2 sm:col-span-1 text-[10px] font-bold uppercase text-slate-500">Ngày
+            <input type="date" name="scheduled_date[]" min="{{ today }}" class="${cls} mt-1 font-normal normal-case"></label>
+          <label class="text-[10px] font-bold uppercase text-slate-500">Bắt đầu
+            <input type="time" name="start_time[]" class="${cls} mt-1 font-normal normal-case"></label>
+          <label class="text-[10px] font-bold uppercase text-slate-500">Kết thúc
+            <input type="time" name="end_time[]" class="${cls} mt-1 font-normal normal-case"></label>
+          <button type="button" data-remove-day class="col-span-2 sm:col-span-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2 border border-rose-200">Xóa</button>`;
+        const [i1, i2, i3] = d.querySelectorAll('input');
+        i1.value = r.scheduled_date || ''; i2.value = r.start_time || ''; i3.value = r.end_time || '';
+        $('schedule-container').appendChild(d); syncRemove();
+    }
+    function syncRemove() {
+        const rows = document.querySelectorAll('.schedule-row');
+        rows.forEach(r => r.querySelector('[data-remove-day]').classList.toggle('hidden', rows.length === 1));
+    }
+    $('schedule-container').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-remove-day]'); if (b) { b.closest('.schedule-row').remove(); syncRemove(); }
+    });
+    $('add-day').addEventListener('click', () => addDay());
+    function scheduleRows() {
+        return [...document.querySelectorAll('.schedule-row')].map(r => {
+            const [a, b, c] = r.querySelectorAll('input'); return {date: a.value, start: b.value, end: c.value};
+        }).filter(r => r.date || r.start || r.end);
+    }
+    function validateSchedule() {
+        const rows = scheduleRows(), today = new Date().toISOString().slice(0, 10), seen = new Set();
+        if (!rows.length) return 'Phải có ít nhất một ngày làm việc.';
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            if (!r.date) return 'Ngày ' + (i + 1) + ' chưa được chọn.';
+            if (r.date < today) return 'Ngày ' + (i + 1) + ' không được ở quá khứ.';
+            if (seen.has(r.date)) return 'Ngày ' + (i + 1) + ' bị trùng với ngày khác.';
+            seen.add(r.date);
+            if (!r.start || !r.end) return 'Ngày ' + (i + 1) + ' cần giờ bắt đầu và kết thúc.';
+            if (r.end <= r.start) return 'Ngày ' + (i + 1) + ': giờ kết thúc phải sau giờ bắt đầu.';
         }
+        return '';
     }
-    updateCategory();
-}
+    (function initSchedule() {
+        let rows = []; try { rows = JSON.parse($('schedule-init').textContent) || []; } catch (e) {}
+        if (!rows.length) addDay(); else rows.forEach(addDay);
+    })();
 
-function updateCategory() {
-    const typeSelect = document.getElementById('service_type');
-    const selectedText = typeSelect.options[typeSelect.selectedIndex]?.textContent || '';
-    document.getElementById('category').value = selectedText;
-}
+    // Validate theo bước (trả về map field -> lỗi)
+    function groupVal() { return $('category_group').value; }
+    function validateStep(n) {
+        const e = {};
+        const today = new Date().toISOString().slice(0, 10);
+        if (n === 1) {
+            if (val('title').length < 5) e.title = 'Tên yêu cầu phải từ 5 ký tự.';
+            if (!LOCKED && $('source_lang').value === $('target_lang').value) e.target_lang = 'Ngôn ngữ đích phải khác ngôn ngữ nguồn.';
+        }
+        if (n === 2) {
+            if (val('description').length < 20) e.description = 'Mô tả phải có ít nhất 20 ký tự.';
+            if (groupVal() === 'translation') {
+                const w = val('word_count'); if (w && !(parseInt(w, 10) > 0)) e.word_count = 'Khối lượng phải là số dương.';
+            } else {
+                const sch = validateSchedule(); if (sch) e.schedule = sch;
+                if (!val('event_location')) e.event_location = 'Vui lòng nhập địa điểm.';
+            }
+            const fe = validateFiles(); if (fe) e.files = fe;
+        }
+        if (n === 3 && !LOCKED) {
+            const t = budgetType(), mn = parseInt(val('budget_min'), 10), mx = parseInt(val('budget_max'), 10);
+            if (t !== 'negotiable' && !(mn > 0)) e.budget_min = 'Nhập ngân sách lớn hơn 0.';
+            if (t === 'range' && !(mx >= mn)) e.budget_max = 'Ngân sách tối đa phải lớn hơn hoặc bằng tối thiểu.';
+        }
+        if (n === 3 && val('deadline') && val('deadline') < today && val('deadline') !== {{ (values.get('deadline', '') or '')|tojson }}) e.deadline = 'Deadline không được ở quá khứ.';
+        return e;
+    }
+    function validateFiles() {
+        const files = Array.from($('files').files);
+        if (EXISTING_ATT + files.length > MAX_FILES) return 'Tối đa ' + MAX_FILES + ' tệp tham khảo.';
+        for (const f of files) {
+            const ext = f.name.includes('.') ? f.name.split('.').pop().toLowerCase() : '';
+            if (!EXTS.includes(ext)) return 'Tệp "' + f.name + '" không được hỗ trợ.';
+            if (f.size > MAX_BYTES) return 'Tệp "' + f.name + '" vượt quá 10MB.';
+            if (f.size === 0) return 'Tệp "' + f.name + '" rỗng.';
+        }
+        return '';
+    }
+    function showErrors(errs) {
+        form.querySelectorAll('[data-client-error]').forEach(n => n.remove());
+        form.querySelectorAll('[data-server-error]').forEach(n => n.remove());
+        form.querySelectorAll('.border-rose-400').forEach(n => n.classList.remove('border-rose-400'));
+        $('files-error').textContent = '';
+        Object.entries(errs).forEach(([k, msg]) => {
+            if (k === 'files') { $('files-error').textContent = msg; return; }
+            if (k === 'schedule') {
+                const c = $('schedule-container'); const p = document.createElement('p'); p.dataset.clientError = '1';
+                p.className = 'text-xs text-rose-600 font-semibold'; p.textContent = msg; c.insertAdjacentElement('afterend', p); return;
+            }
+            const el = form.elements[k] && form.elements[k].length === undefined ? form.elements[k] : $(k);
+            if (!el) return;
+            el.classList.add('border-rose-400');
+            const p = document.createElement('p'); p.dataset.clientError = '1';
+            p.className = 'text-xs text-rose-600 font-semibold mt-1'; p.textContent = msg;
+            el.insertAdjacentElement('afterend', p);
+        });
+    }
 
-// Budget handling
-function handleBudgetTypeChange(type) {
-    const fixedGroup = document.getElementById('fixed-budget-group');
-    const rangeGroup = document.getElementById('range-budget-group');
-    const negoNote   = document.getElementById('nego-budget-note');
-    const minInput   = document.getElementById('budget_min_input');
-    const rangeMinIn = document.getElementById('budget_min_range_input');
-    const maxInput   = document.getElementById('budget_max_input');
+    function go(n) {
+        step = n;
+        document.querySelectorAll('[data-step]').forEach(s => s.classList.toggle('hidden', +s.dataset.step !== n));
+        document.querySelectorAll('[data-step-ind]').forEach(li => {
+            const i = +li.dataset.stepInd;
+            li.className = 'rounded-xl py-2 px-1 border transition ' + (i === n ? 'border-brand-600 bg-brand-600 text-white' : i < n ? 'border-brand-200 bg-brand-50 text-brand-700' : 'border-slate-200 bg-white text-slate-400');
+        });
+        $('btn-back').classList.toggle('hidden', n === 1);
+        $('spacer').classList.toggle('hidden', n !== 1);
+        $('btn-next').classList.toggle('hidden', n === 4);
+        $('btn-submit').classList.toggle('hidden', n !== 4);
+        if (n === 4) buildReview();
+        $('client-alert').classList.add('hidden');
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
 
-    if (type === 'fixed') {
-        fixedGroup.classList.remove('hidden');
-        rangeGroup.classList.add('hidden');
-        negoNote.classList.add('hidden');
-        minInput.name = 'budget_min';
-        if (maxInput) maxInput.value = '';
-    } else if (type === 'range') {
-        fixedGroup.classList.add('hidden');
-        rangeGroup.classList.remove('hidden');
-        negoNote.classList.add('hidden');
-        if (minInput) minInput.name = '';
-        if (rangeMinIn) {
-            rangeMinIn.name = 'budget_min';
-            if (minInput && minInput.value && !rangeMinIn.value) {
-                rangeMinIn.value = minInput.value;
-                updateLivePricePreview(rangeMinIn.value, 'range-min-preview');
+    function opt(id) { const s = $(id); return s.options[s.selectedIndex] ? s.options[s.selectedIndex].textContent : ''; }
+    function buildReview() {
+        const t = budgetType();
+        const money = (x) => Number(x).toLocaleString('vi-VN') + ' VND';
+        const budget = t === 'negotiable' ? 'Nhận báo giá' : t === 'fixed' ? money(val('budget_min') || 0) : money(val('budget_min') || 0) + ' – ' + money(val('budget_max') || 0);
+        const rows = [
+            ['Tên yêu cầu', val('title')],
+            ['Loại hình', opt('category_group') + ' · ' + opt('service_type')],
+            ['Ngôn ngữ', $('source_lang').value + ' → ' + $('target_lang').value],
+            ['Lĩnh vực', opt('specialty') === '— Chưa xác định —' ? '—' : opt('specialty')],
+            ['Mô tả', val('description')],
+        ];
+        if (groupVal() === 'translation') rows.push(['Khối lượng', val('word_count') ? val('word_count') + ' từ' : '—']);
+        else rows.push(['Lịch làm việc', scheduleRows().map(r => r.date + ' · ' + r.start + '–' + r.end).join('\n') || '—'], ['Địa điểm', val('event_location')]);
+        const nf = $('files').files.length;
+        rows.push(['Tệp mới', nf ? Array.from($('files').files).map(f => f.name).join(', ') : '—']);
+        rows.push(['Ngân sách', budget], ['Deadline', val('deadline') || '—'], ['Yêu cầu bổ sung', val('extra_requirements') || '—']);
+        const dl = $('review'); dl.innerHTML = '';
+        rows.forEach(([k, v]) => {
+            const d = document.createElement('div'); d.className = 'py-2.5 flex flex-col sm:flex-row sm:gap-4';
+            const dt = document.createElement('dt'); dt.className = 'sm:w-40 shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400'; dt.textContent = k;
+            const dd = document.createElement('dd'); dd.className = 'text-slate-800 whitespace-pre-line break-words min-w-0'; dd.textContent = v;
+            d.append(dt, dd); dl.appendChild(d);
+        });
+    }
+
+    $('btn-next').addEventListener('click', () => {
+        const errs = validateStep(step); showErrors(errs);
+        if (Object.keys(errs).length) { const el = form.querySelector('.border-rose-400'); if (el) el.focus(); return; }
+        go(step + 1);
+    });
+    $('btn-back').addEventListener('click', () => go(step - 1));
+
+    // Gửi: validate toàn bộ, chặn bấm nhiều lần
+    let submitting = false;
+    form.addEventListener('submit', (ev) => {
+        if (submitting || !VERIFIED) { ev.preventDefault(); return; }
+        for (let n = 1; n <= 3; n++) {
+            const errs = validateStep(n);
+            if (Object.keys(errs).length) {
+                ev.preventDefault(); go(n); showErrors(errs);
+                $('client-alert').textContent = 'Vui lòng kiểm tra lại các trường được đánh dấu.'; $('client-alert').classList.remove('hidden');
+                return;
             }
         }
-    } else if (type === 'negotiable') {
-        fixedGroup.classList.add('hidden');
-        rangeGroup.classList.add('hidden');
-        negoNote.classList.remove('hidden');
-        if (minInput) minInput.value = '';
-        if (rangeMinIn) rangeMinIn.value = '';
-        if (maxInput) maxInput.value = '';
-    }
-}
+        if (!$('confirm').checked) {
+            ev.preventDefault(); $('client-alert').textContent = 'Vui lòng tick xác nhận trước khi gửi.'; $('client-alert').classList.remove('hidden'); return;
+        }
+        submitting = true;
+        $('btn-submit').disabled = true; $('submit-label').textContent = 'Đang gửi...';
+    });
+    window.addEventListener('pageshow', () => { submitting = false; $('btn-submit').disabled = !VERIFIED; });
 
-function updateLivePricePreview(val, targetId) {
-    const el = document.getElementById(targetId);
-    if (!el) return;
-    const num = parseFloat(val);
-    if (!isNaN(num) && num > 0) {
-        el.textContent = '≈ ' + Number(num).toLocaleString('en-US') + ' VND';
-        el.classList.remove('hidden');
-    } else {
-        el.classList.add('hidden');
-    }
-}
-
-function syncRangeInputs() {
-    const rangeMinIn = document.getElementById('budget_min_range_input');
-    if (rangeMinIn) {
-        updateLivePricePreview(rangeMinIn.value, 'range-min-preview');
-    }
-}
-
-// Initialize on load
-document.addEventListener('DOMContentLoaded', function() {
-    updateServiceTypes();
-});
+    // Trạng thái ban đầu; nếu server trả lỗi thì mở bước chứa lỗi đầu tiên
+    fillServiceTypes(); syncBudget();
+    const first = document.querySelector('[data-server-error], #files-error:not(:empty)');
+    const sec = first ? first.closest('[data-step]') : null;
+    go(sec ? +sec.dataset.step : 1);
+    window.scrollTo(0, 0);
+})();
 </script>
 {% endblock %}

@@ -29,8 +29,26 @@
                 {% for user in users %}
                 <tr {% if not user.is_active %}style="background: rgba(239,68,68,0.05);"{% endif %}>
                     <td>
-                        <div style="font-weight: 600; color: #f1f5f9;">{{ user.name }}</div>
-                        <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">{{ user.email }} • {{ user.phone or t('admin_page.no_phone') }}</div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="position: relative; width: 36px; height: 36px; flex-shrink: 0;">
+                                {% if user.avatar_url %}
+                                <img src="{{ user.avatar_url }}" alt="{{ user.name }}"
+                                     style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.15);"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div style="display: none; width: 36px; height: 36px; border-radius: 50%; background: #2563eb; color: #fff; font-weight: 700; font-size: 13px; align-items: center; justify-content: center; text-transform: uppercase;">
+                                    {{ user.name[0] if user.name else 'U' }}
+                                </div>
+                                {% else %}
+                                <div style="display: flex; width: 36px; height: 36px; border-radius: 50%; background: #2563eb; color: #fff; font-weight: 700; font-size: 13px; align-items: center; justify-content: center; text-transform: uppercase;">
+                                    {{ user.name[0] if user.name else 'U' }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div style="font-weight: 600; color: #f1f5f9;">{{ user.name }}</div>
+                                <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">{{ user.email }} • {{ user.phone or t('admin_page.no_phone') }}</div>
+                            </div>
+                        </div>
                     </td>
                     <td>
                         <span class="badge badge-gray">{{ user.role }}</span>

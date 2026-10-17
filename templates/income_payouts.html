@@ -1,0 +1,655 @@
+{% extends "income_base.html" %}
+
+{% block income_title %}Theo dõi thanh toán{% endblock %}
+
+{% block income_breadcrumb_sub %}
+<span>/</span>
+<span class="text-slate-800 font-semibold">Theo dõi thanh toán</span>
+{% endblock %}
+
+{% block income_content %}
+<div class="space-y-6">
+    <!-- Header & Search/Filter Toolbar -->
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
+                    Theo dõi thanh toán
+                </h1>
+                <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                    Theo dõi tiến độ nghiệm thu, các giai đoạn giải ngân thù lao từ tài khoản Escrow an toàn.
+                </p>
+            </div>
+
+            <!-- Search and Filter Form -->
+            <form method="GET" action="{{ url_for('interpreter_income_payouts') }}" class="flex flex-wrap items-center gap-2 text-xs">
+                <input type="hidden" name="status" value="{{ status_filter }}">
+
+                <!-- Search box -->
+                <div class="relative min-w-[200px] sm:min-w-[240px]">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </span>
+                    <input type="text" name="q" value="{{ q }}" placeholder="Tìm theo mã ca (#CA-...), tên việc..."
+                           class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-1 focus:ring-brand-500 text-slate-800 text-xs shadow-2xs">
+                </div>
+
+                <!-- Sort select -->
+                <select name="sort" onchange="this.form.submit()"
+                        class="px-3 py-2 border border-slate-200 rounded-xl text-slate-700 bg-white focus:ring-1 focus:ring-brand-500 shadow-2xs">
+                    <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Gần đây nhất</option>
+                    <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Cũ nhất</option>
+                    <option value="amount_desc" {% if sort_by == 'amount_desc' %}selected{% endif %}>Thù lao cao nhất</option>
+                    <option value="amount_asc" {% if sort_by == 'amount_asc' %}selected{% endif %}>Thù lao thấp nhất</option>
+                </select>
+
+                <button type="submit" class="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition shadow-xs">
+                    Tìm kiếm
+                </button>
+
+                {% if q or status_filter != 'all' or sort_by != 'newest' %}
+                <a href="{{ url_for('interpreter_income_payouts') }}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-semibold transition" title="Xóa bộ lọc">
+                    Xóa lọc
+                </a>
+                {% endif %}
+            </form>
+        </div>
+
+        <!-- Escrow Protection & Bank Notice Banner -->
+        <div class="mt-5 p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-brand-50/60 via-indigo-50/40 to-emerald-50/40 border border-brand-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div class="flex items-start gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </div>
+                <div>
+                    <h2 class="font-bold text-slate-800">Cơ chế bảo vệ thanh toán Escrow độc lập</h2>
+                    <p class="text-slate-600 mt-0.5 leading-relaxed">
+                        100% thù lao được khách hàng ký quỹ an toàn trước ca làm. Sau khi nghiệm thu thành công, hệ thống tự động giải ngân 90% thù lao thực nhận (khấu trừ 10% phí nền tảng).
+                    </p>
+                </div>
+            </div>
+            <a href="{{ url_for('interpreter_income_bank_info') }}"
+               class="shrink-0 font-bold text-brand-700 hover:text-brand-800 flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-brand-200 shadow-2xs hover:shadow-xs transition">
+                <span>Kiểm tra tài khoản nhận tiền</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- 4 KPI Metrics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Card 1: Đã giải ngân thành công -->
+        <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 relative overflow-hidden group hover:border-emerald-300 transition">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-500">Đã giải ngân Escrow</span>
+                <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+            </div>
+            <div class="text-xl sm:text-2xl font-black text-emerald-700">
+                {{ "{:,.0f}".format(metrics.total_paid_net) }} <span class="text-xs font-semibold text-emerald-600">đ</span>
+            </div>
+            <div class="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>{{ counts.completed }} ca đã hoàn tất nghiệm thu</span>
+            </div>
+        </div>
+
+        <!-- Card 2: Chờ nghiệm thu & giải ngân -->
+        <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 relative overflow-hidden group hover:border-purple-300 transition">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-500">Chờ nghiệm thu & duyệt</span>
+                <div class="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+            </div>
+            <div class="text-xl sm:text-2xl font-black text-purple-700">
+                {{ "{:,.0f}".format(metrics.total_delivered_net) }} <span class="text-xs font-semibold text-purple-600">đ</span>
+            </div>
+            <div class="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
+                <span>{{ counts.delivered }} ca đã nộp bàn giao</span>
+            </div>
+        </div>
+
+        <!-- Card 3: Đang bảo đảm trong Escrow -->
+        <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 relative overflow-hidden group hover:border-sky-300 transition">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-500">Đang giữ Escrow an toàn</span>
+                <div class="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </div>
+            </div>
+            <div class="text-xl sm:text-2xl font-black text-sky-700">
+                {{ "{:,.0f}".format(metrics.total_escrow_held_net) }} <span class="text-xs font-semibold text-sky-600">đ</span>
+            </div>
+            <div class="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                <span>{{ counts.escrow_held }} ca đang thực hiện</span>
+            </div>
+        </div>
+
+        <!-- Card 4: Đang tạm giữ / Chỉnh sửa -->
+        <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 relative overflow-hidden group hover:border-amber-300 transition">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-500">Yêu cầu sửa / Tạm giữ</span>
+                <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                </div>
+            </div>
+            <div class="text-xl sm:text-2xl font-black text-amber-700">
+                {{ "{:,.0f}".format(metrics.total_revision_net) }} <span class="text-xs font-semibold text-amber-600">đ</span>
+            </div>
+            <div class="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                <span>{{ counts.revision_requested }} ca cần rà soát lại</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pipeline Stage Filter Tabs -->
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-2 sm:p-2.5 overflow-x-auto">
+        <div class="flex items-center gap-1 text-xs font-semibold min-w-max">
+            <a href="{{ url_for('interpreter_income_payouts', q=q, sort=sort_by, status='all') }}"
+               class="px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 {% if status_filter == 'all' %}bg-brand-50 text-brand-700 font-bold border border-brand-200/80 shadow-2xs{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <span>Tất cả</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] {% if status_filter == 'all' %}bg-brand-600 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">{{ counts.all }}</span>
+            </a>
+
+            <a href="{{ url_for('interpreter_income_payouts', q=q, sort=sort_by, status='escrow_held') }}"
+               class="px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 {% if status_filter == 'escrow_held' %}bg-sky-50 text-sky-700 font-bold border border-sky-200 shadow-2xs{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <span>Đang giữ Escrow</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] {% if status_filter == 'escrow_held' %}bg-sky-600 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">{{ counts.escrow_held }}</span>
+            </a>
+
+            <a href="{{ url_for('interpreter_income_payouts', q=q, sort=sort_by, status='delivered') }}"
+               class="px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 {% if status_filter == 'delivered' %}bg-purple-50 text-purple-700 font-bold border border-purple-200 shadow-2xs{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <span>Chờ nghiệm thu</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] {% if status_filter == 'delivered' %}bg-purple-600 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">{{ counts.delivered }}</span>
+            </a>
+
+            <a href="{{ url_for('interpreter_income_payouts', q=q, sort=sort_by, status='completed') }}"
+               class="px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 {% if status_filter == 'completed' %}bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 shadow-2xs{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <span>Đã giải ngân</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] {% if status_filter == 'completed' %}bg-emerald-600 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">{{ counts.completed }}</span>
+            </a>
+
+            <a href="{{ url_for('interpreter_income_payouts', q=q, sort=sort_by, status='revision_requested') }}"
+               class="px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 {% if status_filter == 'revision_requested' %}bg-amber-50 text-amber-700 font-bold border border-amber-200 shadow-2xs{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <span>Yêu cầu chỉnh sửa</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] {% if status_filter == 'revision_requested' %}bg-amber-600 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">{{ counts.revision_requested }}</span>
+            </a>
+
+            <a href="{{ url_for('interpreter_income_payouts', q=q, sort=sort_by, status='escrow_pending') }}"
+               class="px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 {% if status_filter == 'escrow_pending' %}bg-slate-100 text-slate-800 font-bold border border-slate-300 shadow-2xs{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <span>Chờ ký quỹ</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] {% if status_filter == 'escrow_pending' %}bg-slate-700 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">{{ counts.escrow_pending }}</span>
+            </a>
+
+            <a href="{{ url_for('interpreter_income_payouts', q=q, sort=sort_by, status='cancelled') }}"
+               class="px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 {% if status_filter == 'cancelled' %}bg-rose-50 text-rose-700 font-bold border border-rose-200 shadow-2xs{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <span>Đã hủy</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] {% if status_filter == 'cancelled' %}bg-rose-600 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">{{ counts.cancelled }}</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Error State Notice -->
+    {% if has_error %}
+    <div class="bg-white rounded-2xl shadow-soft border border-rose-200 p-8 text-center">
+        <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 mx-auto flex items-center justify-center mb-3">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        </div>
+        <h2 class="text-base font-bold text-slate-900">Không thể tải dữ liệu theo dõi thanh toán</h2>
+        <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+            Đã xảy ra sự cố trong quá trình truy xuất dữ liệu từ hệ thống. Vui lòng thử tải lại trang hoặc liên hệ hỗ trợ.
+        </p>
+        <button type="button" onclick="window.location.reload()"
+                class="mt-4 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl transition shadow-xs">
+            Thử tải lại trang
+        </button>
+    </div>
+
+    <!-- Empty State -->
+    {% elif total_displayed == 0 %}
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-12 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-200 text-slate-400 mx-auto flex items-center justify-center mb-4">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        </div>
+        <h2 class="text-base font-bold text-slate-900">Không tìm thấy khoản thanh toán nào</h2>
+        <p class="text-xs text-slate-500 mt-1.5 max-w-sm mx-auto">
+            {% if q or status_filter != 'all' %}
+            Không có kết quả nào phù hợp với bộ lọc hiện tại. Hãy thử tìm từ khóa khác hoặc xóa lọc.
+            {% else %}
+            Bạn chưa có khoản thanh toán nào được ghi nhận trên hệ thống VietTranslate.
+            {% endif %}
+        </p>
+        <div class="mt-5 flex items-center justify-center gap-3 text-xs">
+            {% if q or status_filter != 'all' %}
+            <a href="{{ url_for('interpreter_income_payouts') }}"
+               class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition">
+                Xóa tất cả bộ lọc
+            </a>
+            {% endif %}
+            <a href="{{ url_for('jobs') }}"
+               class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition shadow-xs">
+                Tìm kiếm ca làm mới
+            </a>
+        </div>
+    </div>
+
+    <!-- Contract Payout Cards List -->
+    {% else %}
+    <div class="space-y-4">
+        {% for item in items %}
+        {% set c = item.contract %}
+        <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6 transition hover:border-brand-200 hover:shadow-md">
+            <!-- Header Row -->
+            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-4 border-b border-slate-100">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-bold border border-slate-200">
+                            #CA-{{ c.id }}
+                        </span>
+                        <h2 class="text-sm sm:text-base font-bold text-slate-900 hover:text-brand-600 transition">
+                            <a href="{{ url_for('transaction_detail', contract_id=c.id) }}">
+                                {{ c.job.title if c.job else (c.service.name if c.service else 'Hợp đồng #' ~ c.id) }}
+                            </a>
+                        </h2>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-0.5">
+                        <div class="flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            <span>Bên thuê: <strong class="text-slate-700 font-semibold">{{ c.hirer.name }}</strong></span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <span>Lịch ca: <strong class="text-slate-700 font-semibold">{{ c.scheduled_date or c.created_at.strftime('%d/%m/%Y') }}</strong></span>
+                        </div>
+                        {% if item.payment %}
+                        <div class="flex items-center gap-1 text-[11px] text-slate-400">
+                            <span>Mã GD Escrow:</span>
+                            <span class="font-mono text-slate-600 font-medium">#TX-{{ item.payment.id }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Status Badge -->
+                <div class="self-start sm:self-center shrink-0">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {{ item.stage_badge }}">
+                        <span class="w-2 h-2 rounded-full {{ item.stage_dot }}"></span>
+                        {{ item.stage_label }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Financial Breakdown Row -->
+            <div class="my-4 p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                    <span class="text-slate-500 font-medium">Thù lao thực nhận (90%)</span>
+                    <div class="text-base sm:text-lg font-black {% if item.stage_code == 'completed' %}text-emerald-700{% elif item.stage_code == 'revision_requested' %}text-amber-700{% else %}text-brand-700{% endif %}">
+                        {{ "{:,.0f}".format(c.translator_net_amount or (c.agreed_price * 0.9)) }} <span class="text-xs font-semibold">đ</span>
+                    </div>
+                </div>
+                <div>
+                    <span class="text-slate-500 font-medium">Tổng thù lao thỏa thuận (100%)</span>
+                    <div class="text-sm sm:text-base font-bold text-slate-800">
+                        {{ "{:,.0f}".format(c.agreed_price or 0) }} <span class="text-xs font-semibold text-slate-500">đ</span>
+                    </div>
+                </div>
+                <div>
+                    <span class="text-slate-500 font-medium">Phí dịch vụ Escrow (10%)</span>
+                    <div class="text-sm sm:text-base font-bold text-slate-500">
+                        -{{ "{:,.0f}".format(c.platform_fee or (c.agreed_price * 0.1)) }} <span class="text-xs font-semibold text-slate-400">đ</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4-Phase Stepper Track -->
+            <div class="pt-2 pb-4">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Tiến trình thanh toán & Nghiệm thu:</div>
+
+                {% if c.status == 'cancelled' %}
+                <div class="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span>Ca làm việc đã bị hủy. Khoản thanh toán và thù lao liên quan đã được hoàn trả hoặc hủy theo chính sách nền tảng.</span>
+                </div>
+                {% else %}
+                <div class="relative grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <!-- Step 1: Ký quỹ Escrow -->
+                    <div class="p-3 rounded-xl border {% if item.stage_step >= 1 %}bg-white border-slate-200/90 shadow-2xs{% else %}bg-slate-50 border-slate-100 text-slate-400{% endif %}">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold {% if item.stage_step > 1 %}bg-emerald-500 text-white{% elif item.stage_step == 1 %}bg-brand-600 text-white ring-2 ring-brand-100{% else %}bg-slate-200 text-slate-500{% endif %}">
+                                {% if item.stage_step > 1 %}✓{% else %}1{% endif %}
+                            </span>
+                            <span class="font-bold {% if item.stage_step >= 1 %}text-slate-800{% else %}text-slate-400{% endif %}">1. Ký quỹ Escrow</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 leading-snug">
+                            {% if item.stage_step > 1 %}Khách đã nạp ký quỹ 100%{% elif item.stage_step == 1 %}Đang chờ khách nạp tiền{% else %}Chưa thực hiện{% endif %}
+                        </p>
+                    </div>
+
+                    <!-- Step 2: Thực hiện ca làm -->
+                    <div class="p-3 rounded-xl border {% if item.stage_step >= 2 %}bg-white border-slate-200/90 shadow-2xs{% else %}bg-slate-50 border-slate-100 text-slate-400{% endif %}">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold {% if item.stage_step > 2 %}bg-emerald-500 text-white{% elif item.stage_step == 2 %}bg-sky-600 text-white ring-2 ring-sky-100{% else %}bg-slate-200 text-slate-500{% endif %}">
+                                {% if item.stage_step > 2 %}✓{% else %}2{% endif %}
+                            </span>
+                            <span class="font-bold {% if item.stage_step >= 2 %}text-slate-800{% else %}text-slate-400{% endif %}">2. Thực hiện ca</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 leading-snug">
+                            {% if item.stage_step > 2 %}Đã hoàn thành ca làm{% elif item.stage_step == 2 %}Đang giữ Escrow an toàn{% else %}Chờ khởi động ca{% endif %}
+                        </p>
+                    </div>
+
+                    <!-- Step 3: Bàn giao & Nghiệm thu -->
+                    <div class="p-3 rounded-xl border {% if item.stage_step >= 3 %}bg-white border-slate-200/90 shadow-2xs{% else %}bg-slate-50 border-slate-100 text-slate-400{% endif %}">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold {% if item.stage_step > 3 %}bg-emerald-500 text-white{% elif item.stage_code == 'revision_requested' %}bg-amber-500 text-white ring-2 ring-amber-100{% elif item.stage_step == 3 %}bg-purple-600 text-white ring-2 ring-purple-100{% else %}bg-slate-200 text-slate-500{% endif %}">
+                                {% if item.stage_step > 3 %}✓{% elif item.stage_code == 'revision_requested' %}!{% else %}3{% endif %}
+                            </span>
+                            <span class="font-bold {% if item.stage_step >= 3 %}text-slate-800{% else %}text-slate-400{% endif %}">3. Nghiệm thu</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 leading-snug">
+                            {% if item.stage_step > 3 %}Đã được nghiệm thu{% elif item.stage_code == 'revision_requested' %}Khách yêu cầu chỉnh sửa{% elif item.stage_step == 3 %}Đang chờ duyệt kết quả{% else %}Chưa nộp bàn giao{% endif %}
+                        </p>
+                    </div>
+
+                    <!-- Step 4: Giải ngân thù lao -->
+                    <div class="p-3 rounded-xl border {% if item.stage_step == 4 %}bg-emerald-50/60 border-emerald-200 shadow-2xs{% else %}bg-slate-50 border-slate-100 text-slate-400{% endif %}">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold {% if item.stage_step == 4 %}bg-emerald-600 text-white ring-2 ring-emerald-100{% else %}bg-slate-200 text-slate-500{% endif %}">
+                                {% if item.stage_step == 4 %}✓{% else %}4{% endif %}
+                            </span>
+                            <span class="font-bold {% if item.stage_step == 4 %}text-emerald-900{% else %}text-slate-400{% endif %}">4. Giải ngân</span>
+                        </div>
+                        <p class="text-[11px] {% if item.stage_step == 4 %}text-emerald-700 font-semibold{% else %}text-slate-500{% endif %} leading-snug">
+                            {% if item.stage_step == 4 %}Đã giải ngân 90% thành công{% else %}Kích hoạt sau nghiệm thu{% endif %}
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Alert: Revision Requested (if any) -->
+            {% if c.status == 'revision_requested' %}
+            <div class="my-3 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-900 space-y-1">
+                <div class="font-bold flex items-center gap-1.5 text-amber-800">
+                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <span>Lý do yêu cầu chỉnh sửa / Tạm dừng giải ngân:</span>
+                    {% if item.last_revision and item.last_revision.created_at %}
+                    <span class="text-[11px] font-normal text-amber-700">({{ item.last_revision.created_at.strftime('%H:%M %d/%m/%Y') }})</span>
+                    {% endif %}
+                </div>
+                <p class="text-slate-700 bg-white/80 p-2.5 rounded-lg border border-amber-200/60 leading-relaxed font-medium">
+                    {{ item.last_revision.note if item.last_revision and item.last_revision.note else 'Bên tuyển dụng đã gửi yêu cầu rà soát bổ sung cho ca làm này.' }}
+                </p>
+                <div class="text-[11px] text-amber-800 pt-0.5">
+                    Thù lao tiếp tục được bảo vệ tạm giữ an toàn trong Escrow. Vui lòng vào Phòng làm việc để trao đổi và gửi lại kết quả.
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Alert: Active Dispute (if any) -->
+            {% if item.active_report %}
+            <div class="my-3 p-3 rounded-xl bg-purple-50 border border-purple-200 text-xs text-purple-900 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-purple-600 font-bold">⚠️ Khiếu nại đang xử lý:</span>
+                    <span class="font-semibold">{{ item.active_report.reason }}</span>
+                </div>
+                <span class="text-[11px] px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 font-semibold">Admin đang rà soát</span>
+            </div>
+            {% endif %}
+
+            <!-- Action Toolbar Footer -->
+            <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div class="text-slate-500 text-[11px]">
+                    <span class="text-slate-400">Trạng thái:</span>
+                    <span class="font-medium text-slate-700">{{ item.stage_desc }}</span>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- Timeline button -->
+                    <button type="button"
+                            onclick='openTimelineModal({{ c.id }}, {{ (c.job.title if c.job else "Hợp đồng #" ~ c.id) | tojson }}, {{ item.timeline | tojson }})'
+                            class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition flex items-center gap-1 shadow-2xs">
+                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Lịch sử tiến trình</span>
+                    </button>
+
+                    <!-- Workspace link -->
+                    <a href="{{ url_for('transaction_detail', contract_id=c.id) }}"
+                       class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition flex items-center gap-1 shadow-2xs">
+                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                        <span>Phòng làm việc</span>
+                    </a>
+
+                    <!-- Remuneration details link -->
+                    <a href="{{ url_for('interpreter_income_details', q='CA-' ~ c.id) }}"
+                       class="px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold transition flex items-center gap-1 shadow-2xs border border-brand-200/60">
+                        <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                        <span>Chi tiết thù lao</span>
+                    </a>
+
+                    <!-- Report issue button -->
+                    <button type="button"
+                            onclick='openReportIssueModal({{ c.id }}, {{ (c.job.title if c.job else "Hợp đồng #" ~ c.id) | tojson }})'
+                            class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold transition flex items-center gap-1 border border-rose-200/60 shadow-2xs"
+                            title="Báo cáo sai lệch hoặc chậm giải ngân">
+                        <svg class="w-3.5 h-3.5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        <span>Báo sự cố</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- ==================== TIMELINE MODAL ==================== -->
+<div id="timelineModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
+                    <span>Lịch sử xử lý & Mốc thời gian</span>
+                </h3>
+                <p id="timeline-modal-subtitle" class="text-xs text-slate-500 mt-0.5 truncate max-w-xs sm:max-w-md">...</p>
+            </div>
+            <button type="button" onclick="closeTimelineModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <div id="timeline-modal-body" class="overflow-y-auto py-4 space-y-4 text-xs pr-1 flex-1">
+            <!-- Timeline items rendered via Javascript -->
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end">
+            <button type="button" onclick="closeTimelineModal()"
+                    class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+                Đóng
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== REPORT ISSUE MODAL ==================== -->
+<div id="modal-report-issue" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span class="text-rose-500">⚠️</span>
+                <span>Báo sự cố thanh toán / Nghiệm thu</span>
+            </h3>
+            <button type="button" onclick="closeReportIssueModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <form id="form-report-issue" onsubmit="executeReportIssue(event)" class="mt-4 space-y-4">
+            <input type="hidden" id="report-contract-id" value="">
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Ca làm việc liên quan</label>
+                <div id="report-job-title" class="text-xs font-bold text-slate-900 bg-slate-50 p-2.5 rounded-xl border border-slate-200 truncate">
+                    ...
+                </div>
+            </div>
+
+            <div>
+                <label for="report-reason" class="block text-xs font-semibold text-slate-700 mb-1">Loại sự cố / Lý do khiếu nại <span class="text-rose-500">*</span></label>
+                <select id="report-reason" required
+                        class="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:ring-1 focus:ring-brand-500 bg-white">
+                    <option value="">-- Chọn lý do --</option>
+                    <option value="Chưa nhận được tiền giải ngân sau nghiệm thu">Chưa nhận được tiền giải ngân sau nghiệm thu</option>
+                    <option value="Sai lệch số tiền thù lao thực nhận">Sai lệch số tiền thù lao thực nhận</option>
+                    <option value="Khách hàng không phản hồi nghiệm thu quá hạn">Khách hàng không phản hồi nghiệm thu quá hạn</option>
+                    <option value="Bất đồng về yêu cầu chỉnh sửa của khách">Bất đồng về yêu cầu chỉnh sửa của khách</option>
+                    <option value="Khác">Khác</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="report-desc" class="block text-xs font-semibold text-slate-700 mb-1">Mô tả chi tiết <span class="text-rose-500">*</span></label>
+                <textarea id="report-desc" rows="3" required placeholder="Nêu rõ thời gian, số tiền và nội dung cần hỗ trợ..."
+                          class="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:ring-1 focus:ring-brand-500 resize-none"></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2">
+                <button type="button" onclick="closeReportIssueModal()"
+                        class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+                    Hủy bỏ
+                </button>
+                <button type="submit" id="btn-submit-report"
+                        class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-xs">
+                    Gửi yêu cầu hỗ trợ
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Timeline Modal Handler
+    function openTimelineModal(contractId, jobTitle, timelineItems) {
+        document.getElementById('timeline-modal-subtitle').textContent = `#CA-${contractId} · ${jobTitle}`;
+        const container = document.getElementById('timeline-modal-body');
+        container.innerHTML = '';
+
+        if (!timelineItems || timelineItems.length === 0) {
+            container.innerHTML = '<div class="text-slate-400 text-center py-6">Chưa có mốc thời gian nào được ghi nhận.</div>';
+        } else {
+            const list = document.createElement('div');
+            list.className = 'relative border-l-2 border-slate-200 ml-3 space-y-4 py-1';
+
+            timelineItems.forEach((item, index) => {
+                const el = document.createElement('div');
+                el.className = 'relative pl-6';
+
+                const dot = document.createElement('span');
+                dot.className = 'absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-brand-600 ring-4 ring-white shadow-2xs';
+
+                const time = document.createElement('div');
+                time.className = 'text-[11px] font-mono text-slate-400 font-semibold';
+                time.textContent = item.at_str || 'Chưa xác định';
+
+                const title = document.createElement('div');
+                title.className = 'font-bold text-slate-800 text-xs mt-0.5';
+                title.textContent = item.label || 'Sự kiện';
+
+                el.appendChild(dot);
+                el.appendChild(time);
+                el.appendChild(title);
+
+                if (item.actor) {
+                    const actor = document.createElement('div');
+                    actor.className = 'text-[11px] text-slate-500 mt-0.5';
+                    actor.textContent = `Người thao tác: ${item.actor}`;
+                    el.appendChild(actor);
+                }
+
+                if (item.note) {
+                    const note = document.createElement('div');
+                    note.className = 'text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-200 mt-1';
+                    note.textContent = item.note;
+                    el.appendChild(note);
+                }
+
+                list.appendChild(el);
+            });
+            container.appendChild(list);
+        }
+
+        document.getElementById('timelineModal').classList.remove('hidden');
+    }
+
+    function closeTimelineModal() {
+        document.getElementById('timelineModal').classList.add('hidden');
+    }
+
+    // Report Issue Modal Handler
+    function openReportIssueModal(contractId, jobTitle) {
+        document.getElementById('report-contract-id').value = contractId;
+        document.getElementById('report-job-title').textContent = `#CA-${contractId} · ${jobTitle}`;
+        document.getElementById('report-reason').value = '';
+        document.getElementById('report-desc').value = '';
+        document.getElementById('modal-report-issue').classList.remove('hidden');
+    }
+
+    function closeReportIssueModal() {
+        document.getElementById('modal-report-issue').classList.add('hidden');
+    }
+
+    function executeReportIssue(e) {
+        e.preventDefault();
+        const contractId = document.getElementById('report-contract-id').value;
+        const reason = document.getElementById('report-reason').value;
+        const description = document.getElementById('report-desc').value;
+        const btn = document.getElementById('btn-submit-report');
+
+        if (!reason || !description) {
+            alert('Vui lòng nhập đầy đủ lý do và mô tả sự cố.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = 'Đang gửi...';
+
+        fetch(`/api/contracts/${contractId}/report-issue`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason, description: description })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Gửi yêu cầu hỗ trợ';
+            if (data.success) {
+                alert('Yêu cầu hỗ trợ đã được gửi thành công đến Quản trị viên VietTranslate.');
+                closeReportIssueModal();
+                window.location.reload();
+            } else {
+                alert(data.message || 'Không thể gửi yêu cầu hỗ trợ.');
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = 'Gửi yêu cầu hỗ trợ';
+            alert('Lỗi kết nối. Vui lòng thử lại sau.');
+        });
+    }
+
+    // Close on backdrop click
+    window.addEventListener('click', function(e) {
+        const modal1 = document.getElementById('timelineModal');
+        const modal2 = document.getElementById('modal-report-issue');
+        if (e.target === modal1) closeTimelineModal();
+        if (e.target === modal2) closeReportIssueModal();
+    });
+</script>
+{% endblock %}

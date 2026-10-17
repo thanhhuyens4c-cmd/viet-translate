@@ -28,6 +28,8 @@ TRANSLATIONS = {
             'lang_en': 'English',
             'messages_tooltip': 'Tin nhắn',
             'notifications_tooltip': 'Thông báo',
+            'help_tooltip': 'Trợ giúp & Hỗ trợ',
+            'settings_tooltip': 'Cài đặt & Bảo mật',
             'default_title': 'VietTranslate – Nền Tảng Kết Nối Phiên Dịch Viên Chuyên Nghiệp Toàn Cầu',
         },
 
@@ -77,11 +79,11 @@ TRANSLATIONS = {
 
         # ─── Home / Stats Bar ───
         'stats': {
-            'translators_count': '5,200+',
+            'translators_count': '11+',
             'translators_label': 'Phiên dịch viên chuyên nghiệp',
-            'satisfaction_rate': '99.4%',
+            'satisfaction_rate': '100%',
             'satisfaction_label': 'Tỷ lệ khách hàng hài lòng',
-            'contracts_count': '12,400+',
+            'contracts_count': '3+',
             'contracts_label': 'Hợp đồng hoàn thành thành công',
             'escrow_amount': '100%',
             'escrow_label': 'Quỹ thanh toán bảo vệ Escrow',
@@ -90,7 +92,7 @@ TRANSLATIONS = {
         # ─── Home / Language Strip ───
         'home_languages': {
             'badge': 'Ngôn ngữ phổ biến',
-            'title': 'Hỗ Trợ Toàn Diện 10+ Ngôn Ngữ Trọng Tâm',
+            'title': 'Hỗ Trợ Toàn Diện 13+ Ngôn Ngữ Trọng Tâm',
             'subtitle': 'Mỗi ngôn ngữ đều có đội ngũ phiên dịch viên đã qua kiểm tra chứng chỉ quốc tế và kinh nghiệm thực chiến.',
             'view_all': 'Xem tất cả phiên dịch viên',
             'translators_suffix': 'chuyên gia',
@@ -216,8 +218,8 @@ TRANSLATIONS = {
             'policy_item1_text': 'Áp dụng nếu phiên dịch viên vắng mặt, hủy ca đột xuất hoặc không bàn giao tài liệu như đã ký kết.',
             'policy_item2_label': 'Hỗ trợ giải quyết tranh chấp:',
             'policy_item2_text': 'Ban quản trị VietTranslate tham gia đối soát chứng từ, ghi âm, bản dịch trong vòng 24 giờ làm việc.',
-            'policy_item3_label': '99.4% tỉ lệ hài lòng:',
-            'policy_item3_text': 'Hơn 12,000+ hợp đồng giao dịch an toàn không phát sinh tranh chấp.',
+            'policy_item3_label': '100% tỉ lệ hài lòng:',
+            'policy_item3_text': 'Toàn bộ hợp đồng giao dịch an toàn không phát sinh tranh chấp.',
         },
 
         # ─── Authentication (Login & Register) ───
@@ -453,7 +455,7 @@ TRANSLATIONS = {
             'cat_negotiation': 'Phiên dịch Đàm phán thương mại',
             'cat_document': 'Biên dịch tài liệu / Hợp đồng',
             'cat_legal': 'Phiên dịch Pháp lý / Tòa án',
-            'submit_btn': 'Đăng Tin Tuyển Dụng Ngay',
+            'submit_btn': 'Gửi duyệt',
             'cancel_btn': 'Hủy bỏ',
         },
 
@@ -461,7 +463,7 @@ TRANSLATIONS = {
         'profile_page': {
             'breadcrumb_home': 'Trang chủ',
             'breadcrumb_translators': 'Phiên dịch viên',
-            'verified': 'Xác minh',
+            'verified': 'Đã xác minh',
             'chat_now': 'Trò chuyện ngay',
             'reviews_count': 'đánh giá',
             'completed_projects': 'Đã hoàn thành',
@@ -486,6 +488,7 @@ TRANSLATIONS = {
             'input_placeholder': 'Nhập tin nhắn trao đổi công việc...',
             'role_translator': 'Phiên dịch viên chuyên nghiệp',
             'role_hirer': 'Khách hàng',
+            'upload_image': 'Gửi hình ảnh',
         },
 
         # ─── Account History Page ───
@@ -513,9 +516,30 @@ TRANSLATIONS = {
             'nav_profile': 'Hồ sơ cá nhân',
             'nav_history': 'Lịch sử giao dịch',
             'nav_public_page': 'Xem trang công khai',
+            'nav_notifications': 'Hộp thư thông báo',
+            'tab_overview': 'Tổng quan hồ sơ',
             'tab_basic': 'Thông tin cá nhân',
             'tab_translator': 'Hồ sơ chuyên môn',
+            'tab_verification': 'Xác minh hồ sơ',
             'tab_security': 'Bảo mật & Mật khẩu',
+            'heading_overview': 'Tổng Quan Hồ Sơ & Trạng Thái',
+            'btn_start_verification': 'Bắt đầu xác minh',
+            'btn_continue_verification': 'Tiếp tục hoàn thiện hồ sơ',
+            'btn_view_verification_status': 'Xem trạng thái xác minh',
+            'btn_update_verification': 'Bổ sung hồ sơ ngay',
+            'btn_view_public_profile': 'Xem hồ sơ công khai',
+            'btn_resubmit_verification': 'Xem lý do & Gửi lại',
+            'completion_title': 'Tiến độ hoàn thiện hồ sơ',
+            'missing_items_title': 'Các mục còn thiếu hoặc cần bổ sung',
+            'heading_verification': 'Xác minh Hồ Sơ & Năng Lực',
+            'verified_title': 'Hồ sơ đã được xác minh chính thức',
+            'verified_desc': 'Hồ sơ của bạn đã hoàn tất xác minh danh tính và năng lực chuyên môn. Huy hiệu tích xanh uy tín hiện đang hiển thị trên trang cá nhân và danh sách ứng tuyển.',
+            'pending_title': 'Hồ sơ đang chờ phê duyệt',
+            'pending_desc': 'Yêu cầu xác minh của bạn đã được gửi tới Ban quản trị và đang trong quá trình xét duyệt. Quá trình này thường diễn ra trong vòng 24–48 giờ làm việc.',
+            'rejected_title': 'Hồ sơ chưa được phê duyệt',
+            'rejected_desc': 'Yêu cầu xác minh của bạn chưa đạt yêu cầu. Vui lòng xem lý do bên dưới, cập nhật lại tài liệu và gửi lại.',
+            'submit_verification_btn': 'Gửi hồ sơ xác minh',
+            'resubmit_verification_btn': 'Cập nhật & Nộp lại hồ sơ',
             'heading_basic': 'Thông tin tài khoản',
             'label_name': 'Họ và tên',
             'label_email': 'Email tài khoản',
@@ -649,14 +673,26 @@ TRANSLATIONS = {
             'translators_heading': 'Thẩm Định & Duyệt Phiên Dịch Viên',
             'tab_pending_verify': 'Chờ duyệt xác minh',
             'tab_verified': 'Đã xác minh (Tích xanh)',
+            'tab_all_translators': 'Tất cả phiên dịch viên',
+            'tab_rejected_verify': 'Bị từ chối',
             'th_translator': 'Phiên dịch viên',
             'th_languages': 'Ngôn ngữ',
             'th_specialty': 'Chuyên môn / Tiêu đề',
+            'th_credentials': 'Chứng chỉ & Bằng cấp',
+            'th_documents': 'Tài liệu thẩm định',
             'action_view_profile': 'Xem hồ sơ',
             'action_verify_confirm': 'Cấp tích xanh Xác minh cho người này?',
             'action_grant_verify': 'Cấp tích xanh',
+            'action_approve_verify': 'Phê duyệt',
+            'action_reject_verify': 'Từ chối',
             'action_revoke_confirm': 'Thu hồi tích xanh Xác minh của người này?',
             'action_revoke': 'Thu hồi',
+            'btn_view_cv': 'Xem CV',
+            'btn_view_cert': 'Xem Bằng',
+            'btn_view_id': 'Xem CCCD',
+            'reject_modal_title': 'Từ chối yêu cầu xác minh',
+            'reject_reason_label': 'Lý do từ chối (gửi tới phiên dịch viên):',
+            'reject_reason_placeholder': 'VD: Ảnh chứng chỉ không rõ ràng; CV thiếu kinh nghiệm...',
             'no_pending_profiles': 'Không có hồ sơ nào đang chờ duyệt.',
             'no_verified_profiles': 'Chưa có hồ sơ nào được xác minh.',
             'users_title': 'Quản Lý Tài Khoản Thành Viên | VietTranslate Admin',
@@ -693,12 +729,42 @@ TRANSLATIONS = {
             'subtitle': 'Cập nhật mới nhất về tài khoản của bạn',
             'mark_all_read': 'Đánh dấu tất cả đã đọc',
             'filter_all': 'Tất cả',
+            'filter_verification': 'Xác minh hồ sơ',
             'filter_job': 'Việc làm',
             'filter_message': 'Tin nhắn',
             'filter_contract': 'Hợp đồng',
             'filter_review': 'Đánh giá',
             'loading': 'Đang tải...',
             'empty': 'Bạn không có thông báo nào',
+            'time_just_now': 'Vừa xong',
+            'time_minutes_ago': 'phút trước',
+            'time_hours_ago': 'giờ trước',
+            'time_days_ago': 'ngày trước',
+        },
+
+        # ─── Verification Notifications Page ───
+        'verification_notifications_page': {
+            'title': 'Trung tâm Thông báo Xác minh Hồ sơ – VietTranslate',
+            'heading': 'Thông báo Xác minh Hồ sơ',
+            'subtitle': 'Kênh thông báo chuyên biệt theo dõi tiến trình xét duyệt và chính sách xác minh năng lực phiên dịch viên',
+            'mark_all_read': 'Đánh dấu tất cả đã đọc',
+            'filter_all': 'Tất cả',
+            'filter_unread': 'Chưa đọc',
+            'filter_submitted': 'Tiếp nhận',
+            'filter_revision': 'Yêu cầu bổ sung',
+            'filter_approved': 'Đã xác minh',
+            'filter_rejected': 'Bị từ chối',
+            'filter_policy': 'Chính sách & Cập nhật',
+            'loading': 'Đang tải thông báo xác minh...',
+            'loading_sub': 'Vui lòng chờ trong giây lát',
+            'empty_title': 'Chưa có thông báo xác minh nào',
+            'empty_desc': 'Mọi cập nhật về trạng thái tiếp nhận, yêu cầu bổ sung, kết quả phê duyệt và chính sách định kỳ sẽ xuất hiện tại đây ngay khi có sự kiện phát sinh.',
+            'error_title': 'Không thể tải thông báo',
+            'error_desc': 'Đã có lỗi xảy ra khi kết nối máy chủ hoặc lấy danh sách thông báo. Vui lòng thử lại.',
+            'btn_retry': 'Thử lại ngay',
+            'btn_view_status': 'Theo dõi tiến độ hồ sơ',
+            'btn_mark_read': 'Đánh dấu đã đọc',
+            'btn_process': 'Chuyển tới xử lý',
             'time_just_now': 'Vừa xong',
             'time_minutes_ago': 'phút trước',
             'time_hours_ago': 'giờ trước',
@@ -882,6 +948,27 @@ TRANSLATIONS = {
             'nhắn_tin_trao_đổi_tr': 'Nhắn tin trao đổi trực tiếp',
             'phiên_dịch_viên_chuy': 'Phiên dịch viên chuyên nghiệp',
         },
+
+        # ─── Matching Reasons ───
+        'match_reasons': {
+            'exact_language_pair': 'Đúng chính xác cặp ngôn ngữ',
+            'reverse_language_pair': 'Cặp ngôn ngữ tương thích',
+            'partial_language': 'Trùng một trong hai ngôn ngữ',
+            'language_match': 'Khớp ngôn ngữ chuyên môn',
+            'specialty_match': 'Đúng lĩnh vực chuyên môn yêu cầu',
+            'qualification_match': 'Đáp ứng trình độ & bằng cấp chuyên ngành',
+            'verified_match': 'Hồ sơ đã được xác thực uy tín',
+            'exact_job_type': 'Đúng loại hình dịch vụ mong muốn',
+            'group_match': 'Cùng nhóm dịch vụ phiên dịch',
+            'experience_match': 'Hồ sơ có đánh giá & kinh nghiệm tốt',
+            'remote_work': 'Làm việc từ xa (Online)',
+            'location_match': 'Địa điểm làm việc phù hợp',
+            'budget_match': 'Mức thù lao đáp ứng kỳ vọng',
+            'industry_match': 'Có chuyên môn đúng ngành của khách',
+            'certified_match': 'Có thể cung cấp bản dịch chứng nhận',
+            'mode_match': 'Phù hợp hình thức làm việc',
+            'schedule_free': 'Lịch trống không bị trùng',
+        },
     },
 
     'en': {
@@ -906,6 +993,8 @@ TRANSLATIONS = {
             'lang_en': 'English',
             'messages_tooltip': 'Messages',
             'notifications_tooltip': 'Notifications',
+            'help_tooltip': 'Help & Support',
+            'settings_tooltip': 'Settings & Security',
             'default_title': 'VietTranslate – Premier Global Translator & Interpreter Connection Platform',
         },
 
@@ -955,11 +1044,11 @@ TRANSLATIONS = {
 
         # ─── Home / Stats Bar ───
         'stats': {
-            'translators_count': '5,200+',
+            'translators_count': '11+',
             'translators_label': 'Certified Professional Translators',
-            'satisfaction_rate': '99.4%',
+            'satisfaction_rate': '100%',
             'satisfaction_label': 'Client Satisfaction Rate',
-            'contracts_count': '12,400+',
+            'contracts_count': '3+',
             'contracts_label': 'Successfully Completed Contracts',
             'escrow_amount': '100%',
             'escrow_label': 'Escrow-Protected Payment Fund',
@@ -968,7 +1057,7 @@ TRANSLATIONS = {
         # ─── Home / Language Strip ───
         'home_languages': {
             'badge': 'Popular Languages',
-            'title': 'Comprehensive Support for 10+ Key Languages',
+            'title': 'Comprehensive Support for 13+ Key Languages',
             'subtitle': 'Each language is backed by a verified roster of linguists with recognized international certificates and industry expertise.',
             'view_all': 'View all translators',
             'translators_suffix': 'experts',
@@ -1094,8 +1183,8 @@ TRANSLATIONS = {
             'policy_item1_text': 'Applies if a translator fails to attend an assignment, cancels unexpectedly, or does not deliver agreed files.',
             'policy_item2_label': 'Dispute Resolution Support:',
             'policy_item2_text': 'VietTranslate administrators review recordings, time stamps, and deliverables within 24 business hours.',
-            'policy_item3_label': '99.4% Satisfaction Rate:',
-            'policy_item3_text': 'Over 12,000+ successfully completed transactions without unresolved disputes.',
+            'policy_item3_label': '100% Satisfaction Rate:',
+            'policy_item3_text': 'All completed transactions without unresolved disputes.',
         },
 
         # ─── Authentication (Login & Register) ───
@@ -1331,7 +1420,7 @@ TRANSLATIONS = {
             'cat_negotiation': 'Business & Negotiation Interpreting',
             'cat_document': 'Specialized Document Translation',
             'cat_legal': 'Legal & Courtroom Interpreting',
-            'submit_btn': 'Post Job Now',
+            'submit_btn': 'Submit for review',
             'cancel_btn': 'Cancel',
         },
 
@@ -1364,6 +1453,7 @@ TRANSLATIONS = {
             'input_placeholder': 'Type your message regarding the project...',
             'role_translator': 'Professional Translator',
             'role_hirer': 'Client',
+            'upload_image': 'Send image',
         },
 
         # ─── Account History Page ───
@@ -1391,9 +1481,30 @@ TRANSLATIONS = {
             'nav_profile': 'Account Profile',
             'nav_history': 'Transaction History',
             'nav_public_page': 'View Public Profile',
+            'nav_notifications': 'Notifications Inbox',
+            'tab_overview': 'Profile Overview',
             'tab_basic': 'Personal Information',
             'tab_translator': 'Professional Profile',
+            'tab_verification': 'Profile Verification',
             'tab_security': 'Security & Password',
+            'heading_overview': 'Profile Overview & Verification Status',
+            'btn_start_verification': 'Start Verification',
+            'btn_continue_verification': 'Continue Profile Draft',
+            'btn_view_verification_status': 'View Verification Status',
+            'btn_update_verification': 'Submit Revisions Now',
+            'btn_view_public_profile': 'View Public Profile',
+            'btn_resubmit_verification': 'Review Reason & Resubmit',
+            'completion_title': 'Profile Completion Progress',
+            'missing_items_title': 'Items to Complete or Supplement',
+            'heading_verification': 'Profile & Credentials Verification',
+            'verified_title': 'Officially Verified Profile',
+            'verified_desc': 'Your profile has passed identity and credentials verification. The verified badge is actively displayed on your public page and job proposals.',
+            'pending_title': 'Verification In Review',
+            'pending_desc': 'Your verification request has been submitted to Administrators and is pending review. This usually takes 24–48 business hours.',
+            'rejected_title': 'Verification Not Approved',
+            'rejected_desc': 'Your verification request was not approved. Please review the reason below, update your documents, and resubmit.',
+            'submit_verification_btn': 'Submit Verification Request',
+            'resubmit_verification_btn': 'Update & Resubmit Documents',
             'heading_basic': 'Account Information',
             'label_name': 'Full Name',
             'label_email': 'Account Email',
@@ -1571,12 +1682,42 @@ TRANSLATIONS = {
             'subtitle': 'The latest updates on your account',
             'mark_all_read': 'Mark all as read',
             'filter_all': 'All',
+            'filter_verification': 'Profile Verification',
             'filter_job': 'Jobs',
             'filter_message': 'Messages',
             'filter_contract': 'Contracts',
             'filter_review': 'Reviews',
             'loading': 'Loading...',
             'empty': 'You have no notifications',
+            'time_just_now': 'Just now',
+            'time_minutes_ago': 'minutes ago',
+            'time_hours_ago': 'hours ago',
+            'time_days_ago': 'days ago',
+        },
+
+        # ─── Verification Notifications Page ───
+        'verification_notifications_page': {
+            'title': 'Profile Verification Notifications – VietTranslate',
+            'heading': 'Verification Notifications',
+            'subtitle': 'Dedicated notification channel for tracking review milestones and platform verification policies',
+            'mark_all_read': 'Mark all as read',
+            'filter_all': 'All',
+            'filter_unread': 'Unread',
+            'filter_submitted': 'Received',
+            'filter_revision': 'Needs Revision',
+            'filter_approved': 'Verified',
+            'filter_rejected': 'Rejected',
+            'filter_policy': 'Policy & Updates',
+            'loading': 'Loading verification notifications...',
+            'loading_sub': 'Please wait a moment',
+            'empty_title': 'No verification notifications yet',
+            'empty_desc': 'Updates on receipt status, supplementary requests, review outcomes, and periodic policies will appear here immediately as events occur.',
+            'error_title': 'Unable to load notifications',
+            'error_desc': 'An error occurred while connecting to the server or retrieving notifications. Please try again.',
+            'btn_retry': 'Try Again',
+            'btn_view_status': 'Track Verification Progress',
+            'btn_mark_read': 'Mark as read',
+            'btn_process': 'Go to Action',
             'time_just_now': 'Just now',
             'time_minutes_ago': 'minutes ago',
             'time_hours_ago': 'hours ago',
@@ -1639,6 +1780,9 @@ TRANSLATIONS = {
             'remote_work': 'Remote work (Online)',
             'location_match': 'Matching location',
             'budget_match': 'Matching budget',
+            'industry_match': 'Expertise in the client\'s industry',
+            'certified_match': 'Can provide certified translations',
+            'mode_match': 'Matching working format',
             'schedule_free': 'Schedule available',
         },
 
@@ -1759,6 +1903,27 @@ TRANSLATIONS = {
             'phiên_dịch_viên_chưa': 'No fixed packages listed yet.',
             'nhắn_tin_trao_đổi_tr': 'Message Directly',
             'phiên_dịch_viên_chuy': 'Professional Interpreter',
+        },
+
+        # ─── Matching Reasons ───
+        'match_reasons': {
+            'exact_language_pair': 'Exact language pair match',
+            'reverse_language_pair': 'Compatible language pair',
+            'partial_language': 'Partial language match',
+            'language_match': 'Fluent language match',
+            'specialty_match': 'Required specialization matched',
+            'qualification_match': 'Qualifications & credentials matched',
+            'verified_match': 'Verified interpreter profile',
+            'exact_job_type': 'Preferred service type match',
+            'group_match': 'Matching service group',
+            'experience_match': 'High rating & verified experience',
+            'remote_work': 'Remote work (Online)',
+            'location_match': 'Matching work location',
+            'budget_match': 'Meets budget expectations',
+            'industry_match': 'Specialization in client industry',
+            'certified_match': 'Certified translation capable',
+            'mode_match': 'Work mode matched',
+            'schedule_free': 'Schedule available without conflict',
         },
     }
 }
@@ -1887,6 +2052,31 @@ LOCALIZED_LANGUAGES_DATA = [
         'cert_en': 'DELE B2 or higher',
     },
 ]
+
+def _load_json_translations():
+    import os
+    import json
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    for code in ('vi', 'en'):
+        json_file = os.path.join(base_dir, 'i18n', f'{code}.json')
+        if os.path.exists(json_file):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        if code not in TRANSLATIONS:
+                            TRANSLATIONS[code] = {}
+                        for sec_k, sec_v in data.items():
+                            if sec_k not in TRANSLATIONS[code]:
+                                TRANSLATIONS[code][sec_k] = sec_v
+                            elif isinstance(TRANSLATIONS[code][sec_k], dict) and isinstance(sec_v, dict):
+                                TRANSLATIONS[code][sec_k].update(sec_v)
+                            else:
+                                TRANSLATIONS[code][sec_k] = sec_v
+            except Exception:
+                pass
+
+_load_json_translations()
 
 
 def t(key, lang='vi', **kwargs):

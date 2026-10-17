@@ -20,6 +20,12 @@ from flask import (
 )
 from sqlalchemy.exc import SQLAlchemyError
 
+# Re-export tiện ích cho audit log (đảm bảo tương thích ngược)
+try:
+    from models import AdminAuditLog, ADMIN_AUDIT_ACTIONS
+except ImportError:
+    pass
+
 # ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 # Key phân biệt Admin session với User session
@@ -43,7 +49,8 @@ ROLE_PERMISSIONS = {
     'super_admin': {'*'},  # Toàn quyền
     'moderator': {
         'view_dashboard', 'view_users', 'view_translators', 'verify_translator',
-        'reject_translator', 'view_jobs', 'approve_job', 'reject_job',
+        'reject_translator', 'view_hirers', 'verify_hirer', 'reject_hirer',
+        'view_jobs', 'approve_job', 'reject_job', 'moderate_job',
         'flag_job', 'unflag_job', 'view_reports', 'resolve_report',
         'reject_report', 'view_reviews', 'hide_review', 'restore_review',
         'view_proposals', 'view_contracts', 'view_schedules', 'view_audit_logs',
@@ -54,11 +61,93 @@ ROLE_PERMISSIONS = {
         'view_proposals', 'view_notifications',
     },
     'support': {
-        'view_dashboard', 'view_users', 'view_translators', 'view_jobs',
+        'view_dashboard', 'view_users', 'view_translators', 'view_hirers', 'view_jobs',
         'view_reports', 'view_reviews', 'view_contracts', 'view_notifications',
         'lock_user', 'unlock_user', 'view_proposals', 'view_schedules', 'resolve_report', 'reject_report', 'view_audit_logs',
     }
 }
+
+ROLE_DESCRIPTIONS = {
+    'super_admin': {
+        'name': 'Super Admin',
+        'title': 'Quản trị viên Cấp cao',
+        'desc': 'Toàn quyền kiểm soát hệ thống, quản lý tài khoản và phân quyền cho mọi Admin khác.',
+        'badge': 'badge-yellow',
+        'color': '#f59e0b',
+    },
+    'moderator': {
+        'name': 'Content Moderator',
+        'title': 'Kiểm duyệt viên Nội dung',
+        'desc': 'Kiểm duyệt hồ sơ phiên dịch viên, nhà tuyển dụng, tin tuyển dụng, đánh giá và xử lý báo cáo vi phạm.',
+        'badge': 'badge-blue',
+        'color': '#3b82f6',
+    },
+    'support': {
+        'name': 'Customer Support',
+        'title': 'Hỗ trợ Khách hàng',
+        'desc': 'Hỗ trợ người dùng, khóa/mở khóa tài khoản vi phạm, theo dõi hợp đồng, lịch hẹn và xử lý báo cáo.',
+        'badge': 'badge-gray',
+        'color': '#94a3b8',
+    },
+    'finance': {
+        'name': 'Finance Manager',
+        'title': 'Quản lý Tài chính',
+        'desc': 'Theo dõi thanh toán Escrow, giao dịch hợp đồng dịch thuật và phê duyệt hoàn tiền (Refund).',
+        'badge': 'badge-green',
+        'color': '#10b981',
+    }
+}
+
+PERMISSION_GROUPS = [
+    {
+        'group': 'Tổng quan & Hệ thống',
+        'permissions': [
+            ('view_dashboard', 'Xem trang Tổng quan (Dashboard)'),
+            ('view_notifications', 'Xem Thông báo hệ thống'),
+            ('view_audit_logs', 'Xem Nhật ký hoạt động (Audit Logs)'),
+            ('manage_admins', 'Quản lý & Phân quyền Admin cấp dưới'),
+        ]
+    },
+    {
+        'group': 'Người dùng & Tài khoản',
+        'permissions': [
+            ('view_users', 'Xem danh sách người dùng'),
+            ('lock_user', 'Khóa / Mở khóa người dùng'),
+            ('view_translators', 'Xem danh sách Phiên dịch viên'),
+            ('verify_translator', 'Duyệt / Từ chối Phiên dịch viên'),
+            ('view_hirers', 'Xem danh sách Khách thuê'),
+            ('verify_hirer', 'Duyệt / Từ chối Khách thuê'),
+        ]
+    },
+    {
+        'group': 'Tin tuyển dụng & Dự án',
+        'permissions': [
+            ('view_jobs', 'Xem danh sách tin tuyển dụng'),
+            ('approve_job', 'Duyệt / Từ chối tin tuyển dụng'),
+            ('flag_job', 'Gắn cờ / Bỏ cờ vi phạm tin đăng'),
+            ('moderate_job', 'Chỉnh sửa / Lưu trữ tin đăng'),
+            ('view_proposals', 'Xem báo giá / Ứng tuyển'),
+            ('view_contracts', 'Xem hợp đồng dịch thuật'),
+            ('view_schedules', 'Xem lịch hẹn phiên dịch'),
+        ]
+    },
+    {
+        'group': 'Báo cáo & Đánh giá',
+        'permissions': [
+            ('view_reports', 'Xem danh sách báo cáo vi phạm'),
+            ('resolve_report', 'Xử lý / Từ chối báo cáo vi phạm'),
+            ('view_reviews', 'Xem đánh giá từ khách hàng'),
+            ('hide_review', 'Ẩn / Khôi phục đánh giá'),
+        ]
+    },
+    {
+        'group': 'Tài chính & Thanh toán',
+        'permissions': [
+            ('view_payments', 'Xem dòng tiền Escrow & giao dịch'),
+            ('refund_payment', 'Thực hiện hoàn tiền (Refund)'),
+        ]
+    }
+]
 
 
 # ─── IP HELPER ────────────────────────────────────────────────────────────────
@@ -145,7 +234,7 @@ def create_admin_session(user):
 
     now_ts = datetime.utcnow().timestamp()
     session[ADMIN_SESSION_KEY] = user.id
-    session[ADMIN_SESSION_ROLE] = user.admin_role if hasattr(user, 'admin_role') else 'super_admin'
+    session[ADMIN_SESSION_ROLE] = getattr(user, 'admin_role', None)
     session[ADMIN_SESSION_CREATED] = now_ts
     session[ADMIN_SESSION_LAST_SEEN] = now_ts
     session[ADMIN_SESSION_CSRF] = secrets.token_hex(32)
@@ -170,6 +259,10 @@ def is_admin_session_valid():
     3. Thời gian idle không quá ADMIN_IDLE_TIMEOUT_SECONDS.
     Trả về (is_valid: bool, reason: str).
     """
+    from flask import has_request_context
+    if not has_request_context():
+        return False, 'no_request_context'
+
     admin_id = session.get(ADMIN_SESSION_KEY)
     if not admin_id:
         return False, 'no_session'
@@ -210,8 +303,9 @@ def get_current_admin():
         from models import User
         user = User.query.get(admin_id)
         # Xác minh lại server-side: phải là admin và còn active
-        if user and user.is_admin and user.is_active:
-            return user
+        if user and getattr(user, 'is_admin', False) and getattr(user, 'is_active', False):
+            if getattr(user, 'admin_role', None) in ADMIN_ROLES:
+                return user
         return None
     except SQLAlchemyError as e:
         print(f'[ADMIN AUTH] DB error in get_current_admin: {e}')
@@ -247,7 +341,7 @@ def admin_login_required(f):
 
         # 3. Lưu admin vào g để dùng trong request
         g.current_admin = admin
-        g.admin_role = session.get(ADMIN_SESSION_ROLE, 'moderator')
+        g.admin_role = admin.admin_role
         g.csrf_token = get_csrf_token()
 
         # 4. Refresh idle timer

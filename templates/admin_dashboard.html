@@ -50,7 +50,7 @@
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px;">
 
     <!-- Recent Users -->
     <div class="admin-card">
@@ -63,27 +63,29 @@
                 {{ t('admin_page.view_all') }}
             </a>
         </div>
-        <table class="admin-table">
-            <tbody>
-                {% for user in recent_users %}
-                <tr>
-                    <td>
-                        <div style="font-weight: 600; color: #f1f5f9;">{{ user.name }}</div>
-                        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">{{ user.email }}</div>
-                    </td>
-                    <td style="text-align: right;">
-                        <span class="badge badge-gray">{{ user.role }}</span>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="2" class="empty-state">
-                        <div class="empty-state-title">{{ t('admin_page.no_users_data') }}</div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div style="overflow-x: auto;">
+            <table class="admin-table">
+                <tbody>
+                    {% for user in recent_users %}
+                    <tr>
+                        <td>
+                            <div style="font-weight: 600; color: #f1f5f9;">{{ user.name }}</div>
+                            <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">{{ user.email }}</div>
+                        </td>
+                        <td style="text-align: right;">
+                            <span class="badge badge-gray">{{ user.role }}</span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="2" class="empty-state">
+                            <div class="empty-state-title">{{ t('admin_page.no_users_data') }}</div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Admin Navigation (Quick Links) -->

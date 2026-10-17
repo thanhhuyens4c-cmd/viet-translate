@@ -45,6 +45,10 @@
                                 <a href="{{ url_for('admin_jobs') }}?search={{ c.job.id }}" class="text-slate-200 hover:text-white hover:underline truncate max-w-[150px]" title="Job: {{ c.job.title }}">
                                     <span class="text-xs text-brand font-semibold">[JOB]</span> {{ c.job.title }}
                                 </a>
+                            {% elif c.interpreter_service %}
+                                <span class="text-slate-200 truncate max-w-[150px]" title="Phiên dịch: {{ c.interpreter_service.source_lang }} → {{ c.interpreter_service.target_lang }}">
+                                    <span class="text-xs text-blue-400 font-semibold">[INT]</span> {{ c.interpreter_service.source_lang }} → {{ c.interpreter_service.target_lang }}
+                                </span>
                             {% elif c.service %}
                                 <span class="text-slate-200 truncate max-w-[150px]" title="Service: {{ c.service.name }}">
                                     <span class="text-xs text-purple-400 font-semibold">[SRV]</span> {{ c.service.name }}
@@ -64,15 +68,27 @@
                         <div class="flex flex-col gap-2">
                             <div class="flex items-center gap-2">
                                 <span class="text-[10px] uppercase font-bold text-slate-500 w-8">KH:</span>
-                                <a href="{{ url_for('admin_users') }}?search={{ c.hirer.email }}" class="text-sm text-slate-300 hover:text-white hover:underline truncate max-w-[120px]">
-                                    {{ c.hirer.name }}
-                                </a>
+                                {% if c.hirer %}
+                                    <a href="{{ url_for('admin_users') }}?search={{ c.hirer.email }}" class="text-sm text-slate-300 hover:text-white hover:underline truncate max-w-[120px]" title="{{ c.hirer.email }}">
+                                        {{ c.hirer.name }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-xs text-slate-500 italic" title="Người dùng lịch sử đã bị xóa hoặc không còn tồn tại">
+                                        Khách cũ (#{{ c.hirer_id }})
+                                    </span>
+                                {% endif %}
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="text-[10px] uppercase font-bold text-slate-500 w-8">PDV:</span>
-                                <a href="{{ url_for('admin_translators') }}?search={{ c.translator.email }}" class="text-sm text-slate-300 hover:text-white hover:underline truncate max-w-[120px]">
-                                    {{ c.translator.name }}
-                                </a>
+                                {% if c.translator %}
+                                    <a href="{{ url_for('admin_translators') }}?search={{ c.translator.email }}" class="text-sm text-slate-300 hover:text-white hover:underline truncate max-w-[120px]" title="{{ c.translator.email }}">
+                                        {{ c.translator.name }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-xs text-slate-500 italic" title="Phiên dịch viên lịch sử đã bị xóa hoặc không còn tồn tại">
+                                        PDV cũ (#{{ c.translator_id }})
+                                    </span>
+                                {% endif %}
                             </div>
                         </div>
                     </td>
@@ -109,7 +125,7 @@
                     <td>
                         <div class="flex flex-col items-end gap-2">
                             <button class="btn btn-sm btn-ghost" onclick="viewContractDetail({{ c.id }})">Chi tiết</button>
-                            {% if c.schedule %}
+                            {% if c.schedule_entries %}
                                 <a href="{{ url_for('admin_schedules') }}?contract_id={{ c.id }}" class="text-[10px] text-brand hover:underline">Xem lịch trình</a>
                             {% endif %}
                         </div>

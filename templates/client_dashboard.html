@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Tổng quan | VietTranslate{% endblock %}
+
+{% block content %}
+<div class="bg-slate-50/60 min-h-screen py-8 sm:py-12">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 overflow-x-hidden">
+
+    <!-- A. Header -->
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+        <div class="min-w-0">
+            <h1 class="text-2xl font-extrabold text-slate-900">Tổng quan</h1>
+            <p class="text-sm font-semibold text-slate-700 mt-1">Xin chào, {{ user.name }} 👋</p>
+            <p class="text-sm text-slate-500 mt-1">Theo dõi yêu cầu dịch thuật, báo giá, dự án và những việc cần xử lý trong tài khoản của bạn.</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-3 shrink-0">
+            <a href="{{ url_for('post_job') }}" class="inline-flex justify-center items-center bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition shadow-sm">+ Đăng yêu cầu dịch thuật</a>
+            <a href="{{ url_for('translator_list') }}" class="inline-flex justify-center items-center bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold px-5 py-2.5 rounded-xl border border-slate-200 transition">Tìm phiên dịch viên</a>
+        </div>
+    </div>
+
+    <!-- Error state -->
+    <div id="dash-error" class="hidden bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3" role="alert">
+        <p class="text-sm font-semibold">Không thể tải dữ liệu tổng quan. Vui lòng kiểm tra kết nối và thử lại.</p>
+        <button type="button" id="dash-retry" class="self-start sm:self-auto bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition">Thử lại</button>
+    </div>
+
+    <!-- B. Stats -->
+    <div id="dash-stats" class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-6 min-w-0">
+            <!-- C. Recent requests -->
+            <section class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-bold text-slate-900">Yêu cầu gần đây</h2>
+                    <a href="{{ url_for('my_jobs') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700">Yêu cầu của tôi →</a>
+                </div>
+                <div id="dash-requests"></div>
+            </section>
+            <!-- D. Recent projects -->
+            <section class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+                <div class="flex items-center justify-between mb-4"><h2 class="font-bold text-slate-900">Dự án gần đây</h2><a href="{{ url_for('my_projects') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700">Dự án của tôi →</a></div>
+                <div id="dash-projects"></div>
+            </section>
+        </div>
+        <div class="space-y-6 min-w-0">
+            <!-- F. Tasks -->
+            <section class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+                <h2 class="font-bold text-slate-900 mb-4">Việc cần xử lý</h2>
+                <div id="dash-tasks"></div>
+            </section>
+            <!-- E. Activity -->
+            <section class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-bold text-slate-900">Hoạt động gần đây</h2>
+                    <a href="{{ url_for('notifications_page') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700">Tất cả →</a>
+                </div>
+                <div id="dash-activity"></div>
+            </section>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const URLS = {
+        post: {{ url_for('post_job')|tojson }},
+        find: {{ url_for('translator_list')|tojson }},
+        jobs: {{ url_for('account_history')|tojson }},
+        myJobs: {{ url_for('my_jobs')|tojson }},
+        projInProgress: {{ url_for('my_projects', status='in_progress')|tojson }},
+        projAwaiting: {{ url_for('my_projects', status='awaiting_acceptance')|tojson }},
+        myOpenJobs: {{ url_for('my_jobs', status='open')|tojson }},
+        messages: {{ url_for('messages_page')|tojson }},
+    };
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    // Chỉ cho phép URL nội bộ
+    const safeUrl = (u) => (typeof u === 'string' && u.startsWith('/') && !u.startsWith('//')) ? u : '#';
+
+    const ICONS = {
+        doc: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+        tag: 'M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z',
+        work: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+        check: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+        chat: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z',
+    };
+    const STATS = [
+        {key: 'open_requests', label: 'Yêu cầu đang mở', icon: 'doc', url: URLS.myOpenJobs},
+        {key: 'new_proposals', label: 'Báo giá mới', icon: 'tag', url: URLS.myOpenJobs},
+        {key: 'in_progress', label: 'Dự án đang thực hiện', icon: 'work', url: URLS.projInProgress},
+        {key: 'awaiting_acceptance', label: 'Dự án chờ nghiệm thu', icon: 'check', url: URLS.projAwaiting},
+        {key: 'unread_messages', label: 'Tin nhắn chưa đọc', icon: 'chat', url: URLS.messages},
+    ];
+    const BADGE = {
+        open: 'bg-emerald-50 text-emerald-800 border-emerald-200/70',
+        in_progress: 'bg-brand-50 text-brand-800 border-brand-200/70',
+        escrow_pending: 'bg-amber-50 text-amber-800 border-amber-200/70',
+        completed: 'bg-slate-100 text-slate-700 border-slate-200',
+    };
+    const badge = (status, label) => `<span class="px-2.5 py-1 text-[11px] font-bold rounded-full border whitespace-nowrap ${BADGE[status] || 'bg-slate-100 text-slate-600 border-slate-200'}">${esc(label)}</span>`;
+
+    const skel = (n, h) => Array.from({length: n}, () => `<div class="animate-pulse bg-slate-100 rounded-xl ${h} mb-3"></div>`).join('');
+    const empty = (text, href, cta) => `<div class="text-center py-8 px-4"><p class="text-sm text-slate-500 mb-3">${esc(text)}</p>${href ? `<a href="${href}" class="inline-block text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 px-4 py-2 rounded-lg transition">${esc(cta)}</a>` : ''}</div>`;
+    const linkBtn = (href, text) => `<a href="${safeUrl(href)}" class="inline-flex text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50/60 hover:bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-200/50 transition whitespace-nowrap">${esc(text)}</a>`;
+
+    function showLoading() {
+        $('dash-error').classList.add('hidden');
+        $('dash-stats').innerHTML = Array.from({length: 5}, () => '<div class="animate-pulse bg-white border border-slate-200/90 rounded-2xl h-24"></div>').join('');
+        $('dash-requests').innerHTML = skel(3, 'h-14');
+        $('dash-projects').innerHTML = skel(3, 'h-14');
+        $('dash-tasks').innerHTML = skel(2, 'h-14');
+        $('dash-activity').innerHTML = skel(3, 'h-10');
+    }
+
+    function renderStats(s) {
+        $('dash-stats').innerHTML = STATS.map(c => `
+            <a href="${c.url}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-4 hover:border-brand-300 hover:shadow-md transition min-w-0">
+                <span class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mb-3">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${ICONS[c.icon]}"/></svg>
+                </span>
+                <p class="text-2xl font-extrabold text-slate-900">${Number(s[c.key]) || 0}</p>
+                <p class="text-xs font-semibold text-slate-500 group-hover:text-brand-600 transition">${esc(c.label)}</p>
+            </a>`).join('');
+    }
+
+    function renderRequests(list) {
+        if (!list.length) { $('dash-requests').innerHTML = empty('Bạn chưa đăng yêu cầu dịch thuật nào.', URLS.post, '+ Đăng yêu cầu đầu tiên'); return; }
+        $('dash-requests').innerHTML = `<ul class="divide-y divide-slate-100">${list.map(r => `
+            <li class="py-3.5 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                <div class="min-w-0">
+                    <p class="font-bold text-sm text-slate-900 truncate">${esc(r.title)}</p>
+                    <p class="text-xs text-slate-500 mt-0.5">${esc(r.language_pair || '—')} · ${esc(r.service)}</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Đăng ${esc(r.created_at)} · ${Number(r.proposal_count)} báo giá</p>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">${badge(r.status, r.status_label)}${linkBtn(r.url, 'Xem chi tiết')}</div>
+            </li>`).join('')}</ul>`;
+    }
+
+    function renderProjects(list) {
+        if (!list.length) { $('dash-projects').innerHTML = empty('Chưa có dự án nào. Dự án được tạo khi bạn chấp nhận một báo giá hoặc đặt dịch vụ.', URLS.find, 'Tìm phiên dịch viên'); return; }
+        $('dash-projects').innerHTML = `<ul class="divide-y divide-slate-100">${list.map(p => `
+            <li class="py-3.5 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                <div class="min-w-0">
+                    <p class="font-bold text-sm text-slate-900 truncate">${esc(p.title)}</p>
+                    <p class="text-xs text-slate-500 mt-0.5">${p.translator ? 'Phiên dịch viên: ' + esc(p.translator) : ''}</p>
+                    <p class="text-xs text-slate-400 mt-0.5">${p.deadline ? 'Deadline: ' + esc(p.deadline) : 'Chưa có deadline'}</p>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">${badge(p.status, p.status_label)}${linkBtn(p.url, 'Xem dự án')}</div>
+            </li>`).join('')}</ul>`;
+    }
+
+    function renderTasks(list) {
+        if (!list.length) { $('dash-tasks').innerHTML = empty('Bạn không có việc nào cần xử lý. 🎉'); return; }
+        const dot = {warn: 'bg-amber-500', info: 'bg-brand-600', neutral: 'bg-slate-400'};
+        $('dash-tasks').innerHTML = `<ul class="space-y-3">${list.map(t => `
+            <li class="flex gap-3 items-start">
+                <span class="w-2 h-2 rounded-full mt-1.5 shrink-0 ${dot[t.level] || dot.neutral}"></span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-bold text-slate-900 break-words">${esc(t.title)}</p>
+                    <p class="text-xs text-slate-500 mt-0.5 mb-2">${esc(t.desc)}</p>
+                    ${linkBtn(t.url, t.cta)}
+                </div>
+            </li>`).join('')}</ul>`;
+    }
+
+    function renderActivity(list) {
+        if (!list.length) { $('dash-activity').innerHTML = empty('Chưa có hoạt động nào.'); return; }
+        $('dash-activity').innerHTML = `<ul class="space-y-3">${list.map(a => `
+            <li><a href="${safeUrl(a.url)}" class="block rounded-xl hover:bg-slate-50 p-2 -m-2 transition">
+                <p class="text-sm text-slate-900 ${a.is_read ? 'font-semibold' : 'font-bold'} break-words">${a.is_read ? '' : '<span class="inline-block w-1.5 h-1.5 rounded-full bg-brand-600 mr-1.5 align-middle"></span>'}${esc(a.title)}</p>
+                <p class="text-xs text-slate-500 break-words">${esc(a.message)}</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">${esc(a.created_at)}</p>
+            </a></li>`).join('')}</ul>`;
+    }
+
+    async function load() {
+        showLoading();
+        try {
+            const res = await fetch('/api/dashboard/summary', {headers: {'Accept': 'application/json'}, credentials: 'same-origin'});
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const d = await res.json();
+            renderStats(d.stats);
+            renderRequests(d.recent_requests);
+            renderProjects(d.recent_projects);
+            renderTasks(d.tasks);
+            renderActivity(d.activities);
+        } catch (e) {
+            $('dash-error').classList.remove('hidden');
+            $('dash-stats').innerHTML = '';
+            ['dash-requests', 'dash-projects', 'dash-tasks', 'dash-activity'].forEach(id => $(id).innerHTML = '');
+        }
+    }
+    $('dash-retry').addEventListener('click', load);
+    load();
+})();
+</script>
+{% endblock %}

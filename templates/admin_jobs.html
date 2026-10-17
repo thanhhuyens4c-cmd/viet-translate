@@ -6,12 +6,80 @@
 
 {% block content %}
 <div class="admin-card">
-    <!-- Filter Tabs -->
-    <div class="filter-bar">
-        <a href="?status=all" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">{{ t('admin_page.filter_all') }}</a>
-        <a href="?status=open" class="filter-tab {% if status_filter == 'open' %}active{% endif %}">{{ t('admin_page.filter_open') }}</a>
-        <a href="?status=flagged" class="filter-tab danger {% if status_filter == 'flagged' %}active{% endif %}">{{ t('admin_page.filter_flagged') }}</a>
-        <a href="?status=completed" class="filter-tab {% if status_filter == 'completed' %}active{% endif %}">{{ t('admin_page.filter_completed') }}</a>
+    
+    <!-- Top Area: Quick Checklist Drawer & Filter Tabs -->
+    <div style="margin-bottom: 20px;">
+        
+        <!-- Checklist nhanh 8 mục (Dành cho lúc hàng chờ đông) -->
+        <div style="background: rgba(15,23,42,0.6); border: 1px solid #334155; border-radius: 12px; margin-bottom: 20px; overflow: hidden;">
+            <div onclick="toggleQuickChecklist()" style="padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+                <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 13px; color: #f1f5f9;">
+                    <span style="color: #3b82f6;">⚡</span> Checklist nhanh 8 mục sàng lọc (Dành cho xử lý hàng chờ đông)
+                </div>
+                <div style="font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
+                    <span>Nhấn để xem 8 quy tắc</span>
+                    <span id="quickChecklistArrow">▼</span>
+                </div>
+            </div>
+            <div id="quickChecklistBody" style="display: none; padding: 14px 18px; border-top: 1px solid #334155; background: #0f172a; font-size: 12px; color: #cbd5e1;">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    <div style="display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #3b82f6; font-weight: 700;">1.</span>
+                        <span>Đọc xong biết rõ dịch gì, ngôn ngữ nào, ở đâu, khi nào và giá bao nhiêu.</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #3b82f6; font-weight: 700;">2.</span>
+                        <span>Loại dịch vụ và cặp ngôn ngữ khớp hoàn toàn với nội dung mô tả.</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #3b82f6; font-weight: 700;">3.</span>
+                        <span>Ngân sách nằm trong khung thị trường, không thấp dưới sàn hoặc ảo bất thường.</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #ef4444; font-weight: 700;">4.</span>
+                        <span><strong>Tuyệt đối không</strong> có thông tin liên hệ ngoài (Zalo, SĐT, Telegram) hoặc gạ thanh toán ngoài.</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #ef4444; font-weight: 700;">5.</span>
+                        <span><strong>Tuyệt đối không</strong> yêu cầu phiên dịch viên đóng phí, đặt cọc giữ chỗ.</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #3b82f6; font-weight: 700;">6.</span>
+                        <span>Không yêu cầu thông tin nhân thân (CCCD, tình trạng hôn nhân, ngoại hình) không liên quan.</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #3b82f6; font-weight: 700;">7.</span>
+                        <span>Địa điểm làm việc rõ ràng tại Việt Nam; không có dấu hiệu đưa người ra nước ngoài.</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="color: #22c55e; font-weight: 700;">8.</span>
+                        <span>Người đăng tuyển <strong>đã hoàn thành xác minh danh tính</strong> (có tích xanh).</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-bar" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="?status=all" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">Tất cả</a>
+            <a href="?status=pending" class="filter-tab {% if status_filter == 'pending' %}active{% endif %}">
+                Chờ duyệt
+                {% if pending_count and pending_count > 0 %}
+                <span class="nav-badge warning" style="margin-left: 6px;">{{ pending_count }}</span>
+                {% endif %}
+            </a>
+            <a href="?status=critical" class="filter-tab danger {% if status_filter == 'critical' %}active{% endif %}">
+                Nghiêm trọng
+                {% if critical_count and critical_count > 0 %}
+                <span class="nav-badge" style="margin-left: 6px;">{{ critical_count }}</span>
+                {% endif %}
+            </a>
+            <a href="?status=needs_revision" class="filter-tab {% if status_filter == 'needs_revision' %}active{% endif %}">Cần xem xét</a>
+            <a href="?status=open" class="filter-tab {% if status_filter == 'open' %}active{% endif %}">Đã duyệt</a>
+            <a href="?status=rejected" class="filter-tab danger {% if status_filter == 'rejected' %}active{% endif %}">Bị từ chối</a>
+            <a href="?status=flagged" class="filter-tab danger {% if status_filter == 'flagged' %}active{% endif %}">Bị gắn cờ</a>
+            <a href="?status=archived" class="filter-tab {% if status_filter == 'archived' %}active{% endif %}">Đã lưu trữ</a>
+        </div>
     </div>
 
     <!-- Table -->
@@ -19,56 +87,110 @@
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>{{ t('admin_page.th_job_title') }}</th>
-                    <th>{{ t('admin_page.th_posted_by') }}</th>
-                    <th>{{ t('admin_page.th_status') }}</th>
-                    <th>{{ t('admin_page.th_posted_date') }}</th>
-                    <th style="text-align: right;">{{ t('admin_page.th_actions') }}</th>
+                    <th>Mã & Tiêu đề công việc</th>
+                    <th>Người đăng tuyển</th>
+                    <th style="min-width: 140px;">Kết quả kiểm tra</th>
+                    <th>Ngày nộp</th>
+                    <th>Trạng thái</th>
+                    <th style="text-align: right; min-width: 180px;">Thao tác</th>
                 </tr>
             </thead>
             <tbody>
-                {% for job in jobs %}
-                <tr {% if job.is_flagged %}style="background: rgba(239,68,68,0.05);"{% endif %}>
+                {% for item in job_items %}
+                {% set job = item.job %}
+                {% set eval = item.eval %}
+                <tr {% if job.is_flagged or eval.total_critical > 0 %}style="background: rgba(239,68,68,0.06);"{% endif %}>
+                    
+                    <!-- Cột 1: Mã & Tiêu đề job -->
                     <td>
-                        <div style="font-weight: 600; color: #f1f5f9; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ job.title }}">{{ job.title }}</div>
+                        <div style="font-weight: 700; color: #f1f5f9; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ job.title }}">
+                            <span style="color: #64748b; font-size: 12px; margin-right: 4px;">#{{ job.id }}</span>
+                            {{ job.title }}
+                        </div>
                         <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">
-                            {{ job.display_category_text(current_lang) }} • {{ lang_name(job.source_lang) }} → {{ lang_name(job.target_lang) }}
+                            {{ job.display_category_text() if job.display_category_text is defined else (job.category or '') }} • {{ job.source_lang }} → {{ job.target_lang }}
                         </div>
                     </td>
-                    <td>{{ job.hirer.name }}</td>
+
+                    <!-- Cột 2: Người đăng & Huy hiệu xác minh -->
                     <td>
-                        {% if job.is_flagged %}
-                        <span class="badge badge-red">{{ t('admin_page.badge_flagged') }}</span>
-                        {% elif job.status == 'open' %}
-                        <span class="badge badge-blue">{{ t('admin_page.badge_open') }}</span>
-                        {% elif job.status == 'contracted' %}
-                        <span class="badge badge-indigo">{{ t('admin_page.badge_contracted') }}</span>
-                        {% elif job.status == 'completed' %}
-                        <span class="badge badge-gray">{{ t('admin_page.badge_completed') }}</span>
+                        <div style="font-size: 13px; font-weight: 600; color: #cbd5e1; display: flex; align-items: center; gap: 6px;">
+                            {{ job.hirer.name if job.hirer else 'Ẩn danh' }}
+                            {% if job.hirer and job.hirer.hirer_profile and (job.hirer.hirer_profile.verification_status == 'verified' or job.hirer.hirer_profile.is_verified) %}
+                            <span style="color: #22c55e; font-size: 12px; font-weight: 800;" title="Người đăng đã xác minh">✓</span>
+                            {% else %}
+                            <span style="color: #f59e0b; font-size: 10px; background: rgba(245,158,11,0.15); padding: 1px 5px; border-radius: 4px;" title="Chưa xác minh">Chưa XM</span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Cột 3: KẾT QUẢ KIỂM TRA (MỚI - Đạt 39/39, 2 cần xem, Nghiêm trọng) -->
+                    <td>
+                        {% if eval.total_critical > 0 %}
+                        <span class="badge badge-red" style="font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+                            ● Nghiêm trọng
+                        </span>
+                        {% elif eval.total_warnings > 0 %}
+                        <span class="badge badge-warning" style="font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+                            ● {{ eval.total_warnings }} cần xem
+                        </span>
+                        {% else %}
+                        <span class="badge badge-green" style="font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+                            ✓ Đạt 39/39
+                        </span>
                         {% endif %}
                     </td>
-                    <td style="color: var(--muted); font-size: 12px;">{{ job.created_at.strftime('%d/%m/%Y') }}</td>
-                    <td style="text-align: right; white-space: nowrap;">
-                        <a href="{{ url_for('job_detail', job_id=job.id) }}" target="_blank" class="btn btn-ghost btn-sm">{{ t('admin_page.action_view') }}</a>
 
+                    <!-- Cột 4: Ngày nộp -->
+                    <td style="color: var(--muted); font-size: 12px;">{{ job.created_at.strftime('%d/%m/%Y') }}</td>
+
+                    <!-- Cột 5: Trạng thái kiểm duyệt -->
+                    <td>
+                        {% if job.is_flagged %}
+                        <span class="badge badge-red">Bị gắn cờ</span>
+                        {% elif job.moderation_status == 'approved' or job.status == 'open' %}
+                        <span class="badge badge-blue">Đã duyệt</span>
+                        {% elif job.moderation_status == 'rejected' %}
+                        <span class="badge badge-red">Bị từ chối</span>
+                        {% elif job.moderation_status == 'needs_revision' %}
+                        <span class="badge badge-warning">Cần sửa</span>
+                        {% elif job.moderation_status == 'archived' %}
+                        <span class="badge badge-gray">Lưu trữ</span>
+                        {% else %}
+                        <span class="badge badge-warning">Chờ duyệt</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Cột 6: Thao tác -->
+                    <td style="text-align: right; white-space: nowrap;">
+                        <!-- Nút xét duyệt chi tiết (Dẫn tới màn hình Hình 3) -->
+                        <a href="{{ url_for('admin_job_review', job_id=job.id) }}" class="btn btn-primary btn-sm" style="font-size: 12px; font-weight: 700; padding: 4px 10px;">
+                            Xét duyệt →
+                        </a>
+
+                        <!-- Nút Gắn cờ vi phạm -->
                         <form method="POST" action="{{ url_for('admin_flag_job', job_id=job.id) }}" style="display: inline;">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             {% if job.is_flagged %}
-                            <button type="submit" class="btn btn-success btn-sm">{{ t('admin_page.action_restore') }}</button>
+                            <button type="submit" class="btn btn-success btn-sm" style="font-size: 11px; padding: 4px 8px;">Khôi phục</button>
                             {% else %}
-                            <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('{{ t('admin_page.action_flag_confirm') }}');">{{ t('admin_page.action_flag') }}</button>
+                            <button type="submit" class="btn btn-warning btn-sm" style="font-size: 11px; padding: 4px 8px;" onclick="return confirm('Bạn có chắc muốn gắn cờ/tạm ẩn job này không?');">Ẩn</button>
                             {% endif %}
                         </form>
-
-                        <form method="POST" action="{{ url_for('admin_delete_job', job_id=job.id) }}" style="display: inline;">
+                        
+                        <!-- Nút Lưu trữ an toàn (thay vì xóa cứng) -->
+                        <form method="POST" action="{{ url_for('admin_archive_job', job_id=job.id) }}" style="display: inline;">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('{{ t('admin_page.action_delete_confirm') }}');">{{ t('admin_page.action_delete') }}</button>
+                            <button type="submit" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 4px 6px; color: #94a3b8;" title="Lưu trữ an toàn, bảo tồn giao dịch" onclick="return confirm('Lưu trữ job này sẽ ẩn khỏi sàn nhưng giữ nguyên lịch sử báo giá/hợp đồng?');">
+                                🗄
+                            </button>
                         </form>
                     </td>
+
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="empty-state">
+                    <td colspan="6" class="empty-state">
                         <div class="empty-state-title">{{ t('admin_page.no_jobs_data') }}</div>
                     </td>
                 </tr>
@@ -76,5 +198,20 @@
             </tbody>
         </table>
     </div>
+
 </div>
+
+<script>
+function toggleQuickChecklist() {
+    var body = document.getElementById('quickChecklistBody');
+    var arrow = document.getElementById('quickChecklistArrow');
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        arrow.innerText = '▲';
+    } else {
+        body.style.display = 'none';
+        arrow.innerText = '▼';
+    }
+}
+</script>
 {% endblock %}

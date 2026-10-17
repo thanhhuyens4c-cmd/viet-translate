@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Yêu cầu của tôi | VietTranslate{% endblock %}
+
+{% block content %}
+{% set sel_cls = 'w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500' %}
+{% set badge = {'open': 'bg-emerald-50 text-emerald-800 border-emerald-200/70', 'closed': 'bg-slate-100 text-slate-700 border-slate-200', 'cancelled': 'bg-rose-50 text-rose-700 border-rose-200/70', 'contracted': 'bg-brand-50 text-brand-800 border-brand-200/70', 'in_progress': 'bg-brand-50 text-brand-800 border-brand-200/70', 'completed': 'bg-slate-100 text-slate-700 border-slate-200', 'pending': 'bg-amber-50 text-amber-800 border-amber-200/70', 'archived': 'bg-slate-100 text-slate-600 border-slate-200'} %}
+<div class="bg-slate-50/60 min-h-screen py-8 sm:py-12">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 overflow-x-hidden">
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-extrabold text-slate-900">Yêu cầu của tôi</h1>
+            <p class="text-sm text-slate-500 mt-1">Quản lý các yêu cầu dịch thuật bạn đã đăng.</p>
+        </div>
+        <a href="{{ url_for('post_job') }}" class="inline-flex justify-center items-center bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition shadow-sm">+ Đăng yêu cầu mới</a>
+    </div>
+
+    <form method="get" class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+        <div class="lg:col-span-2">
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1" for="q">Tìm theo tên</label>
+            <input id="q" name="q" type="search" value="{{ q }}" maxlength="100" placeholder="Nhập tên yêu cầu..." class="{{ sel_cls }}">
+        </div>
+        <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1" for="status">Trạng thái</label>
+            <select id="status" name="status" class="{{ sel_cls }}">
+                <option value="">Tất cả</option>
+                {% for k, lab in status_labels.items() %}<option value="{{ k }}" {{ 'selected' if status == k }}>{{ lab }}</option>{% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1" for="lang">Ngôn ngữ</label>
+            <select id="lang" name="lang" class="{{ sel_cls }}">
+                <option value="">Tất cả</option>
+                {% for l in langs %}<option value="{{ l }}" {{ 'selected' if lang == l }}>{{ l }}</option>{% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1" for="service">Loại dịch vụ</label>
+            <select id="service" name="service" class="{{ sel_cls }}">
+                <option value="">Tất cả</option>
+                <option value="translation" {{ 'selected' if service == 'translation' }}>Dịch tài liệu</option>
+                <option value="interpretation_other" {{ 'selected' if service == 'interpretation_other' }}>Phiên dịch trực tiếp</option>
+            </select>
+        </div>
+        <div class="sm:col-span-2 lg:col-span-5 flex gap-2 justify-end">
+            {% if q or status or lang or service %}<a href="{{ url_for('my_jobs') }}" class="px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition">Xóa bộ lọc</a>{% endif %}
+            <button class="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold transition">Lọc</button>
+        </div>
+    </form>
+
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
+        {% if rows %}
+        <ul class="divide-y divide-slate-100">
+            {% for r in rows %}{% set j = r.job %}
+            <li class="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
+                <div class="min-w-0">
+                    <a href="{{ url_for('job_detail', job_id=j.id) }}" class="font-bold text-slate-900 hover:text-brand-600 break-words">{{ j.title }}</a>
+                    <p class="text-xs text-slate-500 mt-1">{{ j.source_lang }} → {{ j.target_lang }} · {{ j.display_category_text('vi') }}</p>
+                    <p class="text-xs text-slate-400 mt-1">Đăng {{ j.created_at.strftime('%d/%m/%Y') }} · Deadline: {{ j.deadline.strftime('%d/%m/%Y') if j.deadline else '—' }} · {{ r.proposals }} báo giá</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full border whitespace-nowrap {{ badge.get(j.status, 'bg-slate-100 text-slate-600 border-slate-200') }}">{{ r.label }}</span>
+                    <a href="{{ url_for('job_detail', job_id=j.id) }}" class="text-xs font-bold text-brand-600 bg-brand-50/60 hover:bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-200/50 transition">Xem chi tiết</a>
+                    {% if r.policy.can_edit %}<a href="{{ url_for('edit_job', job_id=j.id) }}" class="text-xs font-bold text-slate-700 hover:bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 transition">Chỉnh sửa</a>{% endif %}
+                    {% if r.policy.can_close %}
+                    <form method="post" action="{{ url_for('close_job', job_id=j.id) }}" onsubmit="return confirm('Đóng yêu cầu này? Phiên dịch viên sẽ không thể gửi thêm báo giá.')">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button class="text-xs font-bold text-amber-700 hover:bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 transition">Đóng</button>
+                    </form>
+                    {% endif %}
+                    {% if r.policy.can_cancel %}
+                    <form method="post" action="{{ url_for('cancel_job', job_id=j.id) }}" onsubmit="return confirm('Hủy yêu cầu này? Các báo giá đang chờ sẽ bị từ chối. Không thể hoàn tác.')">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button class="text-xs font-bold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 transition">Hủy</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center py-14 px-4">
+            {% if total_all == 0 %}
+            <p class="text-sm text-slate-500 mb-4">Bạn chưa đăng yêu cầu dịch thuật nào.</p>
+            <a href="{{ url_for('post_job') }}" class="inline-block bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition">+ Đăng yêu cầu đầu tiên</a>
+            {% else %}
+            <p class="text-sm text-slate-500 mb-4">Không có yêu cầu nào khớp với bộ lọc.</p>
+            <a href="{{ url_for('my_jobs') }}" class="text-sm font-bold text-brand-600">Xóa bộ lọc</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if pagination.pages > 1 %}
+    <nav class="flex items-center justify-center gap-3 text-sm font-bold" aria-label="Phân trang">
+        {% if pagination.has_prev %}<a class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50" href="{{ url_for('my_jobs', page=pagination.prev_num, q=q, status=status, lang=lang, service=service) }}">← Trước</a>{% endif %}
+        <span class="text-slate-500 font-semibold">Trang {{ pagination.page }} / {{ pagination.pages }}</span>
+        {% if pagination.has_next %}<a class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50" href="{{ url_for('my_jobs', page=pagination.next_num, q=q, status=status, lang=lang, service=service) }}">Sau →</a>{% endif %}
+    </nav>
+    {% endif %}
+</div>
+</div>
+{% endblock %}

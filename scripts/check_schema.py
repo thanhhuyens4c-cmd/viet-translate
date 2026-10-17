@@ -42,7 +42,9 @@ def check_schema(database_url=None):
         "payment_transaction": ["id", "contract_id", "user_id", "amount", "status", "payment_method", "transaction_ref", "created_at", "updated_at"],
         "admin_notification": ["id", "type", "title", "message", "url", "is_read", "related_id", "created_at"],
         "login_attempt": ["id", "email", "ip_address", "success", "created_at"],
-        "admin_audit_log": ["id", "admin_id", "action", "target_type", "target_id", "description", "ip_address", "user_agent", "extra_data", "created_at"]
+        "admin_audit_log": ["id", "admin_id", "action", "target_type", "target_id", "description", "ip_address", "user_agent", "extra_data", "created_at"],
+        # TASK 1: added job_schedule
+        "job_schedule": ["id", "job_id", "scheduled_date", "start_time", "end_time", "created_at", "updated_at"],
     }
     
     existing_tables = inspector.get_table_names()

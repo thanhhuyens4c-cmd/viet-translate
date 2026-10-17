@@ -3,78 +3,134 @@
 {% block title %}{{ t('auth.login_title') }}{% endblock %}
 
 {% block content %}
-<div class="max-w-md mx-auto px-4 sm:px-6 py-12 sm:py-16">
-    <div class="bg-white p-8 sm:p-10 rounded-2xl shadow-soft border border-slate-200/90">
-        
-        <div class="text-center mb-8">
-            <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/60 px-3 py-1 rounded-full mb-2">
-                {{ t('auth.login_badge') }}
-            </span>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('auth.login_headline') }}</h1>
-            <p class="text-xs text-slate-500 mt-1">{{ t('auth.login_sub') }}</p>
-        </div>
-        
-        <!-- Social Login -->
-        <div class="space-y-3 mb-6">
-            <button type="button" class="w-full border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2.5 transition text-xs sm:text-sm">
-                <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/></svg>
-                <span>{{ t('auth.google_login') }}</span>
-            </button>
-        </div>
-        
-        <div class="relative flex py-2 items-center mb-6">
-            <div class="flex-grow border-t border-slate-200"></div>
-            <span class="flex-shrink-0 mx-3 text-slate-400 text-xs uppercase tracking-wider font-medium">{{ t('auth.or_email') }}</span>
-            <div class="flex-grow border-t border-slate-200"></div>
-        </div>
+<div class="relative overflow-hidden min-h-[calc(100vh-140px)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50/60">
+    <!-- Ambient Decorative Gradients -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-brand-200/40 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-indigo-200/40 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] opacity-60 pointer-events-none"></div>
 
-        <form method="POST" action="{{ url_for('login') }}" class="space-y-4">
-            <div>
-                <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.email_label') }}</label>
-                <input type="email" name="email" required
-                       class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50"
-                       value="{{ email or '' }}"
-                       autocomplete="off">
+    <!-- Login Card Container -->
+    <div class="w-full max-w-[440px] relative z-10">
+        <div class="bg-white/95 backdrop-blur-xl rounded-3xl border border-slate-200/80 shadow-[0_20px_50px_-12px_rgba(15,23,42,0.10),0_1px_3px_rgba(15,23,42,0.04)] p-8 sm:p-10 relative overflow-hidden transition-all duration-300">
+            <!-- Top Gradient Accent Strip -->
+            <div class="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-600 via-indigo-600 to-brand-500"></div>
+
+            <!-- Card Header -->
+            <div class="text-center mb-8">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 border border-brand-200/70 text-brand-700 text-[11px] font-bold tracking-wider uppercase mb-3 shadow-xs">
+                    <span class="w-1.5 h-1.5 rounded-full bg-brand-600 animate-pulse"></span>
+                    {{ t('auth.login_badge') }}
+                </span>
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                    {{ t('auth.login_headline') }}
+                </h1>
+                <p class="text-xs sm:text-sm text-slate-500 mt-1.5 max-w-xs mx-auto">
+                    {{ t('auth.login_sub') }}
+                </p>
             </div>
-            <div>
-                <div class="flex justify-between items-center mb-1.5">
-                    <label class="block text-slate-700 font-bold text-xs uppercase tracking-wider">{{ t('auth.password_label') }}</label>
-                    <a href="#" class="text-[11px] text-brand-600 hover:text-brand-700 font-semibold">{{ t('auth.forgot_password') }}</a>
+
+            <!-- Login Form -->
+            <form method="POST" action="{{ url_for('login') }}" class="space-y-5">
+                <input type="hidden" name="next" value="{{ next_url or request.args.get('next', '') }}">
+
+                <!-- Email Field -->
+                <div>
+                    <label for="email_input" class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
+                        {{ t('auth.email_label') }}
+                    </label>
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-brand-600 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.206" />
+                            </svg>
+                        </div>
+                        <input type="email"
+                               id="email_input"
+                               name="email"
+                               required
+                               placeholder="name@example.com"
+                               class="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-brand-500 rounded-xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition-all duration-200"
+                               value="{{ email or '' }}"
+                               autocomplete="email">
+                    </div>
                 </div>
-                <div class="relative">
-                    <input type="password" id="password_input" name="password" required
-                           class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 pr-10"
-                           autocomplete="new-password">
-                    <button type="button" onclick="togglePassword()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
-                        <svg id="eye_icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <!-- Eye Open -->
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                    </button>
+
+                <!-- Password Field -->
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label for="password_input" class="block text-slate-700 font-bold text-xs uppercase tracking-wider">
+                            {{ t('auth.password_label') }}
+                        </label>
+                        <a href="{{ url_for('forgot_password') }}" class="text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline transition-colors">
+                            {{ t('auth.forgot_password') }}
+                        </a>
+                    </div>
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-brand-600 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <input type="password"
+                               id="password_input"
+                               name="password"
+                               required
+                               placeholder="••••••••"
+                               class="w-full pl-10 pr-11 py-2.5 bg-slate-50/70 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-brand-500 rounded-xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition-all duration-200"
+                               autocomplete="current-password">
+                        <button type="button"
+                                onclick="togglePassword()"
+                                id="toggle_password_btn"
+                                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none focus:text-brand-600 transition-colors"
+                                aria-label="Toggle password visibility">
+                            <svg id="eye_icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
+
+                <!-- Submit Button -->
+                <button type="submit"
+                        class="w-full mt-2 bg-gradient-to-r from-brand-600 via-brand-600 to-indigo-600 hover:from-brand-500 hover:via-brand-600 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-brand-500/20 hover:shadow-xl hover:shadow-brand-500/30 active:scale-[0.99] transition-all duration-200 text-xs sm:text-sm flex items-center justify-center gap-2 group cursor-pointer">
+                    <span>{{ t('auth.login_button') }}</span>
+                    <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </button>
+            </form>
+
+            <!-- Register Link -->
+            <div class="mt-6 pt-5 border-t border-slate-100 text-center text-xs sm:text-sm text-slate-500">
+                {{ t('auth.no_account') }}
+                <a href="{{ url_for('register') }}" class="font-bold text-brand-600 hover:text-brand-700 hover:underline transition-colors ml-1">
+                    {{ t('auth.register_link') }} →
+                </a>
             </div>
-            <script>
-                function togglePassword() {
-                    const pwdInput = document.getElementById('password_input');
-                    const eyeIcon = document.getElementById('eye_icon');
-                    if (pwdInput.type === 'password') {
-                        pwdInput.type = 'text';
-                        eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />';
-                    } else {
-                        pwdInput.type = 'password';
-                        eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />';
-                    }
-                }
-            </script>
-            <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition shadow-sm text-xs sm:text-sm mt-2">
-                {{ t('auth.login_button') }}
-            </button>
-        </form>
-        
-        <p class="text-center mt-6 text-slate-500 text-xs">
-            {{ t('auth.no_account') }} <a href="{{ url_for('register') }}" class="text-brand-600 font-bold hover:underline">{{ t('auth.register_link') }}</a>
-        </p>
+
+            <!-- Trust / Security Reassurance Badge -->
+            <div class="mt-5 flex items-center justify-center gap-1.5 text-[11px] text-slate-400 font-medium">
+                <svg class="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span>Bảo mật kết nối SSL 256-bit</span>
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+    function togglePassword() {
+        const pwdInput = document.getElementById('password_input');
+        const eyeIcon = document.getElementById('eye_icon');
+        if (pwdInput.type === 'password') {
+            pwdInput.type = 'text';
+            eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />';
+        } else {
+            pwdInput.type = 'password';
+            eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />';
+        }
+    }
+</script>
 {% endblock %}

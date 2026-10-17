@@ -126,7 +126,7 @@
             {{ t('translator_list_page.showing_count') }} <span id="result-count-badge">...</span> {{ t('translator_list_page.translators_count_label') }}
           </p>
         </div>
-        <div class="flex items-center gap-2.5">
+        <div class="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
           <!-- Search input -->
           <form id="fl-search-form" class="relative w-full sm:w-64">
             <input type="text" id="fl-search" 
@@ -151,7 +151,9 @@
             <label for="sort-select" class="text-xs text-slate-400 font-medium hidden sm:inline">{{ t('translator_list_page.sort_by_label') }}</label>
             <select id="sort-select" class="text-xs font-semibold border-slate-200 rounded-xl px-3 py-2 border text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50/80 cursor-pointer">
               <option value="rating">{{ t('translator_list_page.sort_rating_high') }}</option>
+              <option value="experience">{{ 'Nhiều kinh nghiệm nhất' if current_lang == 'vi' else 'Most experienced' }}</option>
               <option value="reviews">{{ t('translator_list_page.sort_reviews_many') }}</option>
+              <option value="jobs">{{ 'Nhiều dự án nhất' if current_lang == 'vi' else 'Most projects' }}</option>
               <option value="price_asc">{{ t('translator_list_page.sort_price_low') }}</option>
               <option value="price_desc">{{ t('translator_list_page.sort_price_high') }}</option>
             </select>
@@ -160,14 +162,27 @@
       </div>
 
       <!-- Translators Grid -->
-      <div id="fl-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+      <div id="fl-skeleton" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" aria-hidden="true">
+        {% for i in range(6) %}<div class="animate-pulse bg-white rounded-2xl border border-slate-200/90 h-72"></div>{% endfor %}
+      </div>
+      <div id="fl-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" style="display:none"></div>
+
+      <div id="load-more-wrap" class="text-center mt-6" style="display:none">
+        <p id="load-more-info" class="text-xs text-slate-400 mb-2"></p>
+        <button id="load-more" type="button" class="text-xs font-bold text-brand-700 bg-white border border-slate-200 hover:border-brand-300 hover:bg-brand-50 px-6 py-2.5 rounded-xl transition">{{ 'Xem thêm' if current_lang == 'vi' else 'Load more' }}</button>
+      </div>
+
+      <div id="error-state" role="alert" class="text-center py-12 px-4 bg-rose-50 rounded-2xl border border-rose-200" style="display:none">
+        <p class="text-sm font-semibold text-rose-800 mb-4">{{ 'Không thể tải danh sách phiên dịch viên. Vui lòng thử lại.' if current_lang == 'vi' else 'Could not load interpreters. Please try again.' }}</p>
+        <button id="retry-load" type="button" class="text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-5 py-2.5 rounded-xl transition">{{ 'Thử lại' if current_lang == 'vi' else 'Retry' }}</button>
+      </div>
 
       <!-- Empty State -->
       <div id="empty-state" class="text-center py-16 px-4 bg-white rounded-2xl border border-slate-200/90 shadow-soft">
         <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-2xl">
           🔍
         </div>
-        <h3 class="text-base font-bold text-slate-900 mb-1.5">{{ t('translator_list_page.no_results_title') }}</h3>
+        <h3 id="empty-title" data-default="{{ t('translator_list_page.no_results_title') }}" class="text-base font-bold text-slate-900 mb-1.5">{{ t('translator_list_page.no_results_title') }}</h3>
         <p class="text-slate-500 text-xs sm:text-sm max-w-sm mx-auto mb-5 leading-relaxed">
           {{ t('translator_list_page.no_results_desc') }}
         </p>
@@ -205,12 +220,17 @@
 {% endblock %}
 
 {% block scripts %}
+{% include '_translator_cards.html' %}
 <script>
 const CURRENT_LANG = "{{ current_lang }}";
 
-let filters = { languages: [], priceRange: null, minRating: null, completionTime: null, badges: [], query: '' };
+const emptyFilters = () => ({ languages: [], pairs: [], specialties: [], locations: [], workModes: [], minJobs: null, priceRange: null, minRating: null, badges: [], demoType: 'all', query: '' });
+let filters = emptyFilters();
 let allFreelancers = [];
 let sortBy = 'rating';
+const PAGE_SIZE = 9;
+let visibleCount = PAGE_SIZE;
+let loadState = 'loading';
 
 const LANG_LIST = [
   { name: 'Tiếng Anh', enName: 'English', flag: '🇬🇧' },
@@ -265,11 +285,60 @@ function renderStarsSmall(count) {
   ).join('');
 }
 
+const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+const esc = window.vtEsc;
+const EXP_LEVELS = CURRENT_LANG === 'en' ? [
+  { label: '1+ projects', value: 1 }, { label: '10+ projects', value: 10 }, { label: '30+ projects', value: 30 },
+] : [
+  { label: 'Từ 1 dự án trở lên', value: 1 }, { label: 'Từ 10 dự án trở lên', value: 10 }, { label: 'Từ 30 dự án trở lên', value: 30 },
+];
+
+function facet(list, key) {
+  const m = new Map();
+  list.forEach(fl => {
+    const val = fl[key];
+    if (Array.isArray(val)) {
+      val.forEach(v => { if (v) m.set(v, (m.get(v) || 0) + 1); });
+    } else if (val) {
+      m.set(val, (m.get(val) || 0) + 1);
+    }
+  });
+  return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+function cbSection(title, cls, s, items) {
+  if (!items.length) return '';
+  let html = `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${title}</h4><div class="space-y-1">`;
+  items.forEach(([v, n], i) => {
+    const id = `${cls}-${i}-${s}`;
+    html += `<div><input type="checkbox" class="filter-cb ${cls}-${s}" id="${id}" value="${esc(v)}">
+    <label for="${id}" class="filter-label"><span class="filter-indicator"></span><span class="text-xs">${esc(v)} <span class="text-slate-400">(${n})</span></span></label></div>`;
+  });
+  return html + `</div></div>`;
+}
+
 function buildFilterForm(s) {
   let html = '';
-  // Languages
+  const typeHeader = CURRENT_LANG === 'en' ? 'Profile Type' : 'Phân loại hồ sơ';
+  const TYPE_OPTIONS = CURRENT_LANG === 'en' ? [
+    { label: 'All Profiles', value: 'all' },
+    { label: 'Demo Sample Profiles (50)', value: 'demo' },
+    { label: 'Verified Interpreters Only', value: 'verified' },
+  ] : [
+    { label: 'Tất cả hồ sơ', value: 'all' },
+    { label: 'Hồ sơ mẫu demo (50 Demo)', value: 'demo' },
+    { label: 'Đã thẩm định minh chứng', value: 'verified' },
+  ];
+  html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${typeHeader}</h4><div class="space-y-1">`;
+  TYPE_OPTIONS.forEach(opt => {
+    const id = `type-${opt.value}-${s}`;
+    html += `<div><input type="radio" class="filter-rb type-rb-${s}" id="${id}" name="type-${s}" value="${opt.value}" ${filters.demoType === opt.value ? 'checked' : ''}>
+    <label for="${id}" class="filter-label"><span class="filter-rb-indicator"></span><span class="text-xs">${opt.label}</span></label></div>`;
+  });
+  html += `</div></div>`;
+
   const langHeader = CURRENT_LANG === 'en' ? 'Languages' : 'Ngôn ngữ';
-  html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${langHeader}</h4><div class="space-y-1">`;
+  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${langHeader}</h4><div class="space-y-1">`;
   LANG_LIST.forEach(l => {
     const id = `lang-${l.name.replace(/\s/g,'-')}-${s}`;
     const displayName = CURRENT_LANG === 'en' ? l.enName : l.name;
@@ -278,7 +347,20 @@ function buildFilterForm(s) {
   });
   html += `</div></div>`;
 
-  // Price
+  html += cbSection(CURRENT_LANG === 'en' ? 'Language pairs' : 'Cặp ngôn ngữ', 'pair-cb', s, facet(allFreelancers, 'language_pairs'));
+  html += cbSection(CURRENT_LANG === 'en' ? 'Specialty' : 'Lĩnh vực chuyên môn', 'spec-cb', s, facet(allFreelancers, 'specialties'));
+  html += cbSection(CURRENT_LANG === 'en' ? 'Location' : 'Khu vực / Tỉnh thành', 'loc-cb', s, facet(allFreelancers, 'location'));
+  html += cbSection(CURRENT_LANG === 'en' ? 'Work format' : 'Hình thức làm việc (Online/Offline)', 'mode-cb', s, facet(allFreelancers, 'work_modes'));
+
+  const expHeader = CURRENT_LANG === 'en' ? 'Experience' : 'Kinh nghiệm';
+  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${expHeader}</h4><div class="space-y-1">`;
+  EXP_LEVELS.forEach(x => {
+    const id = `exp-${x.value}-${s}`;
+    html += `<div><input type="radio" class="filter-rb exp-rb-${s}" id="${id}" name="exp-${s}" value="${x.value}">
+    <label for="${id}" class="filter-label"><span class="filter-rb-indicator"></span><span class="text-xs">${x.label}</span></label></div>`;
+  });
+  html += `</div></div>`;
+
   const priceHeader = CURRENT_LANG === 'en' ? 'Price Range' : 'Mức giá tham khảo';
   html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${priceHeader}</h4><div class="space-y-1">`;
   PRICE_RANGES.forEach(p => {
@@ -288,7 +370,6 @@ function buildFilterForm(s) {
   });
   html += `</div></div>`;
 
-  // Rating
   const ratingHeader = CURRENT_LANG === 'en' ? 'Minimum Rating' : 'Đánh giá tối thiểu';
   html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${ratingHeader}</h4><div class="space-y-1">`;
   RATINGS.forEach(r => {
@@ -299,7 +380,6 @@ function buildFilterForm(s) {
   });
   html += `</div></div>`;
 
-  // Badges
   const badgeHeader = CURRENT_LANG === 'en' ? 'Badges & Qualifications' : 'Huy hiệu năng lực';
   html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${badgeHeader}</h4><div class="space-y-1">`;
   BADGES.forEach(b => {
@@ -316,13 +396,11 @@ function buildFilterForm(s) {
 
 function filterFreelancers(list, f) {
   return list.filter(fl => {
+    if (f.demoType === 'demo' && !fl.is_demo) return false;
+    if (f.demoType === 'verified' && (fl.is_demo || !fl.is_verified)) return false;
     if (f.query) {
-      const q = f.query;
-      const n = (fl.name || '').toLowerCase();
-      const t = (fl.title || '').toLowerCase();
-      const b = (fl.badges || []).join(' ').toLowerCase();
-      const l = (fl.languages || []).join(' ').toLowerCase();
-      if (!n.includes(q) && !t.includes(q) && !b.includes(q) && !l.includes(q)) return false;
+      const hay = norm([fl.name, fl.title, (fl.badges||[]).join(' '), (fl.languages||[]).join(' '), (fl.language_pairs||[]).join(' '), (fl.specialties||[]).join(' '), fl.location||'', (fl.work_modes||[]).join(' '), fl.employment_preference||'', fl.availability_status||''].join(' '));
+      if (!f.query.split(/\s+/).every(w => hay.includes(w))) return false;
     }
     if (f.languages.length > 0) {
       if (!f.languages.some(lang => {
@@ -331,11 +409,16 @@ function filterFreelancers(list, f) {
         return fl.languages.some(l => matchTerms.some(term => l.toLowerCase().includes(term)));
       })) return false;
     }
+    if (f.pairs.length && !f.pairs.some(p => (fl.language_pairs || []).includes(p))) return false;
+    if (f.specialties.length && !f.specialties.some(p => (fl.specialties || []).includes(p))) return false;
+    if (f.locations && f.locations.length && !f.locations.includes(fl.location)) return false;
+    if (f.workModes && f.workModes.length && !f.workModes.some(m => (fl.work_modes || []).includes(m))) return false;
+    if (f.minJobs !== null && (fl.total_jobs || 0) < f.minJobs) return false;
     if (f.priceRange) {
       const r = PRICE_RANGES.find(p => p.value === f.priceRange);
-      if (r && fl.min_price != null) { if (fl.min_price < r.min || fl.min_price > r.max) return false; }
+      if (r && (fl.min_price == null || fl.min_price < r.min || fl.min_price > r.max)) return false;
     }
-    if (f.minRating !== null) { if (fl.rating < f.minRating) return false; }
+    if (f.minRating !== null && (fl.total_reviews === 0 || fl.rating < f.minRating)) return false;
     if (f.badges.length > 0) {
       if (!f.badges.some(b => fl.badges.some(fb => fb.toLowerCase().includes(b.toLowerCase())))) return false;
     }
@@ -345,172 +428,156 @@ function filterFreelancers(list, f) {
 
 function sortFreelancers(list, by) {
   const c = [...list];
+  const priceKey = (x, dir) => x.min_price == null ? Infinity : dir * x.min_price;
+  if (by === 'experience') return c.sort((a,b) => (b.experience_years || 0) - (a.experience_years || 0));
   if (by === 'reviews') return c.sort((a,b) => b.total_reviews - a.total_reviews);
-  if (by === 'price_asc') return c.sort((a,b) => (a.min_price||0) - (b.min_price||0));
-  if (by === 'price_desc') return c.sort((a,b) => (b.min_price||0) - (a.min_price||0));
-  return c.sort((a,b) => b.rating - a.rating);
-}
-
-function renderStars(rating) {
-  const full = Math.floor(rating);
-  return Array.from({length:5},(_,i) => {
-    if (i < full) return '<span class="star-filled">★</span>';
-    return '<span class="star-empty">★</span>';
-  }).join('');
-}
-
-function badgeClass(name) {
-  if (/rising/i.test(name)) return 'badge-rising';
-  if (/local/i.test(name)) return 'badge-local';
-  if (/rehire/i.test(name)) return 'badge-rehire';
-  return 'badge-default';
-}
-
-function renderCard(fl) {
-  const fromText = CURRENT_LANG === 'en' ? 'From ' : 'Từ ';
-  const negoText = CURRENT_LANG === 'en' ? 'Negotiable' : 'Thỏa thuận';
-  const priceStr = fl.min_price != null ? `${fromText}${fl.min_price.toLocaleString('en-US')} VND` : negoText;
-  const badgesHtml = fl.badges.length ? fl.badges.map(b => `<span class="text-[10px] px-2 py-0.5 rounded-md font-semibold ${badgeClass(b)}">${b}</span>`).join('') : '';
-  const verifiedText = CURRENT_LANG === 'en' ? 'Verified' : 'Xác minh';
-  const verifiedHtml = fl.is_verified ? `<span class="bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1"><svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>${verifiedText}</span>` : '';
-  const defaultTitle = CURRENT_LANG === 'en' ? 'Professional Translator' : 'Phiên dịch viên chuyên nghiệp';
-  const reviewsCountText = CURRENT_LANG === 'en' ? 'reviews' : 'đánh giá';
-  const priceLabel = CURRENT_LANG === 'en' ? 'Rates' : 'Mức giá';
-  const viewProfileText = CURRENT_LANG === 'en' ? 'View Profile' : 'Xem hồ sơ';
-  const avatarHtml = `
-    <div class="relative w-14 h-14 rounded-2xl overflow-hidden shadow-sm border border-slate-200/90 bg-slate-100 shrink-0">
-      ${fl.avatar_url ? `<img src="${fl.avatar_url}" alt="${fl.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300">` : ''}
-      <div style="${fl.avatar_url ? 'display:none;' : 'display:flex;'}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-lg font-extrabold shadow-sm">${fl.initial}</div>
-    </div>`;
-  
-  return `<div class="card-interactive bg-white rounded-2xl border border-slate-200/90 overflow-hidden flex flex-col justify-between shadow-soft">
-    <div class="p-5 sm:p-6 flex-grow">
-      <div class="flex justify-between items-start mb-4">
-        ${avatarHtml}
-        <div>${verifiedHtml}</div>
-      </div>
-      <h3 class="font-bold text-slate-900 text-base mb-1">
-        <a href="${fl.profile_url}" class="hover:text-brand-600 transition-colors">${fl.name}</a>
-      </h3>
-      <p class="text-xs text-slate-500 mb-3 line-clamp-2 min-h-[2rem] leading-relaxed">${fl.title || defaultTitle}</p>
-      
-      <div class="flex items-center gap-1.5 text-xs mb-3">
-        <div class="flex text-amber-500">${renderStars(fl.rating)}</div>
-        <span class="font-bold text-slate-800 text-xs">${fl.rating.toFixed(1)}</span>
-        <span class="text-slate-400 text-xs font-normal">(${fl.total_reviews} ${reviewsCountText})</span>
-      </div>
-
-      <div class="flex flex-wrap gap-1.5 mb-3">
-        ${fl.languages.map(l => `<span class="text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-md">${l}</span>`).join('')}
-      </div>
-
-      ${badgesHtml ? `<div class="flex flex-wrap gap-1 mt-2">${badgesHtml}</div>` : ''}
-    </div>
-
-    <div class="bg-slate-50/70 border-t border-slate-100 px-5 py-3.5 flex items-center justify-between gap-3">
-      <div>
-        <span class="text-[10px] text-slate-400 uppercase font-semibold block">${priceLabel}</span>
-        <span class="text-xs font-bold text-slate-800">${priceStr}</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <a href="${fl.profile_url}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 hover:border-brand-200 px-3 py-1.5 rounded-lg transition">${viewProfileText}</a>
-        <a href="${fl.chat_url}" class="text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg transition">Chat</a>
-      </div>
-    </div>
-  </div>`;
+  if (by === 'jobs') return c.sort((a,b) => b.total_jobs - a.total_jobs);
+  if (by === 'price_asc') return c.sort((a,b) => priceKey(a, 1) - priceKey(b, 1));
+  if (by === 'price_desc') return c.sort((a,b) => priceKey(a, -1) - priceKey(b, -1));
+  return c.sort((a,b) => b.rating - a.rating || b.total_reviews - a.total_reviews);
 }
 
 function countActiveFilters() {
   let c = 0;
-  if (filters.languages.length) c++;
+  ['languages', 'pairs', 'specialties', 'locations', 'workModes', 'badges'].forEach(k => { if (filters[k] && filters[k].length) c++; });
   if (filters.priceRange) c++;
   if (filters.minRating !== null) c++;
-  if (filters.badges.length) c++;
+  if (filters.minJobs !== null) c++;
+  if (filters.demoType && filters.demoType !== 'all') c++;
   return c;
 }
 
+function setState(state) {
+  loadState = state;
+  document.getElementById('fl-skeleton').style.display = state === 'loading' ? '' : 'none';
+  document.getElementById('error-state').style.display = state === 'error' ? 'block' : 'none';
+  if (state !== 'ready') {
+    document.getElementById('fl-grid').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('load-more-wrap').style.display = 'none';
+    document.getElementById('result-count-badge').textContent = state === 'loading' ? '...' : '0';
+  }
+}
+
 function renderList() {
+  if (loadState !== 'ready') return;
   const filtered = filterFreelancers(allFreelancers, filters);
   const sorted = sortFreelancers(filtered, sortBy);
   const grid = document.getElementById('fl-grid');
   const empty = document.getElementById('empty-state');
-  const badge = document.getElementById('result-count-badge');
-  badge.textContent = filtered.length;
-  if (sorted.length === 0) { grid.innerHTML=''; grid.style.display='none'; empty.style.display='block'; }
-  else { grid.style.display=''; empty.style.display='none'; grid.innerHTML=sorted.map(renderCard).join(''); }
+  document.getElementById('result-count-badge').textContent = filtered.length;
+  const lm = document.getElementById('load-more-wrap');
+  if (sorted.length === 0) {
+    grid.innerHTML = ''; grid.style.display = 'none'; lm.style.display = 'none'; empty.style.display = 'block';
+    document.getElementById('empty-title').textContent = allFreelancers.length === 0
+      ? (CURRENT_LANG === 'en' ? 'No interpreters available yet' : 'Chưa có phiên dịch viên nào')
+      : document.getElementById('empty-title').dataset.default;
+  } else {
+    grid.style.display = ''; empty.style.display = 'none';
+    grid.innerHTML = sorted.slice(0, visibleCount).map(window.vtRenderCard).join('');
+    lm.style.display = sorted.length > visibleCount ? 'block' : 'none';
+    document.getElementById('load-more-info').textContent = `${Math.min(visibleCount, sorted.length)} / ${sorted.length}`;
+  }
   const has = countActiveFilters() > 0;
   document.getElementById('clear-filters-desktop')?.classList.toggle('hidden', !has);
   const mc = document.getElementById('mobile-filter-count');
-  if (has) { mc.textContent=countActiveFilters(); mc.classList.add('show'); } else { mc.classList.remove('show'); }
+  if (has) { mc.textContent = countActiveFilters(); mc.classList.add('show'); } else { mc.classList.remove('show'); }
 }
+function rerender(resetPage) { if (resetPage) visibleCount = PAGE_SIZE; renderList(); }
 
+const checked = (sel) => [...document.querySelectorAll(sel + ':checked')].map(e => e.value);
 function syncFiltersFromDOM(s) {
-  filters.languages = [...document.querySelectorAll(`.lang-cb-${s}:checked`)].map(e=>e.value);
-  const pe = document.querySelector(`.price-rb-${s}:checked`); filters.priceRange = pe?pe.value:null;
-  const re = document.querySelector(`.rating-rb-${s}:checked`); filters.minRating = re?parseFloat(re.value):null;
-  filters.badges = [...document.querySelectorAll(`.badge-cb-${s}:checked`)].map(e=>e.value);
+  const te = document.querySelector(`.type-rb-${s}:checked`); filters.demoType = te ? te.value : 'all';
+  filters.languages = checked(`.lang-cb-${s}`);
+  filters.pairs = checked(`.pair-cb-${s}`);
+  filters.specialties = checked(`.spec-cb-${s}`);
+  filters.locations = checked(`.loc-cb-${s}`);
+  filters.workModes = checked(`.mode-cb-${s}`);
+  const pe = document.querySelector(`.price-rb-${s}:checked`); filters.priceRange = pe ? pe.value : null;
+  const re = document.querySelector(`.rating-rb-${s}:checked`); filters.minRating = re ? parseFloat(re.value) : null;
+  const xe = document.querySelector(`.exp-rb-${s}:checked`); filters.minJobs = xe ? parseInt(xe.value, 10) : null;
+  filters.badges = checked(`.badge-cb-${s}`);
   const qEl = document.getElementById('fl-search');
-  filters.query = qEl ? qEl.value.trim().toLowerCase() : '';
+  filters.query = qEl ? norm(qEl.value.trim()) : '';
 }
 
 function syncDOMFromFilters(s) {
-  document.querySelectorAll(`.lang-cb-${s}`).forEach(e=>{ e.checked=filters.languages.includes(e.value); });
-  document.querySelectorAll(`.price-rb-${s}`).forEach(e=>{ e.checked=e.value===filters.priceRange; });
-  document.querySelectorAll(`.rating-rb-${s}`).forEach(e=>{ e.checked=parseFloat(e.value)===filters.minRating; });
-  document.querySelectorAll(`.badge-cb-${s}`).forEach(e=>{ e.checked=filters.badges.includes(e.value); });
+  document.querySelectorAll(`.type-rb-${s}`).forEach(e => { e.checked = e.value === (filters.demoType || 'all'); });
+  document.querySelectorAll(`.lang-cb-${s}`).forEach(e => { e.checked = filters.languages.includes(e.value); });
+  document.querySelectorAll(`.pair-cb-${s}`).forEach(e => { e.checked = filters.pairs.includes(e.value); });
+  document.querySelectorAll(`.spec-cb-${s}`).forEach(e => { e.checked = (filters.specialties || []).includes(e.value); });
+  document.querySelectorAll(`.loc-cb-${s}`).forEach(e => { e.checked = (filters.locations || []).includes(e.value); });
+  document.querySelectorAll(`.mode-cb-${s}`).forEach(e => { e.checked = (filters.workModes || []).includes(e.value); });
+  document.querySelectorAll(`.price-rb-${s}`).forEach(e => { e.checked = e.value === filters.priceRange; });
+  document.querySelectorAll(`.rating-rb-${s}`).forEach(e => { e.checked = parseFloat(e.value) === filters.minRating; });
+  document.querySelectorAll(`.exp-rb-${s}`).forEach(e => { e.checked = parseInt(e.value, 10) === filters.minJobs; });
+  document.querySelectorAll(`.badge-cb-${s}`).forEach(e => { e.checked = filters.badges.includes(e.value); });
 }
 
 function clearAllFilters() {
-  filters = { languages:[], priceRange:null, minRating:null, completionTime:null, badges:[], query:'' };
+  filters = emptyFilters();
   const qEl = document.getElementById('fl-search');
   if (qEl) qEl.value = '';
-  syncDOMFromFilters('d'); syncDOMFromFilters('m'); renderList();
+  syncDOMFromFilters('d'); syncDOMFromFilters('m'); rerender(true);
 }
 
 function openDrawer() {
   syncDOMFromFilters('m');
   document.getElementById('filter-drawer').classList.add('open');
   document.getElementById('drawer-overlay').classList.add('open');
-  document.body.style.overflow='hidden';
+  document.body.style.overflow = 'hidden';
 }
 function closeDrawer() {
   document.getElementById('filter-drawer').classList.remove('open');
   document.getElementById('drawer-overlay').classList.remove('open');
-  document.body.style.overflow='';
+  document.body.style.overflow = '';
   document.getElementById('mobile-filter-btn')?.focus();
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function loadTranslators() {
+  setState('loading');
+  try {
+    const res = await fetch('/api/translators', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('bad payload');
+    allFreelancers = data;
+  } catch (e) {
+    console.error(e); setState('error'); return;
+  }
   document.getElementById('filter-form-desktop').innerHTML = buildFilterForm('d');
-  document.getElementById('filter-form-mobile').innerHTML  = buildFilterForm('m');
-  
-  // Check URL params for lang filter
+  document.getElementById('filter-form-mobile').innerHTML = buildFilterForm('m');
+  syncDOMFromFilters('d'); syncDOMFromFilters('m');
+  setState('ready'); renderList();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('filter-form-desktop').innerHTML = buildFilterForm('d');
+  document.getElementById('filter-form-mobile').innerHTML = buildFilterForm('m');
+
   const urlParams = new URLSearchParams(window.location.search);
   const langParam = urlParams.get('lang');
-  if (langParam) {
-    filters.languages = [langParam];
-  }
+  if (langParam) filters.languages = [langParam];
+  const qParam = urlParams.get('q');
+  if (qParam) { document.getElementById('fl-search').value = qParam; filters.query = norm(qParam.trim()); }
 
-  try {
-    const res = await fetch('/api/translators');
-    allFreelancers = await res.json();
-  } catch(e) { allFreelancers = []; console.error(e); }
-  
-  syncDOMFromFilters('d');
-  syncDOMFromFilters('m');
-  renderList();
-  
-  document.getElementById('filter-form-desktop').addEventListener('change', () => { syncFiltersFromDOM('d'); renderList(); });
-  document.getElementById('filter-form-mobile').addEventListener('change', () => { syncFiltersFromDOM('m'); renderList(); });
-  document.getElementById('sort-select').addEventListener('change', e => { sortBy=e.target.value; renderList(); });
+  document.getElementById('filter-form-desktop').addEventListener('change', () => { syncFiltersFromDOM('d'); rerender(true); });
+  document.getElementById('filter-form-mobile').addEventListener('change', () => { syncFiltersFromDOM('m'); rerender(true); });
+  document.getElementById('sort-select').addEventListener('change', e => { sortBy = e.target.value; rerender(true); });
   document.getElementById('mobile-filter-btn').addEventListener('click', openDrawer);
   document.getElementById('close-drawer').addEventListener('click', closeDrawer);
   document.getElementById('drawer-overlay').addEventListener('click', closeDrawer);
   document.getElementById('apply-drawer').addEventListener('click', closeDrawer);
   document.getElementById('clear-filters-desktop')?.addEventListener('click', clearAllFilters);
-  document.getElementById('fl-search')?.addEventListener('input', () => { syncFiltersFromDOM('d'); renderList(); });
-  document.getElementById('fl-search-form')?.addEventListener('submit', (e) => { e.preventDefault(); syncFiltersFromDOM('d'); renderList(); });
-  document.addEventListener('keydown', e => { if(e.key==='Escape') closeDrawer(); });
+  document.getElementById('fl-search')?.addEventListener('input', () => { syncFiltersFromDOM('d'); rerender(true); });
+  document.getElementById('fl-search-form')?.addEventListener('submit', (e) => { e.preventDefault(); syncFiltersFromDOM('d'); rerender(true); });
+  document.getElementById('load-more')?.addEventListener('click', () => { visibleCount += PAGE_SIZE; renderList(); });
+  document.getElementById('retry-load')?.addEventListener('click', loadTranslators);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+  document.addEventListener('vt:favchange', (e) => {
+    const fl = allFreelancers.find(x => x.id === e.detail.id); if (fl) fl.is_favorite = e.detail.is_favorite;
+  });
+  loadTranslators().then(() => { if (qParam || langParam) { syncDOMFromFilters('d'); syncDOMFromFilters('m'); } });
 });
 </script>
 {% endblock %}

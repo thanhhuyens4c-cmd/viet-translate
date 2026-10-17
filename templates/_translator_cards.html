@@ -1,0 +1,171 @@
+<style>
+  .star-filled { color: #f59e0b; }
+  .star-empty  { color: #e2e8f0; }
+  .badge-rising  { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+  .badge-local   { background:#eff6ff; color:#1e40af; border:1px solid #dbeafe; }
+  .badge-rehire  { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+  .badge-default { background:#f8fafc; color:#475569; border:1px solid #e2e8f0; }
+  .fav-btn { transition: all .15s ease; }
+  .fav-btn[aria-pressed="true"] { color:#e11d48; background:#fff1f2; border-color:#fecdd3; }
+  .fav-btn:disabled { opacity:.6; cursor:wait; }
+</style>
+<script>
+/* Dùng chung cho trang tìm kiếm và trang "Phiên dịch viên đã lưu". */
+window.VT = {
+  role: {{ (current_user.role if current_user else '')|tojson }},
+  csrf: {{ csrf_token()|tojson }},
+  loginUrl: {{ url_for('login')|tojson }},
+  postJobUrl: {{ url_for('post_job')|tojson }},
+  lang: {{ current_lang|tojson }},
+};
+(function () {
+  const EN = VT.lang === 'en';
+  const T = (vi, en) => EN ? en : vi;
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const safeUrl = (u) => (typeof u === 'string' && u.startsWith('/') && !u.startsWith('//')) ? u : '#';
+  window.vtEsc = esc;
+
+  function badgeClass(name) {
+    if (/rising/i.test(name)) return 'badge-rising';
+    if (/local/i.test(name)) return 'badge-local';
+    if (/rehire/i.test(name)) return 'badge-rehire';
+    return 'badge-default';
+  }
+  const stars = (r) => Array.from({length: 5}, (_, i) => `<span class="${i < Math.floor(r) ? 'star-filled' : 'star-empty'}">★</span>`).join('');
+  const chip = (txt) => `<span class="text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-md">${esc(txt)}</span>`;
+
+  window.vtRenderCard = function (fl) {
+    const isHirer = VT.role === 'hirer';
+    const showFav = VT.role !== 'translator' && VT.role !== 'admin';
+    const avatar = `
+      <div class="relative w-14 h-14 rounded-2xl overflow-hidden shadow-sm border border-slate-200/90 bg-slate-100 shrink-0">
+        ${fl.avatar_url ? `<img src="${esc(fl.avatar_url)}" alt="${esc(fl.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover object-top">` : ''}
+        <div style="display:${fl.avatar_url ? 'none' : 'flex'}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-lg font-extrabold">${esc(fl.initial)}</div>
+      </div>`;
+    const verified = fl.is_demo
+      ? `<span class="bg-amber-50 border border-amber-200/80 text-amber-700 text-[11px] px-2 py-0.5 rounded-md font-semibold" title="${T('Dữ liệu mẫu demo', 'Demo Profile')}">⚡ ${T('Hồ sơ demo', 'Demo Profile')}</span>`
+      : (fl.is_verified ? `<span class="bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] px-2 py-0.5 rounded-md font-semibold">✓ ${T('Xác minh', 'Verified')}</span>` : '');
+    const favBtn = showFav ? `<button type="button" data-fav="${fl.id}" aria-pressed="${fl.is_favorite ? 'true' : 'false'}" title="${T('Lưu / bỏ lưu', 'Save / unsave')}" aria-label="${T('Lưu phiên dịch viên', 'Save interpreter')} ${esc(fl.name)}" class="fav-btn w-8 h-8 shrink-0 rounded-full border border-slate-200 bg-white text-slate-400 hover:text-rose-500 flex items-center justify-center text-base leading-none">♥</button>` : '';
+
+    const rating = fl.total_reviews > 0
+      ? `<div class="flex items-center gap-1.5 text-xs mb-3"><div class="flex text-amber-500">${stars(fl.rating)}</div><span class="font-bold text-slate-800">${fl.rating.toFixed(1)}</span><span class="text-slate-400">(${fl.total_reviews} ${T('đánh giá', 'reviews')})</span></div>`
+      : `<p class="text-xs text-slate-400 mb-3">${T('Chưa có đánh giá', 'No reviews yet')}</p>`;
+    
+    const expText = fl.experience_years ? `<strong>${fl.experience_years}</strong> ${T('năm KN', 'years exp')}` : (fl.total_jobs > 0 ? `<span>${fl.total_jobs} ${T('dự án đã thực hiện', 'projects completed')}</span>` : `<span>${T('Hồ sơ nhân sự mẫu', 'Demo Profile')}</span>`);
+    const locText = fl.location ? `<span>📍 ${esc(fl.location)}</span>` : '';
+    const expRow = `<div class="flex items-center gap-2 text-xs text-slate-500 mb-3">${locText}${locText ? '<span class="text-slate-300">·</span>' : ''}${expText}</div>`;
+
+    const curr = fl.currency || 'VND';
+    const price = fl.min_price != null
+      ? (curr === 'USD'
+          ? (fl.max_price != null && fl.max_price !== fl.min_price
+              ? `$${fl.min_price} – $${fl.max_price} USD`
+              : `${T('Từ ', 'From ')}$${fl.min_price} USD`)
+          : (fl.max_price != null && fl.max_price !== fl.min_price
+              ? `${fl.min_price.toLocaleString('en-US')} – ${fl.max_price.toLocaleString('en-US')} VND`
+              : `${T('Từ ', 'From ')}${fl.min_price.toLocaleString('en-US')} VND`))
+      : T('Chưa công bố giá', 'Price not listed');
+    const pairs = (fl.language_pairs && fl.language_pairs.length ? fl.language_pairs : fl.languages).map(chip).join('');
+    const spec = fl.specialties && fl.specialties.length ? `<div class="flex flex-wrap gap-1.5 mb-3">${fl.specialties.map(s => `<span class="text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200/60 px-2 py-0.5 rounded-md">${esc(s)}</span>`).join('')}</div>` : '';
+    const badges = fl.badges.length ? `<div class="flex flex-wrap gap-1 mt-2">${fl.badges.map(b => `<span class="text-[10px] px-2 py-0.5 rounded-md font-semibold ${badgeClass(b)}">${esc(b)}</span>`).join('')}</div>` : '';
+
+    return `<article data-card="${fl.id}" class="card-interactive bg-white rounded-2xl border border-slate-200/90 overflow-hidden flex flex-col justify-between shadow-soft min-w-0">
+      <div class="p-5 sm:p-6 flex-grow">
+        <div class="flex justify-between items-start mb-4 gap-2">${avatar}<div class="flex items-center gap-2">${verified}${favBtn}</div></div>
+        <h3 class="font-bold text-slate-900 text-base mb-1 break-words"><a href="${safeUrl(fl.profile_url)}" class="hover:text-brand-600 transition-colors">${esc(fl.name)}</a></h3>
+        <p class="text-xs text-slate-500 mb-2 line-clamp-2 leading-relaxed">${esc(fl.title) || T('Phiên dịch viên', 'Interpreter')}</p>
+        ${expRow}
+        ${rating}
+        <div class="flex flex-wrap gap-1.5 mb-3">${pairs}</div>
+        ${spec}${badges}
+      </div>
+      <div class="bg-slate-50/70 border-t border-slate-100 px-5 py-3.5 space-y-3">
+        <div><span class="text-[10px] text-slate-400 uppercase font-semibold block">${T('Mức giá', 'Rates')}</span><span class="text-xs font-bold text-slate-800">${price}</span></div>
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="${safeUrl(fl.profile_url)}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 hover:border-brand-200 px-3 py-1.5 rounded-lg transition">${T('Xem hồ sơ', 'View Profile')}</a>
+          <a href="${safeUrl(fl.chat_url)}" class="text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-1.5 rounded-lg transition">${T('Liên hệ', 'Contact')}</a>
+          ${isHirer ? `<button type="button" data-invite="${fl.user_id}" data-name="${esc(fl.name)}" class="text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg transition">${T('Mời vào yêu cầu', 'Invite to a job')}</button>` : ''}
+        </div>
+      </div>
+    </article>`;
+  };
+
+  // ── Toast ──
+  window.vtToast = function (msg, ok) {
+    let box = document.getElementById('vt-toast');
+    if (!box) { box = document.createElement('div'); box.id = 'vt-toast'; box.setAttribute('role', 'status'); box.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-[70] px-4 py-2.5 rounded-xl text-sm font-semibold shadow-lg max-w-[90vw]'; document.body.appendChild(box); }
+    box.className = box.className.replace(/bg-\S+|text-white/g, '') + (ok ? ' bg-slate-900 text-white' : ' bg-rose-600 text-white');
+    box.textContent = msg; box.style.display = 'block';
+    clearTimeout(box._t); box._t = setTimeout(() => { box.style.display = 'none'; }, 3200);
+  };
+
+  // ── Yêu thích ──
+  async function toggleFavorite(btn) {
+    if (!VT.role) { location.href = VT.loginUrl; return; }
+    const id = btn.dataset.fav, want = btn.getAttribute('aria-pressed') !== 'true';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/favorites/' + encodeURIComponent(id), {
+        method: want ? 'POST' : 'DELETE', credentials: 'same-origin',
+        headers: {'X-CSRF-Token': VT.csrf, 'Accept': 'application/json'},
+      });
+      if (!res.ok) throw new Error(res.status);
+      const d = await res.json();
+      document.querySelectorAll(`[data-fav="${CSS.escape(id)}"]`).forEach(b => b.setAttribute('aria-pressed', d.is_favorite ? 'true' : 'false'));
+      document.dispatchEvent(new CustomEvent('vt:favchange', {detail: {id: +id, is_favorite: d.is_favorite}}));
+      vtToast(d.is_favorite ? T('Đã lưu phiên dịch viên', 'Saved') : T('Đã bỏ lưu', 'Removed from saved'), true);
+    } catch (e) {
+      vtToast(T('Không thể cập nhật danh sách đã lưu. Vui lòng thử lại.', 'Could not update saved list. Please try again.'), false);
+    } finally { btn.disabled = false; }
+  }
+
+  // ── Mời vào yêu cầu ──
+  let modal;
+  function closeModal() { if (modal) modal.remove(); modal = null; }
+  async function openInvite(userId, name) {
+    closeModal();
+    modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-900/50 p-0 sm:p-4';
+    modal.innerHTML = `<div role="dialog" aria-modal="true" class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3 mb-4"><h2 class="font-bold text-slate-900">${T('Mời', 'Invite')} ${esc(name)} ${T('vào yêu cầu', 'to a job')}</h2>
+      <button type="button" data-close class="text-slate-400 hover:text-slate-700 text-xl leading-none" aria-label="${T('Đóng', 'Close')}">×</button></div>
+      <div id="vt-invite-body"><div class="animate-pulse space-y-2"><div class="h-10 bg-slate-100 rounded-xl"></div><div class="h-10 bg-slate-100 rounded-xl"></div></div></div></div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal || e.target.closest('[data-close]')) closeModal(); });
+    const body = modal.querySelector('#vt-invite-body');
+    try {
+      const res = await fetch('/api/my-open-jobs', {credentials: 'same-origin', headers: {'Accept': 'application/json'}});
+      if (!res.ok) throw new Error(res.status);
+      const jobs = (await res.json()).items;
+      if (!jobs.length) {
+        body.innerHTML = `<p class="text-sm text-slate-500 mb-4">${T('Bạn chưa có yêu cầu nào đang mở để mời.', 'You have no open jobs to invite to.')}</p>
+          <a href="${esc(VT.postJobUrl)}" class="inline-block bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-4 py-2 rounded-xl">${T('+ Đăng yêu cầu mới', '+ Post a new job')}</a>`;
+        return;
+      }
+      body.innerHTML = `<p class="text-xs text-slate-500 mb-3">${T('Chọn yêu cầu bạn muốn mời phiên dịch viên này ứng tuyển:', 'Choose the job to invite this interpreter to:')}</p>
+        <ul class="space-y-2">${jobs.map(j => `<li><button type="button" data-job="${j.id}" class="w-full text-left text-sm font-semibold text-slate-800 border border-slate-200 hover:border-brand-400 hover:bg-brand-50 rounded-xl px-4 py-2.5 transition break-words">${esc(j.title)}</button></li>`).join('')}</ul>
+        <p id="vt-invite-msg" class="text-xs mt-3 font-semibold" role="status"></p>`;
+      body.addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-job]'); if (!b) return;
+        const msg = body.querySelector('#vt-invite-msg'); b.disabled = true; msg.textContent = '';
+        try {
+          const r = await fetch(`/api/jobs/${b.dataset.job}/invite/${userId}`, {method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': VT.csrf, 'Accept': 'application/json'}});
+          const d = await r.json().catch(() => ({}));
+          if (r.ok && d.status === 'success') { msg.className = 'text-xs mt-3 font-semibold text-emerald-700'; msg.textContent = T('Đã gửi lời mời.', 'Invitation sent.'); }
+          else if (d.status === 'already_invited') { msg.className = 'text-xs mt-3 font-semibold text-slate-600'; msg.textContent = T('Bạn đã mời phiên dịch viên này vào yêu cầu đó rồi.', 'Already invited to this job.'); }
+          else { msg.className = 'text-xs mt-3 font-semibold text-rose-600'; msg.textContent = d.message || T('Không thể gửi lời mời.', 'Could not send invitation.'); }
+        } catch (err) { msg.className = 'text-xs mt-3 font-semibold text-rose-600'; msg.textContent = T('Lỗi kết nối. Vui lòng thử lại.', 'Connection error. Please try again.'); }
+        b.disabled = false;
+      });
+    } catch (e) {
+      body.innerHTML = `<p class="text-sm text-rose-600 font-semibold">${T('Không tải được danh sách yêu cầu.', 'Could not load your jobs.')}</p>`;
+    }
+  }
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+  document.addEventListener('click', (e) => {
+    const f = e.target.closest('[data-fav]'); if (f) { e.preventDefault(); toggleFavorite(f); return; }
+    const i = e.target.closest('[data-invite]'); if (i) { e.preventDefault(); openInvite(i.dataset.invite, i.dataset.name); }
+  });
+})();
+</script>

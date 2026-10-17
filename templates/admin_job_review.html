@@ -1,0 +1,449 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Xét duyệt job #{{ job.id }} | VietTranslate Admin{% endblock %}
+{% block header_title %}Xét duyệt job #{{ job.id }}{% endblock %}
+
+{% block content %}
+<div class="job-review-container" style="max-width: 1200px; margin: 0 auto; padding-bottom: 90px;">
+    
+    <!-- Top Breadcrumb & Status Badges -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <a href="{{ url_for('admin_jobs') }}" class="btn btn-ghost btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Danh sách job
+            </a>
+            <h2 style="font-size: 18px; font-weight: 700; color: #f8fafc; margin: 0;">
+                Xét duyệt job #{{ job.id }}
+            </h2>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            {% if job.hirer and (job.hirer.hirer_profile and (job.hirer.hirer_profile.verification_status == 'verified' or job.hirer.hirer_profile.is_verified)) %}
+            <span style="background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Người đăng đã xác minh
+            </span>
+            {% else %}
+            <span style="background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;">
+                Người đăng chưa xác minh
+            </span>
+            {% endif %}
+
+            {% if job.moderation_status == 'approved' %}
+            <span class="badge badge-green" style="font-size: 12px; padding: 5px 12px;">Đã duyệt</span>
+            {% elif job.moderation_status == 'rejected' %}
+            <span class="badge badge-red" style="font-size: 12px; padding: 5px 12px;">Bị từ chối</span>
+            {% elif job.moderation_status == 'flagged' %}
+            <span class="badge badge-red" style="font-size: 12px; padding: 5px 12px;">Bị gắn cờ</span>
+            {% elif job.moderation_status == 'needs_revision' %}
+            <span class="badge badge-warning" style="font-size: 12px; padding: 5px 12px;">Cần chỉnh sửa</span>
+            {% else %}
+            <span class="badge badge-warning" style="font-size: 12px; padding: 5px 12px; background: #fbbf24; color: #1e293b;">Chờ duyệt</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Main Two-Column Layout (Matching Image 3) -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+        
+        <!-- CỘT TRÁI: THÔNG TIN JOB VÀ NỘI DUNG MÔ TẢ (CÓ TÔ SÁNG VI PHẠM) -->
+        <div class="admin-card" style="padding: 24px; background: #1e293b; border: 1px solid #334155; border-radius: 16px;">
+            
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                    <h3 style="font-size: 20px; font-weight: 800; color: #f1f5f9; line-height: 1.3; margin: 0 0 6px 0;">
+                        {{ job.title }}
+                    </h3>
+                    <!-- Nút sửa nhẹ tiêu đề (D3) -->
+                    <button type="button" onclick="openEditTitleModal()" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 3px 8px; shrink: 0;" title="Sửa nhẹ tiêu đề (D3)">
+                        ✎ Sửa tiêu đề
+                    </button>
+                </div>
+                <div style="font-size: 13px; color: #94a3b8; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span>{{ job.display_category_text() if job.display_category_text is defined else (job.category or 'Phiên dịch') }}</span>
+                    <span>•</span>
+                    <span style="color: #60a5fa; font-weight: 600;">{{ job.source_lang }} → {{ job.target_lang }}</span>
+                </div>
+            </div>
+
+            <!-- Grid Thông số: Địa điểm, Thời gian, Ngân sách, Khung thị trường -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid #1e293b; margin-bottom: 20px;">
+                <div>
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Địa điểm</div>
+                    <div style="font-size: 14px; font-weight: 600; color: #e2e8f0; margin-top: 2px;">
+                        {{ job.event_location or 'Làm việc Online / Từ xa' }}
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Thời gian</div>
+                    <div style="font-size: 14px; font-weight: 600; color: #e2e8f0; margin-top: 2px;">
+                        {% if job.schedules and job.schedules|length > 0 %}
+                            {{ job.schedules|length }} ngày làm việc
+                        {% elif job.event_date %}
+                            {{ job.event_date }}
+                        {% else %}
+                            Linh hoạt theo thỏa thuận
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Ngân sách</div>
+                    <div style="font-size: 16px; font-weight: 800; color: #f8fafc; margin-top: 2px;">
+                        {% if job.budget_min and job.budget_min > 0 %}
+                            {{ "{:,.0f}".format(job.budget_min) }}đ
+                        {% else %}
+                            Thỏa thuận
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Khung thị trường</div>
+                    <div style="font-size: 13px; font-weight: 700; margin-top: 4px; color: {% if eval_result.groups.B['items'][4].status == 'warning' %}#f59e0b{% else %}#22c55e{% endif %};">
+                        {{ eval_result.groups.B['items'][4].note }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mô tả công việc với Highlight lỗi vi phạm -->
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">
+                    Mô tả công việc (Đoạn vi phạm được tô sáng tự động)
+                </div>
+                <div style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid #1e293b; color: #cbd5e1; font-size: 14px; line-height: 1.7; white-space: pre-line;">
+                    {{ eval_result.highlighted_description | safe }}
+                </div>
+            </div>
+
+            <!-- Thông tin Người đăng tuyển -->
+            <div style="padding: 14px; background: rgba(51,65,85,0.4); border-radius: 12px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <div style="font-size: 11px; color: #94a3b8;">Người đăng tuyển</div>
+                    <div style="font-size: 14px; font-weight: 700; color: #f1f5f9;">{{ job.hirer.name if job.hirer else 'Ẩn danh' }}</div>
+                    <div style="font-size: 12px; color: #64748b;">{{ job.hirer.email if job.hirer else '' }}</div>
+                </div>
+                {% if job.hirer and job.hirer.hirer_profile %}
+                <a href="{{ url_for('admin_hirer_verify', hirer_id=job.hirer.id) }}" class="btn btn-ghost btn-sm" style="font-size: 12px;">
+                    Xem hồ sơ người đăng →
+                </a>
+                {% endif %}
+            </div>
+
+        </div>
+
+        <!-- CỘT PHẢI: BỘ KIỂM TRA 39 TIÊU CHÍ (A, B, C, D) THEO THIẾT KẾ HÌNH 3 -->
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+
+            <!-- Banner Vi phạm Nghiêm trọng (nếu có) -->
+            {% if eval_result.total_critical > 0 %}
+            <div style="background: rgba(239,68,68,0.15); border: 1.5px solid #ef4444; border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; gap: 14px;">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: #ef4444; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; shrink: 0;">!</div>
+                <div>
+                    <div style="font-size: 14px; font-weight: 800; color: #fca5a5;">{{ eval_result.total_critical }} vi phạm nghiêm trọng</div>
+                    <div style="font-size: 12px; color: #f87171; margin-top: 2px;">
+                        {% for viol in eval_result.text_violations %}
+                        • {{ viol.reason }}<br>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Form xử lý tiêu chí & Quyết định Admin -->
+            <form id="moderationForm" method="POST" action="{{ url_for('admin_moderate_job', job_id=job.id) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="decision" id="decisionInput" value="approve">
+                <input type="hidden" name="rejection_reason" id="rejectionReasonInput" value="">
+                <input type="hidden" name="revision_notes" id="revisionNotesInput" value="">
+
+                <!-- NHÓM A · Tính đầy đủ thông tin (12 tiêu chí) -->
+                <div class="criteria-group-box" style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
+                    <div onclick="toggleGroup('grpA')" style="padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; background: rgba(15,23,42,0.4);">
+                        <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #f1f5f9; font-size: 14px;">
+                            <span style="color: #94a3b8;">A •</span> Tính đầy đủ thông tin
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-weight: 700; font-size: 13px; color: {% if eval_result.groups.A.passed == 12 %}#22c55e{% else %}#f59e0b{% endif %};">
+                                {{ eval_result.groups.A.passed }}/12
+                            </span>
+                            <span id="grpA-icon" style="color: #64748b; font-size: 12px;">▼</span>
+                        </div>
+                    </div>
+                    <div id="grpA-content" style="padding: 12px 18px; display: none; border-top: 1px solid #334155; font-size: 13px;">
+                        {% for it in eval_result.groups.A['items'] %}
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(51,65,85,0.4);">
+                            <span style="color: #cbd5e1;">{{ it.code }} • {{ it.title }}</span>
+                            <span style="font-size: 11px; color: {% if it.status == 'passed' %}#4ade80{% else %}#fbbf24{% endif %}; font-weight: 600;">
+                                {{ it.note }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- NHÓM B · Chính xác và nhất quán (9 tiêu chí) -->
+                <div class="criteria-group-box" style="background: #1e293b; border: 1px solid {% if eval_result.groups.B.warnings > 0 %}#f59e0b{% else %}#334155{% endif %}; border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
+                    <div onclick="toggleGroup('grpB')" style="padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; background: rgba(15,23,42,0.4);">
+                        <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #f1f5f9; font-size: 14px;">
+                            <span style="color: #94a3b8;">B •</span> Chính xác và nhất quán
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-weight: 700; font-size: 13px; color: {% if eval_result.groups.B.warnings > 0 %}#f59e0b{% else %}#22c55e{% endif %};">
+                                {{ eval_result.groups.B.passed }}/9 {% if eval_result.groups.B.warnings > 0 %}• {{ eval_result.groups.B.warnings }} cần xem{% endif %}
+                            </span>
+                            <span id="grpB-icon" style="color: #64748b; font-size: 12px;">▼</span>
+                        </div>
+                    </div>
+                    <div id="grpB-content" style="padding: 12px 18px; display: {% if eval_result.groups.B.warnings > 0 %}block{% else %}none{% endif %}; border-top: 1px solid #334155; font-size: 13px;">
+                        {% for it in eval_result.groups.B['items'] %}
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(51,65,85,0.4);">
+                            <span style="color: #cbd5e1;">{{ it.code }} • {{ it.title }}</span>
+                            <span style="font-size: 11px; color: {% if it.status == 'passed' %}#4ade80{% else %}#fbbf24{% endif %}; font-weight: 600;">
+                                {{ it.note }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- NHÓM C · Lừa đảo và rủi ro (12 tiêu chí) - MỞ RỘNG KHI CÓ LỖI (Hình 3) -->
+                <div class="criteria-group-box" style="background: #1e293b; border: 1.5px solid {% if eval_result.groups.C.critical > 0 %}#ef4444{% else %}#334155{% endif %}; border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
+                    <div onclick="toggleGroup('grpC')" style="padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; background: rgba(15,23,42,0.4);">
+                        <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #f1f5f9; font-size: 14px;">
+                            <span style="color: #94a3b8;">C •</span> Lừa đảo và rủi ro
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-weight: 700; font-size: 13px; color: {% if eval_result.groups.C.critical > 0 %}#ef4444{% else %}#22c55e{% endif %};">
+                                {{ eval_result.groups.C.passed }}/12
+                            </span>
+                            <span id="grpC-icon" style="color: #64748b; font-size: 12px;">▲</span>
+                        </div>
+                    </div>
+                    <div id="grpC-content" style="padding: 14px 18px; display: block; border-top: 1px solid #334155; font-size: 13px;">
+                        
+                        <!-- C1: Liên lạc ngoài -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(51,65,85,0.4);">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="color: #f87171;">✕</span>
+                                <span style="color: #f1f5f9; font-weight: 600;">C1 · Liên lạc ngoài nền tảng</span>
+                            </div>
+                            <span style="background: rgba(239,68,68,0.2); color: #f87171; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+                                {% if eval_result.groups.C['items'][0].status == 'critical' %}Nghiêm trọng{% else %}Đạt{% endif %}
+                            </span>
+                        </div>
+
+                        <!-- C2: Không mời thanh toán ngoài -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(51,65,85,0.4);">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="color: #4ade80;">✓</span>
+                                <span style="color: #cbd5e1;">C2 · Không mời thanh toán ngoài</span>
+                            </div>
+                            <span style="color: #94a3b8; font-size: 11px;">Tự động</span>
+                        </div>
+
+                        <!-- C7: Không yêu cầu nhân thân (Thủ công Admin xem với Checkbox) -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(51,65,85,0.4);">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0;">
+                                <input type="checkbox" name="chk_C7" value="1" {% if eval_result.groups.C['items'][6].status == 'passed' %}checked{% endif %} style="width: 16px; height: 16px; accent-color: #3b82f6;">
+                                <span style="color: #cbd5e1; font-weight: 500;">C7 · Không yêu cầu nhân thân</span>
+                            </label>
+                            <span style="color: #60a5fa; font-size: 11px; font-weight: 600;">Admin xem</span>
+                        </div>
+
+                        <!-- Dòng rút gọn các tiêu chí đã đạt còn lại -->
+                        <div style="margin-top: 10px;">
+                            <button type="button" onclick="toggleSubCriteria()" style="background: none; border: none; color: #94a3b8; font-size: 12px; cursor: pointer; padding: 4px 0; display: flex; align-items: center; gap: 6px;">
+                                <span id="sub-arrow">+</span> 9 tiêu chí khác đã đạt (click xem chi tiết)
+                            </button>
+                            <div id="subCriteriaBlock" style="display: none; margin-top: 8px; padding-left: 12px; border-left: 2px solid #334155;">
+                                {% for it in eval_result.groups.C['items'] %}
+                                    {% if it.code not in ('C1', 'C2', 'C7') %}
+                                    <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: #94a3b8;">
+                                        <span>{{ it.code }} · {{ it.title }}</span>
+                                        <span style="color: #4ade80;">✓ Đạt</span>
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- NHÓM D · Tuân thủ và chất lượng (6 tiêu chí) -->
+                <div class="criteria-group-box" style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
+                    <div onclick="toggleGroup('grpD')" style="padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; background: rgba(15,23,42,0.4);">
+                        <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #f1f5f9; font-size: 14px;">
+                            <span style="color: #94a3b8;">D •</span> Tuân thủ và chất lượng
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-weight: 700; font-size: 13px; color: #22c55e;">
+                                {{ eval_result.groups.D.passed }}/6
+                            </span>
+                            <span id="grpD-icon" style="color: #64748b; font-size: 12px;">▼</span>
+                        </div>
+                    </div>
+                    <div id="grpD-content" style="padding: 12px 18px; display: none; border-top: 1px solid #334155; font-size: 13px;">
+                        {% for it in eval_result.groups.D['items'] %}
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(51,65,85,0.4);">
+                            <span style="color: #cbd5e1;">{{ it.code }} • {{ it.title }}</span>
+                            <span style="font-size: 11px; color: #4ade80; font-weight: 600;">✓ Đạt</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- THANH HÀNH ĐỘNG DƯỚI CÙNG (STICKY FOOTER ACTION BAR - HÌNH 3) -->
+<div style="position: fixed; bottom: 0; left: var(--sidebar-w); right: 0; background: #0f172a; border-top: 1px solid #334155; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; z-index: 50; box-shadow: 0 -10px 25px rgba(0,0,0,0.4);">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 13px; color: #94a3b8; font-weight: 500;">
+            Đề xuất: 
+            <strong style="color: {% if eval_result.recommendation == 'reject' %}#f87171{% elif eval_result.recommendation == 'needs_revision' %}#fbbf24{% else %}#4ade80{% endif %};">
+                {{ eval_result.recommendation_text }}
+            </strong>
+        </span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <!-- Nút Yêu cầu chỉnh sửa -->
+        <button type="button" onclick="openRevisionModal()" class="btn btn-ghost" style="border: 1px solid #475569; color: #f1f5f9; padding: 8px 18px; border-radius: 10px; font-weight: 600; font-size: 13px;">
+            Yêu cầu chỉnh sửa
+        </button>
+
+        <!-- Nút Duyệt -->
+        <button type="button" onclick="submitDecision('approve')" class="btn" style="background: {% if eval_result.total_critical > 0 %}#334155{% else %}#22c55e{% endif %}; color: #fff; padding: 8px 24px; border-radius: 10px; font-weight: 700; font-size: 13px; border: none; cursor: pointer;" {% if eval_result.total_critical > 0 %}title="Job đang có vi phạm nghiêm trọng, không nên duyệt"{% endif %}>
+            Duyệt
+        </button>
+
+        <!-- Nút Từ chối (Nổi bật màu đỏ khi có vi phạm nghiêm trọng - Hình 3) -->
+        <button type="button" onclick="openRejectModal()" class="btn" style="background: #dc2626; color: #fff; padding: 8px 24px; border-radius: 10px; font-weight: 700; font-size: 13px; border: none; cursor: pointer; box-shadow: {% if eval_result.total_critical > 0 %}0 0 15px rgba(220,38,38,0.5){% else %}none{% endif %};">
+            Từ chối
+        </button>
+    </div>
+</div>
+
+<!-- MODAL TỪ CHỐI -->
+<div id="rejectModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;">
+    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 24px; max-width: 480px; width: 90%; color: #f1f5f9;">
+        <h4 style="font-size: 16px; font-weight: 800; margin-bottom: 12px; color: #f87171;">Xác nhận từ chối Job #{{ job.id }}</h4>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px;">
+            Vui lòng nhập lý do từ chối để thông báo cho người đăng tuyển:
+        </p>
+        <textarea id="rejectReasonText" rows="3" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px; margin-bottom: 16px;" placeholder="Ví dụ: Vi phạm điều khoản liên hệ ngoài nền tảng (Zalo/SĐT)">{{ eval_result.recommendation_text }}</textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="closeRejectModal()" class="btn btn-ghost btn-sm">Hủy</button>
+            <button type="button" onclick="confirmReject()" class="btn btn-danger btn-sm">Xác nhận Từ chối</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL YÊU CẦU CHỈNH SỬA -->
+<div id="revisionModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;">
+    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 24px; max-width: 480px; width: 90%; color: #f1f5f9;">
+        <h4 style="font-size: 16px; font-weight: 800; margin-bottom: 12px; color: #fbbf24;">Yêu cầu chỉnh sửa Job #{{ job.id }}</h4>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px;">
+            Nhập các mục tiêu chí cần người đăng cập nhật trước khi duyệt:
+        </p>
+        <textarea id="revisionNotesText" rows="3" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px; margin-bottom: 16px;" placeholder="Ví dụ: Vui lòng bổ sung địa điểm làm việc chi tiết và làm rõ khung thời gian."></textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="closeRevisionModal()" class="btn btn-ghost btn-sm">Hủy</button>
+            <button type="button" onclick="confirmRevision()" class="btn btn-warning btn-sm" style="color: #000; font-weight: 700;">Gửi yêu cầu sửa</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL SỬA NHẸ TIÊU ĐỀ (D3) -->
+<div id="editTitleModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;">
+    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 24px; max-width: 480px; width: 90%; color: #f1f5f9;">
+        <h4 style="font-size: 16px; font-weight: 800; margin-bottom: 12px; color: #60a5fa;">Sửa định dạng tiêu đề (D3)</h4>
+        <form method="POST" action="{{ url_for('admin_edit_job_title', job_id=job.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div style="margin-bottom: 14px;">
+                <label style="font-size: 12px; color: #94a3b8; display: block; margin-bottom: 6px;">Tiêu đề chuẩn hóa:</label>
+                <input type="text" name="new_title" value="{{ job.title }}" required style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="closeEditTitleModal()" class="btn btn-ghost btn-sm">Hủy</button>
+                <button type="submit" class="btn btn-primary btn-sm">Lưu tiêu đề mới</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleGroup(grpId) {
+    var content = document.getElementById(grpId + '-content');
+    var icon = document.getElementById(grpId + '-icon');
+    if (content.style.display === 'none' || content.style.display === '') {
+        content.style.display = 'block';
+        icon.innerText = '▲';
+    } else {
+        content.style.display = 'none';
+        icon.innerText = '▼';
+    }
+}
+
+function toggleSubCriteria() {
+    var blk = document.getElementById('subCriteriaBlock');
+    var arr = document.getElementById('sub-arrow');
+    if (blk.style.display === 'none') {
+        blk.style.display = 'block';
+        arr.innerText = '-';
+    } else {
+        blk.style.display = 'none';
+        arr.innerText = '+';
+    }
+}
+
+function submitDecision(dec) {
+    if (dec === 'approve') {
+        {% if eval_result.total_critical > 0 %}
+        if (!confirm('Cảnh báo: Job này có vi phạm nghiêm trọng (C1/C2...). Bạn có chắc chắn muốn bỏ qua và duyệt công việc này không?')) {
+            return;
+        }
+        {% endif %}
+    }
+    document.getElementById('decisionInput').value = dec;
+    document.getElementById('moderationForm').submit();
+}
+
+function openRejectModal() {
+    document.getElementById('rejectModal').style.display = 'flex';
+}
+function closeRejectModal() {
+    document.getElementById('rejectModal').style.display = 'none';
+}
+function confirmReject() {
+    var r = document.getElementById('rejectReasonText').value.trim();
+    document.getElementById('rejectionReasonInput').value = r;
+    document.getElementById('decisionInput').value = 'reject';
+    document.getElementById('moderationForm').submit();
+}
+
+function openRevisionModal() {
+    document.getElementById('revisionModal').style.display = 'flex';
+}
+function closeRevisionModal() {
+    document.getElementById('revisionModal').style.display = 'none';
+}
+function confirmRevision() {
+    var n = document.getElementById('revisionNotesText').value.trim();
+    document.getElementById('revisionNotesInput').value = n;
+    document.getElementById('decisionInput').value = 'needs_revision';
+    document.getElementById('moderationForm').submit();
+}
+
+function openEditTitleModal() {
+    document.getElementById('editTitleModal').style.display = 'flex';
+}
+function closeEditTitleModal() {
+    document.getElementById('editTitleModal').style.display = 'none';
+}
+</script>
+{% endblock %}
