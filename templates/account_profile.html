@@ -34,38 +34,26 @@
             transform: translateY(0);
         }
     }
+
+    /* Custom Hide Scrollbar for tab navigation */
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-{% if not user.email_verified and user.role != 'hirer' %}
-<div class="bg-amber-50 border-b border-amber-200 px-4 py-3 text-amber-800 text-sm flex items-center justify-center gap-3">
-    <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-    <span class="font-medium">Tài khoản của bạn chưa được xác minh email. Vui lòng kiểm tra hộp thư để xác minh.</span>
-    <button onclick="resendVerificationEmail()" class="font-bold underline hover:text-amber-900 ml-2">Gửi lại email xác minh</button>
-</div>
-<script>
-function resendVerificationEmail() {
-    fetch("{{ url_for('resend_verification_email') }}", { method: 'POST' })
-    .then(response => response.json())
-    .then(data => {
-        if(data.success) {
-            alert('Email xác minh đã được gửi thành công!');
-        } else {
-            alert(data.message || 'Có lỗi xảy ra, vui lòng thử lại sau.');
-        }
-    })
-    .catch(err => alert('Có lỗi xảy ra, vui lòng thử lại sau.'));
-}
-</script>
-{% endif %}
 <div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
     <h1 class="sr-only">{{ t('account_profile_page.title') }} — {{ user.name }}</h1>
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex flex-col md:flex-row gap-8">
+    <div class="w-full min-w-0 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col lg:flex-row gap-6 lg:gap-8 min-w-0">
 
             <!-- Sidebar -->
-            <aside class="w-full md:w-64 shrink-0">
+            <aside class="w-full lg:w-64 shrink-0">
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden sticky top-24">
                     <!-- Avatar -->
                     <div class="p-6 text-center border-b border-slate-100 bg-slate-50/40">
@@ -243,7 +231,7 @@ function resendVerificationEmail() {
             </aside>
 
             <!-- Main Content -->
-            <div class="flex-grow space-y-6">
+            <div class="flex-grow min-w-0 space-y-6">
 
                 {% if user.role == 'translator' %}
                 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
@@ -330,8 +318,8 @@ function resendVerificationEmail() {
 
                     <!-- Profile Info Area -->
                     <div class="px-6 pb-6 pt-0">
-                        <div class="flex flex-col sm:flex-row items-center sm:items-end justify-between -mt-12 sm:-mt-10 gap-4 mb-5">
-                            <div class="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+                        <div class="flex flex-col sm:flex-row items-center sm:items-end justify-between -mt-12 sm:-mt-10 gap-4 mb-5 min-w-0">
+                            <div class="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left min-w-0">
                                 <!-- Avatar Preview with Quick Edit -->
                                 <div id="translator-header-avatar-box" class="relative w-24 h-24 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-slate-100 ring-2 ring-slate-100 shrink-0 group">
                                     {% if user.avatar_url %}
@@ -349,12 +337,12 @@ function resendVerificationEmail() {
                                 </div>
                                 
                                 <!-- Name and Title -->
-                                <div class="pt-2 sm:pt-10">
+                                <div class="pt-2 sm:pt-10 min-w-0">
                                     <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                                        <h2 class="text-xl font-bold text-slate-900">{{ user.name }}</h2>
+                                        <h2 class="text-xl font-bold text-slate-900 truncate">{{ user.name }}</h2>
                                         {% if is_verified_val %}
                                         <a href="{{ url_for('verification_status_page') }}" target="_blank"
-                                            class="inline-flex items-center text-emerald-600 hover:text-emerald-700 transition"
+                                            class="inline-flex items-center text-emerald-600 hover:text-emerald-700 transition shrink-0"
                                             title="Hồ sơ đã xác minh chính thức (KYC) - Nhấn để xem chứng nhận">
                                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                                         </a>
@@ -362,14 +350,14 @@ function resendVerificationEmail() {
                                     </div>
                                     <div class="text-xs text-slate-500 font-medium mt-0.5 flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
                                         {% if user.profile and user.profile.title %}
-                                            <span id="header-profile-title" class="font-semibold text-slate-700">{{ user.profile.title }}</span>
-                                            <button type="button" onclick="openTitleModal()" class="text-brand-600 hover:text-brand-700 font-bold text-xs inline-flex items-center gap-0.5 cursor-pointer ml-1" title="Chỉnh sửa tiêu đề chuyên môn">
+                                            <span id="header-profile-title" class="font-semibold text-slate-700 truncate max-w-xs">{{ user.profile.title }}</span>
+                                            <button type="button" onclick="openTitleModal()" class="text-brand-600 hover:text-brand-700 font-bold text-xs inline-flex items-center gap-0.5 cursor-pointer ml-1 shrink-0" title="Chỉnh sửa tiêu đề chuyên môn">
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                                                 <span>(Sửa tiêu đề)</span>
                                             </button>
                                         {% else %}
                                             <span id="header-profile-title" class="text-slate-400 italic">Chưa đặt tiêu đề chuyên môn</span>
-                                            <button type="button" onclick="openTitleModal()" class="text-brand-600 hover:text-brand-700 font-bold text-xs inline-flex items-center gap-0.5 cursor-pointer">
+                                            <button type="button" onclick="openTitleModal()" class="text-brand-600 hover:text-brand-700 font-bold text-xs inline-flex items-center gap-0.5 cursor-pointer shrink-0">
                                                 <span>(Thêm tiêu đề)</span>
                                             </button>
                                         {% endif %}
@@ -378,7 +366,7 @@ function resendVerificationEmail() {
                             </div>
 
                             <!-- Action buttons in header -->
-                            <div class="flex items-center gap-2 pt-2 sm:pt-10 flex-wrap justify-center sm:justify-end">
+                            <div class="flex items-center gap-2 pt-2 sm:pt-10 flex-wrap justify-center sm:justify-end shrink-0">
                                 <!-- Nút Lưu thay đổi chính nổi bật ở Header -->
                                 <button type="button" onclick="triggerSaveCurrentTab()" id="header-save-btn"
                                     class="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm hover:shadow transition cursor-pointer"
@@ -414,13 +402,13 @@ function resendVerificationEmail() {
                         </div>
 
                         <!-- Meta Details Grid: Email, Phone, Ngôn ngữ -->
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100 text-xs">
-                            <div class="flex items-center gap-2 text-slate-600 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100 text-xs min-w-0">
+                            <div class="flex items-center gap-2 text-slate-600 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100 min-w-0 overflow-hidden">
                                 <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                                 <span class="truncate font-medium">{{ user.email }}</span>
                             </div>
-                            <div class="flex items-center justify-between text-slate-600 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100">
-                                <div class="flex items-center gap-2 overflow-hidden">
+                            <div class="flex items-center justify-between text-slate-600 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100 min-w-0 overflow-hidden">
+                                <div class="flex items-center gap-2 overflow-hidden min-w-0">
                                     <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
                                     <span class="truncate font-medium">{% if user.phone %}{{ user.phone }}{% else %}<em class="text-slate-400 not-italic">Chưa cập nhật SĐT</em>{% endif %}</span>
                                 </div>
@@ -428,8 +416,8 @@ function resendVerificationEmail() {
                                 <button type="button" onclick="switchTab('profile')" class="text-brand-600 hover:text-brand-700 text-[11px] font-bold shrink-0 ml-1 cursor-pointer">Cập nhật</button>
                                 {% endif %}
                             </div>
-                            <div class="flex items-center justify-between text-slate-600 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100">
-                                <div class="flex items-center gap-2 overflow-hidden">
+                            <div class="flex items-center justify-between text-slate-600 bg-slate-50/80 px-3 py-2 rounded-xl border border-slate-100 min-w-0 overflow-hidden">
+                                <div class="flex items-center gap-2 overflow-hidden min-w-0">
                                     <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
                                     <span class="truncate font-medium">
                                         {% if user.profile and user.profile.languages %}
@@ -702,12 +690,6 @@ function resendVerificationEmail() {
                                         <input type="email" id="input-profile-email" name="email" value="{{ user.email }}" required
                                             placeholder="name@example.com"
                                             class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white transition">
-                                        {% if not user.email_verified %}
-                                        <div class="flex items-center justify-between text-[11px] text-amber-800 bg-amber-50/70 px-2.5 py-1 rounded-lg border border-amber-100">
-                                            <span>Email chưa xác thực. Vui lòng kiểm tra hộp thư.</span>
-                                            <button type="button" onclick="resendVerificationEmail()" class="font-bold underline hover:text-amber-950 cursor-pointer">Gửi lại email</button>
-                                        </div>
-                                        {% endif %}
                                         <p id="err-profile-email" class="text-xs text-rose-600 hidden"></p>
                                     </div>
 
@@ -9005,6 +8987,20 @@ function resendVerificationEmail() {
         }).catch(err => {
             console.warn('Clipboard write failed:', err);
         });
+    }
+
+    // 8. Gửi Lại Email Xác Minh
+    function resendVerificationEmail() {
+        fetch("{{ url_for('resend_verification_email') }}", { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                alert('Email xác minh đã được gửi thành công!');
+            } else {
+                alert(data.message || 'Có lỗi xảy ra, vui lòng thử lại sau.');
+            }
+        })
+        .catch(err => alert('Có lỗi xảy ra, vui lòng thử lại sau.'));
     }
 </script>
 {% endblock %}

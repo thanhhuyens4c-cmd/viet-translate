@@ -35,22 +35,23 @@ class ProductionConfig(Config):
     DEBUG = False
 
     _secret = os.getenv('SECRET_KEY')
-    if not _secret or _secret == 'dev-secret-key-change-in-production' or len(_secret.strip()) < 16:
-        raise RuntimeError(
-            "[CRITICAL] Production environment requires a strong SECRET_KEY (minimum 16 chars)! "
-            "Please configure SECRET_KEY in your production environment variables."
-        )
-    SECRET_KEY = _secret
-
-    # DATABASE_URL takes priority; SUPABASE_DB_URL is a legacy alias
     _db_url = os.getenv('DATABASE_URL') or os.getenv('SUPABASE_DB_URL')
+
+    if os.getenv('FLASK_ENV', '').lower() == 'production':
+        if not _secret or _secret == 'dev-secret-key-change-in-production' or len(_secret.strip()) < 16:
+            raise RuntimeError(
+                "[CRITICAL] Production environment requires a strong SECRET_KEY (minimum 16 chars)! "
+                "Please configure SECRET_KEY in your production environment variables."
+            )
+        if not _db_url:
+            raise RuntimeError(
+                "[CRITICAL] Production environment requires DATABASE_URL pointing to PostgreSQL! "
+                "SQLite fallback is strictly forbidden in production."
+            )
+
+    SECRET_KEY = _secret or Config.SECRET_KEY
     if _db_url:
         SQLALCHEMY_DATABASE_URI = _db_url
-    else:
-        raise RuntimeError(
-            "[CRITICAL] Production environment requires DATABASE_URL pointing to PostgreSQL! "
-            "SQLite fallback is strictly forbidden in production."
-        )
 
 class TestingConfig(Config):
     """Testing configuration"""
