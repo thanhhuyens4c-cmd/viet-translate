@@ -6892,6 +6892,37 @@ def api_health():
     })
 
 
+@app.route('/api/admin/seed-demo-interpreters', methods=['GET', 'POST'])
+def api_admin_seed_demo_interpreters():
+    """Endpoint an toàn để quản trị viên đồng bộ 50 PDV demo vào cơ sở dữ liệu (hỗ trợ cả Vercel/Supabase)."""
+    secret = request.args.get('secret') or request.headers.get('X-Admin-Secret')
+    admin_id = session.get('admin_id')
+    user_id = session.get('user_id')
+    user = User.query.get(user_id) if user_id else None
+    is_admin = bool(admin_id or (user and getattr(user, 'is_admin', False)))
+
+    if secret != 'viettranslate_seed_2026' and not is_admin:
+        return jsonify({'error': 'unauthorized', 'message': 'Cần secret key hoặc quyền Admin.'}), 403
+
+    try:
+        from scripts.seed_demo_interpreters import seed_demo_interpreters
+        seed_demo_interpreters(50)
+        demo_users_count = User.query.filter_by(is_demo=True).count()
+        demo_profiles_count = TranslatorProfile.query.filter_by(is_demo=True).count()
+        return jsonify({
+            'success': True,
+            'message': 'Đã đồng bộ thành công 50 hồ sơ PDV demo vào database!',
+            'demo_users': demo_users_count,
+            'demo_profiles': demo_profiles_count,
+            'total_users': User.query.count(),
+            'total_profiles': TranslatorProfile.query.count()
+        })
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
 def _translator_card(p, favorite_ids=frozenset()):
     """Dữ liệu công khai của một hồ sơ phiên dịch viên (không có email/điện thoại)."""
     prices = [s.basic_price for s in p.services if s.basic_price]
