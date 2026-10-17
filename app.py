@@ -5246,7 +5246,7 @@ def translator_accepts_job(translator, job):
             job_tgt = _clean(job.target_lang)
             match_lang = False
             for p in int_langs:
-                p_standard = p.replace('->', '➔')
+                p_standard = p.replace('->', '➔').replace('>', '➔')
                 if '➔' in p_standard:
                     parts = p_standard.split('➔', 1)
                     src_p, tgt_p = _clean(parts[0]), _clean(parts[1])
