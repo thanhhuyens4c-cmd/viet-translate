@@ -362,7 +362,7 @@
                                 Để bảo đảm tính chuyên nghiệp và quyền lợi khi nhận việc, hệ thống yêu cầu bạn cập nhật: 
                                 <strong>{{ profile_missing_fields|join(', ') }}</strong> trước khi nộp hồ sơ ứng tuyển.
                             </p>
-                            <a href="{{ url_for('profile') }}" class="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-xs">
+                            <a href="{{ url_for('account_profile', tab='profile') }}" class="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-xs">
                                 <span>Cập nhật hồ sơ ngay</span>
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                             </a>
@@ -758,7 +758,7 @@
                             HẾT HẠN ỨNG TUYỂN
                         </button>
                         {% elif profile_incomplete %}
-                        <a href="{{ url_for('profile') }}"
+                        <a href="{{ url_for('account_profile', tab='profile') }}"
                             class="block w-full text-center bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm text-xs sm:text-sm">
                             HOÀN THIỆN HỒ SƠ ĐỂ ỨNG TUYỂN
                         </a>
@@ -920,7 +920,7 @@
             HẾT HẠN ỨNG TUYỂN
         </button>
         {% elif profile_incomplete %}
-        <a href="{{ url_for('profile') }}"
+        <a href="{{ url_for('account_profile', tab='profile') }}"
             class="block flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm text-xs">
             HOÀN THIỆN HỒ SƠ
         </a>

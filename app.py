@@ -2997,6 +2997,7 @@ def save_notification_settings_action(user):
 
 @app.route('/account', methods=['GET', 'POST'])
 @app.route('/account/profile', methods=['GET', 'POST'])
+@app.route('/account/profile', endpoint='profile', methods=['GET', 'POST'])
 @app.route('/account/overview', methods=['GET', 'POST'])
 @login_required
 def account_profile():
@@ -5666,6 +5667,21 @@ def _get_translator_calendar_events(user_id):
                 4: 'Thứ Sáu', 5: 'Thứ Bảy', 6: 'Chủ Nhật'
             }
             is_all_day = getattr(sch, 'is_all_day', False) or (sch.start_time.hour == 0 and sch.start_time.minute == 0 and sch.end_time.hour == 23 and sch.end_time.minute >= 50)
+            dur_mins = (sch.end_time.hour * 60 + sch.end_time.minute) - (sch.start_time.hour * 60 + sch.start_time.minute)
+            if is_all_day:
+                busy_dur_str = 'Cả ngày'
+            elif dur_mins > 0:
+                dh = dur_mins // 60
+                dm = dur_mins % 60
+                if dh > 0 and dm > 0:
+                    busy_dur_str = f"{dh} giờ {dm} phút"
+                elif dh > 0:
+                    busy_dur_str = f"{dh} giờ"
+                else:
+                    busy_dur_str = f"{dm} phút"
+            else:
+                busy_dur_str = 'Cả ngày'
+
             events.append({
                 'id': f"busy_{sch.id}",
                 'busy_id': sch.id,
@@ -5681,7 +5697,7 @@ def _get_translator_calendar_events(user_id):
                 'start_time': sch.start_time.strftime('%H:%M') if not is_all_day else '00:00',
                 'end_time': sch.end_time.strftime('%H:%M') if not is_all_day else '23:59',
                 'is_all_day': is_all_day,
-                'duration_str': 'Cả ngày' if is_all_day else f"{(sch.end_time.hour*60+sch.end_time.minute - sch.start_time.hour*60-sch.start_time.minute)//60} giờ",
+                'duration_str': busy_dur_str,
                 'status': 'busy',
                 'status_label': 'Bận / Không khả dụng',
                 'status_desc': 'Khoảng thời gian này bạn đã đánh dấu bận. Hệ thống sẽ chặn các lịch hẹn trùng giờ.',
@@ -6842,6 +6858,8 @@ def contract_invoice(contract_id):
 
 @app.route('/translator')
 @app.route('/translators')
+@app.route('/translators', endpoint='translators')
+@app.route('/translator', endpoint='translator')
 def translator_list():
     lang = request.args.get('lang', '')
     rating_filter = request.args.get('rating', '')
@@ -6890,6 +6908,37 @@ def api_health():
         'profiles': profile_count,
         'services': service_count,
     })
+
+
+@app.route('/api/admin/seed-demo-interpreters', methods=['GET', 'POST'])
+def api_admin_seed_demo_interpreters():
+    """Endpoint an toàn để quản trị viên đồng bộ 50 PDV demo vào cơ sở dữ liệu (hỗ trợ cả Vercel/Supabase)."""
+    secret = request.args.get('secret') or request.headers.get('X-Admin-Secret')
+    admin_id = session.get('admin_id')
+    user_id = session.get('user_id')
+    user = User.query.get(user_id) if user_id else None
+    is_admin = bool(admin_id or (user and getattr(user, 'is_admin', False)))
+
+    if secret != 'viettranslate_seed_2026' and not is_admin:
+        return jsonify({'error': 'unauthorized', 'message': 'Cần secret key hoặc quyền Admin.'}), 403
+
+    try:
+        from scripts.seed_demo_interpreters import seed_demo_interpreters
+        seed_demo_interpreters(50)
+        demo_users_count = User.query.filter_by(is_demo=True).count()
+        demo_profiles_count = TranslatorProfile.query.filter_by(is_demo=True).count()
+        return jsonify({
+            'success': True,
+            'message': 'Đã đồng bộ thành công 50 hồ sơ PDV demo vào database!',
+            'demo_users': demo_users_count,
+            'demo_profiles': demo_profiles_count,
+            'total_users': User.query.count(),
+            'total_profiles': TranslatorProfile.query.count()
+        })
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()}), 500
 
 
 def _translator_card(p, favorite_ids=frozenset()):
@@ -9294,6 +9343,7 @@ def api_proposal_detail(proposal_id):
     })
 
 @app.route('/jobs')
+@app.route('/jobs', endpoint='jobs')
 def job_list():
     lang = request.args.get('lang', '')
     budget = request.args.get('budget', '')
