@@ -845,8 +845,10 @@
                     <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
                 </svg>
                 Jobs
-                {% if admin_badge_flagged_jobs and admin_badge_flagged_jobs > 0 %}
-                <span class="nav-badge warning">{{ admin_badge_flagged_jobs }}</span>
+                {% if admin_badge_pending_jobs and admin_badge_pending_jobs > 0 %}
+                <span class="nav-badge warning">{{ admin_badge_pending_jobs }}</span>
+                {% elif admin_badge_flagged_jobs and admin_badge_flagged_jobs > 0 %}
+                <span class="nav-badge danger">{{ admin_badge_flagged_jobs }}</span>
                 {% endif %}
             </a>
             {% endif %}
@@ -864,6 +866,14 @@
                 {% endif %}
             </a>
             {% endif %}
+
+            <a href="{{ url_for('admin_disputes') if 'admin_disputes' in get_admin_routes() else '#' }}"
+               class="nav-item {% if request.endpoint in ['admin_disputes', 'admin_dispute_detail'] %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18M5 7l7-4 7 4M5 7l-3 7a4 3 0 006 0L5 7zm14 0l-3 7a4 3 0 006 0l-3-7z"/>
+                </svg>
+                Khiếu nại đơn thuê
+            </a>
 
             <!-- QUẢN LÝ -->
             <div class="nav-section-label">Quản lý</div>
@@ -995,9 +1005,18 @@
         <!-- Sidebar Footer: Admin Info -->
         <div class="sidebar-footer">
             <div class="sidebar-admin-info">
+                {% if current_admin and current_admin.avatar_url %}
+                <img src="{{ current_admin.avatar_url }}" alt="Admin"
+                     style="width: 28px; height: 28px; border-radius: 8px; object-fit: cover; flex-shrink: 0;"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="admin-avatar" style="display: none;">
+                    {{ current_admin.name[0]|upper if current_admin and current_admin.name else 'A' }}
+                </div>
+                {% else %}
                 <div class="admin-avatar">
                     {{ current_admin.name[0]|upper if current_admin and current_admin.name else 'A' }}
                 </div>
+                {% endif %}
                 <div class="admin-name-wrap">
                     <div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                         {{ current_admin.name if current_admin else 'Admin' }}

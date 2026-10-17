@@ -50,16 +50,28 @@
                     </td>
                     <td>
                         <div class="flex items-center gap-2">
-                            {% if p.user.avatar_url %}
-                                <img src="{{ p.user.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar">
-                            {% else %}
-                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
-                                    {{ p.user.name[:1] | upper }}
+                            {% if p.user and p.user.avatar_url %}
+                                <img src="{{ p.user.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="w-6 h-6 rounded-full bg-slate-700 items-center justify-center text-[10px] text-white" style="display: none;">
+                                    {{ (p.user.name or 'U')[:1] | upper }}
                                 </div>
+                            {% elif p.user %}
+                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
+                                    {{ (p.user.name or 'U')[:1] | upper }}
+                                </div>
+                            {% else %}
+                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-slate-400 font-bold" title="Người dùng không còn tồn tại">?</div>
                             {% endif %}
+                            {% if p.user %}
                             <a href="{{ url_for('admin_users') }}?search={{ p.user.email }}" class="text-slate-300 hover:text-white hover:underline truncate max-w-[120px]">
                                 {{ p.user.name }}
                             </a>
+                            {% else %}
+                            <span class="text-xs text-slate-500 italic" title="Người dùng lịch sử (#{{ p.user_id }})">
+                                Người dùng cũ (#{{ p.user_id }})
+                            </span>
+                            {% endif %}
                         </div>
                     </td>
                     <td class="text-emerald-400 font-medium">

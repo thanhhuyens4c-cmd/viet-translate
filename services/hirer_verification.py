@@ -296,10 +296,40 @@ def can_hirer_post_job(user):
         return False, 'Tài khoản của bạn đã bị khóa hoặc tạm ngưng hoạt động.', False
 
     profile = user.hirer_profile
-    is_verified = False
-    if profile:
-        is_verified = bool(profile.is_verified or profile.verification_status == 'verified')
+    if not profile or profile.verification_status in ('unverified', None, ''):
+        return False, (
+            'Tài khoản của bạn chưa hoàn thành xác minh người đăng tuyển. '
+            'Vui lòng hoàn thành hồ sơ để gửi xét duyệt mở chức năng đăng tin.'
+        ), False
 
+    if profile.verification_status == 'pending':
+        return False, (
+            'Hồ sơ người đăng tuyển của bạn đang chờ Ban quản trị xét duyệt. '
+            'Chức năng đăng tuyển sẽ được kích hoạt sau khi hồ sơ được phê duyệt.'
+        ), False
+
+    if profile.verification_status == 'needs_revision':
+        reason_str = f": {profile.rejection_reason}" if profile.rejection_reason else ""
+        return False, (
+            f'Hồ sơ của bạn được yêu cầu bổ sung thông tin{reason_str}. '
+            'Vui lòng cập nhật lại hồ sơ để Ban quản trị xem xét.'
+        ), False
+
+    if profile.verification_status == 'rejected':
+        reason_str = f": {profile.rejection_reason}" if profile.rejection_reason else ""
+        return False, (
+            f'Hồ sơ người đăng tuyển của bạn đã bị từ chối{reason_str}. '
+            'Vui lòng liên hệ bộ phận hỗ trợ.'
+        ), False
+
+    if profile.verification_status in ('revoked', 'suspended'):
+        return False, (
+            'Quyền đăng tuyển của tài khoản đã bị thu hồi hoặc tạm ngưng. '
+            'Vui lòng liên hệ bộ phận hỗ trợ.'
+        ), False
+
+    # Chỉ cấp quyền khi cả is_verified và verification_status đều là verified hợp lệ
+    is_verified = bool(profile.is_verified and profile.verification_status == 'verified')
     if not is_verified:
         return False, (
             'Tài khoản của bạn chưa hoàn thành xác minh người đăng tuyển. '
@@ -308,10 +338,10 @@ def can_hirer_post_job(user):
 
     # Kiểm tra thời hạn 7 ngày đầu sau khi xác minh
     verified_time = None
-    if hasattr(user, 'verified_at') and user.verified_at:
-        verified_time = user.verified_at
-    elif profile and hasattr(profile, 'verified_at') and profile.verified_at:
+    if profile.verified_at:
         verified_time = profile.verified_at
+    elif hasattr(user, 'verified_at') and user.verified_at:
+        verified_time = user.verified_at
 
     is_within_7_days = False
     if verified_time:

@@ -42,16 +42,28 @@
                     <td class="font-medium text-brand">#RPT-{{ report.id }}</td>
                     <td>
                         <div class="flex items-center gap-2">
-                            {% if report.reporter.avatar_url %}
-                                <img src="{{ report.reporter.avatar_url }}" alt="Avatar" class="w-6 h-6 rounded-full object-cover">
-                            {% else %}
-                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
-                                    {{ report.reporter.name[:1] | upper }}
+                            {% if report.reporter and report.reporter.avatar_url %}
+                                <img src="{{ report.reporter.avatar_url }}" alt="Avatar" class="w-6 h-6 rounded-full object-cover"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="w-6 h-6 rounded-full bg-slate-700 items-center justify-center text-[10px] text-white" style="display: none;">
+                                    {{ (report.reporter.name or 'U')[:1] | upper }}
                                 </div>
+                            {% elif report.reporter %}
+                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
+                                    {{ (report.reporter.name or 'U')[:1] | upper }}
+                                </div>
+                            {% else %}
+                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-slate-400 font-bold" title="Người dùng không còn tồn tại">?</div>
                             {% endif %}
+                            {% if report.reporter %}
                             <a href="{{ url_for('admin_users') }}?search={{ report.reporter.email }}" class="text-slate-300 hover:text-white hover:underline truncate max-w-[120px]" title="{{ report.reporter.name }}">
                                 {{ report.reporter.name }}
                             </a>
+                            {% else %}
+                            <span class="text-xs text-slate-500 italic" title="Người dùng lịch sử (#{{ report.reporter_id }})">
+                                Người dùng cũ (#{{ report.reporter_id }})
+                            </span>
+                            {% endif %}
                         </div>
                     </td>
                     <td>

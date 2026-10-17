@@ -133,7 +133,7 @@
 * **Hiện trạng xác minh (`RUNTIME_VERIFIED`):** Quét PostgreSQL trên VPS cho thấy có 46 Job và 30 Contract tham chiếu tới các User ID cũ không còn tồn tại trong bảng `user`.
 * **Cách sửa:**
   - Tuyệt đối không xóa dữ liệu lịch sử hay tạo user giả.
-  - Trong `templates/admin_contracts.html` (dòng 67-75) và các template liên quan: Bổ sung guard check `{% if c.hirer %}{{ c.hirer.name }}{% else %}<span class="text-slate-500 italic">Khách cũ (#{{ c.hirer_id }})</span>{% endif %}` để ngăn chặn thẻ `<a>` rỗng và khoảng trống trắng trên giao diện.
+  - Trong `templates/admin_contracts.html` (dòng 67-75) và các template liên quan: Bổ sung guard check `{% raw %}{% if c.hirer %}{{ c.hirer.name }}{% else %}<span class="text-slate-500 italic">Khách cũ (#{{ c.hirer_id }})</span>{% endif %}{% endraw %}` để ngăn chặn thẻ `<a>` rỗng và khoảng trống trắng trên giao diện.
 * **Cách xác minh sau sửa:** Truy cập `/admin/contracts`; toàn bộ 30 hợp đồng lịch sử hiển thị rõ ràng tên khách hoặc nhãn định danh người dùng cũ, không gây lỗi giao diện.
 
 ---

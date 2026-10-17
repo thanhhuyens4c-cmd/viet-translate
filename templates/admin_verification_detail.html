@@ -5,7 +5,7 @@
 {% block content %}
 <div class="px-6 py-8">
     <div class="mb-6 flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-slate-800">Đánh giá hồ sơ: {{ verification.user.name }}</h2>
+        <h2 class="text-2xl font-bold text-slate-800">Đánh giá hồ sơ: {{ verification.user.name if verification.user else 'PDV #' ~ verification.user_id }}</h2>
         <a href="{{ url_for('admin_translators', show='pending') }}" class="btn btn-ghost">← Quay lại</a>
     </div>
 
@@ -19,8 +19,8 @@
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                     <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">Thông tin tài khoản</h3>
                     <div class="space-y-2 text-sm">
-                        <p><span class="text-slate-500">Họ tên:</span> {{ verification.user.name }}</p>
-                        <p><span class="text-slate-500">Email:</span> {{ verification.user.email }}</p>
+                        <p><span class="text-slate-500">Họ tên:</span> {{ verification.user.name if verification.user else 'PDV #' ~ verification.user_id }}</p>
+                        <p><span class="text-slate-500">Email:</span> {{ verification.user.email if verification.user else '--' }}</p>
                         <p><span class="text-slate-500">Ngày nộp:</span> {{ verification.submitted_at.strftime('%d/%m/%Y %H:%M') if verification.submitted_at else 'N/A' }}</p>
                     </div>
                 </div>

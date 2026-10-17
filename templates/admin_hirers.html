@@ -41,8 +41,14 @@
                 <tr>
                     <td>
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 36px; height: 36px; border-radius: 50%; background: #2563eb; color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; shrink: 0;">
-                                {{ (p.company if (p and p.company) else u.name)[:2]|upper }}
+                            <div style="width: 36px; height: 36px; border-radius: 50%; background: #2563eb; color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; shrink: 0; overflow: hidden; position: relative;">
+                                {% set avatar_src = u.avatar_url or (p.avatar_url if p else None) %}
+                                {% if avatar_src %}
+                                <img src="{{ avatar_src }}" alt="{{ u.name }}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">{{ (p.company if (p and p.company) else u.name)[:2]|upper }}</span>
+                                {% else %}
+                                <span>{{ (p.company if (p and p.company) else u.name)[:2]|upper }}</span>
+                                {% endif %}
                             </div>
                             <div>
                                 <div style="font-weight: 700; color: #f1f5f9;">
@@ -73,14 +79,18 @@
                         </div>
                     </td>
                     <td>
-                        {% if p and (p.verification_status == 'verified' or p.is_verified) %}
+                        {% if p and p.verification_status == 'verified' and p.is_verified %}
                         <span class="badge badge-green">✓ Đã xác minh</span>
+                        {% elif p and p.verification_status == 'pending' %}
+                        <span class="badge badge-warning" style="background: #fbbf24; color: #1e293b;">Chờ xác minh</span>
                         {% elif p and p.verification_status == 'needs_revision' %}
                         <span class="badge badge-warning">Cần bổ sung</span>
                         {% elif p and p.verification_status == 'rejected' %}
                         <span class="badge badge-red">Từ chối</span>
+                        {% elif p and p.verification_status == 'revoked' %}
+                        <span class="badge badge-red">Đã thu hồi</span>
                         {% else %}
-                        <span class="badge badge-warning" style="background: #fbbf24; color: #1e293b;">Chờ xác minh</span>
+                        <span class="badge badge-gray">Chưa nộp hồ sơ</span>
                         {% endif %}
                     </td>
                     <td style="color: #64748b; font-size: 12px;">{{ u.created_at.strftime('%d/%m/%Y') }}</td>

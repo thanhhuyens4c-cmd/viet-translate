@@ -82,48 +82,39 @@
 
 {% block content %}
 
-<!-- Breadcrumb -->
-<div class="bg-white border-b border-slate-200/70 py-3">
+<!-- Page Header & Breadcrumb -->
+<div class="bg-white border-b border-slate-200/80 py-5 sm:py-6">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <nav class="flex items-center gap-2 text-xs font-medium text-slate-500">
+    <nav class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
       <a href="{{ url_for('index') }}" class="hover:text-brand-600 transition">{{ t('job_detail_page.breadcrumb_home') if t('job_detail_page.breadcrumb_home') else 'Trang chủ' }}</a>
       <span class="text-slate-300">/</span>
       <a href="{{ url_for('job_list') }}" class="hover:text-brand-600 transition">Công việc</a>
       <span class="text-slate-300">/</span>
       {% if is_recommended %}
-      <span class="text-brand-600 font-bold">Việc phù hợp</span>
+      <span class="text-slate-700 font-semibold">Việc phù hợp</span>
       {% else %}
-      <span class="text-brand-600 font-bold">Tìm việc</span>
+      <span class="text-slate-700 font-semibold">Tìm việc</span>
       {% endif %}
     </nav>
-  </div>
-</div>
-
-<!-- Header -->
-<div class="mesh-hero-bg border-b border-slate-200/70 py-6 md:py-8">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
-    {% if is_recommended %}
-    <span class="inline-block text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-3.5 py-1 rounded-full mb-2 shadow-2xs">
-      🎯 Đề xuất theo trình độ & chuyên môn của bạn
-    </span>
-    <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Việc Làm Phù Hợp Cho Phiên Dịch Viên</h1>
-    <p class="text-slate-600 max-w-2xl mx-auto text-xs md:text-sm leading-relaxed mb-4">
-      Hệ thống AI tự động đối soát cặp ngôn ngữ, lĩnh vực chuyên môn, bằng cấp chứng chỉ và lịch rảnh thực tế để gợi ý những công việc tốt nhất cho bạn.
-    </p>
-    {% else %}
-    <span class="inline-block text-[10px] sm:text-xs font-bold uppercase tracking-wider text-brand-600 bg-white/80 border border-brand-200/60 px-3 py-1 rounded-full mb-2">
-      {{ t('job_list_page.badge') }}
-    </span>
-    <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-2">{{ t('job_list_page.header_title') }}</h1>
-    <p class="text-slate-600 max-w-2xl mx-auto text-xs md:text-sm leading-relaxed mb-4">
-      {{ t('job_list_page.header_subtitle') }}
-    </p>
-    {% endif %}
-    {% if current_user.is_authenticated and current_user.role == 'hirer' %}
-    <a href="{{ url_for('post_job') }}" class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm px-4 py-2 rounded-xl transition shadow-sm">
-      <span>{{ t('job_list_page.post_job_cta') }}</span>
-    </a>
-    {% endif %}
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        {% if is_recommended %}
+        <h1 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Việc làm phù hợp</h1>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1">Danh sách công việc phù hợp với hồ sơ chuyên môn và cặp ngôn ngữ của bạn.</p>
+        {% else %}
+        <h1 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Tìm kiếm việc làm</h1>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1">Khám phá và ứng tuyển các dự án dịch thuật, phiên dịch đang tuyển dụng.</p>
+        {% endif %}
+      </div>
+      {% if current_user.is_authenticated and current_user.role == 'hirer' %}
+      <div class="shrink-0">
+        <a href="{{ url_for('post_job') }}" class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs sm:text-sm px-4 py-2 rounded-xl transition shadow-2xs">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span>{{ t('job_list_page.post_job_cta') }}</span>
+        </a>
+      </div>
+      {% endif %}
+    </div>
   </div>
 </div>
 
@@ -195,12 +186,12 @@
               <label for="jf-specialization" class="block text-[11px] font-semibold text-slate-600 mb-1">Lĩnh vực / Chuyên ngành</label>
               <select id="jf-specialization" onchange="applyFilters()" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
                 <option value="">Tất cả lĩnh vực</option>
-                <option value="legal">⚖️ Pháp lý / Hợp đồng / Luật</option>
-                <option value="business">💼 Kinh doanh / Thương mại / Marketing</option>
-                <option value="tech">⚙️ Kỹ thuật / Công nghệ / IT</option>
-                <option value="medical">🏥 Y tế / Dược phẩm / Sức khỏe</option>
-                <option value="finance">💰 Tài chính / Ngân hàng / Kế toán</option>
-                <option value="cultural">🎨 Văn hóa / Du lịch / Giáo dục</option>
+                <option value="legal">Pháp lý / Hợp đồng / Luật</option>
+                <option value="business">Kinh doanh / Thương mại / Marketing</option>
+                <option value="tech">Kỹ thuật / Công nghệ / IT</option>
+                <option value="medical">Y tế / Dược phẩm / Sức khỏe</option>
+                <option value="finance">Tài chính / Ngân hàng / Kế toán</option>
+                <option value="cultural">Văn hóa / Du lịch / Giáo dục</option>
               </select>
             </div>
             <div>
@@ -243,13 +234,13 @@
             <div>
               <input type="radio" class="jf-rb jf-work-mode" id="wmd-online" name="wmd-desk" value="online">
               <label for="wmd-online" class="jf-label">
-                <span class="jf-dot"></span><span class="text-xs">🌐 Trực tuyến (Online / Từ xa)</span>
+                <span class="jf-dot"></span><span class="text-xs">Trực tuyến (Online / Từ xa)</span>
               </label>
             </div>
             <div>
               <input type="radio" class="jf-rb jf-work-mode" id="wmd-offline" name="wmd-desk" value="offline">
               <label for="wmd-offline" class="jf-label">
-                <span class="jf-dot"></span><span class="text-xs">🏢 Trực tiếp (Tại địa điểm)</span>
+                <span class="jf-dot"></span><span class="text-xs">Trực tiếp (Tại địa điểm)</span>
               </label>
             </div>
           </div>
@@ -307,19 +298,19 @@
             <div>
               <input type="radio" class="jf-rb jf-event-time" id="etd-7" name="event-time-d" value="upcoming_7">
               <label for="etd-7" class="jf-label">
-                <span class="jf-dot"></span><span class="text-xs">📅 Diễn ra trong 7 ngày tới</span>
+                <span class="jf-dot"></span><span class="text-xs">Diễn ra trong 7 ngày tới</span>
               </label>
             </div>
             <div>
               <input type="radio" class="jf-rb jf-event-time" id="etd-30" name="event-time-d" value="upcoming_30">
               <label for="etd-30" class="jf-label">
-                <span class="jf-dot"></span><span class="text-xs">📅 Diễn ra trong 30 ngày tới</span>
+                <span class="jf-dot"></span><span class="text-xs">Diễn ra trong 30 ngày tới</span>
               </label>
             </div>
             <div>
               <input type="radio" class="jf-rb jf-event-time" id="etd-has" name="event-time-d" value="has_date">
               <label for="etd-has" class="jf-label">
-                <span class="jf-dot"></span><span class="text-xs">📅 Có ngày diễn ra cụ thể</span>
+                <span class="jf-dot"></span><span class="text-xs">Có ngày diễn ra cụ thể</span>
               </label>
             </div>
           </div>
@@ -351,30 +342,6 @@
 
     <!-- ══ MAIN ══ -->
     <div class="flex-1 min-w-0">
-
-      <!-- Tab chuyển đổi cho Phiên dịch viên -->
-      {% if current_user.is_authenticated and current_user.role == 'translator' %}
-      <div class="flex items-center gap-2 mb-5 bg-white p-2 rounded-2xl border border-slate-200/90 shadow-soft">
-        <a href="{{ url_for('job_list') }}"
-          class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition {% if not is_recommended %}bg-brand-600 text-white shadow-xs{% else %}text-slate-600 hover:text-brand-600 hover:bg-slate-50{% endif %}">
-          <span>📋 Tất cả việc làm</span>
-          {% if total_open_jobs is defined and total_open_jobs %}
-          <span class="text-[11px] px-2 py-0.5 rounded-full font-bold {% if not is_recommended %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
-            {{ total_open_jobs }}
-          </span>
-          {% endif %}
-        </a>
-        <a href="{{ url_for('job_list', recommended=1) }}"
-          class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition {% if is_recommended %}bg-emerald-600 text-white shadow-xs{% else %}text-slate-600 hover:text-emerald-600 hover:bg-slate-50{% endif %}">
-          <span>🎯 Việc phù hợp với bạn</span>
-          {% if recommended_count is defined and recommended_count > 0 %}
-          <span class="text-[11px] px-2 py-0.5 rounded-full font-extrabold {% if is_recommended %}bg-white/20 text-white{% else %}bg-emerald-100 text-emerald-800{% endif %}">
-            {{ recommended_count }}
-          </span>
-          {% endif %}
-        </a>
-      </div>
-      {% endif %}
 
       <!-- Toolbar -->
       <div class="flex flex-wrap justify-between items-center mb-6 gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-soft">
@@ -457,34 +424,36 @@
             <div>
               <div class="flex flex-wrap items-center gap-2 mb-1.5">
                 {% if job.match_score %}
-                <span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-md flex items-center gap-1 shadow-2xs {% if job.match_score >= 80 %}bg-emerald-100 text-emerald-800 border border-emerald-300{% elif job.match_score >= 60 %}bg-blue-100 text-blue-800 border border-blue-300{% else %}bg-amber-100 text-amber-800 border border-amber-300{% endif %}">
-                  ⭐ {{ job.match_score }}% Phù hợp
+                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 {% if job.match_score >= 80 %}bg-emerald-50 text-emerald-700 border border-emerald-200{% elif job.match_score >= 60 %}bg-blue-50 text-blue-700 border border-blue-200{% else %}bg-slate-100 text-slate-700 border border-slate-200{% endif %}">
+                  Phù hợp {{ job.match_score }}%
                 </span>
-                <span class="text-xs text-slate-400">·</span>
+                <span class="text-xs text-slate-300">·</span>
                 {% endif %}
                 <span class="text-[11px] font-bold text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-md">
                   {{ lang_name(job.source_lang) }} → {{ lang_name(job.target_lang) }}
                 </span>
-                <span class="text-xs text-slate-400">·</span>
+                <span class="text-xs text-slate-300">·</span>
                 <span class="text-xs text-slate-500 font-medium">{{ job.display_category_text(current_lang) }}</span>
                 {% if job.specialty %}
-                <span class="text-xs text-slate-400">·</span>
-                <span class="text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200/60 px-2 py-0.5 rounded-md flex items-center gap-1">
-                  <span>🏷️</span> {{ job.specialty }}
+                <span class="text-xs text-slate-300">·</span>
+                <span class="text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded-md">
+                  {{ job.specialty }}
                 </span>
                 {% endif %}
-                <span class="text-xs text-slate-400">·</span>
-                <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                <span class="text-xs text-slate-300">·</span>
+                <span class="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                   {{ job.proposals|length }} {{ t('job_list_page.applied_count_label') }}
                 </span>
                 {% if job.event_location %}
-                <span class="text-xs text-slate-400">·</span>
+                <span class="text-xs text-slate-300">·</span>
                 <span class="text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-md flex items-center gap-1">
                   {% if 'online' in job.event_location|lower or 'từ xa' in job.event_location|lower %}
-                    <span>🌐</span> Làm việc trực tuyến
+                    <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                    Làm việc trực tuyến
                   {% else %}
-                    <span>📍</span> {{ job.event_location }}
+                    <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    {{ job.event_location }}
                   {% endif %}
                 </span>
                 {% endif %}
@@ -494,10 +463,10 @@
               </h2>
               {% if job.match_reasons %}
               <div class="flex flex-wrap items-center gap-1.5 mt-2.5">
-                <span class="text-[11px] font-bold text-slate-400 mr-0.5">Lý do phù hợp:</span>
+                <span class="text-[11px] font-medium text-slate-400 mr-0.5">Tiêu chí phù hợp:</span>
                 {% for reason in job.match_reasons %}
-                <span class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800 bg-emerald-50/90 border border-emerald-200/80 px-2 py-0.5 rounded-md">
-                  <svg class="w-3 h-3 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                <span class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md">
+                  <svg class="w-3 h-3 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                   {{ reason }}
                 </span>
                 {% endfor %}
@@ -528,11 +497,17 @@
               <span>{{ t('job_list_page.posted_on') }} {{ job.created_at.strftime('%d/%m/%Y') if job.created_at else '' }}</span>
               {% if job.event_date %}
               <span>·</span>
-              <span class="text-slate-600 font-medium">📅 Diễn ra: {{ job.event_date }}</span>
+              <span class="text-slate-600 font-medium flex items-center gap-1">
+                <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Diễn ra: {{ job.event_date }}
+              </span>
               {% endif %}
               {% if job.deadline %}
               <span>·</span>
-              <span class="text-amber-700 font-medium">⏰ Hạn nộp: {{ job.deadline.strftime('%d/%m/%Y') }}</span>
+              <span class="text-amber-700 font-medium flex items-center gap-1">
+                <svg class="w-3 h-3 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Hạn nộp: {{ job.deadline.strftime('%d/%m/%Y') }}
+              </span>
               {% endif %}
             </div>
             
@@ -546,19 +521,19 @@
         {% else %}
         {% if is_recommended %}
         <div class="text-center py-16 px-6 bg-white rounded-2xl border border-slate-200/90 shadow-soft">
-          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-3xl shadow-2xs">
-            🎯
+          <div class="w-12 h-12 mx-auto mb-3.5 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
           </div>
-          <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-2">Chưa tìm thấy công việc nào phù hợp với hồ sơ hiện tại</h3>
+          <h3 class="text-base sm:text-lg font-bold text-slate-900 mb-1.5">Chưa có công việc phù hợp với hồ sơ hiện tại</h3>
           <p class="text-slate-500 text-xs sm:text-sm max-w-lg mx-auto mb-6 leading-relaxed">
-            Hệ thống phân tích mức độ phù hợp dựa trên cặp ngôn ngữ, lĩnh vực chuyên môn, chứng chỉ và lịch làm việc của bạn. Hiện tại các dự án đang mở có thể khác chuyên ngành hoặc bạn đã gửi báo giá trước đó.
+            Hệ thống đối chiếu việc làm theo cặp ngôn ngữ, chuyên môn và lịch rảnh trong hồ sơ của bạn. Hiện chưa có dự án mới đang mở khớp với thông tin này.
           </p>
           <div class="flex flex-wrap items-center justify-center gap-3">
-            <a href="{{ url_for('job_list') }}" class="text-xs font-bold text-white bg-brand-600 px-5 py-2.5 rounded-xl hover:bg-brand-700 transition shadow-xs">
-              📋 Xem tất cả việc làm đang mở
+            <a href="{{ url_for('job_list') }}" class="text-xs font-semibold text-white bg-brand-600 px-4 py-2 rounded-xl hover:bg-brand-700 transition shadow-2xs">
+              Xem tất cả việc làm đang mở
             </a>
-            <a href="{{ url_for('account_profile', tab='translator') }}" class="text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-5 py-2.5 rounded-xl transition">
-              ⚙️ Cập nhật lĩnh vực & Cặp ngôn ngữ
+            <a href="{{ url_for('account_profile', tab='translator') }}" class="text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition">
+              Cập nhật hồ sơ chuyên môn
             </a>
           </div>
         </div>
@@ -582,19 +557,19 @@
 
       <!-- Empty state khi filter không có kết quả -->
       <div id="jf-empty" class="text-center py-16 px-4 bg-white rounded-2xl border border-slate-200/90 shadow-soft">
-        <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-2xl">
-          🔍
+        <div class="w-12 h-12 mx-auto mb-3.5 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </div>
         <h3 class="text-base font-bold text-slate-900 mb-1.5">{{ t('job_list_page.no_match_title') }}</h3>
         <p class="text-slate-500 text-xs sm:text-sm max-w-md mx-auto mb-4 leading-relaxed">
           {{ t('job_list_page.no_match_desc') }}
         </p>
-        <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200/70 py-2 px-4 rounded-xl inline-block mb-5">
-          💡 Gợi ý: Thử bỏ bớt bộ lọc khu vực, hình thức làm việc hoặc mở rộng khoảng ngân sách để tìm được nhiều cơ hội hơn.
+        <p class="text-xs text-slate-600 bg-slate-50 border border-slate-200/80 py-2 px-4 rounded-xl inline-block mb-5">
+          Gợi ý: Thử bỏ bớt bộ lọc khu vực, hình thức làm việc hoặc mở rộng khoảng ngân sách để tìm được nhiều cơ hội hơn.
         </p>
         <div>
           <button onclick="clearFilters()"
-            class="text-xs font-bold text-white bg-brand-600 px-5 py-2.5 rounded-xl hover:bg-brand-700 transition shadow-sm">
+            class="text-xs font-semibold text-white bg-brand-600 px-4 py-2 rounded-xl hover:bg-brand-700 transition shadow-2xs">
             {{ t('job_list_page.reset_all_filters') }}
           </button>
         </div>
@@ -668,12 +643,12 @@
       <div class="space-y-2">
         <select id="jfm-specialization" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50">
           <option value="">Tất cả lĩnh vực</option>
-          <option value="legal">⚖️ Pháp lý / Hợp đồng / Luật</option>
-          <option value="business">💼 Kinh doanh / Thương mại / Marketing</option>
-          <option value="tech">⚙️ Kỹ thuật / Công nghệ / IT</option>
-          <option value="medical">🏥 Y tế / Dược phẩm / Sức khỏe</option>
-          <option value="finance">💰 Tài chính / Ngân hàng / Kế toán</option>
-          <option value="cultural">🎨 Văn hóa / Du lịch / Giáo dục</option>
+          <option value="legal">Pháp lý / Hợp đồng / Luật</option>
+          <option value="business">Kinh doanh / Thương mại / Marketing</option>
+          <option value="tech">Kỹ thuật / Công nghệ / IT</option>
+          <option value="medical">Y tế / Dược phẩm / Sức khỏe</option>
+          <option value="finance">Tài chính / Ngân hàng / Kế toán</option>
+          <option value="cultural">Văn hóa / Du lịch / Giáo dục</option>
         </select>
         <select id="jfm-cat-group" class="w-full text-xs border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50">
           <option value="">Tất cả nhóm dịch vụ</option>
@@ -706,11 +681,11 @@
         </div>
         <div>
           <input type="radio" class="jf-rb jf-work-mode-m" id="wmm-online" name="wmd-mob" value="online">
-          <label for="wmm-online" class="jf-label"><span class="jf-dot"></span><span class="text-xs">🌐 Trực tuyến (Online)</span></label>
+          <label for="wmm-online" class="jf-label"><span class="jf-dot"></span><span class="text-xs">Trực tuyến (Online)</span></label>
         </div>
         <div>
           <input type="radio" class="jf-rb jf-work-mode-m" id="wmm-offline" name="wmd-mob" value="offline">
-          <label for="wmm-offline" class="jf-label"><span class="jf-dot"></span><span class="text-xs">🏢 Trực tiếp (Tại chỗ)</span></label>
+          <label for="wmm-offline" class="jf-label"><span class="jf-dot"></span><span class="text-xs">Trực tiếp (Tại chỗ)</span></label>
         </div>
       </div>
     </div>
@@ -764,15 +739,15 @@
         </div>
         <div>
           <input type="radio" class="jf-rb jf-event-time-m" id="etm-7" name="event-time-m" value="upcoming_7">
-          <label for="etm-7" class="jf-label"><span class="jf-dot"></span><span class="text-xs">📅 Diễn ra trong 7 ngày tới</span></label>
+          <label for="etm-7" class="jf-label"><span class="jf-dot"></span><span class="text-xs">Diễn ra trong 7 ngày tới</span></label>
         </div>
         <div>
           <input type="radio" class="jf-rb jf-event-time-m" id="etm-30" name="event-time-m" value="upcoming_30">
-          <label for="etm-30" class="jf-label"><span class="jf-dot"></span><span class="text-xs">📅 Diễn ra trong 30 ngày tới</span></label>
+          <label for="etm-30" class="jf-label"><span class="jf-dot"></span><span class="text-xs">Diễn ra trong 30 ngày tới</span></label>
         </div>
         <div>
           <input type="radio" class="jf-rb jf-event-time-m" id="etm-has" name="event-time-m" value="has_date">
-          <label for="etm-has" class="jf-label"><span class="jf-dot"></span><span class="text-xs">📅 Có ngày diễn ra cụ thể</span></label>
+          <label for="etm-has" class="jf-label"><span class="jf-dot"></span><span class="text-xs">Có ngày diễn ra cụ thể</span></label>
         </div>
       </div>
       <div class="mt-3 pt-2.5 border-t border-slate-100">

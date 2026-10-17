@@ -158,12 +158,12 @@
         <div class="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-xs">
             <div>
                 <span class="text-slate-500 block">Tổng thù lao thực nhận (Net 90%):</span>
-                <span class="text-lg sm:text-xl font-bold text-slate-900">{{ "{:,.0f}".format(metrics.total_net_earned) }}đ</span>
+                <span class="text-lg sm:text-xl font-bold text-slate-900">{{ "{:,.0f}".format(metrics.total_net_earned or 0) }}đ</span>
             </div>
             <div class="flex flex-wrap items-center gap-y-1 gap-x-4 text-slate-500">
-                <span>Thỏa thuận gốc: <strong class="text-slate-800 font-semibold">{{ "{:,.0f}".format(metrics.total_gross_earned) }}đ</strong></span>
+                <span>Thỏa thuận gốc: <strong class="text-slate-800 font-semibold">{{ "{:,.0f}".format(metrics.total_gross_earned or 0) }}đ</strong></span>
                 <span>·</span>
-                <span>Phí dịch vụ sàn (10%): <strong class="text-slate-700 font-semibold">{{ "{:,.0f}".format(metrics.total_platform_fee) }}đ</strong></span>
+                <span>Phí dịch vụ sàn (10%): <strong class="text-slate-700 font-semibold">{{ "{:,.0f}".format(metrics.total_platform_fee or 0) }}đ</strong></span>
                 <span>·</span>
                 <span>Đánh giá trung bình: <strong class="text-slate-800 font-semibold">{{ metrics.avg_rating }} / 5.0 ({{ metrics.total_reviews_count }} lượt)</strong></span>
                 <span>·</span>
@@ -397,7 +397,7 @@
                             <span>Nộp đơn: {{ prop.created_at.strftime('%d/%m/%Y %H:%M') if prop.created_at else '' }}</span>
                             {% if prop.updated_at and prop.updated_at != prop.created_at %}
                             <span>·</span>
-                            <span>Cập nhật: {{ prop.updated_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                            <span>Cập nhật: {{ prop.updated_at.strftime('%d/%m/%Y %H:%M') if prop.updated_at else '' }}</span>
                             {% endif %}
                         </div>
 
@@ -412,7 +412,7 @@
                     <div class="flex lg:flex-col items-center lg:items-end justify-between lg:justify-center border-t lg:border-t-0 border-slate-100 pt-2 lg:pt-0 shrink-0 text-left lg:text-right min-w-[150px]">
                         <div>
                             <span class="text-[11px] text-slate-400 block lg:hidden">Thù lao đề xuất:</span>
-                            <span class="text-sm sm:text-base font-bold text-slate-900">{{ "{:,.0f}".format(prop.price) }}đ</span>
+                            <span class="text-sm sm:text-base font-bold text-slate-900">{{ "{:,.0f}".format(prop.price or 0) }}đ</span>
                         </div>
                         <div class="text-xs text-slate-500 mt-0.5">
                             {{ prop.time_estimate or 'Thỏa thuận' }}
@@ -436,7 +436,7 @@
                             </button>
 
                             {% if prop.status_info.can_confirm %}
-                            <button type="button" onclick="openConfirmJobModal({{ prop.id }}, '{{ prop.job.title|escape if prop.job else 'Công việc' }}', '{{ '{:,.0f}'.format(prop.price) }}', '{{ prop.job.event_date if prop.job else 'Thỏa thuận' }}')"
+                            <button type="button" onclick="openConfirmJobModal({{ prop.id }}, '{{ prop.job.title|escape if prop.job else 'Công việc' }}', '{{ '{:,.0f}'.format(prop.price or 0) }}', '{{ prop.job.event_date if prop.job else 'Thỏa thuận' }}')"
                                 class="text-xs text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg transition font-medium shadow-2xs">
                                 Xác nhận nhận việc
                             </button>
@@ -475,17 +475,17 @@
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1 text-[11px] text-slate-400 font-mono">
                             <span>#CA-{{ contract.id }}</span>
-                            {% if contract.job and contract.job.working_format %}
+                            {% if contract.job and contract.job.service_type %}
                             <span>·</span>
-                            <span class="text-slate-600 font-sans font-medium">{{ contract.job.working_format }}</span>
+                            <span class="text-slate-600 font-sans font-medium">{{ contract.job.service_type }}</span>
                             {% endif %}
-                            {% if contract.job and (contract.job.source_language or contract.job.target_language) %}
+                            {% if contract.job and (contract.job.source_lang or contract.job.target_lang) %}
                             <span>·</span>
-                            <span class="text-slate-500 font-sans">{{ contract.job.source_language or 'VI' }} &rarr; {{ contract.job.target_language or 'EN' }}</span>
+                            <span class="text-slate-500 font-sans">{{ contract.job.source_lang or 'VI' }} &rarr; {{ contract.job.target_lang or 'EN' }}</span>
                             {% endif %}
-                            {% if contract.job and contract.job.field %}
+                            {% if contract.job and (contract.job.specialty or contract.job.category) %}
                             <span>·</span>
-                            <span class="text-slate-500 font-sans truncate">{{ contract.job.field }}</span>
+                            <span class="text-slate-500 font-sans truncate">{{ contract.job.specialty or contract.job.category }}</span>
                             {% endif %}
                         </div>
 
@@ -524,9 +524,9 @@
                             </span>
                             <span class="text-sm sm:text-base font-bold text-slate-900">
                                 {% if contract.status in ['completed', 'reviewed'] %}
-                                {{ "{:,.0f}".format(contract.translator_net_amount) }}đ
+                                {{ "{:,.0f}".format(contract.translator_net_amount or 0) }}đ
                                 {% else %}
-                                {{ "{:,.0f}".format(contract.agreed_price) }}đ
+                                {{ "{:,.0f}".format(contract.agreed_price or 0) }}đ
                                 {% endif %}
                             </span>
                         </div>
@@ -613,7 +613,7 @@
                         </a>
                     </h3>
                     <div class="text-xs text-slate-500 mt-1">
-                        Ngân sách: <strong class="text-slate-800 font-medium">{{ "{:,.0f}".format(s_job.budget) if s_job.budget else 'Thỏa thuận' }}đ</strong>
+                        Ngân sách: <strong class="text-slate-800 font-medium">{{ "{:,.0f}".format(s_job.budget or 0) if s_job.budget else 'Thỏa thuận' }}đ</strong>
                     </div>
                 </div>
                 <div class="shrink-0 flex items-center gap-2">

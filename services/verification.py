@@ -186,6 +186,73 @@ def get_private_verification_folder():
     return configured
 
 
+def resolve_document_file_path(doc):
+    """
+    Tìm kiếm và chuẩn bị tệp tài liệu để phục vụ xem / tải:
+    1. Kiểm tra URL trực tiếp (http/https).
+    2. Quét các đường dẫn lưu trữ trên đĩa cục bộ (Private storage, VPS folder, instance folder, static).
+    3. Tải từ Supabase Storage nếu tệp không có sẵn trên đĩa cục bộ và lưu cache.
+    Trả về: (loại: 'file' | 'url' | None, path_or_url: str | None)
+    """
+    if not doc:
+        return None, None
+
+    # 1. Nếu storage_path là link URL ngoài
+    if doc.storage_path and doc.storage_path.startswith(('http://', 'https://')):
+        return 'url', doc.storage_path
+
+    stored_name = getattr(doc, 'stored_filename', None)
+    if not stored_name and doc.storage_path:
+        stored_name = os.path.basename(doc.storage_path)
+
+    # 2. Quét các đường dẫn đĩa cứng tiềm năng
+    candidate_paths = []
+    if doc.storage_path and os.path.isabs(doc.storage_path):
+        candidate_paths.append(doc.storage_path)
+
+    if stored_name:
+        candidate_paths.append(os.path.join(get_private_verification_folder(), stored_name))
+        candidate_paths.append(os.path.join('/var/lib/viettranslate/private_storage/private_verifications', stored_name))
+        
+        basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        candidate_paths.append(os.path.join(basedir, 'instance', 'storage', 'private_verifications', stored_name))
+        candidate_paths.append(os.path.join(basedir, 'instance', 'uploads', stored_name))
+        candidate_paths.append(os.path.join(basedir, 'static', 'uploads', stored_name))
+        candidate_paths.append(os.path.join('/tmp', 'private_verifications', stored_name))
+
+    for path in candidate_paths:
+        if path and os.path.exists(path) and os.path.isfile(path):
+            return 'file', path
+
+    # 3. Fallback: Tải từ Supabase Storage nếu lưu trữ trên cloud
+    if stored_name:
+        try:
+            from supabase_client import get_supabase_client
+            sb = get_supabase_client()
+            if sb:
+                bucket_name = 'verification_documents'
+                # Chuẩn hóa key path
+                sb_path = stored_name
+                if doc.storage_path and doc.storage_path.startswith(f"{bucket_name}/"):
+                    sb_path = doc.storage_path[len(f"{bucket_name}/"):]
+
+                try:
+                    file_bytes = sb.storage.from_(bucket_name).download(sb_path)
+                    if file_bytes:
+                        cache_dir = get_private_verification_folder()
+                        os.makedirs(cache_dir, exist_ok=True)
+                        cache_path = os.path.join(cache_dir, stored_name)
+                        with open(cache_path, 'wb') as f:
+                            f.write(file_bytes)
+                        return 'file', cache_path
+                except Exception as dl_err:
+                    print(f"[STORAGE FALLBACK INFO] Could not download from Supabase bucket '{bucket_name}': {dl_err}", file=sys.stderr)
+        except Exception as sb_err:
+            print(f"[STORAGE FALLBACK ERROR] Supabase client error: {sb_err}", file=sys.stderr)
+
+    return None, None
+
+
 def allowed_verification_file(filename):
     """Kiểm tra phần mở rộng tệp hợp lệ cho tài liệu xác minh."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_VERIFICATION_EXTENSIONS
@@ -196,14 +263,43 @@ def can_user_access_document(user, document):
     Kiểm tra quyền truy cập (xem / tải xuống) tài liệu xác minh:
     - Quản trị viên (admin): Được phép
     - Chính chủ sở hữu tài liệu (user.id == document.user_id): Được phép
-    - Người khác: Từ chối (403)
+    - Tài liệu loại 'cv':
+        + Nếu phiên dịch viên bật công khai (is_cv_public=True): Cho phép người dùng xem/tải
+        + Nếu người xem là Người thuê (hirer) mà phiên dịch viên đã gửi báo giá (Proposal) hoặc có Hợp đồng (Contract): Cho phép
+    - Các tài liệu nhạy cảm khác (id_card, cccd): TUYỆT ĐỐI chỉ chính chủ và Admin.
     """
     if not user:
         return False, 'Vui lòng đăng nhập để truy cập tài liệu.'
-    if getattr(user, 'role', '') == 'admin':
+    if getattr(user, 'role', '') == 'admin' or getattr(user, 'is_admin', False):
         return True, None
     if document.user_id == user.id:
         return True, None
+
+    # Ngoại lệ đặc biệt an toàn cho hồ sơ CV chuyên môn
+    if getattr(document, 'document_type', '') == 'cv':
+        try:
+            from models import TranslatorProfile, Proposal, Job, Contract
+            owner_profile = TranslatorProfile.query.filter_by(user_id=document.user_id).first()
+            if owner_profile and owner_profile.is_cv_public:
+                return True, None
+
+            # Nếu người xem là Người thuê (Hirer)
+            if getattr(user, 'role', '') == 'hirer':
+                has_proposal = Proposal.query.join(Job).filter(
+                    Proposal.translator_id == document.user_id,
+                    Job.hirer_id == user.id
+                ).first()
+                if has_proposal:
+                    return True, None
+                has_contract = Contract.query.filter_by(
+                    hirer_id=user.id,
+                    translator_id=document.user_id
+                ).first()
+                if has_contract:
+                    return True, None
+        except Exception:
+            pass
+
     return False, 'Bạn không có quyền truy cập hoặc xem tài liệu riêng tư này.'
 
 
