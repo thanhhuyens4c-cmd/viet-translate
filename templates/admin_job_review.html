@@ -114,6 +114,28 @@
                 </div>
             </div>
 
+            <!-- Danh sách Tệp đính kèm -->
+            {% if job.attachments and job.attachments|length > 0 %}
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">
+                    Tệp đính kèm ({{ job.attachments|length }})
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    {% for att in job.attachments %}
+                    <div style="padding: 10px 14px; background: #0f172a; border-radius: 10px; border: 1px solid #1e293b; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                            <span style="color: #60a5fa;">📎</span>
+                            <span style="font-size: 13px; color: #e2e8f0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{{ att.original_name }}</span>
+                        </div>
+                        <a href="{{ url_for('job_attachment', attachment_id=att.id) }}" target="_blank" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 4px 10px; shrink: 0; color: #38bdf8;">
+                            Tải xuống ⤓
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Thông tin Người đăng tuyển -->
             <div style="padding: 14px; background: rgba(51,65,85,0.4); border-radius: 12px; display: flex; align-items: center; justify-content: space-between;">
                 <div>

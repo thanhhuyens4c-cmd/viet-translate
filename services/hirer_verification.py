@@ -140,20 +140,29 @@ def evaluate_hirer_criteria(user, profile, manual_overrides=None):
     }
 
     # ── X3: Thông tin doanh nghiệp & Giấy ủy quyền (Admin xem) ────────────────
-    # Tiêu chí này do Admin kiểm tra và đánh dấu duyệt
+    # Tiêu chí này do Admin kiểm tra và đánh dấu duyệt (đối với doanh nghiệp)
+    # Đối với cá nhân: Miễn trừ giấy ủy quyền doanh nghiệp
+    account_type = (getattr(profile, 'account_type', None) or 'individual').strip().lower()
     x3_manual = manual_overrides.get('X3')
-    has_docs = bool(profile and (profile.authorization_doc_url or profile.tax_code or profile.company))
-    if x3_manual is not None:
-        x3_status = 'passed' if x3_manual else 'failed'
-        x3_note = 'Admin đã duyệt giấy tờ doanh nghiệp' if x3_status == 'passed' else 'Admin từ chối giấy tờ'
+    
+    if account_type == 'individual':
+        # Tài khoản cá nhân: Không bắt buộc GPKD / ủy quyền
+        x3_status = 'passed' if x3_manual is not False else 'failed'
+        x3_note = 'Tài khoản cá nhân: Miễn trừ giấy ủy quyền doanh nghiệp'
+        has_docs = False
     else:
-        x3_status = 'pending_review'
-        x3_note = 'Cần Admin kiểm tra giấy tờ doanh nghiệp / giấy ủy quyền'
+        has_docs = bool(profile and (profile.authorization_doc_url or profile.tax_code or profile.company))
+        if x3_manual is not None:
+            x3_status = 'passed' if x3_manual else 'failed'
+            x3_note = 'Admin đã duyệt giấy tờ doanh nghiệp' if x3_status == 'passed' else 'Admin từ chối giấy tờ'
+        else:
+            x3_status = 'pending_review'
+            x3_note = 'Cần Admin kiểm tra giấy tờ doanh nghiệp / giấy ủy quyền'
 
     results['X3'] = {
         'code': 'X3',
         'title': HIRER_CRITERIA_DEFINITIONS['X3']['title'],
-        'type': 'manual',
+        'type': 'manual' if account_type == 'business' else 'auto',
         'is_mandatory': True,
         'status': x3_status,
         'note': x3_note,
@@ -189,9 +198,9 @@ def evaluate_hirer_criteria(user, profile, manual_overrides=None):
 
     # ── X5: Tài khoản thanh toán / ngân hàng ──────────────────────────────────
     # Tài khoản ngân hàng hợp lệ, không bị cảnh báo
-    has_bank = bool(profile and (profile.bank_account_number or profile.bank_name))
-    bank_name = (profile.bank_name if profile and profile.bank_name else 'Vietcombank')
-    bank_acc = (profile.bank_account_number or '') if profile else ''
+    bank_acc_clean = re.sub(r'\s+', '', (profile.bank_account_number or '')) if profile else ''
+    bank_name = (profile.bank_name if profile and profile.bank_name else '').strip()
+    has_bank = bool(bank_acc_clean and bank_name)
     
     # Check if manual override or auto warning flag
     x5_manual = manual_overrides.get('X5')
@@ -199,11 +208,14 @@ def evaluate_hirer_criteria(user, profile, manual_overrides=None):
         x5_status = 'passed' if x5_manual else 'failed'
         x5_note = 'Phương thức thanh toán đã duyệt' if x5_status == 'passed' else 'Tài khoản thanh toán bị cảnh báo'
     elif not has_bank:
-        x5_status = 'pending_review'
-        x5_note = 'Chưa cập nhật tài khoản thanh toán hoặc đang thẩm định'
+        x5_status = 'failed'
+        x5_note = 'Chưa cập nhật tài khoản thanh toán / ngân hàng (cần tên ngân hàng và số tài khoản)'
+    elif len(bank_acc_clean) < 6:
+        x5_status = 'failed'
+        x5_note = 'Số tài khoản ngân hàng không hợp lệ (tối thiểu 6 chữ số)'
     else:
         x5_status = 'passed'
-        x5_note = f'{bank_name} {bank_acc[-4:] if len(bank_acc) >= 4 else bank_acc}'
+        x5_note = f'{bank_name} ****{bank_acc_clean[-4:] if len(bank_acc_clean) >= 4 else bank_acc_clean}'
 
     results['X5'] = {
         'code': 'X5',
@@ -212,7 +224,7 @@ def evaluate_hirer_criteria(user, profile, manual_overrides=None):
         'is_mandatory': True,
         'status': x5_status,
         'note': x5_note,
-        'display_val': f"{bank_name} ****{bank_acc[-4:]}" if len(bank_acc) >= 4 else (bank_acc or 'Chưa cung cấp')
+        'display_val': f"{bank_name} ****{bank_acc_clean[-4:]}" if len(bank_acc_clean) >= 4 else (bank_acc_clean or 'Chưa cung cấp')
     }
 
     # ── X6: Lịch sử sạch ───────────────────────────────────────────────────────

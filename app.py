@@ -756,12 +756,23 @@ def _apply_hirer_profile_form(user, profile, form, files):
     phone_re = re.compile(r'^(\+84|0)\d{9,10}$')
 
     def clean_phone(v):
-        return re.sub(r'[\s.\-]', '', v)
+        return re.sub(r'[\s.\-]', '', v or '')
 
     def pick(name, options):
         """Chỉ nhận giá trị nằm trong danh sách có sẵn, giữ đúng thứ tự danh sách."""
-        chosen = set(form.getlist(name))
+        chosen = set(form.getlist(name) if hasattr(form, 'getlist') else [])
         return [o for o in options if o in chosen]
+
+    # Ghi nhận trạng thái và các trường định danh cũ trước khi cập nhật (Tiêu chuẩn X8)
+    old_is_verified = bool(profile.is_verified or profile.verification_status == 'verified')
+    old_phone = clean_phone(profile.contact_phone or user.phone or '')
+    old_bank_acc = re.sub(r'\s+', '', profile.bank_account_number or '')
+    old_bank_name = (profile.bank_name or '').strip().lower()
+    old_company = (profile.company or '').strip().lower()
+    old_tax_code = re.sub(r'[\s\-]', '', profile.tax_code or '')
+    old_rep_name = (profile.rep_name or '').strip().lower()
+    old_company_email = (profile.company_email or '').strip().lower()
+    old_user_name = (user.name or '').strip().lower()
 
     account_type = get('account_type')
     if account_type not in ('business', 'individual'):
@@ -864,14 +875,49 @@ def _apply_hirer_profile_form(user, profile, form, files):
         auth_file.save(os.path.join(doc_dir, sec_name))
         profile.authorization_doc_url = f"/static/uploads/hirer_docs/{sec_name}"
 
-    # Cập nhật trạng thái xác minh:
-    # Người dùng điền đủ thông tin hợp lệ chỉ đưa hồ sơ vào trạng thái 'pending' chờ Admin duyệt.
-    # Tuyệt đối KHÔNG tự động cấp quyền 'verified'. Quyết định phê duyệt thuộc thẩm quyền Admin.
-    # Nếu hồ sơ đang ở trạng thái bị từ chối/thu hồi/đình chỉ, không tự mở lại.
-    # Nếu hồ sơ đã được Admin xác minh trước đó, giữ nguyên trạng thái xác minh.
-    if profile.verification_status in ('unverified', None, '', 'needs_revision'):
+    # Cập nhật trạng thái xác minh (X1 - X8 & Security Lifecycle):
+    # 1. Phát hiện thay đổi thông tin định danh trọng yếu đối với tài khoản đã verified (X8):
+    #    Nếu đổi SĐT, tài khoản ngân hàng, thông tin doanh nghiệp (tên, MST, người đại diện, email cty, GPKD)
+    #    hoặc họ tên cá nhân -> tự động chuyển về 'pending', thu hồi is_verified để Admin tái thẩm định.
+    critical_changed = False
+    if old_is_verified:
+        new_phone_clean = clean_phone(phone)
+        new_bank_acc_clean = re.sub(r'\s+', '', bank_acc or '')
+        new_bank_name_clean = (bank_name or '').strip().lower()
+        
+        if new_phone_clean and new_phone_clean != old_phone:
+            critical_changed = True
+        if new_bank_acc_clean and new_bank_acc_clean != old_bank_acc:
+            critical_changed = True
+        if new_bank_name_clean and new_bank_name_clean != old_bank_name:
+            critical_changed = True
+            
+        if account_type == 'business':
+            if company and company.strip().lower() != old_company:
+                critical_changed = True
+            if tax_code and tax_code != old_tax_code:
+                critical_changed = True
+            if rep_name and rep_name.strip().lower() != old_rep_name:
+                critical_changed = True
+            if email and email.strip().lower() != old_company_email:
+                critical_changed = True
+            if auth_file and auth_file.filename:
+                critical_changed = True
+        elif account_type == 'individual':
+            if full_name and full_name.strip().lower() != old_user_name:
+                critical_changed = True
+
+    if critical_changed:
         profile.verification_status = 'pending'
         profile.is_verified = False
+        app.logger.info(f"[hirer_profile] User {user.id} modified critical identity fields. Revoked verified status, set to pending for re-review.")
+    elif profile.verification_status in ('unverified', None, '', 'needs_revision'):
+        # Người dùng điền đủ thông tin hợp lệ chỉ đưa hồ sơ vào trạng thái 'pending' chờ Admin duyệt.
+        # Tuyệt đối KHÔNG tự động cấp quyền 'verified'. Quyết định phê duyệt thuộc thẩm quyền Admin.
+        # Nếu hồ sơ đang ở trạng thái bị từ chối/thu hồi/đình chỉ, không tự mở lại.
+        profile.verification_status = 'pending'
+        profile.is_verified = False
+
     return []
 
 
@@ -3465,8 +3511,9 @@ def account_profile():
                                 url=url_for('admin_hirer_verify', hirer_id=user.id)
                             ))
                             db.session.commit()
-                    except Exception:
-                        pass
+                    except Exception as notif_err:
+                        db.session.rollback()
+                        app.logger.warning(f"[hirer_profile notification warning] Failed to create AdminNotification for user {user.id}: {notif_err}")
                 elif profile.verification_status in ('rejected', 'revoked', 'suspended'):
                     flash('Hồ sơ người đăng tuyển của bạn hiện không ở trạng thái hợp lệ để gửi xét duyệt. Vui lòng liên hệ ban quản trị.', 'warning')
 
@@ -4392,7 +4439,6 @@ def upload_verification_document():
 
 
 @app.route('/account/verification/documents/<int:doc_id>/download')
-@login_required
 def download_verification_document(doc_id):
     """
     Endpoint tải xuống tài liệu minh chứng.
@@ -4400,18 +4446,23 @@ def download_verification_document(doc_id):
     - Chỉ Chủ sở hữu hoặc Quản trị viên (Admin) mới có quyền tải xuống.
     - Người khác nhận mã lỗi 403 Forbidden.
     """
+    from admin_auth import is_admin_session_valid
+    admin_ok, _ = is_admin_session_valid()
+
     uid = session.get('user_id')
-    user = User.query.get(uid)
-    if not user:
+    user = User.query.get(uid) if uid else None
+    if not user and not admin_ok:
         abort(401)
 
     doc = VerificationDocument.query.get_or_404(doc_id)
 
-    from services.verification import can_user_access_document, resolve_document_file_path
-    can_access, err = can_user_access_document(user, doc)
-    if not can_access:
-        abort(403)
+    if not admin_ok:
+        from services.verification import can_user_access_document
+        can_access, err = can_user_access_document(user, doc)
+        if not can_access:
+            abort(403)
 
+    from services.verification import resolve_document_file_path
     ftype, target = resolve_document_file_path(doc)
     if ftype == 'url':
         return redirect(target)
@@ -4433,24 +4484,28 @@ def download_verification_document(doc_id):
 
 
 @app.route('/account/verification/documents/<int:doc_id>/view')
-@login_required
 def view_verification_document(doc_id):
     """
     Endpoint xem trước tài liệu minh chứng (PDF hoặc ảnh).
     Kiểm tra nghiêm ngặt quyền truy cập ở backend (RBAC).
     """
+    from admin_auth import is_admin_session_valid
+    admin_ok, _ = is_admin_session_valid()
+
     uid = session.get('user_id')
-    user = User.query.get(uid)
-    if not user:
+    user = User.query.get(uid) if uid else None
+    if not user and not admin_ok:
         abort(401)
 
     doc = VerificationDocument.query.get_or_404(doc_id)
 
-    from services.verification import can_user_access_document, resolve_document_file_path
-    can_access, err = can_user_access_document(user, doc)
-    if not can_access:
-        abort(403)
+    if not admin_ok:
+        from services.verification import can_user_access_document
+        can_access, err = can_user_access_document(user, doc)
+        if not can_access:
+            abort(403)
 
+    from services.verification import resolve_document_file_path
     ftype, target = resolve_document_file_path(doc)
     if ftype == 'url':
         return redirect(target)
@@ -7920,7 +7975,7 @@ def _save_job_schedule(job, entries):
 
 
 def _submit_for_moderation(job, user, is_new):
-    """Đưa job vào hàng chờ duyệt (giống quy trình đăng job của hệ thống)."""
+    """Đưa job vào hàng chờ duyệt (giống quy trình đăng job của hệ thống). Trả về summary_label."""
     import json
     from services.job_moderation import evaluate_job_39_criteria
     job.status = 'pending'
@@ -7934,16 +7989,7 @@ def _submit_for_moderation(job, user, is_new):
     except Exception as e:
         app.logger.warning(f"Error evaluating 39 criteria for job {job.id}: {e}")
         job.moderation_checklist_data = json.dumps({'summary_label': 'Chờ kiểm duyệt', 'error': str(e)})
-
-    try:
-        from models import AdminNotification
-        db.session.add(AdminNotification(
-            type='NEW_JOB',
-            title=(f'Job mới chờ duyệt: #{job.id}' if is_new else f'Job cập nhật chờ duyệt lại: #{job.id}'),
-            message=f'{user.name} vừa {"nộp" if is_new else "cập nhật"} job "{job.title}". Kết quả: {summary_label}',
-            related_id=job.id, url=url_for('admin_job_review', job_id=job.id)))
-    except Exception as e:
-        app.logger.warning(f"Failed to create AdminNotification for job {job.id}: {e}")
+    return summary_label
 
 
 def _int_or_none(v):
@@ -8188,13 +8234,14 @@ def post_job():
 
     # Token dùng một lần: ngăn gửi trùng
     session['job_form_tokens'] = [t for t in tokens if t != token]
+    summary_label = 'Chờ kiểm duyệt'
     try:
         entries = data.pop('_entries', [])
         job = Job(hirer_id=user.id, **data)
         db.session.add(job)
         db.session.flush()
         _save_job_schedule(job, entries)
-        _submit_for_moderation(job, user, is_new=True)
+        summary_label = _submit_for_moderation(job, user, is_new=True)
         save_job_files(job, validated)
         db.session.commit()
     except Exception as e:
@@ -8204,6 +8251,21 @@ def post_job():
         return _render_job_form(values=request.form.to_dict(),
                                 errors={'_form': 'Không thể lưu yêu cầu. Vui lòng kiểm tra lại thông tin và thử lại.'}, status=500,
                                 rows=_schedule_entries_from_form(request.form), hirer_verified=can_post)
+
+    # Độc lập thông báo Admin: Job đã commit an toàn, lỗi notification không bao giờ làm mất Job
+    try:
+        from models import AdminNotification
+        db.session.add(AdminNotification(
+            type='NEW_JOB',
+            title=f'Job mới chờ duyệt: #{job.id}',
+            message=f'{user.name} vừa nộp job "{job.title}". Kết quả: {summary_label}',
+            related_id=job.id,
+            url=url_for('admin_job_review', job_id=job.id)
+        ))
+        db.session.commit()
+    except Exception as notif_err:
+        db.session.rollback()
+        app.logger.warning(f"[post_job notification warning] Failed to create AdminNotification for job {job.id}: {notif_err}")
 
     # Job chỉ hiện cho phiên dịch viên và được thông báo sau khi admin duyệt
     flash('Yêu cầu đã gửi, đang chờ admin duyệt theo tiêu chuẩn an toàn.', 'success')
@@ -8280,13 +8342,14 @@ def edit_job(job_id):
                                 policy=policy, status=400, rows=_schedule_entries_from_form(request.form))
 
     removed_files = []
+    summary_label = 'Chờ kiểm duyệt'
     try:
         entries = data.pop('_entries', [])
         for k, v in data.items():
             setattr(job, k, v)
         if entries or data.get('category_group') == 'translation' or job.display_category_group == 'translation':
             _save_job_schedule(job, entries)
-        _submit_for_moderation(job, user, is_new=False)   # sửa job → duyệt lại phiên bản mới
+        summary_label = _submit_for_moderation(job, user, is_new=False)   # sửa job → duyệt lại phiên bản mới
         for a in list(job.attachments):
             if a.id in remove_ids:
                 removed_files.append(a.stored_name)
@@ -8295,9 +8358,25 @@ def edit_job(job_id):
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        print(f"[edit_job error] {e}")
+        app.logger.error(f"[edit_job error] Failed to update job {job.id}: {e}", exc_info=True)
         return _render_job_form(job=job, values={**_job_form_values(job), **request.form.to_dict()},
                                 errors={'_form': 'Không thể lưu thay đổi. Vui lòng thử lại.'}, policy=policy, status=500)
+
+    # Độc lập thông báo Admin: Job đã commit an toàn
+    try:
+        from models import AdminNotification
+        db.session.add(AdminNotification(
+            type='NEW_JOB',
+            title=f'Job cập nhật chờ duyệt lại: #{job.id}',
+            message=f'{user.name} vừa cập nhật job "{job.title}". Kết quả: {summary_label}',
+            related_id=job.id,
+            url=url_for('admin_job_review', job_id=job.id)
+        ))
+        db.session.commit()
+    except Exception as notif_err:
+        db.session.rollback()
+        app.logger.warning(f"[edit_job notification warning] Failed to create AdminNotification for job {job.id}: {notif_err}")
+
     for s in removed_files:
         try:
             os.remove(os.path.join(JOB_FILES_FOLDER, s))
@@ -8342,9 +8421,13 @@ def cancel_job(job_id):
 
 
 def can_view_job_files(user, job):
+    from admin_auth import is_admin_session_valid
+    admin_ok, _ = is_admin_session_valid()
+    if admin_ok:
+        return True
     if not user or isinstance(user.id, str):
         return False
-    if user.id == job.hirer_id or user.is_admin:
+    if user.id == job.hirer_id or getattr(user, 'is_admin', False):
         return True
     if user.role == 'translator':
         return bool(Proposal.query.filter_by(job_id=job.id, translator_id=user.id).first()
@@ -8353,7 +8436,6 @@ def can_view_job_files(user, job):
 
 
 @app.route('/job-attachment/<int:attachment_id>')
-@login_required
 def job_attachment(attachment_id):
     att = JobAttachment.query.get_or_404(attachment_id)
     if not can_view_job_files(get_current_user(), att.job):
@@ -9851,13 +9933,13 @@ def project_detail(contract_id):
 
 
 @app.route('/deliverable/<int:deliverable_id>')
-@login_required
 def download_deliverable(deliverable_id):
     """Tải tệp bàn giao — chỉ các bên của hợp đồng (hoặc admin). Không có URL công khai."""
     d = Deliverable.query.get_or_404(deliverable_id)
+    uid = session.get('user_id')
     from services.permissions import can_access_contract
-    if not can_access_contract(session['user_id'], d.contract):
-        abort(404)
+    if not can_access_contract(uid, d.contract):
+        abort(403)
     name = os.path.basename(d.filepath or '')
     folder = DELIVERABLE_FOLDER if os.path.exists(os.path.join(DELIVERABLE_FOLDER, name)) else app.config['UPLOAD_FOLDER']
     if not name or not os.path.exists(os.path.join(folder, name)):
@@ -10537,9 +10619,23 @@ def admin_jobs():
     critical_count = 0
     
     for job in all_jobs:
-        eval_res = evaluate_job_39_criteria(job)
+        try:
+            eval_res = evaluate_job_39_criteria(job)
+        except Exception as e:
+            app.logger.error(f"[admin_jobs error] Exception evaluating criteria for job {job.id}: {e}", exc_info=True)
+            eval_res = {
+                'total_critical': 0,
+                'total_warnings': 0,
+                'total_passed': 0,
+                'summary_label': 'Chưa đánh giá được — cần kiểm tra thủ công',
+                'summary_class': 'badge-warning',
+                'needs_manual_review': True,
+                'eval_error': str(e),
+                'criteria': {},
+                'groups': {}
+            }
         is_pending = bool((job.moderation_status == 'pending' or (job.status == 'pending' and job.moderation_status not in ('approved', 'rejected', 'archived', 'flagged'))) and not job.is_flagged)
-        is_critical = (eval_res['total_critical'] > 0)
+        is_critical = (eval_res.get('total_critical', 0) > 0)
         
         if is_pending:
             pending_count += 1
@@ -10553,7 +10649,7 @@ def admin_jobs():
         elif status_filter == 'critical':
             include = is_critical
         elif status_filter == 'needs_revision':
-            include = (job.moderation_status == 'needs_revision' or (eval_res['total_warnings'] > 0 and is_pending))
+            include = (job.moderation_status == 'needs_revision' or (eval_res.get('total_warnings', 0) > 0 and is_pending))
         elif status_filter == 'open':
             include = (job.moderation_status == 'approved' or job.status == 'open') and not job.is_flagged
         elif status_filter == 'rejected':
@@ -10581,7 +10677,27 @@ def admin_job_review(job_id):
     """Màn hình chi tiết xét duyệt Job theo chuẩn Hình 3."""
     job = Job.query.get_or_404(job_id)
     from services.job_moderation import evaluate_job_39_criteria
-    eval_result = evaluate_job_39_criteria(job)
+    try:
+        eval_result = evaluate_job_39_criteria(job)
+    except Exception as e:
+        app.logger.error(f"[admin_job_review error] Exception evaluating criteria for job {job.id}: {e}", exc_info=True)
+        eval_result = {
+            'total_critical': 0,
+            'total_warnings': 0,
+            'total_passed': 0,
+            'summary_label': 'Chưa đánh giá được — cần kiểm tra thủ công',
+            'summary_class': 'badge-warning',
+            'needs_manual_review': True,
+            'eval_error': str(e),
+            'criteria': {},
+            'groups': {
+                'A': {'label': 'Nhóm A', 'items': []},
+                'B': {'label': 'Nhóm B', 'items': [{'note': ''}, {'note': ''}, {'note': ''}, {'note': ''}, {'note': 'Chưa xác định'}]},
+                'C': {'label': 'Nhóm C', 'items': []},
+                'D': {'label': 'Nhóm D', 'items': []}
+            },
+            'highlighted_description': job.description or ''
+        }
     return render_template('admin_job_review.html', job=job, eval_result=eval_result)
 
 @app.route('/admin/jobs/<int:job_id>/moderate', methods=['POST'])
@@ -10911,6 +11027,9 @@ def admin_hirer_review_action(hirer_id):
     profile.verification_checklist_data = json.dumps(eval_res)
     
     if action == 'verify':
+        if not eval_res.get('all_mandatory_passed'):
+            flash('Không thể phê duyệt: Hồ sơ chưa đáp ứng đủ các tiêu chí bắt buộc (X1 - X5). Vui lòng kiểm tra lại checklist hoặc yêu cầu bổ sung.', 'error')
+            return redirect(url_for('admin_hirer_verify', hirer_id=hirer_id))
         profile.verification_status = 'verified'
         profile.is_verified = True
         profile.verified_at = datetime.utcnow()

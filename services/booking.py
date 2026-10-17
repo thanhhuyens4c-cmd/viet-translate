@@ -31,6 +31,9 @@ def create_contract_booking(
     from sqlalchemy.exc import IntegrityError
     
     try:
+        from services.scheduling import release_expired
+        release_expired(commit=False)
+
         current_user = User.query.get(hirer_id)
         if not current_user:
             raise BookingValidationError("Người thuê không tồn tại.")
@@ -97,6 +100,16 @@ def create_contract_booking(
                             job_id=job_id,
                             service_id=service_id
                         )
+                elif scheduled_date and start_time and end_time:
+                    reserve_slot(
+                        translator_id=translator.id,
+                        scheduled_date=scheduled_date,
+                        start_time=start_time,
+                        end_time=end_time,
+                        contract_id=contract.id,
+                        job_id=job_id,
+                        service_id=service_id
+                    )
             else:
                 # Direct booking without job
                 if scheduled_date and start_time and end_time:

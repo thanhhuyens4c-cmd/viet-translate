@@ -1,76 +1,78 @@
-# JOB_SUBMISSION_FIX_REPORT.md — Báo Cáo Sửa Luồng Tạo & Lưu Job
+# JOB_SUBMISSION_FIX_REPORT.md — Báo Cáo Sửa Pipeline Đăng Job & Kiến Trúc Tách Rời Giao Dịch
 
 ## I. Phân Tích Nguyên Nhân Gốc (Root Cause Analysis)
 
-Khi truy vết luồng `POST /post-job`, phát hiện hai nhóm nguyên nhân khiến khách thuê không đăng được job hoặc gặp lỗi không mong muốn:
+Khi rà soát luồng `POST /post-job` và `POST /job/<id>/edit`, phát hiện các nguyên nhân cốt lõi khiến khách thuê không đăng được job hoặc bị mất dữ liệu:
 
-1. **Rào cản trạng thái xác minh & thông báo không rõ ràng:**
-   - Người thuê chưa hoàn thành hồ sơ (như các tài khoản User 94, 96, 97 trên production) hoặc hồ sơ mới nộp đang ở trạng thái `pending` thì nút submit bị khóa ở frontend (`btn-submit` có cờ `disabled`), và backend trả về thông báo lỗi chung chung. Người dùng không phân biệt được là hệ thống lỗi hay tài khoản đang chờ Admin duyệt.
-2. **Nguy cơ Exception trong giao dịch lưu Job (Transaction Rollback):**
-   - Trong pipeline lưu job:
+1. **Rủi ro Rollback do Giao Dịch Nguyên Khối (Coupled Notification Transaction):**
+   - Trong kiến trúc cũ, `_submit_for_moderation(job, user, is_new)` thực hiện:
      ```python
-     job = Job(hirer_id=user.id, **data)
-     db.session.add(job)
-     db.session.flush()
-     _save_job_schedule(job, entries)
-     _submit_for_moderation(job, user, is_new=True)
-     save_job_files(job, validated)
-     db.session.commit()
+     db.session.add(AdminNotification(...))
      ```
-   - Hàm `_submit_for_moderation` gọi `evaluate_job_39_criteria(job)` và `AdminNotification`. Nếu hàm tiêu chí gặp trường dữ liệu bất thường hoặc quá trình tạo `AdminNotification` gặp lỗi (ví dụ cảnh báo URL scheme khi chạy ngoài request context chuẩn), exception chưa được bắt phòng vệ sẽ nhảy ra ngoài, khiến `post_job()` rollback toàn bộ transaction và trả về lỗi HTTP 500: *"Không thể lưu yêu cầu. Vui lòng thử lại"*.
+     ngay trong session chính đang chứa `Job`, `JobSchedule`, và `JobAttachment`.
+   - Mặc dù việc tạo notification có bọc `try/except`, lỗi ràng buộc dữ liệu chỉ xuất hiện khi SQLAlchemy thực hiện `db.session.commit()`. Khi đó, lệnh `commit()` nằm ngoài khối try của notification.
+   - Nếu xảy ra lỗi ràng buộc dữ liệu tại bản ghi `AdminNotification` hoặc lỗi mạng/driver, exception bị ném ra khối `except Exception as e:` của `post_job()`, dẫn đến gọi `db.session.rollback()`.
+   - **Hậu quả:** Toàn bộ công việc hợp lệ và lịch trình của khách thuê bị xóa sổ khỏi Database chỉ vì một bản ghi thông báo phụ trợ bị lỗi.
+
+2. **Rào cản trạng thái xác minh & Token Form:**
+   - Khách thuê mới nộp hồ sơ ở trạng thái `pending` bị chặn ở backend và giao diện, nhưng thông báo không chỉ dẫn rõ ràng.
+   - Khi giao dịch gặp lỗi, token chống submit trùng lặp (`session['job_form_tokens']`) bị tiêu thụ mất, khiến người dùng không thể bấm gửi lại ngay mà phải tải lại trang.
 
 ---
 
-## II. Các Biện Pháp Khắc Phục Đã Triển Khai
+## II. Các Giải Pháp Kỹ Thuật Đã Triển Khai
 
-### 1. Bọc Phòng Vệ Cho `_submit_for_moderation(job, user, is_new)`
-- **Vị trí:** `app.py:7674-7705`
-- **Mã nguồn sau khi sửa:**
-  ```python
-  def _submit_for_moderation(job, user, is_new):
-      """Đưa job vào hàng chờ duyệt (giống quy trình đăng job của hệ thống)."""
-      import json
-      from services.job_moderation import evaluate_job_39_criteria
-      job.status = 'pending'
-      job.moderation_status = 'pending'
-      job.submission_version = 1 if is_new else (job.submission_version or 1) + 1
-      summary_label = 'Chờ kiểm duyệt'
-      try:
-          result = evaluate_job_39_criteria(job)
-          job.moderation_checklist_data = json.dumps(result)
-          summary_label = result.get('summary_label', 'Chờ kiểm duyệt')
-      except Exception as e:
-          app.logger.warning(f"Error evaluating 39 criteria for job {job.id}: {e}")
-          job.moderation_checklist_data = json.dumps({'summary_label': 'Chờ kiểm duyệt', 'error': str(e)})
+### 1. Tách Biệt Hoàn Toàn Giao Dịch Nghiệp Vụ & Thông Báo (Decoupled Transaction)
+- **Vị trí sửa đổi:** `app.py:7964-7980` (`_submit_for_moderation`), `app.py:8220-8255` (`post_job`), `app.py:8330-8365` (`edit_job`).
+- **Chi tiết thực thi:**
+  1. **Hàm `_submit_for_moderation` được tinh gọn:**
+     - Chỉ phụ trách cập nhật các trường của Job: `job.status = 'pending'`, `job.moderation_status = 'pending'`, `job.submission_version`, và lưu `job.moderation_checklist_data`.
+     - **Hoàn toàn loại bỏ lệnh `db.session.add(AdminNotification)`** khỏi hàm này.
+     - Trả về `summary_label` (ví dụ: "Chờ kiểm duyệt").
+  2. **Giao dịch Cấp 1 (Primary Transaction - Bắt buộc):**
+     - Tạo bản ghi `Job`.
+     - Lưu danh sách lịch trình `JobSchedule`.
+     - Lưu các tệp đính kèm `JobAttachment`.
+     - Thực hiện `db.session.commit()`.
+     - **Cam kết:** Tại thời điểm này, Job và toàn bộ dữ liệu nghiệp vụ của khách thuê đã được lưu trữ bền vững 100% trong Database.
+  3. **Giao dịch Cấp 2 (Secondary Transaction - Thông báo):**
+     - Sau khi Giao dịch Cấp 1 đã commit thành công, hệ thống mở một try-catch độc lập:
+       ```python
+       try:
+           from models import AdminNotification
+           db.session.add(AdminNotification(
+               type='NEW_JOB',
+               title=f'Job mới chờ duyệt: #{job.id}',
+               message=f'{user.name} vừa nộp job "{job.title}". Kết quả: {summary_label}',
+               related_id=job.id,
+               url=url_for('admin_job_review', job_id=job.id)
+           ))
+           db.session.commit()
+       except Exception as notif_err:
+           db.session.rollback()
+           app.logger.warning(
+               f"[post_job] Job {job.id} saved successfully, but AdminNotification failed: {notif_err}"
+           )
+       ```
+     - Nếu tạo notification thất bại: Chỉ rollback thông báo lỗi và ghi log cảnh báo; Job đã lưu ở Giao dịch Cấp 1 hoàn toàn không bị ảnh hưởng.
 
-      try:
-          from models import AdminNotification
-          db.session.add(AdminNotification(
-              type='NEW_JOB',
-              title=(f'Job mới chờ duyệt: #{job.id}' if is_new else f'Job cập nhật chờ duyệt lại: #{job.id}'),
-              message=f'{user.name} vừa {"nộp" if is_new else "cập nhật"} job "{job.title}". Kết quả: {summary_label}',
-              related_id=job.id, url=url_for('admin_job_review', job_id=job.id)))
-      except Exception as e:
-          app.logger.warning(f"Failed to create AdminNotification for job {job.id}: {e}")
-  ```
-- **Lợi ích:** Đảm bảo `job.status = 'pending'` và `job.moderation_status = 'pending'` **luôn luôn được thiết lập và lưu trữ thành công vào Database**. Lỗi thứ cấp từ thông báo hoặc bộ lọc phân tích tuyệt đối không thể làm mất dữ liệu Job hợp lệ của khách hàng.
+### 2. Quản Trị Token & Phục Hồi Khi Lỗi Form
+- Khi form validation thất bại hoặc xảy ra lỗi ở Giao dịch Cấp 1:
+  - Hệ thống hoàn lại token vào `session['job_form_tokens']`, cho phép người dùng sửa đổi và submit lại ngay mà không bị báo lỗi "Token hết hạn".
+  - Giữ lại các giá trị form đã nhập để người dùng không phải điền lại từ đầu.
 
-### 2. Tăng Cường Tính Bền Vững & Ghi Log Lỗi trong `post_job`
-- **Vị trí:** `app.py:7941-7965`
-- **Thay đổi:**
-  - `data.pop('_entries', [])`: Sử dụng fallback an toàn, loại bỏ nguy cơ `KeyError`.
-  - Thay thế `print()` sơ sài bằng `app.logger.error(..., exc_info=True)` ghi lại đầy đủ stacktrace phục vụ chẩn đoán trên server.
-  - Khi giao dịch thất bại, khôi phục lại `job_form_tokens` trong session để người dùng có thể gửi lại form mà không bị báo lỗi "token hết hạn".
-
-### 3. Đồng Bộ Trải Nghiệm & Hướng Dẫn Người Thuê
-- Khi tài khoản chưa đủ điều kiện (ví dụ `pending`), hàm `can_hirer_post_job` trả về lý do cụ thể và điều hướng khách thuê về đúng tab xem tiến độ xét duyệt (`/account/profile?tab=hirer_verify`), không gây hiểu lầm rằng hệ thống gặp trục trặc kỹ thuật.
+### 3. Hỗ Trợ Đầy Đủ Tệp Đính Kèm Của Job
+- Xử lý lưu tệp tin đính kèm vào thư mục an toàn `uploads/job_attachments/`.
+- Cập nhật hàm phân quyền `can_view_job_files(job_id)` trong `app.py` và `services/permissions.py` cho phép cả người thuê sở hữu và Quản trị viên (Admin) xem/tải tệp đính kèm.
 
 ---
 
-## III. Kết Quả Kiểm Chứng (Verification Results)
-- Chạy kiểm thử tự động `test_06_job_creation_enters_moderation_queue` trong `tests/test_hirer_verification_flow.py`:
-  - Bản ghi Job được lưu thành công vào cơ sở dữ liệu.
-  - Cả hai cột `status` và `moderation_status` đều mang giá trị `'pending'`.
-  - Cột `submission_version` được khởi tạo là `1`.
-  - Dữ liệu `moderation_checklist_data` chứa kết quả đánh giá 39 tiêu chí.
-  - Job ngay lập tức xuất hiện trong câu truy vấn danh sách chờ duyệt của Admin.
+## III. Kết Quả Kiểm Chứng Nghiệm Thu (Automated Verification)
+
+Kiểm thử tự động tại `tests/test_hirer_job_lifecycle_integration.py` (`test_03_post_job_decouples_notification_no_rollback`):
+- **Kịch bản kiểm thử:** Giả lập lỗi ném ngoại lệ (`SQLAlchemyError`) trong quá trình tạo `AdminNotification` khi người dùng gọi `POST /post-job`.
+- **Kết quả thực tế:**
+  - Request trả về mã chuyển hướng thành công HTTP 302 về trang chi tiết Job.
+  - Bản ghi `Job` được tìm thấy đầy đủ trong Database với `status='pending'` và `moderation_status='pending'`.
+  - Tệp log ghi nhận cảnh báo lỗi notification nhưng không hề rollback Job.
+  - Tỷ lệ kiểm thử: **PASSED (100%)**.

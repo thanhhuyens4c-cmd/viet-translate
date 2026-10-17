@@ -222,7 +222,8 @@ def confirm_slot(contract_id, commit=False):
                 is_expired = True
                 
         if is_expired:
-            # Không cần thay đổi status ở đây nếu caller sẽ rollback sau khi catch exception
+            schedule.status = 'cancelled'
+            db.session.flush()
             raise SlotExpiredError("Thời gian giữ lịch đã hết. Vui lòng đặt lại khung giờ.")
             
         schedule.status = 'active'

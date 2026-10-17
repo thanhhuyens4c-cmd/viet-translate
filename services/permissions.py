@@ -1,6 +1,12 @@
 from flask import abort
 
 def can_access_contract(user_id, contract):
+    from admin_auth import is_admin_session_valid
+    admin_ok, _ = is_admin_session_valid()
+    if admin_ok:
+        return True
+    if not user_id or not contract:
+        return False
     return user_id in {
         contract.hirer_id,
         contract.translator_id
