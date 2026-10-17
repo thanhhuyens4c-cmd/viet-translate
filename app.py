@@ -12362,6 +12362,90 @@ def cron_release_expired():
         return jsonify({'error': str(e)}), 500
 
 
+# ─── TRUNG TÂM TRỢ GIÚP (TRANG ĐỘC LẬP CHO MENU "TRỢ GIÚP & HỖ TRỢ") ──────────
+
+@app.route('/help')
+def help_center():
+    """Trung tâm trợ giúp: điểm vào chung cho FAQ, Hướng dẫn và Liên hệ hỗ trợ."""
+    from services.account_support import FAQ_TOPICS, FAQ_ITEMS
+    return render_template('help_center.html', faq_topics=FAQ_TOPICS, faq_count=len(FAQ_ITEMS))
+
+
+@app.route('/help/faq')
+def help_faq():
+    """Câu hỏi thường gặp (công khai), có thể lọc theo chủ đề ?topic=..."""
+    from services.account_support import FAQ_TOPICS, FAQ_ITEMS
+    topic = (request.args.get('topic') or '').strip().lower()
+    valid_topics = {t['id'] for t in FAQ_TOPICS}
+    if topic not in valid_topics:
+        topic = ''
+    return render_template('help_faq.html', faq_topics=FAQ_TOPICS, faq_items=FAQ_ITEMS, active_topic=topic)
+
+
+@app.route('/help/guide')
+def help_guide():
+    """Hướng dẫn sử dụng và các điều khoản/chính sách (công khai, chỉ xem)."""
+    from services.account_support import POLICY_DOCUMENTS
+    return render_template('help_guide.html', policies=POLICY_DOCUMENTS)
+
+
+@app.route('/help/contact')
+def help_contact():
+    """Liên hệ hỗ trợ: form gửi ticket (cần đăng nhập) và danh sách ticket của người dùng."""
+    from services.account_support import SUPPORT_CATEGORIES, get_user_tickets
+    user = get_current_user() if 'user_id' in session else None
+    tickets = get_user_tickets(user.id) if user else []
+    return render_template(
+        'help_contact.html',
+        categories=SUPPORT_CATEGORIES,
+        tickets=tickets,
+        is_logged_in=bool(user),
+        selected_category=(request.args.get('category') or '').strip().lower(),
+    )
+
+
+# ─── TRANG CÀI ĐẶT ĐỘC LẬP (MENU "CÀI ĐẶT") ────────────────────────────────────
+
+@app.route('/settings')
+@login_required
+def settings_center():
+    """Trung tâm cài đặt: điểm vào chung cho Bảo mật, Tài khoản, Thông báo."""
+    return render_template('settings_center.html', user=get_current_user())
+
+
+@app.route('/settings/security')
+@login_required
+def settings_security():
+    """Bảo mật tài khoản: đổi mật khẩu và quản lý phiên đăng nhập."""
+    user = get_current_user()
+    from services.account_security import get_active_sessions
+    try:
+        sessions = get_active_sessions(user, session.get('session_token'))
+    except Exception:
+        db.session.rollback()
+        sessions = []
+    return render_template('settings_security.html', user=user, sessions=sessions)
+
+
+@app.route('/settings/account')
+@login_required
+def settings_account():
+    """Cài đặt tài khoản: xem thông tin cơ bản và tùy chọn hiển thị."""
+    return render_template('settings_account.html', user=get_current_user())
+
+
+@app.route('/settings/notifications')
+@login_required
+def settings_notifications():
+    """Cài đặt thông báo: bật/tắt các nhóm thông báo."""
+    user = get_current_user()
+    return render_template(
+        'settings_notifications.html',
+        user=user,
+        setting=get_user_notification_setting(user),
+    )
+
+
 # ─── PHÂN HỆ TRỢ GIÚP & HỖ TRỢ (MỤC 5.7) ──────────────────────────────────────
 
 @app.route('/account/support/tickets/create', methods=['POST'])

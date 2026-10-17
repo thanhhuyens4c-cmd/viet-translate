@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Trung tâm trợ giúp{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+    {% set help_active = 'center' %}
+    {% include '_help_nav.html' %}
+
+    <div class="mb-10">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200/60">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Hỗ trợ 24/7
+        </span>
+        <h1 class="mt-3 text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Trung tâm trợ giúp</h1>
+        <p class="mt-2 text-sm text-slate-500 max-w-2xl">Tìm câu trả lời nhanh, tìm hiểu cách sử dụng VietTranslate hoặc gửi yêu cầu để đội ngũ hỗ trợ liên hệ với bạn.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <a href="{{ url_for('help_faq') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6 hover:border-purple-300 transition">
+            <div class="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center mb-4">❓</div>
+            <h2 class="font-bold text-slate-900 group-hover:text-purple-600 transition">Câu hỏi thường gặp</h2>
+            <p class="mt-1 text-xs text-slate-500 leading-relaxed">{{ faq_count }} câu hỏi về thù lao, hủy ca, tranh chấp và định danh.</p>
+        </a>
+        <a href="{{ url_for('help_guide') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6 hover:border-indigo-300 transition">
+            <div class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center mb-4">📖</div>
+            <h2 class="font-bold text-slate-900 group-hover:text-indigo-600 transition">Hướng dẫn sử dụng</h2>
+            <p class="mt-1 text-xs text-slate-500 leading-relaxed">Các bước sử dụng cho khách hàng và phiên dịch viên, cùng điều khoản &amp; chính sách.</p>
+        </a>
+        <a href="{{ url_for('help_contact') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6 hover:border-sky-300 transition">
+            <div class="w-11 h-11 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center mb-4">💬</div>
+            <h2 class="font-bold text-slate-900 group-hover:text-sky-600 transition">Liên hệ hỗ trợ</h2>
+            <p class="mt-1 text-xs text-slate-500 leading-relaxed">Gửi yêu cầu hỗ trợ và theo dõi phản hồi từ Ban Quản trị.</p>
+        </a>
+    </div>
+
+    <h2 class="mt-12 mb-4 text-sm font-bold text-slate-900">Chủ đề phổ biến</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {% for topic in faq_topics %}
+        <a href="{{ url_for('help_faq', topic=topic.id) }}" class="bg-white rounded-xl border border-slate-200/90 p-4 hover:border-brand-300 transition">
+            <div class="font-bold text-slate-800 text-sm">{{ topic.title }}</div>
+            <p class="mt-1 text-xs text-slate-500 leading-relaxed">{{ topic.description }}</p>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
