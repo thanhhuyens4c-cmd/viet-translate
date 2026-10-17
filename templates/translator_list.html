@@ -315,11 +315,11 @@ function buildFilterForm(s) {
   const typeHeader = CURRENT_LANG === 'en' ? 'Profile Type' : 'Phân loại hồ sơ';
   const TYPE_OPTIONS = CURRENT_LANG === 'en' ? [
     { label: 'All Profiles', value: 'all' },
-    { label: 'Demo Sample Profiles (100)', value: 'demo' },
+    { label: 'Demo Sample Profiles (50)', value: 'demo' },
     { label: 'Verified Interpreters Only', value: 'verified' },
   ] : [
     { label: 'Tất cả hồ sơ', value: 'all' },
-    { label: 'Hồ sơ mẫu demo (100 Demo)', value: 'demo' },
+    { label: 'Hồ sơ mẫu demo (50 Demo)', value: 'demo' },
     { label: 'Đã thẩm định minh chứng', value: 'verified' },
   ];
   html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${typeHeader}</h4><div class="space-y-1">`;
