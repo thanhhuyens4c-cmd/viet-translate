@@ -3179,7 +3179,8 @@ def account_profile():
                     user.profile = TranslatorProfile(user_id=user.id)
                     db.session.add(user.profile)
                 if 'title' in request.form:
-                    user.profile.title = request.form.get('title', '').strip()[:200]
+                    t_val = request.form.get('title', '').strip()
+                    user.profile.title = '' if t_val in ('None', 'null') else t_val[:200]
                 if 'is_cv_public' in request.form or 'has_cv_public_field' in request.form:
                     user.profile.is_cv_public = (request.form.get('is_cv_public') in ('1', 'true', 'True', 'on'))
 
@@ -3228,7 +3229,7 @@ def account_profile():
                         'date_of_birth': user.date_of_birth,
                         'city': user.city,
                         'bio': user.bio,
-                        'title': user.profile.title if user.profile else '',
+                        'title': user.profile.title if (user.profile and user.profile.title and user.profile.title not in ('None', 'null')) else '',
                         'is_cv_public': user.profile.is_cv_public if user.profile else False,
                         'is_public_profile': user.is_public_profile,
                         'avatar_url': user.avatar_url,
@@ -3246,6 +3247,8 @@ def account_profile():
                        'application/json' in request.headers.get('Accept', '') or
                        request.is_json)
             new_title = request.form.get('title', '').strip()
+            if new_title in ('None', 'null'):
+                new_title = ''
             if not user.profile:
                 user.profile = TranslatorProfile(user_id=user.id)
                 db.session.add(user.profile)
@@ -3259,11 +3262,12 @@ def account_profile():
                 flash('Không thể lưu tiêu đề chuyên môn.', 'error')
                 return redirect(url_for('account_profile', tab='profile'))
 
+            clean_display_title = user.profile.title if (user.profile and user.profile.title and user.profile.title not in ('None', 'null')) else ''
             if is_ajax:
                 return jsonify({
                     'success': True,
                     'message': 'Đã cập nhật tiêu đề chuyên môn thành công!',
-                    'title': user.profile.title or 'Chưa đặt tiêu đề chuyên môn'
+                    'title': clean_display_title or 'Chưa đặt tiêu đề chuyên môn'
                 })
             flash('Đã cập nhật tiêu đề chuyên môn thành công!', 'success')
             return redirect(url_for('account_profile', tab='profile'))

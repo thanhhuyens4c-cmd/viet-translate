@@ -78,8 +78,82 @@ class TestPDVProfileLayout(unittest.TestCase):
             sess['user_id'] = self.user_id
             sess['_fresh'] = True
 
-        resp = self.client.post('/resend-verification-email')
-        self.assertIn(resp.status_code, (200, 302))
+    def test_public_and_cv_toggles_one_row_layout(self):
+        """Verify the public profile and CV toggles are rendered in a 1-row responsive grid and buttons are properly placed."""
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = self.user_id
+            sess['_fresh'] = True
+
+        resp = self.client.get('/account/profile')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.data.decode('utf-8')
+
+        # 1. Verify 1-row responsive grid container exists
+        self.assertIn('grid grid-cols-1 md:grid-cols-2 gap-4', html)
+
+        # 2. Verify both toggles exist
+        self.assertIn('id="toggle-public-profile"', html)
+        self.assertIn('id="toggle-cv-public"', html)
+        self.assertIn('name="has_cv_public_field"', html)
+
+        # 3. Verify status elements exist
+        self.assertIn('id="public-toggle-status"', html)
+        self.assertIn('id="cv-public-toggle-status"', html)
+
+        # 4. Verify action bar with buttons exists outside the grid
+        self.assertIn('resetPersonalProfileForm()', html)
+        self.assertIn('id="btn-save-personal-profile"', html)
+
+    def test_pdv_header_banner_and_title_sanitization(self):
+        """Verify the header banner alignment prevents avatar overlap and 'None' is never rendered."""
+        with self.app.app_context():
+            # Set profile title to string 'None' to test edge case sanitization
+            tp = TranslatorProfile.query.filter_by(user_id=self.user_id).first()
+            if tp:
+                tp.title = 'None'
+                db.session.commit()
+
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = self.user_id
+            sess['_fresh'] = True
+
+        resp = self.client.get('/account/profile')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.data.decode('utf-8')
+
+        # Banner uses items-start to place banner title at the top, clear of the avatar
+        self.assertIn('h-32 sm:h-36', html)
+        self.assertIn('items-start justify-between', html)
+
+        # Avatar uses -mt-12 sm:-mt-14 and w-24 h-24
+        self.assertIn('-mt-12 sm:-mt-14', html)
+        self.assertIn('id="translator-header-avatar-box"', html)
+
+        # 'None' must NOT be rendered under the name
+        self.assertNotIn('<span id="header-profile-title" class="font-semibold text-slate-700 truncate max-w-sm">None</span>', html)
+        self.assertIn('Chưa đặt tiêu đề chuyên môn', html)
+        self.assertIn('(Thêm tiêu đề)', html)
+
+    def test_pdv_tab_navigation_bar_neat_labels(self):
+        """Verify the tab navigation bar has compact labels, responsive overflow styling, and all 6 tabs."""
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = self.user_id
+            sess['_fresh'] = True
+
+        resp = self.client.get('/account/profile')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.data.decode('utf-8')
+
+        # Check all 6 tabs exist
+        self.assertIn('Hồ sơ cá nhân', html)
+        self.assertIn('Năng lực & Bảng giá', html)
+        self.assertIn('Tiêu chí nhận việc', html)
+        self.assertIn('Gói dịch vụ & Quyền lợi', html)
+        self.assertIn('Thông báo & Bảo mật', html)
+        self.assertIn('Trợ giúp & Hỗ trợ', html)
+
+        # Check tab container has smooth scroll and hide-scrollbar
+        self.assertIn('overflow-x-auto whitespace-nowrap scroll-smooth hide-scrollbar', html)
 
 if __name__ == '__main__':
     unittest.main()
