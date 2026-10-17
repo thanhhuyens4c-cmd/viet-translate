@@ -927,22 +927,12 @@
                         Việc phù hợp
                     </a>
                 </div>
-                <!-- Mobile: 3. Lịch làm việc (Nhóm cha-con) -->
-                <div class="px-3 pt-2 pb-1">
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Lịch làm việc</p>
-                </div>
-                <div class="space-y-0.5 pl-2">
-                    <a href="{{ url_for('my_schedule') }}"
-                        class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'my_schedule' and not request.args.get('tab') %}text-brand-600 bg-brand-50 font-bold{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} flex items-center gap-2">
-                        <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                        Lịch tổng quan & Ca làm
-                    </a>
-                    <a href="{{ url_for('my_schedule', tab='busy') }}"
-                        class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'my_schedule' and request.args.get('tab') == 'busy' %}text-brand-600 bg-brand-50 font-bold{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} flex items-center gap-2">
-                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        Quản lý thời gian không khả dụng
-                    </a>
-                </div>
+                <!-- Mobile: 3. Lịch làm việc -->
+                <a href="{{ url_for('my_schedule') }}"
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'my_schedule' %}text-brand-600 bg-brand-50 font-bold{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} flex items-center gap-2">
+                    <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <span>Lịch làm việc</span>
+                </a>
                 <!-- Mobile: 4. Thu nhập (Mục cha kèm menu con) -->
                 {% set mob_income_active = request.endpoint and request.endpoint.startswith('interpreter_income_') %}
                 {% set mob_income_overview = request.endpoint == 'interpreter_income_overview' %}

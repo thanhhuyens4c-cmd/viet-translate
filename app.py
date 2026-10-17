@@ -2997,6 +2997,7 @@ def save_notification_settings_action(user):
 
 @app.route('/account', methods=['GET', 'POST'])
 @app.route('/account/profile', methods=['GET', 'POST'])
+@app.route('/account/profile', endpoint='profile', methods=['GET', 'POST'])
 @app.route('/account/overview', methods=['GET', 'POST'])
 @login_required
 def account_profile():
@@ -5666,6 +5667,21 @@ def _get_translator_calendar_events(user_id):
                 4: 'Thứ Sáu', 5: 'Thứ Bảy', 6: 'Chủ Nhật'
             }
             is_all_day = getattr(sch, 'is_all_day', False) or (sch.start_time.hour == 0 and sch.start_time.minute == 0 and sch.end_time.hour == 23 and sch.end_time.minute >= 50)
+            dur_mins = (sch.end_time.hour * 60 + sch.end_time.minute) - (sch.start_time.hour * 60 + sch.start_time.minute)
+            if is_all_day:
+                busy_dur_str = 'Cả ngày'
+            elif dur_mins > 0:
+                dh = dur_mins // 60
+                dm = dur_mins % 60
+                if dh > 0 and dm > 0:
+                    busy_dur_str = f"{dh} giờ {dm} phút"
+                elif dh > 0:
+                    busy_dur_str = f"{dh} giờ"
+                else:
+                    busy_dur_str = f"{dm} phút"
+            else:
+                busy_dur_str = 'Cả ngày'
+
             events.append({
                 'id': f"busy_{sch.id}",
                 'busy_id': sch.id,
@@ -5681,7 +5697,7 @@ def _get_translator_calendar_events(user_id):
                 'start_time': sch.start_time.strftime('%H:%M') if not is_all_day else '00:00',
                 'end_time': sch.end_time.strftime('%H:%M') if not is_all_day else '23:59',
                 'is_all_day': is_all_day,
-                'duration_str': 'Cả ngày' if is_all_day else f"{(sch.end_time.hour*60+sch.end_time.minute - sch.start_time.hour*60-sch.start_time.minute)//60} giờ",
+                'duration_str': busy_dur_str,
                 'status': 'busy',
                 'status_label': 'Bận / Không khả dụng',
                 'status_desc': 'Khoảng thời gian này bạn đã đánh dấu bận. Hệ thống sẽ chặn các lịch hẹn trùng giờ.',
@@ -6842,6 +6858,8 @@ def contract_invoice(contract_id):
 
 @app.route('/translator')
 @app.route('/translators')
+@app.route('/translators', endpoint='translators')
+@app.route('/translator', endpoint='translator')
 def translator_list():
     lang = request.args.get('lang', '')
     rating_filter = request.args.get('rating', '')
@@ -9325,6 +9343,7 @@ def api_proposal_detail(proposal_id):
     })
 
 @app.route('/jobs')
+@app.route('/jobs', endpoint='jobs')
 def job_list():
     lang = request.args.get('lang', '')
     budget = request.args.get('budget', '')
