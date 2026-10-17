@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Cài đặt{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+    {% set settings_active = 'center' %}
+    {% include '_settings_nav.html' %}
+
+    <h1 class="text-3xl font-black text-slate-900 tracking-tight">Cài đặt</h1>
+    <p class="mt-2 mb-8 text-sm text-slate-500">Quản lý tài khoản của bạn.</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <a href="{{ url_for('settings_security') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6 hover:border-rose-300 transition">
+            <div class="w-11 h-11 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center mb-4">🔒</div>
+            <h2 class="font-bold text-slate-900 group-hover:text-rose-600 transition">Bảo mật tài khoản</h2>
+            <p class="mt-1 text-xs text-slate-500">Đổi mật khẩu, quản lý phiên đăng nhập.</p>
+        </a>
+        <a href="{{ url_for('settings_account') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6 hover:border-brand-300 transition">
+            <div class="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-4">⚙️</div>
+            <h2 class="font-bold text-slate-900 group-hover:text-brand-600 transition">Cài đặt tài khoản</h2>
+            <p class="mt-1 text-xs text-slate-500">Thông tin cơ bản và tùy chọn.</p>
+        </a>
+        <a href="{{ url_for('settings_notifications') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6 hover:border-amber-300 transition">
+            <div class="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center mb-4">🔔</div>
+            <h2 class="font-bold text-slate-900 group-hover:text-amber-600 transition">Cài đặt thông báo</h2>
+            <p class="mt-1 text-xs text-slate-500">Bật/tắt các nhóm thông báo.</p>
+        </a>
+    </div>
+</div>
+{% endblock %}

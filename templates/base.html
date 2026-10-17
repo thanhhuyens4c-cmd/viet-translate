@@ -469,7 +469,7 @@
                             {% endif %}
 
                             <!-- Trợ giúp & Hỗ trợ (Help Popover Wrapper) -->
-                            {% set is_support_active = request.endpoint == 'account_profile' and request.args.get('tab') == 'support' %}
+                            {% set is_support_active = (request.endpoint or '').startswith('help_') or (request.endpoint == 'account_profile' and request.args.get('tab') == 'support') %}
                             <div class="relative inline-block" id="nav-help-wrapper">
                                 <button type="button" id="nav-help-btn"
                                     onclick="toggleHeaderPopover('help', event)"
@@ -501,8 +501,7 @@
                                     <!-- Quick Access Items -->
                                     <div class="p-2 space-y-1">
                                         <!-- Item 1: Câu hỏi thường gặp -->
-                                        <a href="{{ url_for('account_profile', tab='support') }}#section-support-faq"
-                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}#section-support-faq', 'support', 'section-support-faq');"
+                                        <a href="{{ url_for('help_faq') }}"
                                             class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
                                             <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -519,8 +518,7 @@
                                         </a>
 
                                         <!-- Item 2: Hướng dẫn sử dụng -->
-                                        <a href="{{ url_for('account_profile', tab='support') }}#section-support-policies"
-                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}#section-support-policies', 'support', 'section-support-policies');"
+                                        <a href="{{ url_for('help_guide') }}"
                                             class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
                                             <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -537,8 +535,7 @@
                                         </a>
 
                                         <!-- Item 3: Liên hệ hỗ trợ -->
-                                        <a href="{{ url_for('account_profile', tab='support') }}#section-support-tickets"
-                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}#section-support-tickets', 'support', 'section-support-tickets');"
+                                        <a href="{{ url_for('help_contact') }}"
                                             class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
                                             <div class="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -557,8 +554,7 @@
 
                                     <!-- Popover Footer / CTA -->
                                     <div class="p-2 border-t border-slate-100 bg-slate-50/60">
-                                        <a href="{{ url_for('account_profile', tab='support') }}"
-                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}', 'support');"
+                                        <a href="{{ url_for('help_center') }}"
                                             class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-white hover:bg-brand-50 text-brand-600 font-bold border border-slate-200/70 hover:border-brand-200 text-xs transition shadow-2xs group">
                                             <span>Trung tâm trợ giúp</span>
                                             <span class="group-hover:translate-x-1 transition-transform">→</span>
@@ -568,7 +564,7 @@
                             </div>
 
                             <!-- Cài đặt & Bảo mật (Settings Popover Wrapper) -->
-                            {% set is_security_active = request.endpoint == 'account_profile' and request.args.get('tab') == 'security' %}
+                            {% set is_security_active = (request.endpoint or '').startswith('settings_') or (request.endpoint == 'account_profile' and request.args.get('tab') == 'security') %}
                             {% set profile_tab_target = 'profile' if current_user.role == 'translator' else 'basic' %}
                             <div class="relative inline-block" id="nav-settings-wrapper">
                                 <button type="button" id="nav-settings-btn"
@@ -601,8 +597,7 @@
                                     <!-- Quick Access Items -->
                                     <div class="p-2 space-y-1">
                                         <!-- Item 1: Bảo mật tài khoản -->
-                                        <a href="{{ url_for('account_profile', tab='security') }}#section-password-management"
-                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='security') }}#section-password-management', 'security', 'section-password-management');"
+                                        <a href="{{ url_for('settings_security') }}"
                                             class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
                                             <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -619,8 +614,7 @@
                                         </a>
 
                                         <!-- Item 2: Cài đặt tài khoản -->
-                                        <a href="{{ url_for('account_profile', tab=profile_tab_target) }}"
-                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab=profile_tab_target) }}', '{{ profile_tab_target }}');"
+                                        <a href="{{ url_for('settings_account') }}"
                                             class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
                                             <div class="w-9 h-9 rounded-xl bg-blue-50 text-brand-600 border border-blue-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -638,8 +632,7 @@
                                         </a>
 
                                         <!-- Item 3: Cài đặt thông báo -->
-                                        <a href="{{ url_for('account_profile', tab='security') }}#section-notification-preferences"
-                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='security') }}#section-notification-preferences', 'security', 'section-notification-preferences');"
+                                        <a href="{{ url_for('settings_notifications') }}"
                                             class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
                                             <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -658,8 +651,7 @@
 
                                     <!-- Popover Footer / CTA -->
                                     <div class="p-2 border-t border-slate-100 bg-slate-50/60">
-                                        <a href="{{ url_for('account_profile', tab='security') }}"
-                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='security') }}', 'security');"
+                                        <a href="{{ url_for('settings_center') }}"
                                             class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-white hover:bg-brand-50 text-brand-600 font-bold border border-slate-200/70 hover:border-brand-200 text-xs transition shadow-2xs group">
                                             <span>Xem tất cả cài đặt</span>
                                             <span class="group-hover:translate-x-1 transition-transform">→</span>
