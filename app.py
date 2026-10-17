@@ -12472,6 +12472,11 @@ def reply_support_ticket_endpoint(ticket_code):
     }), 200
 
 
+# Khiếu nại đơn thuê (routes: /disputes, /dispute/<id>, /admin/disputes...)
+import disputes as _disputes
+_disputes.register(app)
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=True, port=port)

@@ -1,0 +1,11 @@
+{# Tiến trình khiếu nại, dùng chung cho khách / PDV / admin. Biến: steps #}
+<ol class="relative border-l-2 border-slate-200 ml-2 space-y-5">
+    {% for label, state, ts in steps %}
+    <li class="ml-5">
+        <span class="absolute -left-[9px] w-4 h-4 rounded-full border-2 border-white shadow
+            {% if state == 'done' %}bg-emerald-500{% elif state == 'current' %}bg-brand-600 animate-pulse{% elif state == 'failed' %}bg-rose-500{% else %}bg-slate-300{% endif %}"></span>
+        <p class="text-sm font-bold {% if state == 'todo' %}text-slate-400{% elif state == 'failed' %}text-rose-700{% elif state == 'current' %}text-brand-700{% else %}text-slate-900{% endif %}">{{ label }}</p>
+        {% if ts and state != 'todo' %}<p class="text-[11px] text-slate-400">{{ ts.strftime('%d/%m/%Y %H:%M') }}</p>{% endif %}
+    </li>
+    {% endfor %}
+</ol>

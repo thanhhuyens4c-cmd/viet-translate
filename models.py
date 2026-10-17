@@ -1635,6 +1635,64 @@ class Report(db.Model):
     related_job = db.relationship('Job', foreign_keys=[related_job_id])
     related_contract = db.relationship('Contract', foreign_keys=[related_contract_id])
 
+# ─── DISPUTE MODEL (KHIẾU NẠI ĐƠN THUÊ) ────────────────────────────────────────
+
+class Dispute(db.Model):
+    """Khiếu nại của khách về một hợp đồng khi tiền còn được giữ (chưa giải ngân).
+
+    pending_review  -> chờ admin xác nhận
+    rejected        -> admin bác bỏ
+    awaiting_response -> admin chuyển bước tiếp theo, PDV có 24h kháng đơn
+    under_review    -> đã có thông tin 2 chiều, admin xem xét
+    resolved        -> admin đã kết luận (xem resolution)
+    """
+    STATUSES = ('pending_review', 'rejected', 'awaiting_response', 'under_review', 'resolved')
+    CATEGORIES = {'late': 'Trễ hạn', 'quality': 'Chất lượng', 'no_contact': 'Mất liên lạc'}
+    RESOLUTIONS = {'keep_100': 'Giữ nguyên thanh toán 100%',
+                   'refund_50': 'Giảm 50% tiền thanh toán',
+                   'cancel_payment': 'Hủy thanh toán (hoàn tiền cho khách)'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    category = db.Column(db.String(20), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default='pending_review', nullable=False, index=True)
+
+    admin_note = db.Column(db.Text)  # lý do bác bỏ / ghi chú khi chuyển bước
+    forwarded_at = db.Column(db.DateTime)
+    response_deadline = db.Column(db.DateTime)
+    translator_response = db.Column(db.Text)
+    translator_responded_at = db.Column(db.DateTime)
+
+    resolution = db.Column(db.String(20))
+    resolution_note = db.Column(db.Text)
+    original_amount = db.Column(db.Integer)
+    final_amount = db.Column(db.Integer)
+    resolved_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    resolved_at = db.Column(db.DateTime)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    contract = db.relationship('Contract', backref=db.backref('disputes', lazy=True))
+    hirer = db.relationship('User', foreign_keys=[hirer_id])
+    translator = db.relationship('User', foreign_keys=[translator_id])
+    evidence = db.relationship('DisputeEvidence', backref='dispute', lazy=True,
+                               cascade='all, delete-orphan', order_by='DisputeEvidence.id')
+
+
+class DisputeEvidence(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    dispute_id = db.Column(db.Integer, db.ForeignKey('dispute.id'), nullable=False, index=True)
+    uploader_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    side = db.Column(db.String(10), nullable=False)  # 'hirer' | 'translator'
+    filename = db.Column(db.String(255), nullable=False)
+    filepath = db.Column(db.String(500), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 # ─── PAYMENT MODEL (TASK 13) ───────────────────────────────────────────────────
 
 class PaymentTransaction(db.Model):

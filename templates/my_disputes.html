@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Khiếu nại của tôi | VietTranslate{% endblock %}
+{% block content %}
+<div class="bg-slate-50/60 min-h-screen py-10">
+<div class="max-w-4xl mx-auto px-4 sm:px-6">
+    <h1 class="text-2xl font-extrabold text-slate-900 mb-5">Khiếu nại của tôi</h1>
+    <div class="bg-white rounded-2xl border border-slate-200/90 overflow-hidden divide-y divide-slate-100">
+        {% for d in items %}
+        <a href="{{ url_for('dispute_detail', dispute_id=d.id) }}" class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50">
+            <div>
+                <p class="font-bold text-slate-900 text-sm">#{{ d.id }} · Hợp đồng #{{ d.contract_id }}</p>
+                <p class="text-xs text-slate-500">{{ d.created_at.strftime('%d/%m/%Y') }}{% if d.status == 'resolved' %} · {{ money(d.original_amount) }} → {{ money(d.final_amount) }} VND{% endif %}</p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">{{ labels[d.status] }}{% if d.status == 'resolved' %} · Xem kết quả{% endif %}</span>
+        </a>
+        {% else %}
+        <p class="py-12 text-center text-sm text-slate-400">Chưa có khiếu nại nào.</p>
+        {% endfor %}
+    </div>
+</div></div>
+{% endblock %}
