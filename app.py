@@ -6900,6 +6900,13 @@ def _translator_card(p, favorite_ids=frozenset()):
             prices.append(int(p.hourly_rate))
         if getattr(p, 'daily_rate', None):
             prices.append(int(p.daily_rate))
+    if not prices and p.user and hasattr(p.user, 'interpreter_services'):
+        for isvc in p.user.interpreter_services:
+            if getattr(isvc, 'is_active', True):
+                if getattr(isvc, 'hourly_rate', None):
+                    prices.append(int(isvc.hourly_rate))
+                if getattr(isvc, 'session_rate', None):
+                    prices.append(int(isvc.session_rate))
     min_days = None
     for s in p.services:
         for field in (s.basic_delivery, s.standard_delivery, s.premium_delivery):
@@ -6925,10 +6932,12 @@ def _translator_card(p, favorite_ids=frozenset()):
         'avatar_url': p.avatar_url,
         'initial': name[0].upper() if name else '?',
         'title': p.title or '',
+        'bio': p.bio or (p.user.bio if p.user else '') or '',
         'languages': split(p.languages),
         'language_pairs': pairs,
         'specialties': specialties,
         'badges': split(p.badges),
+        'experience_years': p.display_experience_years,
         'rating': float(p.rating or 0),
         'total_reviews': p.total_reviews or 0,
         'total_jobs': p.total_jobs or 0,
