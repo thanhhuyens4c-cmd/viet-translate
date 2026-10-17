@@ -2997,6 +2997,7 @@ def save_notification_settings_action(user):
 
 @app.route('/account', methods=['GET', 'POST'])
 @app.route('/account/profile', methods=['GET', 'POST'])
+@app.route('/account/profile', endpoint='profile', methods=['GET', 'POST'])
 @app.route('/account/overview', methods=['GET', 'POST'])
 @login_required
 def account_profile():
@@ -6857,6 +6858,8 @@ def contract_invoice(contract_id):
 
 @app.route('/translator')
 @app.route('/translators')
+@app.route('/translators', endpoint='translators')
+@app.route('/translator', endpoint='translator')
 def translator_list():
     lang = request.args.get('lang', '')
     rating_filter = request.args.get('rating', '')
@@ -9309,6 +9312,7 @@ def api_proposal_detail(proposal_id):
     })
 
 @app.route('/jobs')
+@app.route('/jobs', endpoint='jobs')
 def job_list():
     lang = request.args.get('lang', '')
     budget = request.args.get('budget', '')
