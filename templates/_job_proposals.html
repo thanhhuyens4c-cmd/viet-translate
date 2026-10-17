@@ -1,0 +1,208 @@
+{# Báo giá nhận được — dành cho chủ yêu cầu. Biến: proposal_views, selectable, job #}
+{% set badge_cls = {'pending': 'bg-amber-50 text-amber-800 border-amber-200/70', 'accepted': 'bg-emerald-50 text-emerald-800 border-emerald-200/70', 'rejected': 'bg-rose-50 text-rose-700 border-rose-200/70', 'not_selected': 'bg-slate-100 text-slate-600 border-slate-200', 'expired': 'bg-slate-100 text-slate-600 border-slate-200'} %}
+{% set comparable = proposal_views|selectattr('status', 'in', ['pending', 'accepted'])|list %}
+{% macro or_dash(v) %}{% if v %}<span class="whitespace-pre-line break-words">{{ v }}</span>{% else %}<span class="text-slate-300">Không nêu</span>{% endif %}{% endmacro %}
+
+<section id="proposals" class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-8 min-w-0">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-5 border-b border-slate-100">
+        <h2 class="text-lg font-bold text-slate-900">Báo giá nhận được <span class="text-slate-400 font-semibold">({{ proposal_views|length }})</span></h2>
+        {% if comparable|length >= 2 %}
+        <div class="inline-flex rounded-xl border border-slate-200 p-0.5 bg-slate-50 text-xs font-bold" role="tablist">
+            <button type="button" data-pv-tab="list" role="tab" aria-selected="true" class="px-4 py-1.5 rounded-lg bg-white shadow-sm text-brand-700">Danh sách</button>
+            <button type="button" data-pv-tab="compare" role="tab" aria-selected="false" class="px-4 py-1.5 rounded-lg text-slate-500 hover:text-slate-800">So sánh ({{ comparable|length }})</button>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if not selectable and job.status != 'contracted' and proposal_views %}
+    <p class="mb-4 text-xs bg-slate-50 border border-slate-200 text-slate-600 rounded-xl p-3">Yêu cầu hiện không mở tuyển chọn ({{ status_label }}), nên không thể chấp nhận thêm báo giá.</p>
+    {% endif %}
+
+    {% if not proposal_views %}
+    <div class="text-center py-10 px-4">
+        <p class="text-sm font-semibold text-slate-700 mb-1">Chưa có báo giá nào</p>
+        <p class="text-xs text-slate-500 max-w-sm mx-auto mb-4">Phiên dịch viên phù hợp sẽ gửi báo giá khi họ thấy yêu cầu của bạn. Bạn có thể chủ động mời phiên dịch viên.</p>
+        <a href="{{ url_for('translator_list') }}" class="inline-block text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 px-4 py-2 rounded-lg transition">Tìm phiên dịch viên</a>
+    </div>
+    {% else %}
+
+    <!-- Danh sách -->
+    <div data-pv-panel="list" class="space-y-4">
+        {% for p in proposal_views %}
+        <article class="border border-slate-200/90 rounded-2xl p-4 sm:p-5 bg-slate-50/40 min-w-0" data-proposal="{{ p.id }}">
+            <div class="flex flex-col sm:flex-row justify-between gap-3 mb-4">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="relative w-11 h-11 rounded-xl overflow-hidden border border-slate-200/90 bg-slate-100 shrink-0">
+                        {% if p.avatar_url %}<img src="{{ p.avatar_url }}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover object-top">{% endif %}
+                        <div style="display:{{ 'none' if p.avatar_url else 'flex' }}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white font-extrabold text-sm">{{ p.initial }}</div>
+                    </div>
+                    <div class="min-w-0">
+                        {% if p.profile_id %}<a href="{{ url_for('translator_profile', profile_id=p.profile_id) }}" class="font-bold text-slate-900 text-sm hover:text-brand-600 transition break-words">{{ p.translator_name }}</a>{% else %}<span class="font-bold text-slate-900 text-sm">{{ p.translator_name }}</span>{% endif %}
+                        {% if p.is_verified %}<span class="ml-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-md">✓ Xác minh</span>{% endif %}
+                        <p class="text-xs text-slate-500 break-words">{{ p.title or 'Phiên dịch viên' }}</p>
+                        <p class="text-[11px] text-slate-400">
+                            {% if p.rating is not none %}★ {{ '%.1f'|format(p.rating) }} ({{ p.total_reviews }} đánh giá){% else %}Chưa có đánh giá{% endif %}
+                            · {{ p.total_jobs }} dự án
+                        </p>
+                    </div>
+                </div>
+                <div class="sm:text-right shrink-0">
+                    <span class="font-extrabold text-brand-700 text-lg block">{{ p.price|vnd }} VND</span>
+                    {% if p.is_lowest_price %}<span class="text-[11px] font-bold text-emerald-700">Giá thấp nhất trong các báo giá</span>{% endif %}
+                    <span class="inline-block mt-1 px-2.5 py-1 text-[11px] font-bold rounded-full border {{ badge_cls.get(p.status, '') }}">{{ p.status_label }}</span>
+                </div>
+            </div>
+
+            <dl class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs mb-3">
+                <div><dt class="text-slate-400 font-bold uppercase tracking-wider">Thời gian hoàn thành</dt><dd class="text-slate-800 font-semibold mt-0.5">{{ p.time_estimate or '—' }}</dd></div>
+                <div><dt class="text-slate-400 font-bold uppercase tracking-wider">Hiệu lực đến</dt><dd class="text-slate-800 font-semibold mt-0.5">{{ p.valid_until or 'Không giới hạn' }}</dd></div>
+                <div><dt class="text-slate-400 font-bold uppercase tracking-wider">Gửi lúc</dt><dd class="text-slate-800 font-semibold mt-0.5">{{ p.created_at }}</dd></div>
+            </dl>
+            <dl class="space-y-2.5 text-xs mb-4">
+                <div><dt class="text-slate-400 font-bold uppercase tracking-wider">Phạm vi công việc</dt><dd class="text-slate-700 mt-0.5">{{ or_dash(p.scope) }}</dd></div>
+                <div><dt class="text-slate-400 font-bold uppercase tracking-wider">Điều kiện bàn giao</dt><dd class="text-slate-700 mt-0.5">{{ or_dash(p.delivery_terms) }}</dd></div>
+                <div><dt class="text-slate-400 font-bold uppercase tracking-wider">Điều kiện chỉnh sửa</dt><dd class="text-slate-700 mt-0.5">{{ or_dash(p.revision_terms) }}</dd></div>
+                <div><dt class="text-slate-400 font-bold uppercase tracking-wider">Ghi chú</dt><dd class="text-slate-700 mt-0.5">{{ or_dash(p.note) }}</dd></div>
+                {% if p.response_note %}<div><dt class="text-slate-400 font-bold uppercase tracking-wider">Lý do bạn từ chối</dt><dd class="text-slate-700 mt-0.5 whitespace-pre-line break-words">{{ p.response_note }}</dd></div>{% endif %}
+            </dl>
+
+            <div class="flex flex-wrap items-center justify-end gap-2">
+                {% if p.profile_id %}
+                <a href="{{ url_for('view_public_cv', profile_id=p.profile_id, mode='view') }}" target="_blank" class="px-3.5 py-2 border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5" title="Xem hồ sơ năng lực CV của ứng viên">
+                    <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <span>Xem CV</span>
+                </a>
+                <a href="{{ url_for('translator_profile', profile_id=p.profile_id) }}" class="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">Xem hồ sơ</a>
+                {% endif %}
+                {% if p.translator_id %}<a href="{{ url_for('direct_chat', translator_user_id=p.translator_id) }}" class="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">Nhắn tin làm rõ</a>{% endif %}
+                {% if p.can_reject %}<button type="button" data-pv-reject="{{ p.id }}" data-name="{{ p.translator_name }}" class="px-3.5 py-2 border border-rose-200 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition">Từ chối</button>{% endif %}
+                {% if p.can_accept %}<button type="button" data-pv-accept="{{ p.id }}" data-name="{{ p.translator_name }}" data-price="{{ p.price|vnd }}" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-sm">Chấp nhận báo giá</button>{% endif %}
+                {% if p.status == 'accepted' and job.contract %}<a href="{{ url_for('transaction_detail', contract_id=job.contract.id) }}" class="px-3.5 py-2 bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200/80 rounded-xl text-xs font-bold transition">Phòng làm việc</a>{% endif %}
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+
+    <!-- So sánh -->
+    {% if comparable|length >= 2 %}
+    <div data-pv-panel="compare" class="hidden">
+        <p class="text-xs text-slate-500 mb-3">So sánh theo các thông tin người gửi đã cung cấp. Hệ thống không chấm điểm hay xếp hạng; quyết định thuộc về bạn.</p>
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="min-w-full text-xs text-left border-collapse">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="sticky left-0 bg-slate-50 px-3 py-2.5 font-bold text-slate-500 uppercase tracking-wider w-32 min-w-[8rem]">Tiêu chí</th>
+                        {% for p in comparable %}<th class="px-3 py-2.5 font-bold text-slate-900 min-w-[12rem] align-top">{{ p.translator_name }}</th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 align-top">
+                    {% macro row(label) %}<tr><th scope="row" class="sticky left-0 bg-white px-3 py-2.5 font-semibold text-slate-500">{{ label }}</th>{{ caller() }}</tr>{% endmacro %}
+                    {% call row('Giá đề xuất') %}{% for p in comparable %}<td class="px-3 py-2.5 font-extrabold text-brand-700">{{ p.price|vnd }} VND{% if p.is_lowest_price %}<span class="block text-[11px] font-bold text-emerald-700">Thấp nhất</span>{% endif %}</td>{% endfor %}{% endcall %}
+                    {% if job.budget_type in ('fixed', 'range') and job.budget_min %}
+                    {% call row('So với ngân sách') %}{% for p in comparable %}
+                        {% set hi = job.budget_max if job.budget_type == 'range' and job.budget_max else job.budget_min %}
+                        <td class="px-3 py-2.5 text-slate-700">{% if p.price > hi %}Vượt ngân sách{% elif p.price < job.budget_min %}Thấp hơn ngân sách{% else %}Trong ngân sách{% endif %}</td>
+                    {% endfor %}{% endcall %}
+                    {% endif %}
+                    {% call row('Thời gian hoàn thành') %}{% for p in comparable %}<td class="px-3 py-2.5 text-slate-700">{{ p.time_estimate or '—' }}</td>{% endfor %}{% endcall %}
+                    {% call row('Phạm vi công việc') %}{% for p in comparable %}<td class="px-3 py-2.5 text-slate-700">{{ or_dash(p.scope) }}</td>{% endfor %}{% endcall %}
+                    {% call row('Điều kiện bàn giao') %}{% for p in comparable %}<td class="px-3 py-2.5 text-slate-700">{{ or_dash(p.delivery_terms) }}</td>{% endfor %}{% endcall %}
+                    {% call row('Điều kiện chỉnh sửa') %}{% for p in comparable %}<td class="px-3 py-2.5 text-slate-700">{{ or_dash(p.revision_terms) }}</td>{% endfor %}{% endcall %}
+                    {% call row('Hiệu lực đến') %}{% for p in comparable %}<td class="px-3 py-2.5 text-slate-700">{{ p.valid_until or 'Không giới hạn' }}</td>{% endfor %}{% endcall %}
+                    {% call row('Gửi lúc') %}{% for p in comparable %}<td class="px-3 py-2.5 text-slate-700">{{ p.created_at }}</td>{% endfor %}{% endcall %}
+                    {% call row('Đánh giá') %}{% for p in comparable %}<td class="px-3 py-2.5 text-slate-700">{% if p.rating is not none %}★ {{ '%.1f'|format(p.rating) }} ({{ p.total_reviews }}){% else %}Chưa có đánh giá{% endif %}</td>{% endfor %}{% endcall %}
+                    {% call row('Dự án đã thực hiện') %}{% for p in comparable %}<td class="px-3 py-2.5 text-slate-700">{{ p.total_jobs }}</td>{% endfor %}{% endcall %}
+                    {% call row('Xác minh hồ sơ') %}{% for p in comparable %}<td class="px-3 py-2.5 text-slate-700">{{ 'Đã xác minh' if p.is_verified else 'Chưa xác minh' }}</td>{% endfor %}{% endcall %}
+                    {% call row('Trạng thái') %}{% for p in comparable %}<td class="px-3 py-2.5"><span class="inline-block px-2.5 py-1 text-[11px] font-bold rounded-full border {{ badge_cls.get(p.status, '') }}">{{ p.status_label }}</span></td>{% endfor %}{% endcall %}
+                    {% call row('Thao tác') %}{% for p in comparable %}<td class="px-3 py-2.5"><div class="flex flex-col gap-1.5">
+                        {% if p.profile_id %}
+                        <a href="{{ url_for('view_public_cv', profile_id=p.profile_id, mode='view') }}" target="_blank" class="font-bold text-emerald-700 hover:underline text-xs inline-flex items-center gap-1">📄 Xem CV</a>
+                        <a href="{{ url_for('translator_profile', profile_id=p.profile_id) }}" class="font-bold text-brand-600 hover:underline">Xem hồ sơ</a>
+                        {% endif %}
+                        {% if p.translator_id %}<a href="{{ url_for('direct_chat', translator_user_id=p.translator_id) }}" class="font-bold text-slate-700 hover:underline">Nhắn tin làm rõ</a>{% endif %}
+                        {% if p.can_accept %}<button type="button" data-pv-accept="{{ p.id }}" data-name="{{ p.translator_name }}" data-price="{{ p.price|vnd }}" class="self-start px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold">Chấp nhận</button>{% endif %}
+                    </div></td>{% endfor %}{% endcall %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</section>
+
+<!-- Hộp thoại xác nhận -->
+<div id="pv-modal" class="hidden fixed inset-0 z-[60] items-end sm:items-center justify-center bg-slate-900/50 p-0 sm:p-4" role="presentation">
+    <div role="dialog" aria-modal="true" aria-labelledby="pv-title" class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <h3 id="pv-title" class="font-bold text-slate-900 mb-2"></h3>
+        <p id="pv-desc" class="text-sm text-slate-600 mb-4 leading-relaxed"></p>
+        <textarea id="pv-note" rows="3" maxlength="500" class="hidden w-full px-3 py-2 border border-slate-200 rounded-xl text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Lý do (không bắt buộc, phiên dịch viên sẽ không thấy nếu để trống)"></textarea>
+        <p id="pv-error" class="hidden text-xs font-semibold text-rose-600 mb-3" role="alert"></p>
+        <div class="flex justify-end gap-2">
+            <button type="button" id="pv-cancel" class="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50">Hủy</button>
+            <button type="button" id="pv-confirm" class="px-5 py-2 rounded-xl text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-wait"></button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const CSRF = {{ csrf_token()|tojson }};
+    const $ = (id) => document.getElementById(id);
+    const modal = $('pv-modal');
+    let action = null;
+
+    // Chuyển tab danh sách / so sánh
+    document.querySelectorAll('[data-pv-tab]').forEach(btn => btn.addEventListener('click', () => {
+        const t = btn.dataset.pvTab;
+        document.querySelectorAll('[data-pv-panel]').forEach(p => p.classList.toggle('hidden', p.dataset.pvPanel !== t));
+        document.querySelectorAll('[data-pv-tab]').forEach(b => {
+            const on = b === btn; b.setAttribute('aria-selected', on);
+            b.className = 'px-4 py-1.5 rounded-lg ' + (on ? 'bg-white shadow-sm text-brand-700' : 'text-slate-500 hover:text-slate-800');
+        });
+    }));
+
+    function openModal(kind, id, name, price) {
+        action = {kind, id};
+        const accept = kind === 'accept';
+        $('pv-title').textContent = accept ? 'Chấp nhận báo giá của ' + name + '?' : 'Từ chối báo giá của ' + name + '?';
+        $('pv-desc').textContent = accept
+            ? 'Mức giá ' + price + ' VND. Hệ thống sẽ tạo hợp đồng và các báo giá còn lại sẽ được đóng. Bạn sẽ chuyển sang bước thanh toán escrow; chưa có khoản nào được thanh toán ở bước này.'
+            : 'Phiên dịch viên sẽ được thông báo. Thao tác này không thể hoàn tác.';
+        $('pv-note').classList.toggle('hidden', accept); $('pv-note').value = '';
+        $('pv-error').classList.add('hidden');
+        const c = $('pv-confirm'); c.disabled = false; c.textContent = accept ? 'Xác nhận chấp nhận' : 'Xác nhận từ chối';
+        c.className = 'px-5 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-60 disabled:cursor-wait ' + (accept ? 'bg-brand-600 hover:bg-brand-700' : 'bg-rose-600 hover:bg-rose-700');
+        modal.classList.remove('hidden'); modal.classList.add('flex'); c.focus();
+    }
+    function closeModal() { modal.classList.add('hidden'); modal.classList.remove('flex'); action = null; }
+
+    document.addEventListener('click', (e) => {
+        const a = e.target.closest('[data-pv-accept]'); if (a) return openModal('accept', a.dataset.pvAccept, a.dataset.name, a.dataset.price);
+        const r = e.target.closest('[data-pv-reject]'); if (r) return openModal('reject', r.dataset.pvReject, r.dataset.name);
+    });
+    $('pv-cancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && action) closeModal(); });
+
+    $('pv-confirm').addEventListener('click', async () => {
+        if (!action) return;
+        const btn = $('pv-confirm'), err = $('pv-error'), label = btn.textContent;
+        btn.disabled = true; btn.textContent = 'Đang xử lý...'; err.classList.add('hidden');
+        const fd = new FormData(); fd.append('_csrf_token', CSRF);
+        if (action.kind === 'reject') fd.append('note', $('pv-note').value);
+        try {
+            const res = await fetch('/api/proposals/' + encodeURIComponent(action.id) + '/' + action.kind, {
+                method: 'POST', body: fd, credentials: 'same-origin', headers: {'Accept': 'application/json', 'X-CSRF-Token': CSRF}});
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok || !d.ok) throw new Error(d.message || 'Không thể thực hiện thao tác. Vui lòng thử lại.');
+            btn.textContent = 'Thành công';
+            if (typeof vtToast === 'function') vtToast(d.message, true);
+            setTimeout(() => { if (d.redirect) location.href = d.redirect; else location.reload(); }, 600);
+        } catch (ex) {
+            err.textContent = ex.message || 'Lỗi kết nối. Vui lòng thử lại.'; err.classList.remove('hidden');
+            btn.disabled = false; btn.textContent = label;
+            if (/xử lý|không còn|hết hạn|đã có/i.test(ex.message)) setTimeout(() => location.reload(), 2500);
+        }
+    });
+})();
+</script>

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ row.tx_code or row.order_code }} | VietTranslate{% endblock %}
+{% block content %}
+{% set vi = current_lang == 'vi' %}
+{% set names = {
+  'awaiting_payment': 'Chờ thanh toán' if vi else 'Awaiting payment',
+  'processing': 'Đang xử lý' if vi else 'Processing',
+  'success': 'Thành công' if vi else 'Successful',
+  'failed': 'Thất bại' if vi else 'Failed',
+  'refunded': 'Đã hoàn tiền' if vi else 'Refunded',
+  'cancelled': 'Đã hủy' if vi else 'Cancelled',
+  'unrecorded': 'Chưa ghi nhận thanh toán' if vi else 'No payment recorded'} %}
+<div class="bg-slate-50/60 min-h-screen py-10">
+<div class="max-w-3xl mx-auto px-4">
+  <a href="{{ url_for('account_history') }}" class="text-xs font-bold text-brand-600 hover:underline print:hidden">← {{ 'Lịch sử giao dịch' if vi else 'Transaction history' }}</a>
+  <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8 mt-4">
+    <h1 class="text-lg font-bold text-slate-900 mb-1">{{ row.title or row.order_code }}</h1>
+    <p class="text-xs text-slate-400 mb-5 font-mono">{{ row.order_code }}</p>
+    <dl class="grid grid-cols-2 gap-y-3 text-sm">
+      <dt class="text-slate-500">{{ 'Trạng thái' if vi else 'Status' }}</dt><dd class="font-bold text-right">{{ names[row.status] }}</dd>
+      <dt class="text-slate-500">{{ 'Giá trị hợp đồng' if vi else 'Contract value' }}</dt><dd class="font-bold text-right">{{ row.contract.agreed_price|vnd }} VND</dd>
+      <dt class="text-slate-500">{{ 'Phiên dịch viên' if vi else 'Translator' }}</dt><dd class="text-right">{{ row.contract.translator.name }}</dd>
+      <dt class="text-slate-500">{{ 'Ngày tạo' if vi else 'Created' }}</dt><dd class="text-right">{{ row.contract.created_at.strftime('%d/%m/%Y %H:%M') }}</dd>
+    </dl>
+    {% if row.status == 'unrecorded' %}
+    <p class="mt-5 text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-600 leading-relaxed">
+      {{ 'Hợp đồng này không có bản ghi thanh toán từ cổng thanh toán. Hệ thống chưa xác minh được việc tiền đã được thu hay giữ.' if vi else 'This contract has no payment record from a payment provider. The system cannot verify that funds were collected or held.' }}
+    </p>
+    {% endif %}
+
+    <h2 class="font-bold text-slate-900 text-sm mt-8 mb-3">{{ 'Các lần thanh toán' if vi else 'Payment attempts' }}</h2>
+    {% for p in payments %}
+    <div class="border border-slate-100 rounded-xl p-4 mb-3 text-sm">
+      <div class="flex justify-between"><span class="font-mono text-xs">{{ p.transaction_ref or ('GD%06d' % p.id) }}</span><span class="font-bold">{{ p.amount|vnd }} VND</span></div>
+      <div class="text-xs text-slate-500 mt-1">{{ p.created_at.strftime('%d/%m/%Y %H:%M') }} · {{ p.payment_method or '—' }} · {{ p.status }}</div>
+      {% if p.status == 'completed' %}
+      <button onclick="window.print()" class="mt-2 text-xs font-bold text-brand-600 hover:underline print:hidden">{{ 'In biên nhận' if vi else 'Print receipt' }}</button>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="text-xs text-slate-400">{{ 'Chưa có lần thanh toán nào.' if vi else 'No payments yet.' }}</p>
+    {% endfor %}
+
+    <a href="{{ url_for('transaction_detail', contract_id=row.contract.id) }}" class="inline-block mt-5 text-xs font-bold text-brand-600 hover:underline print:hidden">{{ 'Mở phòng làm việc →' if vi else 'Open workspace →' }}</a>
+  </div>
+</div></div>
+{% endblock %}

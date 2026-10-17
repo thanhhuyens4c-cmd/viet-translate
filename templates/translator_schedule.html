@@ -1,0 +1,2442 @@
+{% extends "base.html" %}
+
+{% block title %}Lịch làm việc | VietTranslate{% endblock %}
+
+{% block content %}
+<div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col md:flex-row gap-8">
+        
+        <!-- Sidebar -->
+        <aside class="w-full md:w-64 shrink-0">
+            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden sticky top-24">
+                <div class="p-6 text-center border-b border-slate-100 bg-slate-50/40">
+                    <div class="w-20 h-20 bg-gradient-to-br from-brand-600 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white text-2xl font-black shadow-soft mb-3">
+                        {{ current_user.name[0] | upper }}
+                    </div>
+                    <h2 class="font-bold text-slate-900 text-sm sm:text-base">{{ current_user.name }}</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        {{ t('auto.phiên_dịch_viên') }}
+                    </p>
+                </div>
+                <nav class="p-3 space-y-1">
+                    <a href="{{ url_for('account_profile') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        {{ t('account_history_page.nav_profile') }}
+                    </a>
+                    <a href="{{ url_for('account_history') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
+                        {{ t('account_history_page.nav_history') }}
+                    </a>
+                    <div class="pt-1.5 border-t border-slate-100 space-y-1">
+                        <div class="px-3.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                            Lịch làm việc
+                        </div>
+                        <a href="{{ url_for('my_schedule') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 {% if current_tab != 'busy' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition">
+                            <svg class="w-4 h-4 {% if current_tab != 'busy' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <span>Lịch tổng quan & Ca làm</span>
+                        </a>
+                        <a href="{{ url_for('my_schedule', tab='busy') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 {% if current_tab == 'busy' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition">
+                            <svg class="w-4 h-4 {% if current_tab == 'busy' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <span>Thời gian không khả dụng</span>
+                            {% if busy_schedules %}
+                                <span class="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{{ busy_schedules|length }}</span>
+                            {% endif %}
+                        </a>
+                    </div>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Content: Lịch làm việc tổng quan -->
+        <div class="flex-grow space-y-6">
+            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-7">
+                
+                <!-- Header trang & Thanh thao tác -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                    <div>
+                        <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
+                            {% if current_tab == 'busy' %}
+                                Quản lý thời gian không khả dụng
+                            {% else %}
+                                {{ t('nav.my_schedule') }}
+                            {% endif %}
+                        </h1>
+                        <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                            {% if current_tab == 'busy' %}
+                                Khai báo các khoảng thời gian bận để hệ thống tự động loại trừ khi ghép nối công việc.
+                            {% else %}
+                                Quản lý thời gian, theo dõi các ca làm việc đã xác nhận và sắp diễn ra.
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <!-- Thanh nút hành động -->
+                    <div class="flex items-center flex-wrap gap-2">
+                        <button type="button" onclick="openAddBusyModal()"
+                            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-xs"
+                            id="btn-add-busy-top">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                            <span>Thêm thời gian bận</span>
+                        </button>
+                        <button type="button" id="btn-refresh-schedule" 
+                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition shadow-xs"
+                            title="Làm mới lịch">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            <span>Đồng bộ</span>
+                        </button>
+                        <a href="{{ url_for('job_list', recommended=1) }}" 
+                            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand-50 text-brand-700 text-xs font-semibold hover:bg-brand-100 transition shadow-xs">
+                            <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <span>Tìm việc phù hợp</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Tabs điều hướng nhanh giữa Lịch và Danh sách thời gian bận -->
+                <div class="flex items-center gap-2 border-b border-slate-200 pt-3">
+                    <a href="{{ url_for('my_schedule') }}" 
+                       class="pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-2 {% if current_tab != 'busy' %}border-brand-600 text-brand-700{% else %}border-transparent text-slate-500 hover:text-slate-800{% endif %}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <span>Lịch tổng quan & Ca làm</span>
+                    </a>
+                    <a href="{{ url_for('my_schedule', tab='busy') }}" 
+                       class="pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-2 {% if current_tab == 'busy' %}border-brand-600 text-brand-700{% else %}border-transparent text-slate-500 hover:text-slate-800{% endif %}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Quản lý thời gian bận</span>
+                        <span id="tab-busy-count-badge" class="text-[11px] font-bold px-2 py-0.2 rounded-full {% if current_tab == 'busy' %}bg-brand-100 text-brand-800{% else %}bg-slate-100 text-slate-600{% endif %}">
+                            {{ busy_schedules|length }}
+                        </span>
+                    </a>
+                </div>
+
+                {% if current_tab == 'busy' %}
+                <!-- KHỐI BẢNG QUẢN LÝ THỜI GIAN KHÔNG KHẢ DỤNG (CHỨC NĂNG 3.3) -->
+                <div id="busy-management-container" class="py-4 space-y-4">
+                    <div class="bg-slate-50/80 rounded-2xl p-4 sm:p-5 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h2 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                                <span>🔒</span>
+                                <span>Thời gian bận đang thiết lập</span>
+                            </h2>
+                            <p class="text-xs text-slate-500 mt-1 max-w-xl">
+                                Trong các khung giờ này, khách hàng không thể gửi yêu cầu đặt lịch hẹn. Hệ thống cam kết giữ nguyên các ca làm việc bạn đã xác nhận trước đó.
+                            </p>
+                        </div>
+                        <button type="button" onclick="openAddBusyModal()"
+                            class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition shadow-xs shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                            <span>Thêm khoảng bận mới</span>
+                        </button>
+                    </div>
+
+                    <!-- Bảng danh sách các khoảng bận -->
+                    <div id="busy-table-wrapper" class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs text-slate-600">
+                                <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-bold border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-4 py-3">Ngày diễn ra</th>
+                                        <th class="px-4 py-3">Khung giờ</th>
+                                        <th class="px-4 py-3">Ghi chú</th>
+                                        <th class="px-4 py-3">Trạng thái</th>
+                                        <th class="px-4 py-3 text-right">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="busy-table-body" class="divide-y divide-slate-100">
+                                    {% if busy_schedules %}
+                                        {% for b in busy_schedules %}
+                                        <tr class="hover:bg-slate-50/60 transition" id="busy-row-{{ b.id }}">
+                                            <td class="px-4 py-3 font-bold text-slate-900 whitespace-nowrap">
+                                                📅 {{ b.scheduled_date.strftime('%d/%m/%Y') if b.scheduled_date else '—' }}
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                {% if b.is_all_day or (b.start_time.hour == 0 and b.start_time.minute == 0 and b.end_time.hour == 23 and b.end_time.minute >= 50) %}
+                                                    <span class="inline-flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-full text-[11px]">
+                                                        <span>🌙</span> Cả ngày
+                                                    </span>
+                                                {% else %}
+                                                    <span class="font-medium text-slate-700">
+                                                        {{ b.start_time.strftime('%H:%M') if b.start_time else '' }} - {{ b.end_time.strftime('%H:%M') if b.end_time else '' }}
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="px-4 py-3 max-w-xs truncate text-slate-600">
+                                                {{ b.note or 'Bận việc riêng' }}
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                                                    <span>Đang áp dụng</span>
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                                                <div class="inline-flex items-center gap-1.5">
+                                                    <button type="button" 
+                                                        onclick="openEditBusyModal({
+                                                            id: {{ b.id }},
+                                                            date: '{{ b.scheduled_date.strftime('%Y-%m-%d') if b.scheduled_date else '' }}',
+                                                            is_all_day: {{ 'true' if b.is_all_day else 'false' }},
+                                                            start_time: '{{ b.start_time.strftime('%H:%M') if b.start_time else '' }}',
+                                                            end_time: '{{ b.end_time.strftime('%H:%M') if b.end_time else '' }}',
+                                                            note: '{{ (b.note or '')|replace('\'', '\\\'')|replace('\"', '\\\"') }}'
+                                                        })" 
+                                                        class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:text-brand-600 hover:bg-brand-50 border border-slate-200 transition">
+                                                        Sửa
+                                                    </button>
+                                                    <button type="button" 
+                                                        onclick="openConfirmDeleteBusy({{ b.id }}, '{{ b.scheduled_date.strftime('%d/%m/%Y') if b.scheduled_date else '' }}', '{{ 'Cả ngày' if b.is_all_day else ((b.start_time.strftime('%H:%M') if b.start_time else '') ~ ' - ' ~ (b.end_time.strftime('%H:%M') if b.end_time else '')) }}', '{{ (b.note or '')|replace('\'', '\\\'')|replace('\"', '\\\"') }}')"
+                                                        class="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition">
+                                                        Xóa
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr id="busy-table-empty-row">
+                                            <td colspan="5" class="py-10 text-center text-slate-400">
+                                                <div class="text-2xl mb-1">⏳</div>
+                                                <div class="font-medium text-xs">Chưa có khoảng thời gian không khả dụng nào được thiết lập.</div>
+                                                <div class="text-[11px] text-slate-400 mt-0.5">Nhấn "Thêm khoảng bận mới" ở trên để cài đặt thời gian bận.</div>
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-700">Lịch trực quan tương ứng:</span>
+                        <span class="text-xs text-slate-400">Bạn cũng có thể xem và thao tác trực tiếp trên các ô lịch bên dưới</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Toolbar Điều hướng thời gian & Bộ chuyển chế độ xem -->
+                <div class="py-4 space-y-4">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        
+                        <!-- Cụm điều hướng Kỳ trước / Hôm nay / Kỳ sau & Tiêu đề kỳ -->
+                        <div class="flex items-center flex-wrap gap-2.5 sm:gap-3">
+                            <div class="inline-flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-xs">
+                                <button type="button" id="btn-cal-prev" 
+                                    class="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition" 
+                                    title="Kỳ trước">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                                </button>
+                                <button type="button" id="btn-cal-today" 
+                                    class="px-2.5 py-1 text-xs font-bold text-brand-600 hover:bg-brand-50 rounded-lg transition">
+                                    Hôm nay
+                                </button>
+                                <button type="button" id="btn-cal-next" 
+                                    class="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition" 
+                                    title="Kỳ tiếp theo">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                                </button>
+                            </div>
+
+                            <!-- Tiêu đề khoảng thời gian động -->
+                            <h2 id="cal-period-title" class="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                                <!-- JS update dynamically -->
+                            </h2>
+                        </div>
+
+                        <!-- Cụm Bộ chọn ngày & Chế độ xem (Tháng / Tuần / Ngày / Danh sách) -->
+                        <div class="flex items-center flex-wrap gap-2.5">
+                            
+                            <!-- Bộ chọn ngày trực tiếp -->
+                            <div class="relative">
+                                <input type="date" id="cal-date-picker" 
+                                    class="text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-xs cursor-pointer"
+                                    title="Chọn ngày trực tiếp">
+                            </div>
+
+                            <!-- Bộ chuyển đổi chế độ xem -->
+                            <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 shadow-xs">
+                                <button type="button" id="btn-view-month" 
+                                    class="view-tab-btn px-3 py-1 text-xs font-bold rounded-lg transition bg-white text-brand-700 shadow-xs">
+                                    Tháng
+                                </button>
+                                <button type="button" id="btn-view-week" 
+                                    class="view-tab-btn px-3 py-1 text-xs font-medium rounded-lg transition text-slate-600 hover:text-slate-900">
+                                    Tuần
+                                </button>
+                                <button type="button" id="btn-view-day" 
+                                    class="view-tab-btn px-3 py-1 text-xs font-medium rounded-lg transition text-slate-600 hover:text-slate-900">
+                                    Ngày
+                                </button>
+                                <button type="button" id="btn-view-list" 
+                                    class="view-tab-btn px-3 py-1 text-xs font-medium rounded-lg transition text-slate-600 hover:text-slate-900">
+                                    Danh sách
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tóm tắt số ca & Chú thích trạng thái -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 text-xs">
+                        <div id="cal-summary-badge" class="font-medium text-slate-600">
+                            <!-- JS updates -->
+                        </div>
+                        <div class="flex items-center flex-wrap gap-3 text-[11px] text-slate-500">
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                                <span>Hoàn thành</span>
+                            </span>
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-brand-600 inline-block"></span>
+                                <span>Đã xác nhận</span>
+                            </span>
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-cyan-500 inline-block"></span>
+                                <span>Đang diễn ra</span>
+                            </span>
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                                <span>Chờ xác nhận</span>
+                            </span>
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block"></span>
+                                <span>Bận / Không khả dụng</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- KHỐI CHẾ ĐỘ XEM 1: CHẾ ĐỘ THÁNG (MONTH VIEW)                   -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <div id="view-container-month" class="mt-4">
+                    <!-- Tiêu đề 7 ngày trong tuần -->
+                    <div class="grid grid-cols-7 text-center font-bold text-xs text-slate-600 py-2.5 bg-slate-50 rounded-t-xl border border-slate-200">
+                        <div>T2 <span class="hidden sm:inline font-normal text-slate-400">/ Hai</span></div>
+                        <div>T3 <span class="hidden sm:inline font-normal text-slate-400">/ Ba</span></div>
+                        <div>T4 <span class="hidden sm:inline font-normal text-slate-400">/ Tư</span></div>
+                        <div>T5 <span class="hidden sm:inline font-normal text-slate-400">/ Năm</span></div>
+                        <div>T6 <span class="hidden sm:inline font-normal text-slate-400">/ Sáu</span></div>
+                        <div>T7 <span class="hidden sm:inline font-normal text-slate-400">/ Bảy</span></div>
+                        <div class="text-rose-600">CN <span class="hidden sm:inline font-normal text-rose-400">/ Nhật</span></div>
+                    </div>
+
+                    <!-- Lưới ngày tháng (Lấp đầy động bằng JS) -->
+                    <div id="month-grid" class="grid grid-cols-7 gap-px bg-slate-200 border-x border-b border-slate-200 rounded-b-xl overflow-hidden shadow-xs">
+                        <!-- JS injected month cells -->
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- KHỐI CHẾ ĐỘ XEM 2: CHẾ ĐỘ TUẦN (WEEK VIEW)                     -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <div id="view-container-week" class="mt-4 hidden">
+                    <div id="week-grid" class="grid grid-cols-1 md:grid-cols-7 gap-3">
+                        <!-- JS injected 7 day columns -->
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- KHỐI CHẾ ĐỘ XEM 3: CHẾ ĐỘ NGÀY (DAY VIEW)                      -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <div id="view-container-day" class="mt-4 hidden">
+                    <div class="bg-slate-50/70 rounded-xl p-4 sm:p-5 border border-slate-200/90 mb-4 flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-brand-600">Lịch trình chi tiết trong ngày</span>
+                            <h3 id="day-view-header-title" class="text-lg font-bold text-slate-900 mt-0.5"></h3>
+                        </div>
+                        <div id="day-view-badge-count" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-white border border-slate-200 shadow-xs text-slate-700"></div>
+                    </div>
+
+                    <div id="day-timeline" class="space-y-3.5">
+                        <!-- JS injected day events -->
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- KHỐI CHẾ ĐỘ XEM 4: CHẾ ĐỘ DANH SÁCH (LIST VIEW)                -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <div id="view-container-list" class="mt-4 hidden">
+                    <div id="list-container-events" class="space-y-3.5">
+                        <!-- JS injected list items -->
+                    </div>
+                </div>
+
+                <!-- Trạng thái Rỗng / Không có ca trong kỳ -->
+                <div id="cal-empty-state" class="hidden text-center py-12 px-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">
+                    <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-xs border border-slate-100">
+                        <svg class="w-7 h-7 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    </div>
+                    <h3 id="cal-empty-title" class="text-slate-900 font-semibold text-sm sm:text-base mb-1">Không có ca làm việc nào trong khoảng thời gian này</h3>
+                    <p id="cal-empty-subtitle" class="text-slate-500 text-xs sm:text-sm max-w-md mx-auto mb-4">
+                        Bạn chưa có lịch hẹn hoặc ca phiên dịch nào được phân công. Hãy kiểm tra các khoảng thời gian khác hoặc khám phá các việc làm phù hợp.
+                    </p>
+                    <div class="flex items-center justify-center gap-3">
+                        <button type="button" onclick="goToToday()" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition shadow-xs">
+                            Quay lại hôm nay
+                        </button>
+                        <a href="{{ url_for('job_list', recommended=1) }}" class="px-3.5 py-1.5 rounded-xl bg-brand-600 text-xs font-semibold text-white hover:bg-brand-700 transition shadow-xs">
+                            Khám phá việc làm
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL CHI TIẾT CA LÀM VIỆC (SHIFT DETAIL DIALOG - CHỨC NĂNG 3.2)       -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div id="shift-detail-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity" onclick="closeShiftDetail()"></div>
+    
+    <!-- Modal Dialog -->
+    <div class="fixed inset-0 z-10 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+        <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all my-8 max-h-[92vh] flex flex-col animate-in fade-in zoom-in duration-150">
+            
+            <!-- Modal Header -->
+            <div class="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
+                <div class="flex items-center gap-2.5 flex-wrap">
+                    <span id="modal-status-badge" class="text-xs font-bold px-2.5 py-1 rounded-full border"></span>
+                    <span id="modal-shift-code" class="text-xs font-semibold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200"></span>
+                </div>
+                <button type="button" onclick="closeShiftDetail()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/60 transition" title="Đóng cửa sổ">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1 text-slate-700">
+                
+                <!-- 1. Tiêu đề công việc & Trạng thái -->
+                <div>
+                    <h3 id="modal-job-title" class="text-base sm:text-lg font-bold text-slate-900 leading-snug"></h3>
+                    <div class="flex items-center gap-2 mt-2 flex-wrap">
+                        <span id="modal-work-type-badge" class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200">
+                            <!-- Trực tuyến / Trực tiếp -->
+                        </span>
+                        <span id="modal-specialty-badge" class="hidden inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                            <!-- Chuyên ngành -->
+                        </span>
+                        <span id="modal-language-badge" class="hidden inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            <!-- Cặp ngôn ngữ -->
+                        </span>
+                    </div>
+                    <p id="modal-status-desc" class="hidden text-xs text-slate-500 mt-2 italic bg-slate-50 p-2.5 rounded-xl border border-slate-100"></p>
+                </div>
+
+                <!-- 2. Thời gian & Lịch trình ca làm -->
+                <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-100 space-y-3">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Thời gian ca làm việc</div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
+                        <!-- Ngày thực hiện -->
+                        <div class="flex items-start gap-2.5">
+                            <div class="p-1.5 rounded-lg bg-white border border-slate-200 text-brand-600 shrink-0">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            </div>
+                            <div>
+                                <div class="text-[11px] text-slate-500">Ngày diễn ra</div>
+                                <div class="font-bold text-slate-900" id="modal-date-full"></div>
+                            </div>
+                        </div>
+
+                        <!-- Khung giờ & Thời lượng -->
+                        <div class="flex items-start gap-2.5">
+                            <div class="p-1.5 rounded-lg bg-white border border-slate-200 text-brand-600 shrink-0">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            </div>
+                            <div>
+                                <div class="text-[11px] text-slate-500">Khung giờ làm việc</div>
+                                <div class="font-bold text-slate-900" id="modal-time-range"></div>
+                                <div class="text-[11px] text-slate-500 mt-0.5" id="modal-duration"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Thời gian đệm an toàn (Buffer) -->
+                    <div id="modal-buffer-box" class="pt-2 border-t border-slate-200/60 flex items-center gap-2 text-xs text-amber-800">
+                        <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Thời gian đệm an toàn: <strong id="modal-buffer-info"></strong></span>
+                    </div>
+                </div>
+
+                <!-- 3. Địa điểm / Đường dẫn phòng họp trực tuyến -->
+                <div class="bg-white rounded-xl p-4 border border-slate-200 space-y-2.5">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Hình thức & Địa điểm thực hiện</div>
+                    
+                    <div class="flex items-start gap-2.5 text-xs sm:text-sm">
+                        <div class="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-slate-900" id="modal-location"></div>
+                        </div>
+                    </div>
+
+                    <!-- Link họp trực tuyến (Chỉ hiện khi có meeting_url) -->
+                    <div id="modal-meeting-url-box" class="hidden mt-2 p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div class="flex items-center gap-2 text-xs text-indigo-950 font-semibold">
+                            <svg class="w-4 h-4 text-indigo-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                            <span>Đã có link cuộc họp trực tuyến chính thức</span>
+                        </div>
+                        <a id="modal-meeting-link-btn" href="#" target="_blank" rel="noopener noreferrer" 
+                           class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-xs">
+                            <span>Vào phòng họp ngay</span>
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 4. Yêu cầu chuyên môn & Nội dung công việc (nếu có) -->
+                <div id="modal-requirements-wrapper" class="hidden bg-slate-50/60 rounded-xl p-4 border border-slate-100 space-y-2">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Yêu cầu & Nội dung công việc</div>
+                    <div id="modal-requirements-content" class="text-xs text-slate-700 whitespace-pre-line leading-relaxed"></div>
+                </div>
+
+                <!-- 5. Thông tin phối hợp & Khách hàng -->
+                <div class="bg-white rounded-xl p-4 border border-slate-200 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Thông tin đối tác / Khách hàng</span>
+                        <button type="button" onclick="openGuidanceModal()" class="text-[11px] font-bold text-brand-600 hover:text-brand-800 flex items-center gap-1 transition">
+                            <span>📖</span>
+                            <span>Quy chuẩn & tác phong ca làm</span>
+                        </button>
+                    </div>
+                    
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm shrink-0">
+                                👤
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-900" id="modal-client-name"></div>
+                                <div class="text-slate-500 text-[11px]" id="modal-client-phone-wrap">
+                                    <span>Hotline/SĐT: </span><span id="modal-client-phone" class="font-medium text-slate-700"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Thù lao & Thanh toán Escrow (chỉ hiện khi có giá thỏa thuận) -->
+                <div id="modal-payment-box" class="hidden bg-gradient-to-br from-emerald-50/50 to-teal-50/50 rounded-xl p-4 border border-emerald-200/80 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                            <span>💳</span>
+                            <span>Thù lao & Bảo chứng Escrow</span>
+                        </div>
+                        <span id="modal-payment-status" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800"></span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+                        <div class="bg-white/80 p-2.5 rounded-lg border border-emerald-100">
+                            <div class="text-[10px] text-slate-500 font-medium">Mức thù lao thỏa thuận</div>
+                            <div class="font-bold text-slate-900 mt-0.5" id="modal-agreed-price"></div>
+                        </div>
+                        <div class="bg-white/80 p-2.5 rounded-lg border border-emerald-100">
+                            <div class="text-[10px] text-slate-500 font-medium">Thực nhận (90%)</div>
+                            <div class="font-bold text-emerald-700 mt-0.5" id="modal-net-amount"></div>
+                        </div>
+                        <div class="bg-white/80 p-2.5 rounded-lg border border-emerald-100">
+                            <div class="text-[10px] text-slate-500 font-medium">Phí dịch vụ nền tảng (10%)</div>
+                            <div class="font-bold text-slate-600 mt-0.5" id="modal-platform-fee"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. Nhật ký sự kiện / Lịch sử cập nhật ca làm -->
+                <div id="modal-history-wrapper" class="hidden bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Lịch sử sự kiện ca làm việc</div>
+                    <div id="modal-history-list" class="space-y-2 text-xs">
+                        <!-- JS injected history items -->
+                    </div>
+                </div>
+
+                <!-- Hộp thông báo / Cảnh báo theo ngữ cảnh -->
+                <div id="modal-note-box" class="hidden p-3.5 rounded-xl text-xs"></div>
+
+            </div>
+
+            <!-- Modal Footer: Hành động nghiệp vụ (Action Buttons) -->
+            <div class="px-5 sm:px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="closeShiftDetail()" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-200/70 transition">
+                        Đóng
+                    </button>
+                    <!-- Nút Chi tiết việc làm -->
+                    <a id="modal-job-btn" href="#" class="hidden px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-brand-600 hover:bg-white border border-transparent hover:border-slate-200 transition">
+                        Tin tuyển dụng
+                    </a>
+                </div>
+
+                <!-- Cụm nút hành động theo trạng thái -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <!-- Nút Báo sự cố -->
+                    <button type="button" id="modal-btn-report-issue" onclick="triggerReportIssueFromDetail()" 
+                        class="hidden px-3.5 py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition">
+                        ⚠️ Báo sự cố
+                    </button>
+
+                    <!-- Nút Check-in -->
+                    <button type="button" id="modal-btn-checkin" onclick="triggerCheckinFromDetail()" 
+                        class="hidden px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                        <span>Check-in ca làm</span>
+                    </button>
+
+                    <!-- Nút Báo hoàn thành ca -->
+                    <button type="button" id="modal-btn-complete" onclick="triggerCompleteFromDetail()" 
+                        class="hidden px-4 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-xs transition flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                        <span>Báo kết thúc ca làm</span>
+                    </button>
+
+                    <!-- Nút Xem khoản thu nhập (khi đã hoàn thành) -->
+                    <a id="modal-btn-income" href="#" 
+                        class="hidden px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition flex items-center gap-1.5">
+                        <span>💰</span>
+                        <span>Xem thu nhập</span>
+                    </a>
+
+                    <!-- Nút Vào phòng làm việc -->
+                    <a id="modal-room-btn" href="#" 
+                        class="hidden px-4 py-2 rounded-xl text-xs font-bold text-slate-800 hover:text-brand-700 bg-white hover:bg-slate-50 border border-slate-300 hover:border-brand-300 shadow-xs transition flex items-center gap-1.5">
+                        <span>Phòng làm việc</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ─── MODAL PHỤ 1: HƯỚNG DẪN TÁC PHONG & CHUẨN BỊ CA LÀM ───────────────────── -->
+<div id="modal-guidance" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span class="text-brand-600">📖</span>
+                <span>Quy chuẩn & Tác phong phiên dịch</span>
+            </h3>
+            <button type="button" onclick="closeGuidanceModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+        </div>
+
+        <div class="mt-4 space-y-4 text-xs text-slate-600 leading-relaxed">
+            <div class="p-3 bg-brand-50/60 rounded-xl border border-brand-100">
+                <div class="font-bold text-brand-900 mb-1 flex items-center gap-1.5">
+                    <span>⏰</span>
+                    <span>1. Thời gian & Check-in</span>
+                </div>
+                <ul class="list-disc pl-5 space-y-1 text-slate-600">
+                    <li><strong>Ca trực tiếp:</strong> Có mặt tại điểm hẹn trước ít nhất <strong>20 - 30 phút</strong> để làm quen với ban tổ chức và thiết bị.</li>
+                    <li><strong>Ca trực tuyến (Online):</strong> Đăng nhập vào link họp trước ít nhất <strong>10 - 15 phút</strong> để kiểm tra micro, camera và đường truyền mạng.</li>
+                    <li>Bấm nút <strong>"Check-in ca làm"</strong> ngay khi có mặt để hệ thống và bên tuyển dụng ghi nhận.</li>
+                </ul>
+            </div>
+
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div class="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
+                    <span>👔</span>
+                    <span>2. Trang phục & Tác phong</span>
+                </div>
+                <ul class="list-disc pl-5 space-y-1 text-slate-600">
+                    <li>Hội nghị / Đàm phán kinh doanh: Trang phục công sở lịch sự (Business Formal: Vest, áo sơ mi).</li>
+                    <li>Tháp tùng / Sự kiện ngoài trời: Trang phục Smart Casual gọn gàng, phù hợp tính chất sự kiện.</li>
+                    <li>Giữ thái độ trung lập, bảo mật tuyệt đối thông tin kinh doanh của khách hàng theo cam kết NDA.</li>
+                </ul>
+            </div>
+
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div class="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
+                    <span>📚</span>
+                    <span>3. Chuẩn bị chuyên môn</span>
+                </div>
+                <ul class="list-disc pl-5 space-y-1 text-slate-600">
+                    <li>Tải và nghiên cứu kỹ tài liệu briefing, slide bài giảng hoặc hợp đồng được chia sẻ trong phòng làm việc.</li>
+                    <li>Lập bảng thuật ngữ (glossary) chuyên ngành trước giờ làm việc.</li>
+                </ul>
+            </div>
+
+            <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900">
+                <div class="font-bold mb-1 flex items-center gap-1.5">
+                    <span>🚨</span>
+                    <span>4. Hỗ trợ sự cố khẩn cấp</span>
+                </div>
+                <p>Nếu gặp vấn đề giao thông, kẹt xe, sự cố mạng hoặc khách hàng thay đổi đột xuất, bấm ngay nút <strong>"Báo sự cố"</strong> hoặc liên hệ trung tâm hỗ trợ VietTranslate.</p>
+            </div>
+        </div>
+
+        <div class="mt-6 pt-3 border-t border-slate-100 flex justify-end">
+            <button type="button" onclick="closeGuidanceModal()"
+                class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition">
+                Đã hiểu quy chuẩn
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ─── MODAL PHỤ 2: BÁO SỰ CỐ KHẨN CẤP ─────────────────────────────────────── -->
+<div id="modal-report-issue" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 border border-slate-200">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span class="text-rose-600">⚠️</span>
+                <span>Báo sự cố ca làm</span>
+            </h3>
+            <button type="button" onclick="closeReportIssueModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+        </div>
+
+        <form id="form-report-issue" onsubmit="executeReportIssue(event)" class="mt-4 space-y-4">
+            <input type="hidden" id="report-contract-id" value="">
+            <div>
+                <span class="text-xs text-slate-500 font-medium block">Công việc:</span>
+                <span id="report-job-title" class="text-xs font-bold text-slate-900 block line-clamp-1"></span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Loại sự cố phát sinh <span class="text-rose-500">*</span></label>
+                <select id="report-reason" required
+                    class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-medium focus:bg-white focus:ring-2 focus:ring-rose-500 focus:border-rose-500">
+                    <option value="">-- Chọn loại sự cố --</option>
+                    <option value="Trễ giờ do giao thông / kẹt xe">Trễ giờ do giao thông / kẹt xe ngoài ý muốn</option>
+                    <option value="Sự cố kỹ thuật / Thiết bị kết nối">Sự cố kỹ thuật / Mất điện / Mất kết nối internet</option>
+                    <option value="Khách hàng vắng mặt / Không liên hệ được">Khách hàng vắng mặt / Không liên hệ được tại điểm hẹn</option>
+                    <option value="Thay đổi địa điểm / Nội dung chưa báo trước">Thay đổi địa điểm hoặc nội dung ca làm chưa thống nhất trước</option>
+                    <option value="Sự cố sức khỏe đột xuất">Sự cố sức khỏe đột xuất</option>
+                    <option value="Khác">Sự cố khác</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Mô tả chi tiết và hướng xử lý đề xuất</label>
+                <textarea id="report-desc" rows="3" placeholder="Nhập chi tiết tình hình thực tế, thời gian dự kiến giải quyết hoặc yêu cầu hỗ trợ từ điều phối viên..."
+                    class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:bg-white focus:ring-2 focus:ring-rose-500 focus:border-rose-500"></textarea>
+            </div>
+
+            <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800">
+                Lưu ý: Báo cáo sự cố sẽ được ghi nhận vào hệ thống điều phối và thông báo tới khách hàng. Hệ thống không tự động hủy ca trừ khi có thỏa thuận chính thức.
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button type="button" onclick="closeReportIssueModal()"
+                    class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                    Đóng
+                </button>
+                <button type="submit" id="btn-submit-report"
+                    class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                    Gửi báo cáo sự cố
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ─── MODAL PHỤ 3: BÁO HOÀN THÀNH CA LÀM ───────────────────────────────────── -->
+<div id="modal-complete-shift" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 border border-slate-200">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span class="text-brand-600">✅</span>
+                <span>Xác nhận kết thúc ca làm</span>
+            </h3>
+            <button type="button" onclick="closeCompleteShiftModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+        </div>
+
+        <form id="form-complete-shift" onsubmit="executeCompleteShift(event)" class="mt-4 space-y-4">
+            <input type="hidden" id="complete-contract-id" value="">
+            <div>
+                <span class="text-xs text-slate-500 font-medium block">Công việc:</span>
+                <span id="complete-job-title" class="text-xs font-bold text-slate-900 block line-clamp-1"></span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Ghi chú hoàn thành / Báo cáo tóm tắt</label>
+                <textarea id="complete-note" rows="3" placeholder="Nhập tóm tắt thời lượng thực hiện, biên bản xác nhận tại chỗ (nếu có) hoặc gửi lời cảm ơn tới khách hàng..."
+                    class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500"></textarea>
+            </div>
+
+            <div class="p-3 bg-brand-50 rounded-xl border border-brand-100 text-[11px] text-brand-900">
+                Sau khi gửi báo cáo, ca làm sẽ chuyển sang trạng thái <strong>"Chờ xác nhận hoàn thành"</strong>. Bên tuyển dụng sẽ tiến hành nghiệm thu và giải ngân tiền Escrow.
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button type="button" onclick="closeCompleteShiftModal()"
+                    class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                    Để sau
+                </button>
+                <button type="submit" id="btn-submit-complete"
+                    class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                    Xác nhận kết thúc ca
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- ─── MODAL 3.3.1: THÊM / CHỈNH SỬA THỜI GIAN KHÔNG KHẢ DỤNG ──────────────── -->
+<div id="modal-busy-form" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" onclick="closeBusyFormModal()"></div>
+    <div class="fixed inset-0 z-10 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8 max-h-[92vh] flex flex-col animate-in fade-in zoom-in duration-150">
+            <div class="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
+                <h3 id="busy-form-modal-title" class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <span class="text-slate-700">🔒</span>
+                    <span>Thêm thời gian không khả dụng</span>
+                </h3>
+                <button type="button" onclick="closeBusyFormModal()" class="text-slate-400 hover:text-slate-600 text-lg p-1.5 rounded-lg hover:bg-slate-200/60 transition" title="Đóng cửa sổ">✕</button>
+            </div>
+
+            <form id="form-busy-time" onsubmit="executeSaveBusyTime(event)" class="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-slate-700">
+                <input type="hidden" id="busy-form-id" value="">
+
+                <!-- Thông báo lỗi inline -->
+                <div id="busy-form-error" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium"></div>
+
+                <!-- Ngày bắt đầu & Ngày kết thúc -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="busy-start-date" class="block text-xs font-bold text-slate-700 mb-1">
+                            Ngày bắt đầu <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="date" id="busy-start-date" required
+                            class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                    </div>
+                    <div id="busy-end-date-wrapper">
+                        <label for="busy-end-date" class="block text-xs font-bold text-slate-700 mb-1">
+                            Ngày kết thúc <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="date" id="busy-end-date" required
+                            class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                        <p class="text-[10px] text-slate-400 mt-1">Hỗ trợ khoảng bận nhiều ngày</p>
+                    </div>
+                </div>
+
+                <!-- Tùy chọn Cả ngày -->
+                <div class="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                    <label class="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-slate-800 select-none">
+                        <input type="checkbox" id="busy-is-all-day" onchange="toggleBusyAllDay()"
+                            class="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300">
+                        <span>Áp dụng cả ngày (Toàn bộ 24 giờ)</span>
+                    </label>
+                    <p class="text-[11px] text-slate-500 mt-1 pl-6">
+                        Khi chọn tùy chọn này, bạn không cần chọn giờ cụ thể. Hệ thống sẽ khóa toàn bộ thời gian trong ngày.
+                    </p>
+                </div>
+
+                <!-- Khung giờ bắt đầu & Giờ kết thúc (Chỉ hiển thị khi KHÔNG chọn Cả ngày) -->
+                <div id="busy-time-range-group" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="busy-start-time" class="block text-xs font-bold text-slate-700 mb-1">
+                            Giờ bắt đầu <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="time" id="busy-start-time"
+                            class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                    </div>
+                    <div>
+                        <label for="busy-end-time" class="block text-xs font-bold text-slate-700 mb-1">
+                            Giờ kết thúc <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="time" id="busy-end-time"
+                            class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-medium focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                    </div>
+                </div>
+
+                <!-- Ghi chú lý do bận -->
+                <div>
+                    <label for="busy-note" class="block text-xs font-bold text-slate-700 mb-1">
+                        Ghi chú / Lý do (Không bắt buộc)
+                    </label>
+                    <textarea id="busy-note" rows="2" placeholder="Ví dụ: Bận việc riêng, đi công tác, lịch cá nhân..."
+                        class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500"></textarea>
+                </div>
+
+                <!-- Lưu ý nghiệp vụ & xung đột -->
+                <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 space-y-1">
+                    <div class="font-bold flex items-center gap-1.5">
+                        <span>⚠️</span>
+                        <span>Quy tắc bảo vệ ca làm việc</span>
+                    </div>
+                    <p>Khoảng thời gian bận không được trùng với các ca làm bạn đã xác nhận. Nếu trùng, hệ thống sẽ chặn và thông báo ca làm việc bị ảnh hưởng.</p>
+                </div>
+
+                <!-- Footer nút bấm -->
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                    <button type="button" onclick="closeBusyFormModal()"
+                        class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                        Hủy bỏ
+                    </button>
+                    <button type="submit" id="btn-submit-busy-form"
+                        class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5">
+                        <span id="btn-submit-busy-form-text">Lưu thời gian bận</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ─── MODAL 3.3.2: CHI TIẾT THỜI GIAN KHÔNG KHẢ DỤNG ───────────────────────── -->
+<div id="busy-time-detail-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" onclick="closeBusyDetailModal()"></div>
+    <div class="fixed inset-0 z-10 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8 max-h-[90vh] flex flex-col animate-in fade-in zoom-in duration-150">
+            <div class="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block"></span>
+                    <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                        Bận / Không khả dụng
+                    </span>
+                </div>
+                <button type="button" onclick="closeBusyDetailModal()" class="text-slate-400 hover:text-slate-600 text-lg p-1.5 rounded-lg hover:bg-slate-200/60 transition" title="Đóng cửa sổ">✕</button>
+            </div>
+
+            <div class="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs text-slate-700">
+                <div>
+                    <h3 id="busy-detail-title" class="text-base font-bold text-slate-900 leading-snug">Thời gian không khả dụng</h3>
+                    <p id="busy-detail-note" class="text-slate-500 mt-1 italic"></p>
+                </div>
+
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3">
+                    <div class="flex items-start gap-3">
+                        <div class="p-2 bg-white rounded-lg border border-slate-200 text-slate-600 shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-slate-400">Ngày diễn ra</div>
+                            <div class="font-bold text-slate-900 text-sm" id="busy-detail-date"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3">
+                        <div class="p-2 bg-white rounded-lg border border-slate-200 text-slate-600 shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-slate-400">Khung giờ</div>
+                            <div class="font-bold text-slate-900 text-sm" id="busy-detail-time"></div>
+                            <div class="text-[11px] text-slate-500" id="busy-detail-duration"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-600">
+                    ℹ️ Trong khoảng thời gian này, khách hàng và hệ thống sẽ không thể lên lịch ca làm việc cho bạn. Các ca làm việc đã xác nhận trước đó vẫn giữ nguyên.
+                </div>
+            </div>
+
+            <div class="px-5 sm:px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2.5 shrink-0">
+                <button type="button" onclick="closeBusyDetailModal()"
+                    class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/70 rounded-xl transition">
+                    Đóng
+                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="btn-busy-detail-delete" onclick="triggerDeleteFromBusyDetail()"
+                        class="px-3.5 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition">
+                        Xóa khoảng bận
+                    </button>
+                    <button type="button" id="btn-busy-detail-edit" onclick="triggerEditFromBusyDetail()"
+                        class="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition">
+                        Chỉnh sửa
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── MODAL 3.3.3: XÁC NHẬN XÓA THỜI GIAN BẬN ─────────────────────────────── -->
+<div id="modal-confirm-delete-busy" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" onclick="closeConfirmDeleteBusyModal()"></div>
+    <div class="fixed inset-0 z-10 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 animate-in fade-in zoom-in duration-150">
+            <div class="text-center">
+                <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl mx-auto flex items-center justify-center text-xl mb-3 border border-rose-100">
+                    🗑️
+                </div>
+                <h3 class="text-base font-bold text-slate-900">Xác nhận xóa thời gian bận?</h3>
+                <p class="text-xs text-slate-500 mt-1">
+                    Khoảng thời gian này sẽ được mở lại để khách hàng có thể đặt lịch hẹn mới.
+                </p>
+            </div>
+
+            <div class="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs text-slate-700 space-y-1">
+                <div class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Khoảng thời gian dự kiến xóa:</div>
+                <div class="font-bold text-slate-900" id="confirm-delete-busy-info"></div>
+                <div class="text-slate-500 italic" id="confirm-delete-busy-note"></div>
+            </div>
+
+            <div class="mt-3 p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 font-medium">
+                🛡️ Ca làm việc đã xác nhận (nếu có) sẽ không bị ảnh hưởng hay thay đổi.
+            </div>
+
+            <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button type="button" onclick="closeConfirmDeleteBusyModal()"
+                    class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                    Hủy bỏ
+                </button>
+                <button type="button" id="btn-execute-delete-busy" onclick="executeDeleteBusy()"
+                    class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                    Xác nhận xóa
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ══════════════════════════════════════════════════════════════════════════
+    // KHỞI TẠO DỮ LIỆU & STATE LỊCH VIETTRANSLATE (3.1)
+    // ══════════════════════════════════════════════════════════════════════════
+    const RAW_EVENTS = {{ events_data | tojson | safe if events_data is defined else '[]' }};
+    
+    let allEvents = Array.isArray(RAW_EVENTS) ? RAW_EVENTS : [];
+    let currentView = 'month'; // 'month' | 'week' | 'day' | 'list'
+    let currentDate = new Date(); // State thời gian đang xem
+    
+    // Cấu hình ngôn ngữ Tiếng Việt cho Thứ và Tháng
+    const VN_DAYS = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+    const VN_MONTHS = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // TIỆN ÍCH NGÀY THÁNG
+    // ──────────────────────────────────────────────────────────────────────────
+    function formatDateISO(d) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function isSameDate(d1, d2) {
+        return d1.getFullYear() === d2.getFullYear() &&
+               d1.getMonth() === d2.getMonth() &&
+               d1.getDate() === d2.getDate();
+    }
+
+    function getStartOfWeek(date) {
+        // Tuần bắt đầu từ Thứ Hai (Monday)
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        d.setDate(diff);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
+
+    function getEventsForDate(dateStr) {
+        return allEvents.filter(e => e.date === dateStr);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // ĐIỀU HƯỚNG THỜI GIAN
+    // ──────────────────────────────────────────────────────────────────────────
+    function prevPeriod() {
+        if (currentView === 'month') {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+        } else if (currentView === 'week') {
+            currentDate.setDate(currentDate.getDate() - 7);
+        } else if (currentView === 'day') {
+            currentDate.setDate(currentDate.getDate() - 1);
+        } else if (currentView === 'list') {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+        }
+        renderCalendar();
+    }
+
+    function nextPeriod() {
+        if (currentView === 'month') {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+        } else if (currentView === 'week') {
+            currentDate.setDate(currentDate.getDate() + 7);
+        } else if (currentView === 'day') {
+            currentDate.setDate(currentDate.getDate() + 1);
+        } else if (currentView === 'list') {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+        renderCalendar();
+    }
+
+    function goToToday() {
+        currentDate = new Date();
+        renderCalendar();
+    }
+
+    function onDirectDateSelect(e) {
+        if (!e.target.value) return;
+        const parts = e.target.value.split('-');
+        if (parts.length === 3) {
+            currentDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            renderCalendar();
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // CHUYỂN ĐỔI CHẾ ĐỘ XEM
+    // ──────────────────────────────────────────────────────────────────────────
+    function switchView(newView) {
+        currentView = newView;
+
+        // Cập nhật style tab button
+        document.querySelectorAll('.view-tab-btn').forEach(btn => {
+            btn.classList.remove('bg-white', 'text-brand-700', 'shadow-xs', 'font-bold');
+            btn.classList.add('text-slate-600', 'font-medium');
+        });
+        const activeBtn = document.getElementById(`btn-view-${newView}`);
+        if (activeBtn) {
+            activeBtn.classList.add('bg-white', 'text-brand-700', 'shadow-xs', 'font-bold');
+            activeBtn.classList.remove('text-slate-600', 'font-medium');
+        }
+
+        // Ẩn toàn bộ containers
+        document.getElementById('view-container-month').classList.add('hidden');
+        document.getElementById('view-container-week').classList.add('hidden');
+        document.getElementById('view-container-day').classList.add('hidden');
+        document.getElementById('view-container-list').classList.add('hidden');
+
+        // Hiện container được chọn
+        const targetContainer = document.getElementById(`view-container-${newView}`);
+        if (targetContainer) targetContainer.classList.remove('hidden');
+
+        renderCalendar();
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // HÀM RENDER CHÍNH
+    // ──────────────────────────────────────────────────────────────────────────
+    function renderCalendar() {
+        // Đồng bộ Date picker value
+        const datePicker = document.getElementById('cal-date-picker');
+        if (datePicker) {
+            datePicker.value = formatDateISO(currentDate);
+        }
+
+        // Cập nhật tiêu đề kỳ & Render view tương ứng
+        if (currentView === 'month') {
+            renderMonthView();
+        } else if (currentView === 'week') {
+            renderWeekView();
+        } else if (currentView === 'day') {
+            renderDayView();
+        } else if (currentView === 'list') {
+            renderListView();
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 1. RENDER CHẾ ĐỘ THÁNG
+    // ──────────────────────────────────────────────────────────────────────────
+    function renderMonthView() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+
+        // Tiêu đề: "Tháng MM, YYYY"
+        document.getElementById('cal-period-title').textContent = `${VN_MONTHS[month]}, ${year}`;
+
+        const firstDayOfMonth = new Date(year, month, 1);
+        const lastDayOfMonth = new Date(year, month + 1, 0);
+
+        // Thứ 2 là cột 0, CN là cột 6
+        let firstDayIndex = firstDayOfMonth.getDay() - 1;
+        if (firstDayIndex === -1) firstDayIndex = 6;
+
+        const totalDays = lastDayOfMonth.getDate();
+        const prevMonthLastDay = new Date(year, month, 0).getDate();
+
+        const grid = document.getElementById('month-grid');
+        grid.innerHTML = '';
+
+        const today = new Date();
+        let monthEventsCount = 0;
+
+        // Ngày của tháng trước (Padding cells)
+        for (let i = firstDayIndex; i > 0; i--) {
+            const dayNum = prevMonthLastDay - i + 1;
+            const padDate = new Date(year, month - 1, dayNum);
+            const dateStr = formatDateISO(padDate);
+            grid.appendChild(createMonthCell(padDate, dayNum, true, getEventsForDate(dateStr)));
+        }
+
+        // Ngày của tháng hiện tại
+        for (let dayNum = 1; dayNum <= totalDays; dayNum++) {
+            const dateObj = new Date(year, month, dayNum);
+            const dateStr = formatDateISO(dateObj);
+            const dayEvents = getEventsForDate(dateStr);
+            monthEventsCount += dayEvents.length;
+            grid.appendChild(createMonthCell(dateObj, dayNum, false, dayEvents));
+        }
+
+        // Ngày của tháng sau (Lấp đầy lưới đủ hàng)
+        const totalRendered = firstDayIndex + totalDays;
+        const nextDays = totalRendered % 7 === 0 ? 0 : 7 - (totalRendered % 7);
+        for (let i = 1; i <= nextDays; i++) {
+            const padDate = new Date(year, month + 1, i);
+            const dateStr = formatDateISO(padDate);
+            grid.appendChild(createMonthCell(padDate, i, true, getEventsForDate(dateStr)));
+        }
+
+        // Tóm tắt số ca
+        document.getElementById('cal-summary-badge').textContent = 
+            `Trong tháng có: ${monthEventsCount} ca làm việc`;
+
+        toggleEmptyState(monthEventsCount === 0);
+    }
+
+    function createMonthCell(dateObj, dayNum, isPadding, events) {
+        const cell = document.createElement('div');
+        const dateStr = formatDateISO(dateObj);
+        const isToday = isSameDate(dateObj, new Date());
+        const isSelected = isSameDate(dateObj, currentDate);
+
+        cell.className = `min-h-[100px] sm:min-h-[115px] p-1.5 sm:p-2 bg-white flex flex-col justify-between transition hover:bg-slate-50 cursor-pointer ${isPadding ? 'bg-slate-50/50 opacity-60' : ''}`;
+        
+        // Header ô ngày
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between mb-1';
+        
+        const dayBadge = document.createElement('span');
+        dayBadge.className = `text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-brand-600 text-white font-bold shadow-xs' : (isPadding ? 'text-slate-400' : 'text-slate-700')}`;
+        dayBadge.textContent = dayNum;
+        header.appendChild(dayBadge);
+
+        if (events.length > 0) {
+            const countDot = document.createElement('span');
+            countDot.className = 'text-[10px] font-bold text-slate-400 bg-slate-100 px-1 rounded';
+            countDot.textContent = events.length;
+            header.appendChild(countDot);
+        }
+
+        cell.appendChild(header);
+
+        // Danh sách sự kiện rút gọn trong ô ngày
+        const eventsContainer = document.createElement('div');
+        eventsContainer.className = 'space-y-1 overflow-hidden flex-1';
+
+        const displayLimit = 2;
+        events.slice(0, displayLimit).forEach(ev => {
+            const pill = document.createElement('div');
+            const colorClasses = getEventColorBadge(ev);
+            pill.className = `text-[11px] font-medium px-1.5 py-0.5 rounded truncate border transition flex items-center gap-1 ${colorClasses.pillBg} ${colorClasses.pillText} ${colorClasses.pillBorder}`;
+            pill.title = `${ev.start_time} - ${ev.end_time}: ${ev.title} (${ev.status_label})`;
+            const isBusy = ev.event_type === 'busy' || ev.status === 'busy';
+            const displayTime = ev.is_all_day ? 'Cả ngày' : ev.start_time;
+            pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full shrink-0 ${colorClasses.dotBg}"></span><span class="truncate font-semibold">${isBusy ? '🔒 ' : ''}${displayTime} ${ev.title}</span>`;
+            pill.onclick = (e) => {
+                e.stopPropagation();
+                if (isBusy) {
+                    openBusyDetailModal(ev);
+                } else {
+                    openShiftDetail(ev);
+                }
+            };
+            eventsContainer.appendChild(pill);
+        });
+
+        if (events.length > displayLimit) {
+            const moreBtn = document.createElement('div');
+            moreBtn.className = 'text-[10px] font-bold text-brand-600 hover:text-brand-800 px-1 py-0.5';
+            moreBtn.textContent = `+${events.length - displayLimit} ca nữa`;
+            moreBtn.onclick = (e) => {
+                e.stopPropagation();
+                currentDate = new Date(dateObj);
+                switchView('day');
+            };
+            eventsContainer.appendChild(moreBtn);
+        }
+
+        cell.appendChild(eventsContainer);
+
+        // Click ô ngày -> chọn ngày và có thể chuyển view
+        cell.onclick = () => {
+            currentDate = new Date(dateObj);
+            switchView('day');
+        };
+
+        return cell;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 2. RENDER CHẾ ĐỘ TUẦN
+    // ──────────────────────────────────────────────────────────────────────────
+    function renderWeekView() {
+        const startOfWeek = getStartOfWeek(currentDate);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+        // Tiêu đề: "Tuần DD/MM - DD/MM/YYYY"
+        const startStr = `${String(startOfWeek.getDate()).padStart(2, '0')}/${String(startOfWeek.getMonth() + 1).padStart(2, '0')}`;
+        const endStr = `${String(endOfWeek.getDate()).padStart(2, '0')}/${String(endOfWeek.getMonth() + 1).padStart(2, '0')}/${endOfWeek.getFullYear()}`;
+        document.getElementById('cal-period-title').textContent = `Tuần ${startStr} – ${endStr}`;
+
+        const grid = document.getElementById('week-grid');
+        grid.innerHTML = '';
+
+        let weekEventsCount = 0;
+
+        for (let i = 0; i < 7; i++) {
+            const dayDate = new Date(startOfWeek);
+            dayDate.setDate(startOfWeek.getDate() + i);
+            const dateStr = formatDateISO(dayDate);
+            const events = getEventsForDate(dateStr);
+            weekEventsCount += events.length;
+
+            const isToday = isSameDate(dayDate, new Date());
+            const dayName = VN_DAYS[dayDate.getDay()];
+
+            const col = document.createElement('div');
+            col.className = `bg-white rounded-xl border ${isToday ? 'border-brand-500 ring-2 ring-brand-100 shadow-sm' : 'border-slate-200 shadow-xs'} overflow-hidden flex flex-col`;
+
+            // Cột header
+            const colHeader = document.createElement('div');
+            colHeader.className = `p-3 text-center border-b ${isToday ? 'bg-brand-50/70 border-brand-200' : 'bg-slate-50/60 border-slate-100'}`;
+            colHeader.innerHTML = `
+                <div class="text-[11px] font-bold uppercase tracking-wider ${isToday ? 'text-brand-600' : 'text-slate-500'}">${dayName}</div>
+                <div class="text-base font-extrabold mt-0.5 ${isToday ? 'text-brand-700' : 'text-slate-900'}">${dayDate.getDate()}/${dayDate.getMonth() + 1}</div>
+            `;
+            col.appendChild(colHeader);
+
+            // Thân cột
+            const colBody = document.createElement('div');
+            colBody.className = 'p-2 space-y-2 flex-1 min-h-[160px] bg-white';
+
+            if (events.length === 0) {
+                colBody.innerHTML = `<div class="h-full flex items-center justify-center text-slate-300 text-xs py-8 italic font-light">—</div>`;
+            } else {
+                events.forEach(ev => {
+                    const card = document.createElement('div');
+                    const color = getEventColorBadge(ev);
+                    card.className = `p-2 rounded-lg border text-xs cursor-pointer transition hover:shadow-xs ${color.pillBg} ${color.pillBorder}`;
+                    const isBusy = ev.event_type === 'busy' || ev.status === 'busy';
+                    const timeRange = ev.is_all_day ? 'Cả ngày' : `${ev.start_time} - ${ev.end_time}`;
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between gap-1 mb-1">
+                            <span class="font-bold text-[11px] text-slate-800">${timeRange}</span>
+                            <span class="text-[9px] px-1.5 py-0.2 rounded font-bold ${color.badgeBg} ${color.badgeText}">${ev.status_label}</span>
+                        </div>
+                        <div class="font-semibold text-slate-900 line-clamp-2 leading-tight">${isBusy ? '🔒 ' : ''}${ev.title}</div>
+                        <div class="text-[10px] text-slate-500 mt-1 truncate flex items-center gap-1">
+                            <span>${isBusy ? '📝' : '📍'}</span><span>${isBusy ? (ev.note || 'Không khả dụng') : ev.location}</span>
+                        </div>
+                    `;
+                    card.onclick = () => {
+                        if (isBusy) {
+                            openBusyDetailModal(ev);
+                        } else {
+                            openShiftDetail(ev);
+                        }
+                    };
+                    colBody.appendChild(card);
+                });
+            }
+
+            col.appendChild(colBody);
+            grid.appendChild(col);
+        }
+
+        document.getElementById('cal-summary-badge').textContent = `Trong tuần có: ${weekEventsCount} ca làm việc`;
+        toggleEmptyState(weekEventsCount === 0);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 3. RENDER CHẾ ĐỘ NGÀY
+    // ──────────────────────────────────────────────────────────────────────────
+    function renderDayView() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const day = currentDate.getDate();
+        const dayName = VN_DAYS[currentDate.getDay()];
+        const dateStr = formatDateISO(currentDate);
+
+        // Tiêu đề toolbar
+        document.getElementById('cal-period-title').textContent = `${dayName}, ${day}/${month + 1}/${year}`;
+
+        // Header trong block ngày
+        document.getElementById('day-view-header-title').textContent = `${dayName}, ngày ${day} ${VN_MONTHS[month]} năm ${year}`;
+
+        const events = getEventsForDate(dateStr);
+        document.getElementById('day-view-badge-count').textContent = `${events.length} ca làm việc`;
+
+        const timeline = document.getElementById('day-timeline');
+        timeline.innerHTML = '';
+
+        if (events.length === 0) {
+            timeline.innerHTML = `
+                <div class="text-center py-10 px-4 rounded-xl border border-dashed border-slate-200 bg-white">
+                    <div class="text-slate-400 text-sm font-medium">Không có ca làm việc nào trong ngày này.</div>
+                    <div class="text-slate-400 text-xs mt-1">Bạn có thể chọn một ngày khác hoặc lên lịch tìm kiếm việc làm mới.</div>
+                </div>
+            `;
+            document.getElementById('cal-summary-badge').textContent = `Ngày ${day}/${month + 1}: Không có ca làm`;
+            toggleEmptyState(false);
+            return;
+        }
+
+        document.getElementById('cal-summary-badge').textContent = `Ngày ${day}/${month + 1}: Có ${events.length} ca làm việc`;
+        toggleEmptyState(false);
+
+        // Kiểm tra xem có 2 ca trùng giờ nhau không
+        let hasOverlap = false;
+        for (let i = 0; i < events.length; i++) {
+            for (let j = i + 1; j < events.length; j++) {
+                if (events[i].start_time < events[j].end_time && events[i].end_time > events[j].start_time) {
+                    hasOverlap = true;
+                    break;
+                }
+            }
+        }
+
+        if (hasOverlap) {
+            const alertBox = document.createElement('div');
+            alertBox.className = 'p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2 mb-3';
+            alertBox.innerHTML = `
+                <svg class="w-4 h-4 shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span><strong>Lưu ý lịch trình:</strong> Phát hiện ca làm có thời gian diễn ra trùng hoặc tiếp giáp rất sát nhau trong ngày. Hãy kiểm tra để sắp xếp di chuyển kịp thời.</span>
+            `;
+            timeline.appendChild(alertBox);
+        }
+
+        // Render từng ca trong timeline
+        events.forEach(ev => {
+            const card = document.createElement('div');
+            const color = getEventColorBadge(ev);
+            card.className = `p-4 sm:p-5 rounded-xl border bg-white shadow-xs transition hover:border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden`;
+
+            const isBusy = ev.event_type === 'busy' || ev.status === 'busy';
+            const timeRange = ev.is_all_day ? 'Cả ngày' : `${ev.start_time} - ${ev.end_time}`;
+
+            card.innerHTML = `
+                <div class="absolute top-0 left-0 w-1.5 h-full ${color.dotBg}"></div>
+                <div class="pl-2">
+                    <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                        <span class="text-xs font-bold text-slate-900 px-2 py-0.5 rounded bg-slate-100 flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            ${timeRange}
+                        </span>
+                        <span class="text-xs font-bold px-2.5 py-0.5 rounded-full ${color.badgeBg} ${color.badgeText}">
+                            ${ev.status_label}
+                        </span>
+                        <span class="text-xs font-medium text-slate-400">
+                            ${isBusy ? 'Thời gian bận' : ev.work_type}
+                        </span>
+                    </div>
+                    <h4 class="text-sm sm:text-base font-bold text-slate-900">${isBusy ? '🔒 ' : ''}${ev.title}</h4>
+                    <div class="text-xs text-slate-500 mt-1.5 flex items-center flex-wrap gap-x-4 gap-y-1">
+                        ${isBusy ? `
+                            <span>📝 ${ev.note || 'Thời gian không khả dụng'}</span>
+                        ` : `
+                            <span>📍 ${ev.location}</span>
+                            <span>👤 ${ev.hirer_name}</span>
+                            ${ev.contract_id ? `<span class="text-brand-600 font-semibold">HĐ #${ev.contract_id}</span>` : ''}
+                        `}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <button type="button" class="btn-detail-action px-3.5 py-1.5 rounded-xl text-xs font-semibold ${isBusy ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-brand-50 text-brand-700 hover:bg-brand-100'} transition">
+                        ${isBusy ? 'Chi tiết khoảng bận' : 'Xem chi tiết'}
+                    </button>
+                    ${!isBusy && ev.detail_url ? `
+                        <a href="${ev.detail_url}" class="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 transition" title="Mở trang việc làm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                        </a>
+                    ` : ''}
+                </div>
+            `;
+            card.querySelector('.btn-detail-action').onclick = () => {
+                if (isBusy) {
+                    openBusyDetailModal(ev);
+                } else {
+                    openShiftDetail(ev);
+                }
+            };
+            timeline.appendChild(card);
+        });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 4. RENDER CHẾ ĐỘ DANH SÁCH
+    // ──────────────────────────────────────────────────────────────────────────
+    function renderListView() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        document.getElementById('cal-period-title').textContent = `${VN_MONTHS[month]}, ${year}`;
+
+        // Lọc các ca trong tháng hoặc hiển thị toàn bộ
+        const monthEvents = allEvents.filter(ev => {
+            const parts = ev.date.split('-');
+            return parseInt(parts[0]) === year && parseInt(parts[1]) - 1 === month;
+        });
+
+        const listContainer = document.getElementById('list-container-events');
+        listContainer.innerHTML = '';
+
+        document.getElementById('cal-summary-badge').textContent = `Danh sách: ${monthEvents.length} ca làm việc trong tháng`;
+        toggleEmptyState(monthEvents.length === 0);
+
+        monthEvents.forEach(ev => {
+            const card = document.createElement('div');
+            const color = getEventColorBadge(ev);
+            card.className = `p-4 sm:p-5 rounded-xl border bg-white shadow-xs transition hover:border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden`;
+
+            const isBusy = ev.event_type === 'busy' || ev.status === 'busy';
+            const timeRange = ev.is_all_day ? 'Cả ngày' : `${ev.start_time} - ${ev.end_time}`;
+
+            card.innerHTML = `
+                <div class="absolute top-0 left-0 w-1.5 h-full ${color.dotBg}"></div>
+                <div class="pl-2">
+                    <div class="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                        <span class="text-xs font-bold text-slate-900">${ev.day_of_week}, ${ev.date_display}</span>
+                        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${color.badgeBg} ${color.badgeText}">
+                            ${ev.status_label}
+                        </span>
+                        <span class="text-xs font-medium text-slate-500">${timeRange}</span>
+                    </div>
+                    <h4 class="text-sm sm:text-base font-bold text-slate-900">${isBusy ? '🔒 ' : ''}${ev.title}</h4>
+                    <div class="text-xs text-slate-500 mt-1 flex items-center flex-wrap gap-x-4 gap-y-1">
+                        ${isBusy ? `
+                            <span>📝 ${ev.note || 'Thời gian không khả dụng'}</span>
+                        ` : `
+                            <span>📍 ${ev.location}</span>
+                            <span>👤 ${ev.hirer_name}</span>
+                            ${ev.contract_id ? `<span class="text-brand-600 font-semibold">HĐ #${ev.contract_id}</span>` : ''}
+                        `}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <button type="button" class="btn-detail-action px-3.5 py-1.5 rounded-xl text-xs font-semibold ${isBusy ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-brand-50 text-brand-700 hover:bg-brand-100'} transition">
+                        ${isBusy ? 'Chi tiết khoảng bận' : 'Chi tiết ca'}
+                    </button>
+                    ${!isBusy && ev.detail_url ? `
+                        <a href="${ev.detail_url}" class="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 transition" title="Mở trang việc làm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                        </a>
+                    ` : ''}
+                </div>
+            `;
+            card.querySelector('.btn-detail-action').onclick = () => {
+                if (isBusy) {
+                    openBusyDetailModal(ev);
+                } else {
+                    openShiftDetail(ev);
+                }
+            };
+            listContainer.appendChild(card);
+        });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // MÀU SẮC & HUY HIỆU THEO TRẠNG THÁI
+    // ──────────────────────────────────────────────────────────────────────────
+    function getEventColorBadge(ev) {
+        if (ev.event_type === 'busy' || ev.status === 'busy') {
+            return {
+                dotBg: 'bg-slate-500',
+                pillBg: 'bg-slate-100',
+                pillText: 'text-slate-800',
+                pillBorder: 'border-slate-300',
+                badgeBg: 'bg-slate-200',
+                badgeText: 'text-slate-700'
+            };
+        }
+        if (ev.is_ongoing) {
+            return {
+                dotBg: 'bg-cyan-500',
+                pillBg: 'bg-cyan-50',
+                pillText: 'text-cyan-800',
+                pillBorder: 'border-cyan-200',
+                badgeBg: 'bg-cyan-100',
+                badgeText: 'text-cyan-700'
+            };
+        }
+        if (ev.status === 'completed' || ev.is_past) {
+            return {
+                dotBg: 'bg-emerald-500',
+                pillBg: 'bg-emerald-50',
+                pillText: 'text-emerald-800',
+                pillBorder: 'border-emerald-200',
+                badgeBg: 'bg-emerald-100',
+                badgeText: 'text-emerald-700'
+            };
+        }
+        if (ev.status === 'reserved') {
+            return {
+                dotBg: 'bg-amber-500',
+                pillBg: 'bg-amber-50',
+                pillText: 'text-amber-800',
+                pillBorder: 'border-amber-200',
+                badgeBg: 'bg-amber-100',
+                badgeText: 'text-amber-700'
+            };
+        }
+        // Active / Đã xác nhận
+        return {
+            dotBg: 'bg-brand-600',
+            pillBg: 'bg-brand-50',
+            pillText: 'text-brand-800',
+            pillBorder: 'border-brand-200',
+            badgeBg: 'bg-brand-100',
+            badgeText: 'text-brand-700'
+        };
+    }
+
+    function toggleEmptyState(show) {
+        const emptyEl = document.getElementById('cal-empty-state');
+        if (emptyEl) {
+            if (show) {
+                emptyEl.classList.remove('hidden');
+            } else {
+                emptyEl.classList.add('hidden');
+            }
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // TIỆN ÍCH ĐỊNH DẠNG & BẢO VỆ CHUỖI
+    // ──────────────────────────────────────────────────────────────────────────
+    let currentDetailEvent = null;
+
+    function formatVND(val) {
+        if (val === null || val === undefined || isNaN(val)) return '—';
+        return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // MODAL CHI TIẾT CA LÀM VIỆC (CHỨC NĂNG 3.2)
+    // ──────────────────────────────────────────────────────────────────────────
+    function openShiftDetail(ev) {
+        if (!ev) return;
+        currentDetailEvent = ev;
+
+        const modal = document.getElementById('shift-detail-modal');
+        if (!modal) return;
+
+        const color = getEventColorBadge(ev);
+
+        // 1. Header & Trạng thái
+        const statusBadge = document.getElementById('modal-status-badge');
+        statusBadge.className = `text-xs font-bold px-2.5 py-1 rounded-full border ${color.badgeBg} ${color.badgeText} ${color.pillBorder}`;
+        statusBadge.textContent = ev.status_label || 'Đã xác nhận';
+
+        const shiftCodeEl = document.getElementById('modal-shift-code');
+        if (ev.schedule_id) {
+            shiftCodeEl.textContent = `Mã ca: #${ev.schedule_id}`;
+            shiftCodeEl.classList.remove('hidden');
+        } else if (ev.contract_id) {
+            shiftCodeEl.textContent = `Hợp đồng: #${ev.contract_id}`;
+            shiftCodeEl.classList.remove('hidden');
+        } else {
+            shiftCodeEl.classList.add('hidden');
+        }
+
+        // Tiêu đề & Loại hình
+        document.getElementById('modal-job-title').textContent = ev.title;
+
+        // Badge hình thức
+        const workTypeBadge = document.getElementById('modal-work-type-badge');
+        workTypeBadge.textContent = ev.work_type === 'Trực tuyến' ? '🌐 Trực tuyến (Online)' : '📍 Trực tiếp (On-site)';
+
+        // Badge Chuyên ngành
+        const specBadge = document.getElementById('modal-specialty-badge');
+        if (ev.specialty) {
+            specBadge.textContent = `🏷️ ${ev.specialty}`;
+            specBadge.classList.remove('hidden');
+        } else {
+            specBadge.classList.add('hidden');
+        }
+
+        // Badge Ngôn ngữ
+        const langBadge = document.getElementById('modal-language-badge');
+        if (ev.language_pair) {
+            langBadge.textContent = `🌐 ${ev.language_pair}`;
+            langBadge.classList.remove('hidden');
+        } else {
+            langBadge.classList.add('hidden');
+        }
+
+        // Mô tả trạng thái
+        const statusDescEl = document.getElementById('modal-status-desc');
+        if (ev.status_desc) {
+            statusDescEl.textContent = ev.status_desc;
+            statusDescEl.classList.remove('hidden');
+        } else {
+            statusDescEl.classList.add('hidden');
+        }
+
+        // 2. Thời gian ca làm
+        document.getElementById('modal-date-full').textContent = `${ev.day_of_week}, ngày ${ev.date_display}`;
+        document.getElementById('modal-time-range').textContent = `${ev.start_time} – ${ev.end_time}`;
+        
+        const durEl = document.getElementById('modal-duration');
+        if (ev.duration_str) {
+            durEl.textContent = `Thời lượng: ${ev.duration_str}`;
+            durEl.classList.remove('hidden');
+        } else {
+            durEl.classList.add('hidden');
+        }
+
+        // Thời gian đệm an toàn (Buffer)
+        const bufferInfo = document.getElementById('modal-buffer-info');
+        const bufferBox = document.getElementById('modal-buffer-box');
+        if (ev.buffer_before > 0 || ev.buffer_after > 0) {
+            bufferInfo.textContent = `Trước ca: ${ev.buffer_before || 0} phút · Sau ca: ${ev.buffer_after || 0} phút`;
+            bufferBox.classList.remove('hidden');
+        } else {
+            bufferBox.classList.add('hidden');
+        }
+
+        // 3. Địa điểm & Link họp trực tuyến
+        document.getElementById('modal-location').textContent = ev.location || (ev.work_type === 'Trực tuyến' ? 'Trực tuyến' : 'Chưa cập nhật địa điểm');
+        
+        const meetingBox = document.getElementById('modal-meeting-url-box');
+        const meetingBtn = document.getElementById('modal-meeting-link-btn');
+        if (ev.meeting_url) {
+            meetingBtn.href = ev.meeting_url;
+            meetingBox.classList.remove('hidden');
+        } else {
+            meetingBox.classList.add('hidden');
+        }
+
+        // 4. Yêu cầu & Nội dung công việc
+        const reqWrapper = document.getElementById('modal-requirements-wrapper');
+        const reqContent = document.getElementById('modal-requirements-content');
+        if (ev.requirements && ev.requirements.trim()) {
+            reqContent.textContent = ev.requirements;
+            reqWrapper.classList.remove('hidden');
+        } else {
+            reqWrapper.classList.add('hidden');
+        }
+
+        // 5. Khách hàng / Bên tuyển dụng
+        document.getElementById('modal-client-name').textContent = ev.hirer_name || 'Khách hàng VietTranslate';
+        const clientPhoneWrap = document.getElementById('modal-client-phone-wrap');
+        const clientPhoneEl = document.getElementById('modal-client-phone');
+        if (ev.hirer_phone) {
+            clientPhoneEl.textContent = ev.hirer_phone;
+            clientPhoneWrap.classList.remove('hidden');
+        } else {
+            clientPhoneWrap.classList.add('hidden');
+        }
+
+        // 6. Thù lao & Escrow
+        const paymentBox = document.getElementById('modal-payment-box');
+        if (ev.price || ev.net_amount) {
+            document.getElementById('modal-agreed-price').textContent = formatVND(ev.price);
+            document.getElementById('modal-net-amount').textContent = formatVND(ev.net_amount);
+            document.getElementById('modal-platform-fee').textContent = formatVND(ev.platform_fee);
+            document.getElementById('modal-payment-status').textContent = ev.payment_status || 'Ký quỹ Escrow';
+            paymentBox.classList.remove('hidden');
+        } else {
+            paymentBox.classList.add('hidden');
+        }
+
+        // 7. Lịch sử sự kiện ca làm
+        const historyWrapper = document.getElementById('modal-history-wrapper');
+        const historyList = document.getElementById('modal-history-list');
+        if (Array.isArray(ev.events_log) && ev.events_log.length > 0) {
+            historyList.innerHTML = '';
+            ev.events_log.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'flex items-start gap-2.5 py-1.5 border-b border-slate-100 last:border-0';
+                row.innerHTML = `
+                    <span class="text-slate-400 font-mono text-[11px] shrink-0">${escapeHtml(item.time)}</span>
+                    <div class="flex-1 text-slate-700 leading-snug">
+                        <strong class="text-slate-900">${escapeHtml(item.event_type)}:</strong>
+                        <span class="text-slate-600">${escapeHtml(item.note)}</span>
+                    </div>
+                `;
+                historyList.appendChild(row);
+            });
+            historyWrapper.classList.remove('hidden');
+        } else {
+            historyWrapper.classList.add('hidden');
+        }
+
+        // 8. Hộp thông báo theo ngữ cảnh ca làm
+        const noteBox = document.getElementById('modal-note-box');
+        if (ev.status === 'cancelled') {
+            noteBox.className = 'p-3.5 rounded-xl text-xs bg-rose-50 text-rose-800 border border-rose-200';
+            noteBox.innerHTML = '<strong>❌ Ca làm đã bị hủy:</strong> Ca làm việc này không còn hiệu lực thực hiện. Mọi điều phối đã được hủy bỏ.';
+            noteBox.classList.remove('hidden');
+        } else if (ev.is_ongoing) {
+            noteBox.className = 'p-3.5 rounded-xl text-xs bg-emerald-50 text-emerald-800 border border-emerald-200';
+            noteBox.innerHTML = '<strong>🟢 Ca làm đang diễn ra hôm nay:</strong> Vui lòng có mặt đúng giờ, check-in và giữ liên lạc với khách hàng qua phòng làm việc.';
+            noteBox.classList.remove('hidden');
+        } else if (ev.status === 'delivered') {
+            noteBox.className = 'p-3.5 rounded-xl text-xs bg-purple-50 text-purple-800 border border-purple-200';
+            noteBox.innerHTML = '<strong>⏳ Chờ xác nhận hoàn thành:</strong> Bạn đã báo kết thúc ca làm việc. Vui lòng chờ khách hàng nghiệm thu và giải ngân.';
+            noteBox.classList.remove('hidden');
+        } else if (ev.status === 'completed') {
+            noteBox.className = 'p-3.5 rounded-xl text-xs bg-teal-50 text-teal-800 border border-teal-200';
+            noteBox.innerHTML = '<strong>✨ Ca làm đã hoàn thành:</strong> Ca làm đã được nghiệm thu thành công. Bạn có thể xem khoản thu nhập hoặc đánh giá khách hàng trong phòng làm việc.';
+            noteBox.classList.remove('hidden');
+        } else {
+            noteBox.classList.add('hidden');
+        }
+
+        // 9. Nút hành động ở Footer
+        // Tin tuyển dụng
+        const jobBtn = document.getElementById('modal-job-btn');
+        if (ev.detail_url) {
+            jobBtn.href = ev.detail_url;
+            jobBtn.classList.remove('hidden');
+        } else {
+            jobBtn.classList.add('hidden');
+        }
+
+        // Phòng làm việc
+        const roomBtn = document.getElementById('modal-room-btn');
+        if (ev.transaction_url && ev.status !== 'cancelled') {
+            roomBtn.href = ev.transaction_url;
+            roomBtn.classList.remove('hidden');
+        } else {
+            roomBtn.classList.add('hidden');
+        }
+
+        // Báo sự cố (cho phép khi can_report_issue == true)
+        const reportIssueBtn = document.getElementById('modal-btn-report-issue');
+        if (ev.can_report_issue && ev.contract_id && ev.status !== 'cancelled') {
+            reportIssueBtn.classList.remove('hidden');
+        } else {
+            reportIssueBtn.classList.add('hidden');
+        }
+
+        // Check-in (cho phép khi can_checkin == true)
+        const checkinBtn = document.getElementById('modal-btn-checkin');
+        if (ev.can_checkin && ev.contract_id && ev.status !== 'cancelled') {
+            checkinBtn.classList.remove('hidden');
+        } else {
+            checkinBtn.classList.add('hidden');
+        }
+
+        // Báo kết thúc ca làm (cho phép khi can_deliver == true)
+        const completeBtn = document.getElementById('modal-btn-complete');
+        if (ev.can_deliver && ev.contract_id && ev.status !== 'cancelled') {
+            completeBtn.classList.remove('hidden');
+        } else {
+            completeBtn.classList.add('hidden');
+        }
+
+        // Xem thu nhập (khi ca completed và có income_url)
+        const incomeBtn = document.getElementById('modal-btn-income');
+        if (ev.income_url && ev.status === 'completed') {
+            incomeBtn.href = ev.income_url;
+            incomeBtn.classList.remove('hidden');
+        } else {
+            incomeBtn.classList.add('hidden');
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    function closeShiftDetail() {
+        const modal = document.getElementById('shift-detail-modal');
+        if (modal) modal.classList.add('hidden');
+        currentDetailEvent = null;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // HÀNH ĐỘNG CHECK-IN TỪ CHI TIẾT CA (3.2)
+    // ──────────────────────────────────────────────────────────────────────────
+    function triggerCheckinFromDetail() {
+        if (!currentDetailEvent || !currentDetailEvent.contract_id) {
+            alert('Ca làm này không gắn với hợp đồng có thể check-in.');
+            return;
+        }
+
+        if (!confirm('Xác nhận bạn đã có mặt tại địa điểm hoặc đã sẵn sàng online cho ca làm việc này?')) {
+            return;
+        }
+
+        const contractId = currentDetailEvent.contract_id;
+        const btn = document.getElementById('modal-btn-checkin');
+        btn.disabled = true;
+        const origText = btn.innerHTML;
+        btn.innerHTML = '<span>Đang ghi nhận...</span>';
+
+        fetch(`/api/contracts/${contractId}/checkin`, {
+            method: 'POST'
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+            if (data.success) {
+                alert(data.message);
+                // Đồng bộ lại lịch và cập nhật modal ngay tại chỗ
+                syncScheduleData(currentDetailEvent.id);
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+            console.error('Lỗi checkin:', err);
+            alert('Lỗi kết nối máy chủ khi thực hiện check-in.');
+        });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // HÀNH ĐỘNG BÁO SỰ CỐ TỪ CHI TIẾT CA (3.2)
+    // ──────────────────────────────────────────────────────────────────────────
+    function triggerReportIssueFromDetail() {
+        if (!currentDetailEvent || !currentDetailEvent.contract_id) return;
+        openReportIssueModal(currentDetailEvent.contract_id, currentDetailEvent.title);
+    }
+
+    function openReportIssueModal(contractId, jobTitle) {
+        document.getElementById('report-contract-id').value = contractId;
+        document.getElementById('report-job-title').textContent = jobTitle;
+        document.getElementById('report-reason').value = '';
+        document.getElementById('report-desc').value = '';
+        document.getElementById('modal-report-issue').classList.remove('hidden');
+    }
+
+    function closeReportIssueModal() {
+        document.getElementById('modal-report-issue').classList.add('hidden');
+    }
+
+    function executeReportIssue(e) {
+        e.preventDefault();
+        const contractId = document.getElementById('report-contract-id').value;
+        const reason = document.getElementById('report-reason').value;
+        const description = document.getElementById('report-desc').value;
+        const btn = document.getElementById('btn-submit-report');
+
+        if (!reason) {
+            alert('Vui lòng chọn loại sự cố.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = 'Đang gửi...';
+
+        fetch('/api/contracts/' + contractId + '/report-issue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason, description: description })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Gửi báo cáo sự cố';
+            if (data.success) {
+                closeReportIssueModal();
+                alert(data.message);
+                syncScheduleData(currentDetailEvent ? currentDetailEvent.id : null);
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = 'Gửi báo cáo sự cố';
+            alert('Lỗi kết nối máy chủ.');
+        });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // HÀNH ĐỘNG BÁO KẾT THÚC CA LÀM (3.2)
+    // ──────────────────────────────────────────────────────────────────────────
+    function triggerCompleteFromDetail() {
+        if (!currentDetailEvent || !currentDetailEvent.contract_id) return;
+        openCompleteShiftModal(currentDetailEvent.contract_id, currentDetailEvent.title);
+    }
+
+    function openCompleteShiftModal(contractId, jobTitle) {
+        document.getElementById('complete-contract-id').value = contractId;
+        document.getElementById('complete-job-title').textContent = jobTitle;
+        document.getElementById('complete-note').value = '';
+        document.getElementById('modal-complete-shift').classList.remove('hidden');
+    }
+
+    function closeCompleteShiftModal() {
+        document.getElementById('modal-complete-shift').classList.add('hidden');
+    }
+
+    function executeCompleteShift(e) {
+        e.preventDefault();
+        const contractId = document.getElementById('complete-contract-id').value;
+        const note = document.getElementById('complete-note').value;
+        const btn = document.getElementById('btn-submit-complete');
+
+        btn.disabled = true;
+        btn.innerHTML = 'Đang ghi nhận...';
+
+        fetch('/api/contracts/' + contractId + '/complete-shift', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note: note })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Xác nhận kết thúc ca';
+            if (data.success) {
+                closeCompleteShiftModal();
+                alert(data.message);
+                syncScheduleData(currentDetailEvent ? currentDetailEvent.id : null);
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = 'Xác nhận kết thúc ca';
+            alert('Lỗi kết nối máy chủ.');
+        });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // MODAL HƯỚNG DẪN TÁC PHONG
+    // ──────────────────────────────────────────────────────────────────────────
+    function openGuidanceModal() {
+        document.getElementById('modal-guidance').classList.remove('hidden');
+    }
+
+    function closeGuidanceModal() {
+        document.getElementById('modal-guidance').classList.add('hidden');
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // ĐỒNG BỘ DỮ LIỆU TỪ BACKEND API MÀ KHÔNG LÀM MẤT NGÀY ĐANG XEM
+    // ──────────────────────────────────────────────────────────────────────────
+    function syncScheduleData(reopenEventId) {
+        return fetch('/api/my-schedule')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (Array.isArray(data.events)) {
+                        allEvents = data.events;
+                        renderCalendar();
+
+                        // Nếu đang mở một ca làm hoặc khoảng bận, tự động cập nhật lại modal
+                        if (reopenEventId) {
+                            const updated = allEvents.find(e => e.id === reopenEventId);
+                            if (updated) {
+                                if (updated.event_type === 'busy' || updated.status === 'busy') {
+                                    openBusyDetailModal(updated);
+                                } else {
+                                    openShiftDetail(updated);
+                                }
+                            } else {
+                                closeShiftDetail();
+                                closeBusyDetailModal();
+                            }
+                        }
+                    }
+                    if (Array.isArray(data.busy_schedules)) {
+                        renderBusyTable(data.busy_schedules);
+                    }
+                }
+            })
+            .catch(err => {
+                console.error("Lỗi đồng bộ lịch:", err);
+            });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // QUẢN LÝ THỜI GIAN KHÔNG KHẢ DỤNG (CHỨC NĂNG 3.3)
+    // ──────────────────────────────────────────────────────────────────────────
+    let currentBusyDetail = null;
+    let busyPendingDeleteId = null;
+
+    function openAddBusyModal() {
+        document.getElementById('busy-form-id').value = '';
+        document.getElementById('busy-form-modal-title').innerHTML = '<span class="text-slate-700">🔒</span><span>Thêm thời gian không khả dụng</span>';
+        document.getElementById('btn-submit-busy-form-text').textContent = 'Lưu thời gian bận';
+        
+        const todayStr = formatDateISO(new Date());
+        document.getElementById('busy-start-date').value = todayStr;
+        document.getElementById('busy-end-date').value = todayStr;
+        document.getElementById('busy-end-date-wrapper').classList.remove('hidden');
+        
+        const allDayCb = document.getElementById('busy-is-all-day');
+        allDayCb.checked = false;
+        toggleBusyAllDay();
+        
+        document.getElementById('busy-start-time').value = '08:00';
+        document.getElementById('busy-end-time').value = '17:00';
+        document.getElementById('busy-note').value = '';
+        
+        const errBox = document.getElementById('busy-form-error');
+        errBox.classList.add('hidden');
+        errBox.textContent = '';
+        
+        document.getElementById('modal-busy-form').classList.remove('hidden');
+    }
+
+    function openEditBusyModal(data) {
+        if (!data) return;
+        
+        document.getElementById('busy-form-id').value = data.id || data.busy_id || '';
+        document.getElementById('busy-form-modal-title').innerHTML = '<span class="text-slate-700">✏️</span><span>Chỉnh sửa thời gian không khả dụng</span>';
+        document.getElementById('btn-submit-busy-form-text').textContent = 'Cập nhật thay đổi';
+        
+        const dateVal = data.date || data.start_date || formatDateISO(new Date());
+        document.getElementById('busy-start-date').value = dateVal;
+        document.getElementById('busy-end-date').value = data.end_date || dateVal;
+        
+        // Khi sửa 1 bản ghi cụ thể, ẩn ngày kết thúc để chỉnh sửa đúng ngày đã chọn
+        document.getElementById('busy-end-date-wrapper').classList.add('hidden');
+        
+        const allDayCb = document.getElementById('busy-is-all-day');
+        allDayCb.checked = !!data.is_all_day;
+        toggleBusyAllDay();
+        
+        document.getElementById('busy-start-time').value = data.start_time || '08:00';
+        document.getElementById('busy-end-time').value = data.end_time || '17:00';
+        document.getElementById('busy-note').value = data.note || '';
+        
+        const errBox = document.getElementById('busy-form-error');
+        errBox.classList.add('hidden');
+        errBox.textContent = '';
+        
+        closeBusyDetailModal();
+        document.getElementById('modal-busy-form').classList.remove('hidden');
+    }
+
+    function closeBusyFormModal() {
+        const modal = document.getElementById('modal-busy-form');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    function toggleBusyAllDay() {
+        const isAllDay = document.getElementById('busy-is-all-day').checked;
+        const timeGroup = document.getElementById('busy-time-range-group');
+        const startTimeInput = document.getElementById('busy-start-time');
+        const endTimeInput = document.getElementById('busy-end-time');
+        
+        if (isAllDay) {
+            timeGroup.classList.add('opacity-40', 'pointer-events-none');
+            startTimeInput.disabled = true;
+            endTimeInput.disabled = true;
+            startTimeInput.removeAttribute('required');
+            endTimeInput.removeAttribute('required');
+        } else {
+            timeGroup.classList.remove('opacity-40', 'pointer-events-none');
+            startTimeInput.disabled = false;
+            endTimeInput.disabled = false;
+            startTimeInput.setAttribute('required', 'required');
+            endTimeInput.setAttribute('required', 'required');
+        }
+    }
+
+    function executeSaveBusyTime(e) {
+        e.preventDefault();
+        const busyId = document.getElementById('busy-form-id').value;
+        const startDate = document.getElementById('busy-start-date').value;
+        const endDate = document.getElementById('busy-end-date').value || startDate;
+        const isAllDay = document.getElementById('busy-is-all-day').checked;
+        const startTime = document.getElementById('busy-start-time').value;
+        const endTime = document.getElementById('busy-end-time').value;
+        const note = document.getElementById('busy-note').value;
+        const errBox = document.getElementById('busy-form-error');
+        const submitBtn = document.getElementById('btn-submit-busy-form');
+        const btnText = document.getElementById('btn-submit-busy-form-text');
+
+        errBox.classList.add('hidden');
+        errBox.textContent = '';
+
+        // Validation phía client
+        if (!startDate) {
+            errBox.textContent = 'Vui lòng chọn ngày bắt đầu.';
+            errBox.classList.remove('hidden');
+            return;
+        }
+
+        if (!busyId && endDate < startDate) {
+            errBox.textContent = 'Ngày kết thúc không được trước ngày bắt đầu.';
+            errBox.classList.remove('hidden');
+            return;
+        }
+
+        if (!isAllDay) {
+            if (!startTime || !endTime) {
+                errBox.textContent = 'Vui lòng nhập đầy đủ giờ bắt đầu và giờ kết thúc.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            if ((!busyId && startDate === endDate && endTime <= startTime) || (busyId && endTime <= startTime)) {
+                errBox.textContent = 'Giờ kết thúc phải sau giờ bắt đầu.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+        }
+
+        // Chống nhấn nút nhiều lần tạo bản ghi trùng
+        submitBtn.disabled = true;
+        const origBtnText = btnText.textContent;
+        btnText.textContent = 'Đang lưu...';
+
+        const payload = busyId ? {
+            date: startDate,
+            start_date: startDate,
+            is_all_day: isAllDay,
+            start_time: startTime,
+            end_time: endTime,
+            note: note
+        } : {
+            start_date: startDate,
+            end_date: endDate,
+            is_all_day: isAllDay,
+            start_time: startTime,
+            end_time: endTime,
+            note: note
+        };
+
+        const url = busyId ? `/api/my-schedule/busy-time/${busyId}` : '/api/my-schedule/busy-time';
+        const method = busyId ? 'PUT' : 'POST';
+
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            submitBtn.disabled = false;
+            btnText.textContent = origBtnText;
+
+            if (data.success) {
+                closeBusyFormModal();
+                alert(data.message);
+                syncScheduleData();
+            } else {
+                errBox.textContent = data.message || 'Lỗi khi lưu thời gian bận.';
+                errBox.classList.remove('hidden');
+            }
+        })
+        .catch(err => {
+            submitBtn.disabled = false;
+            btnText.textContent = origBtnText;
+            console.error('Lỗi lưu thời gian bận:', err);
+            errBox.textContent = 'Lỗi kết nối máy chủ khi lưu thời gian bận.';
+            errBox.classList.remove('hidden');
+        });
+    }
+
+    function openBusyDetailModal(ev) {
+        if (!ev) return;
+        currentBusyDetail = ev;
+
+        document.getElementById('busy-detail-title').textContent = ev.title || 'Thời gian không khả dụng';
+        document.getElementById('busy-detail-note').textContent = ev.note ? `Ghi chú: ${ev.note}` : 'Không có ghi chú thêm.';
+        document.getElementById('busy-detail-date').textContent = `${ev.day_of_week || ''}, ngày ${ev.date_display || ev.date}`;
+
+        const timeEl = document.getElementById('busy-detail-time');
+        const durEl = document.getElementById('busy-detail-duration');
+        if (ev.is_all_day) {
+            timeEl.textContent = 'Cả ngày (00:00 - 23:59)';
+            durEl.textContent = 'Trạng thái: Khóa toàn bộ thời gian trong ngày';
+        } else {
+            timeEl.textContent = `${ev.start_time} – ${ev.end_time}`;
+            durEl.textContent = ev.duration_str ? `Thời lượng: ${ev.duration_str}` : '';
+        }
+
+        document.getElementById('busy-time-detail-modal').classList.remove('hidden');
+    }
+
+    function closeBusyDetailModal() {
+        const modal = document.getElementById('busy-time-detail-modal');
+        if (modal) modal.classList.add('hidden');
+        currentBusyDetail = null;
+    }
+
+    function triggerEditFromBusyDetail() {
+        if (!currentBusyDetail) return;
+        const busyId = currentBusyDetail.busy_id || currentBusyDetail.schedule_id || (currentBusyDetail.id ? currentBusyDetail.id.replace('busy_', '') : null);
+        openEditBusyModal({
+            id: busyId,
+            date: currentBusyDetail.date,
+            is_all_day: currentBusyDetail.is_all_day,
+            start_time: currentBusyDetail.start_time,
+            end_time: currentBusyDetail.end_time,
+            note: currentBusyDetail.note
+        });
+    }
+
+    function triggerDeleteFromBusyDetail() {
+        if (!currentBusyDetail) return;
+        const busyId = currentBusyDetail.busy_id || currentBusyDetail.schedule_id || (currentBusyDetail.id ? currentBusyDetail.id.replace('busy_', '') : null);
+        if (!busyId) return;
+
+        const timeStr = currentBusyDetail.is_all_day ? 'Cả ngày' : `${currentBusyDetail.start_time} - ${currentBusyDetail.end_time}`;
+        openConfirmDeleteBusy(busyId, currentBusyDetail.date_display || currentBusyDetail.date, timeStr, currentBusyDetail.note);
+    }
+
+    function openConfirmDeleteBusy(id, dateStr, timeStr, note) {
+        busyPendingDeleteId = id;
+        document.getElementById('confirm-delete-busy-info').textContent = `Ngày ${dateStr} (${timeStr})`;
+        document.getElementById('confirm-delete-busy-note').textContent = note ? `Ghi chú: ${note}` : 'Không có ghi chú';
+        document.getElementById('modal-confirm-delete-busy').classList.remove('hidden');
+    }
+
+    function closeConfirmDeleteBusyModal() {
+        const modal = document.getElementById('modal-confirm-delete-busy');
+        if (modal) modal.classList.add('hidden');
+        busyPendingDeleteId = null;
+    }
+
+    function executeDeleteBusy() {
+        if (!busyPendingDeleteId) return;
+
+        const btn = document.getElementById('btn-execute-delete-busy');
+        btn.disabled = true;
+        const origText = btn.textContent;
+        btn.textContent = 'Đang xóa...';
+
+        fetch(`/api/my-schedule/busy-time/${busyPendingDeleteId}`, {
+            method: 'DELETE'
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.textContent = origText;
+            if (data.success) {
+                closeConfirmDeleteBusyModal();
+                closeBusyDetailModal();
+                alert(data.message);
+                syncScheduleData();
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.textContent = origText;
+            console.error('Lỗi xóa thời gian bận:', err);
+            alert('Lỗi kết nối máy chủ khi xóa thời gian bận.');
+        });
+    }
+
+    function renderBusyTable(busyList) {
+        const tbody = document.getElementById('busy-table-body');
+        const badge = document.getElementById('tab-busy-count-badge');
+        if (badge) badge.textContent = busyList ? busyList.length : 0;
+
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!busyList || busyList.length === 0) {
+            tbody.innerHTML = `
+                <tr id="busy-table-empty-row">
+                    <td colspan="5" class="py-10 text-center text-slate-400">
+                        <div class="text-2xl mb-1">⏳</div>
+                        <div class="font-medium text-xs">Chưa có khoảng thời gian không khả dụng nào được thiết lập.</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">Nhấn "Thêm khoảng bận mới" ở trên để cài đặt thời gian bận.</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        busyList.forEach(b => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50/60 transition';
+            tr.id = `busy-row-${b.id}`;
+
+            const timeHtml = b.is_all_day 
+                ? `<span class="inline-flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-full text-[11px]"><span>🌙</span> Cả ngày</span>`
+                : `<span class="font-medium text-slate-700">${escapeHtml(b.start_time)} - ${escapeHtml(b.end_time)}</span>`;
+
+            tr.innerHTML = `
+                <td class="px-4 py-3 font-bold text-slate-900 whitespace-nowrap">
+                    📅 ${escapeHtml(b.date_display || b.date)}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    ${timeHtml}
+                </td>
+                <td class="px-4 py-3 max-w-xs truncate text-slate-600">
+                    ${escapeHtml(b.note || 'Bận việc riêng')}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                        <span>Đang áp dụng</span>
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                    <div class="inline-flex items-center gap-1.5">
+                        <button type="button" class="btn-edit-busy px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:text-brand-600 hover:bg-brand-50 border border-slate-200 transition">
+                            Sửa
+                        </button>
+                        <button type="button" class="btn-del-busy px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition">
+                            Xóa
+                        </button>
+                    </div>
+                </td>
+            `;
+
+            tr.querySelector('.btn-edit-busy').onclick = () => openEditBusyModal(b);
+            tr.querySelector('.btn-del-busy').onclick = () => {
+                const timeStr = b.is_all_day ? 'Cả ngày' : `${b.start_time} - ${b.end_time}`;
+                openConfirmDeleteBusy(b.id, b.date_display || b.date, timeStr, b.note);
+            };
+
+            tbody.appendChild(tr);
+        });
+    }
+
+    document.getElementById('btn-refresh-schedule').addEventListener('click', function() {
+        const btn = this;
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = `<span>Đang tải...</span>`;
+        btn.disabled = true;
+
+        syncScheduleData(currentDetailEvent ? currentDetailEvent.id : (currentBusyDetail ? currentBusyDetail.id : null))
+            .finally(() => {
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+            });
+    });
+
+    // Đóng tất cả modal khi bấm ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeGuidanceModal();
+            closeReportIssueModal();
+            closeCompleteShiftModal();
+            closeShiftDetail();
+            closeBusyFormModal();
+            closeBusyDetailModal();
+            closeConfirmDeleteBusyModal();
+        }
+    });
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // GẮN SỰ KIỆN KHỞI TẠO
+    // ──────────────────────────────────────────────────────────────────────────
+    document.getElementById('btn-cal-prev').addEventListener('click', prevPeriod);
+    document.getElementById('btn-cal-next').addEventListener('click', nextPeriod);
+    document.getElementById('btn-cal-today').addEventListener('click', goToToday);
+    document.getElementById('cal-date-picker').addEventListener('change', onDirectDateSelect);
+
+    document.getElementById('btn-view-month').addEventListener('click', () => switchView('month'));
+    document.getElementById('btn-view-week').addEventListener('click', () => switchView('week'));
+    document.getElementById('btn-view-day').addEventListener('click', () => switchView('day'));
+    document.getElementById('btn-view-list').addEventListener('click', () => switchView('list'));
+
+    // Render ban đầu khi tải trang
+    document.addEventListener('DOMContentLoaded', function() {
+        renderCalendar();
+    });
+</script>
+{% endblock %}

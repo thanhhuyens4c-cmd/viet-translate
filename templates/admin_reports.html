@@ -15,7 +15,7 @@
         <a href="{{ url_for('admin_reports', status='all') }}" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">Tất cả</a>
         <div class="filter-sep"></div>
         <a href="{{ url_for('admin_reports', status='new') }}" class="filter-tab {% if status_filter == 'new' %}active{% endif %}">
-            Mới <span class="badge badge-red ml-1">{{ badge_counts.admin_badge_reports }}</span>
+            Mới {% if admin_badge_reports and admin_badge_reports > 0 %}<span class="badge badge-red ml-1">{{ admin_badge_reports }}</span>{% elif badge_counts is defined and badge_counts.admin_badge_reports %}<span class="badge badge-red ml-1">{{ badge_counts.admin_badge_reports }}</span>{% endif %}
         </a>
         <a href="{{ url_for('admin_reports', status='investigating') }}" class="filter-tab {% if status_filter == 'investigating' %}active{% endif %}">Đang điều tra</a>
         <a href="{{ url_for('admin_reports', status='resolved') }}" class="filter-tab {% if status_filter == 'resolved' %}active{% endif %}">Đã giải quyết</a>
@@ -42,16 +42,28 @@
                     <td class="font-medium text-brand">#RPT-{{ report.id }}</td>
                     <td>
                         <div class="flex items-center gap-2">
-                            {% if report.reporter.avatar_url %}
-                                <img src="{{ report.reporter.avatar_url }}" alt="Avatar" class="w-6 h-6 rounded-full object-cover">
-                            {% else %}
-                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
-                                    {{ report.reporter.name[:1] | upper }}
+                            {% if report.reporter and report.reporter.avatar_url %}
+                                <img src="{{ report.reporter.avatar_url }}" alt="Avatar" class="w-6 h-6 rounded-full object-cover"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="w-6 h-6 rounded-full bg-slate-700 items-center justify-center text-[10px] text-white" style="display: none;">
+                                    {{ (report.reporter.name or 'U')[:1] | upper }}
                                 </div>
+                            {% elif report.reporter %}
+                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
+                                    {{ (report.reporter.name or 'U')[:1] | upper }}
+                                </div>
+                            {% else %}
+                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-slate-400 font-bold" title="Người dùng không còn tồn tại">?</div>
                             {% endif %}
+                            {% if report.reporter %}
                             <a href="{{ url_for('admin_users') }}?search={{ report.reporter.email }}" class="text-slate-300 hover:text-white hover:underline truncate max-w-[120px]" title="{{ report.reporter.name }}">
                                 {{ report.reporter.name }}
                             </a>
+                            {% else %}
+                            <span class="text-xs text-slate-500 italic" title="Người dùng lịch sử (#{{ report.reporter_id }})">
+                                Người dùng cũ (#{{ report.reporter_id }})
+                            </span>
+                            {% endif %}
                         </div>
                     </td>
                     <td>
@@ -88,6 +100,7 @@
                         <div class="flex items-center justify-end gap-2">
                             {% if report.status == 'new' %}
                             <form action="{{ url_for('admin_update_report', report_id=report.id, action='investigate') }}" method="POST" class="inline">
+                                <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
                                 <button type="submit" class="btn btn-sm btn-ghost" title="Chuyển sang đang điều tra">Điều tra</button>
                             </form>
                             {% endif %}
@@ -99,7 +112,7 @@
                         </div>
                     </td>
                 </tr>
-                {% endendfor %}
+                {% endfor %}
             </tbody>
         </table>
     </div>
@@ -123,6 +136,7 @@
         </h3>
         <p class="modal-desc">Bạn có chắc chắn muốn đánh dấu khiếu nại này là đã được giải quyết?</p>
         <form id="resolveForm" method="POST" action="">
+            <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
             <div class="mb-4">
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Ghi chú / Hành động đã thực hiện</label>
                 <textarea name="resolution_note" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-brand focus:ring-1 focus:ring-brand outline-none" rows="3" placeholder="Ví dụ: Đã khóa tài khoản user vi phạm..." required></textarea>
@@ -144,6 +158,7 @@
         </h3>
         <p class="modal-desc">Khiếu nại này sẽ bị đánh dấu là không hợp lệ hoặc bị từ chối.</p>
         <form id="rejectForm" method="POST" action="">
+            <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
             <div class="mb-4">
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Lý do từ chối</label>
                 <textarea name="rejection_reason" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-brand focus:ring-1 focus:ring-brand outline-none" rows="3" placeholder="Ví dụ: Bằng chứng không đủ..." required></textarea>

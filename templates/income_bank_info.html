@@ -1,0 +1,408 @@
+{% extends "income_base.html" %}
+
+{% block income_content %}
+<div class="space-y-6">
+    <!-- Header & Action -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-150">
+        <div>
+            <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+                Thông tin nhận tiền
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">
+                Quản lý các tài khoản ngân hàng thụ hưởng nhận giải ngân thù lao phiên dịch từ hệ thống ký quỹ Escrow.
+            </p>
+        </div>
+        <div>
+            <button type="button"
+                    onclick="openAddModal()"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs rounded-xl shadow-sm transition hover:shadow focus:ring-2 focus:ring-brand-500 focus:ring-offset-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Thêm tài khoản ngân hàng
+            </button>
+        </div>
+    </div>
+
+    <!-- Alert nếu có ca làm việc / giải ngân đang chờ xử lý -->
+    {% if pending_payout_count and pending_payout_count > 0 %}
+    <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3">
+        <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <div class="text-xs leading-relaxed">
+            <span class="font-bold">Lưu ý về các khoản thù lao đang chờ xử lý:</span>
+            Bạn hiện có <strong>{{ pending_payout_count }} hợp đồng ca phiên dịch</strong> đang thực hiện hoặc chờ nghiệm thu. Khi khách hàng xác nhận hoàn tất, hệ thống sẽ tự động giải ngân thù lao ròng vào <span class="underline font-semibold">phương thức nhận tiền mặc định</span> được kích hoạt tại thời điểm thanh toán.
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Chính sách bảo mật & xác minh -->
+    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-600 text-xs flex items-center justify-between gap-4">
+        <div class="flex items-center gap-2.5">
+            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            <span>
+                Số tài khoản được mã hóa và che bảo mật tự động. Tên chủ tài khoản thụ hưởng phải trùng khớp với tên phiên dịch viên trên hệ thống để đảm bảo đối soát chính xác.
+            </span>
+        </div>
+        <span class="hidden md:inline-block px-2 py-0.5 text-[11px] font-medium bg-emerald-100 text-emerald-800 rounded-md shrink-0">
+            Escrow Protected
+        </span>
+    </div>
+
+    <!-- Danh sách thẻ ngân hàng -->
+    {% if methods and methods|length > 0 %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {% for m in methods %}
+        <div class="relative flex flex-col justify-between rounded-2xl p-6 transition-all duration-200 shadow-md hover:shadow-lg border {% if m.is_default %}bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white border-indigo-700/60 ring-2 ring-brand-500/30{% else %}bg-gradient-to-br from-slate-800 via-slate-850 to-slate-900 text-white border-slate-700{% endif %}">
+            
+            <!-- Hàng trên: Chip, Logo ngân hàng, Default Badge -->
+            <div>
+                <div class="flex items-start justify-between gap-2 mb-4">
+                    <div class="flex items-center gap-3">
+                        <!-- Chip biểu trưng -->
+                        <div class="w-10 h-7 rounded-md bg-gradient-to-tr from-amber-300 via-amber-200 to-yellow-400 p-0.5 shadow-inner flex items-center justify-center opacity-90">
+                            <div class="w-full h-full border border-amber-600/30 rounded flex flex-col justify-around py-0.5 px-1">
+                                <div class="h-0.5 bg-amber-700/40 w-full rounded"></div>
+                                <div class="h-0.5 bg-amber-700/40 w-2/3 rounded"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="font-bold tracking-wide text-sm block">{{ m.bank_short_name }}</span>
+                            <span class="text-[10px] text-slate-300 font-normal line-clamp-1 max-w-[200px]" title="{{ m.bank_name }}">
+                                {{ m.bank_name }}
+                            </span>
+                        </div>
+                    </div>
+
+                    {% if m.is_default %}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-xs">
+                        <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                        Mặc định
+                    </span>
+                    {% endif %}
+                </div>
+
+                <!-- Số tài khoản che -->
+                <div class="my-4">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400 font-medium mb-1">Số tài khoản thụ hưởng</div>
+                    <div class="font-mono text-xl tracking-widest text-slate-100 font-semibold select-all">
+                        {{ m.masked_account_number }}
+                    </div>
+                </div>
+
+                <!-- Chủ tài khoản & Chi nhánh -->
+                <div class="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-700/60">
+                    <div>
+                        <div class="text-[9px] uppercase tracking-wider text-slate-400">Chủ tài khoản</div>
+                        <div class="font-bold tracking-wide text-slate-100 truncate" title="{{ m.account_holder_name }}">
+                            {{ m.account_holder_name }}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-[9px] uppercase tracking-wider text-slate-400">Chi nhánh</div>
+                        <div class="text-slate-300 truncate" title="{{ m.branch or 'Hệ thống chính' }}">
+                            {{ m.branch or '—' }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hàng dưới: Trạng thái & Thao tác -->
+            <div class="mt-5 pt-3.5 border-t border-slate-700/60 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="text-[11px] text-emerald-300 font-medium">{{ m.status_label }}</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    {% if not m.is_default %}
+                    <form method="POST" action="{{ url_for('interpreter_income_bank_info') }}" class="inline">
+                        <input type="hidden" name="action" value="set_default">
+                        <input type="hidden" name="method_id" value="{{ m.id }}">
+                        <button type="submit"
+                                class="px-2.5 py-1 text-[11px] rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition hover:text-white font-medium"
+                                title="Đặt tài khoản này làm nơi nhận giải ngân chính">
+                            Đặt mặc định
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    <button type="button"
+                            onclick="openDeleteModal('{{ m.id }}', '{{ m.bank_short_name }}', '{{ m.masked_account_number }}', {{ 'true' if m.is_default else 'false' }})"
+                            class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                            title="Xóa tài khoản này">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <!-- Trạng thái trống (Empty State) -->
+    <div class="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-brand-50 text-brand-600 mx-auto flex items-center justify-center mb-4">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+            </svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-800 mb-1">Chưa có thông tin nhận tiền</h3>
+        <p class="text-xs text-slate-500 max-w-md mx-auto mb-6 leading-relaxed">
+            Bạn chưa thêm tài khoản ngân hàng nào để nhận thù lao. Hãy thêm tài khoản ngay để hệ thống tự động giải ngân khi ca làm việc được nghiệm thu.
+        </p>
+        <button type="button"
+                onclick="openAddModal()"
+                class="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs rounded-xl shadow-sm transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Thêm phương thức nhận tiền ngay
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Nhật ký thay đổi (Audit Trail) -->
+    {% if history and history|length > 0 %}
+    <div class="mt-8 pt-6 border-t border-slate-200">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Lịch sử cập nhật thông tin nhận tiền
+            </h3>
+            <span class="text-[11px] text-slate-400">{{ history|length }} sự kiện gần nhất</span>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden text-xs">
+            {% for item in history|reverse %}
+            <div class="p-3.5 flex items-center justify-between hover:bg-slate-50 transition">
+                <div class="flex items-center gap-3">
+                    <span class="w-2 h-2 rounded-full {% if item.action == 'add' %}bg-emerald-500{% elif item.action == 'set_default' %}bg-indigo-500{% else %}bg-rose-500{% endif %}"></span>
+                    <div>
+                        <div class="font-medium text-slate-800">{{ item.summary }}</div>
+                        <div class="text-[11px] text-slate-400">Thao tác bởi phiên dịch viên</div>
+                    </div>
+                </div>
+                <div class="text-right text-[11px] text-slate-400 font-mono">
+                    {{ item.timestamp[:19]|replace('T', ' ') if item.timestamp else '—' }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ==================== MODAL 1: THÊM TÀI KHOẢN NGÂN HÀNG ==================== -->
+<div id="addMethodModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 transition-opacity bg-slate-900/60 backdrop-blur-xs" onclick="closeAddModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        <!-- Modal panel -->
+        <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-slate-200">
+            <div class="p-6">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-150">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900">Thêm tài khoản nhận tiền</h3>
+                            <p class="text-xs text-slate-500">Khai báo thông tin tài khoản ngân hàng chính chủ</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeAddModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <form method="POST" action="{{ url_for('interpreter_income_bank_info') }}" class="mt-5 space-y-4">
+                    <input type="hidden" name="action" value="add">
+
+                    <!-- Chọn ngân hàng -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                            Ngân hàng thụ hưởng <span class="text-rose-500">*</span>
+                        </label>
+                        <select name="bank_code" required class="w-full text-xs rounded-xl border-slate-200 focus:border-brand-500 focus:ring-brand-500 py-2.5 px-3 bg-white">
+                            <option value="">-- Chọn ngân hàng trong hệ thống Napas / Việt Nam --</option>
+                            {% for b in supported_banks %}
+                            <option value="{{ b.code }}">{{ b.short_name }} — {{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Số tài khoản -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                            Số tài khoản ngân hàng <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="text"
+                               name="account_number"
+                               required
+                               pattern="[0-9]{6,20}"
+                               maxlength="20"
+                               placeholder="Ví dụ: 19036888888888"
+                               class="w-full text-xs font-mono rounded-xl border-slate-200 focus:border-brand-500 focus:ring-brand-500 py-2.5 px-3">
+                        <p class="text-[11px] text-slate-400 mt-1">Chỉ nhập số, từ 6 đến 20 chữ số liên tục.</p>
+                    </div>
+
+                    <!-- Tên chủ tài khoản -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                            Họ và tên chủ tài khoản <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="text"
+                               name="account_holder_name"
+                               required
+                               value="{{ user.full_name or '' }}"
+                               placeholder="Ví dụ: NGUYEN VAN A"
+                               class="w-full text-xs uppercase font-semibold rounded-xl border-slate-200 focus:border-brand-500 focus:ring-brand-500 py-2.5 px-3">
+                        <p class="text-[11px] text-slate-400 mt-1">Viết in hoa, phải trùng khớp với giấy tờ xác minh danh tính của bạn.</p>
+                    </div>
+
+                    <!-- Chi nhánh -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                            Chi nhánh ngân hàng <span class="text-slate-400 font-normal">(Không bắt buộc)</span>
+                        </label>
+                        <input type="text"
+                               name="branch"
+                               maxlength="120"
+                               placeholder="Ví dụ: Chi nhánh Ba Đình, Hà Nội"
+                               class="w-full text-xs rounded-xl border-slate-200 focus:border-brand-500 focus:ring-brand-500 py-2.5 px-3">
+                    </div>
+
+                    <!-- Đặt làm mặc định -->
+                    <div class="pt-2">
+                        <label class="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer">
+                            <input type="checkbox"
+                                   name="set_as_default"
+                                   value="1"
+                                   {% if not methods or methods|length == 0 %}checked disabled{% else %}checked{% endif %}
+                                   class="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300">
+                            <span class="font-medium">Đặt làm tài khoản nhận tiền mặc định</span>
+                        </label>
+                        {% if not methods or methods|length == 0 %}
+                        <p class="text-[10px] text-brand-600 mt-0.5 ml-6.5 font-medium">* Tài khoản đầu tiên được tự động đặt làm mặc định.</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-150">
+                        <button type="button"
+                                onclick="closeAddModal()"
+                                class="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                            Hủy bỏ
+                        </button>
+                        <button type="submit"
+                                class="px-5 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm transition hover:shadow">
+                            Xác nhận lưu tài khoản
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL 2: XÁC NHẬN XÓA PHƯƠNG THỨC ==================== -->
+<div id="deleteMethodModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity bg-slate-900/60 backdrop-blur-xs" onclick="closeDeleteModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full border border-slate-200">
+            <div class="p-6">
+                <div class="flex items-start gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Xóa tài khoản nhận tiền?</h3>
+                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                            Bạn có chắc chắn muốn xóa phương thức nhận tiền:
+                            <strong id="delBankName" class="text-slate-800"></strong>
+                            (<span id="delMaskedAcc" class="font-mono text-slate-700"></span>)?
+                        </p>
+                        <div id="delDefaultNotice" class="hidden mt-2.5 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] leading-relaxed">
+                            ⚠️ Tài khoản này đang là <strong>mặc định</strong>. Nếu xóa, tài khoản tiếp theo trong danh sách sẽ tự động trở thành mặc định mới.
+                        </div>
+                    </div>
+                </div>
+
+                <form method="POST" action="{{ url_for('interpreter_income_bank_info') }}" class="mt-6 flex items-center justify-end gap-3">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="method_id" id="delMethodId" value="">
+
+                    <button type="button"
+                            onclick="closeDeleteModal()"
+                            class="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                        Hủy
+                    </button>
+                    <button type="submit"
+                            class="px-5 py-2.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm transition hover:shadow">
+                        Xác nhận xóa
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openAddModal() {
+    document.getElementById('addMethodModal').classList.remove('hidden');
+}
+
+function closeAddModal() {
+    document.getElementById('addMethodModal').classList.add('hidden');
+}
+
+function openDeleteModal(methodId, bankName, maskedAcc, isDefault) {
+    document.getElementById('delMethodId').value = methodId;
+    document.getElementById('delBankName').textContent = bankName;
+    document.getElementById('delMaskedAcc').textContent = maskedAcc;
+    
+    const notice = document.getElementById('delDefaultNotice');
+    if (isDefault) {
+        notice.classList.remove('hidden');
+    } else {
+        notice.classList.add('hidden');
+    }
+
+    document.getElementById('deleteMethodModal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteMethodModal').classList.add('hidden');
+}
+
+// Đóng modal khi nhấn phím Escape
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeAddModal();
+        closeDeleteModal();
+    }
+});
+</script>
+{% endblock %}

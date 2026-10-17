@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Tin tức ngành phiên dịch | VietTranslate{% endblock %}
+
+{% block head %}
+<!-- SEO Meta -->
+<meta name="description" content="Cập nhật tin tức, xu hướng, kiến thức và công nghệ mới nhất trong ngành phiên dịch cùng VietTranslate.">
+<meta name="keywords" content="tin tức phiên dịch, xu hướng dịch thuật, AI phiên dịch, công nghệ ngôn ngữ">
+<link rel="canonical" href="{{ request.url_root }}tin-tuc">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Tin tức ngành phiên dịch | VietTranslate">
+<meta property="og:description" content="Cập nhật tin tức, xu hướng, kiến thức và công nghệ mới nhất trong ngành phiên dịch cùng VietTranslate.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.url_root }}tin-tuc">
+<meta property="og:site_name" content="VietTranslate">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Tin tức ngành phiên dịch | VietTranslate">
+<meta name="twitter:description" content="Cập nhật tin tức, xu hướng, kiến thức và công nghệ mới nhất trong ngành phiên dịch cùng VietTranslate.">
+
+<!-- Schema.org -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "Tin tức ngành phiên dịch",
+  "description": "Cập nhật tin tức, xu hướng, kiến thức và công nghệ mới nhất trong ngành phiên dịch cùng VietTranslate.",
+  "url": "{{ request.url_root }}tin-tuc",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "VietTranslate",
+    "url": "{{ request.url_root }}"
+  },
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {"@type": "ListItem", "position": 1, "name": "Trang chủ", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 2, "name": "Tin tức", "item": "{{ request.url_root }}tin-tuc"}
+    ]
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "VietTranslate",
+    "url": "{{ request.url_root }}"
+  }
+}
+</script>
+
+<style>
+    .news-hero-bg {
+        background:
+            radial-gradient(at 15% 25%, rgba(219, 234, 254, 0.6) 0px, transparent 50%),
+            radial-gradient(at 85% 20%, rgba(238, 242, 255, 0.7) 0px, transparent 50%),
+            radial-gradient(at 50% 75%, rgba(224, 231, 255, 0.4) 0px, transparent 60%),
+            linear-gradient(180deg, #ffffff 0%, #f5f8ff 60%, #f8fafc 100%);
+    }
+    .category-pill {
+        white-space: nowrap;
+        transition: all 0.15s ease;
+    }
+    .category-pill.active {
+        background: #2563eb;
+        color: #ffffff;
+        border-color: #2563eb;
+    }
+    .category-pill:not(.active):hover {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        color: #2563eb;
+    }
+    .news-card-img {
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .news-card:hover .news-card-img {
+        transform: scale(1.03);
+    }
+    .featured-main:hover .news-card-img {
+        transform: scale(1.02);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════════════════════════════════════════════════════════
+     BREADCRUMB
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-0">
+    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-slate-400 font-medium">
+        <a href="{{ url_for('index') }}" class="hover:text-brand-600 transition">Trang chủ</a>
+        <svg class="w-3 h-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+        </svg>
+        <span class="text-slate-600 font-semibold">Tin tức</span>
+    </nav>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     HERO SECTION
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="news-hero-bg pt-8 pb-10 md:pt-12 md:pb-14 border-b border-slate-200/60">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/60 px-3.5 py-1 rounded-full mb-3">
+            Tin tức & Xu hướng
+        </span>
+        <h1 class="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight mb-4">
+            Tin tức ngành <span class="bg-gradient-to-r from-brand-600 via-brand-700 to-indigo-700 bg-clip-text text-transparent">phiên dịch</span>
+        </h1>
+        <p class="text-slate-500 text-sm sm:text-base leading-relaxed max-w-2xl mx-auto">
+            Cập nhật những thông tin, xu hướng và kiến thức mới trong lĩnh vực phiên dịch.
+        </p>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CATEGORY BAR
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="sticky top-16 md:top-[72px] z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center gap-2 py-3 overflow-x-auto no-scrollbar" id="category-bar">
+            {% for cat in categories %}
+            <a href="{{ url_for('news_list', category=cat.id) if cat.id != 'all' else url_for('news_list') }}"
+               class="category-pill inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-semibold border cursor-pointer
+                      {% if active_category == cat.id %}active{% else %}bg-white text-slate-600 border-slate-200/80{% endif %}">
+                {{ cat.name }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     FEATURED ARTICLES
+     ═══════════════════════════════════════════════════════════════ -->
+{% if featured_articles and not active_category or active_category == 'all' %}
+<section class="py-10 md:py-14" aria-label="Tin nổi bật">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-1 h-6 bg-brand-600 rounded-full"></div>
+            <h2 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Tin nổi bật</h2>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+            <!-- Main Featured -->
+            {% if featured_articles|length > 0 %}
+            {% set main = featured_articles[0] %}
+            <a href="{{ url_for('news_detail', slug=main.slug) }}"
+               class="featured-main group bg-white rounded-2xl border border-slate-200/90 shadow-soft overflow-hidden card-interactive block">
+                <div class="overflow-hidden aspect-[16/9]">
+                    <img src="{{ main.thumbnail }}" alt="{{ main.title }}"
+                         class="w-full h-full object-cover news-card-img" loading="lazy">
+                </div>
+                <div class="p-5 sm:p-6">
+                    <span class="inline-block text-[10px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/50 px-2.5 py-0.5 rounded-full mb-2.5">
+                        {{ get_category_name(main.category) }}
+                    </span>
+                    <h3 class="text-lg sm:text-xl font-bold text-slate-900 leading-snug mb-2 group-hover:text-brand-600 transition-colors line-clamp-2">
+                        {{ main.title }}
+                    </h3>
+                    <p class="text-slate-500 text-sm leading-relaxed mb-3 line-clamp-2">
+                        {{ main.excerpt }}
+                    </p>
+                    <div class="flex items-center gap-3 text-xs text-slate-400">
+                        <span>{{ format_date(main.publishedAt) }}</span>
+                        <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+                        <span>{{ main.readingTime }} phút đọc</span>
+                    </div>
+                </div>
+            </a>
+            {% endif %}
+
+            <!-- Side Featured (3 items) -->
+            <div class="flex flex-col gap-4">
+                {% for article in featured_articles[1:4] %}
+                <a href="{{ url_for('news_detail', slug=article.slug) }}"
+                   class="news-card group bg-white rounded-xl border border-slate-200/90 shadow-soft overflow-hidden card-interactive flex gap-0">
+                    <div class="w-32 sm:w-40 flex-shrink-0 overflow-hidden">
+                        <img src="{{ article.thumbnail }}" alt="{{ article.title }}"
+                             class="w-full h-full object-cover news-card-img" loading="lazy">
+                    </div>
+                    <div class="flex flex-col justify-center p-3.5 sm:p-4 min-w-0 flex-1">
+                        <span class="inline-block text-[9px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/50 px-2 py-0.5 rounded-full mb-1.5 self-start">
+                            {{ get_category_name(article.category) }}
+                        </span>
+                        <h3 class="text-sm font-bold text-slate-900 leading-snug mb-1.5 group-hover:text-brand-600 transition-colors line-clamp-2">
+                            {{ article.title }}
+                        </h3>
+                        <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                            <span>{{ format_date(article.publishedAt) }}</span>
+                            <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+                            <span>{{ article.readingTime }} phút đọc</span>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LATEST ARTICLES + SIDEBAR
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="pb-16 md:pb-20" aria-label="Tin mới nhất">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-1 h-6 bg-brand-600 rounded-full"></div>
+            <h2 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Tin mới nhất</h2>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+
+            <!-- Main Content (70%) -->
+            <div class="flex-1 lg:w-[70%]">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5" id="articles-grid">
+                    {% for article in latest_articles %}
+                    <a href="{{ url_for('news_detail', slug=article.slug) }}"
+                       class="news-card group bg-white rounded-2xl border border-slate-200/90 shadow-soft overflow-hidden card-interactive block">
+                        <div class="overflow-hidden aspect-[16/9]">
+                            <img src="{{ article.thumbnail }}" alt="{{ article.title }}"
+                                 class="w-full h-full object-cover news-card-img" loading="lazy">
+                        </div>
+                        <div class="p-4 sm:p-5">
+                            <span class="inline-block text-[10px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/50 px-2.5 py-0.5 rounded-full mb-2">
+                                {{ get_category_name(article.category) }}
+                            </span>
+                            <h3 class="text-sm sm:text-base font-bold text-slate-900 leading-snug mb-2 group-hover:text-brand-600 transition-colors line-clamp-2">
+                                {{ article.title }}
+                            </h3>
+                            <p class="text-slate-500 text-xs leading-relaxed mb-3 line-clamp-2">
+                                {{ article.excerpt }}
+                            </p>
+                            <div class="flex items-center gap-2.5 text-[11px] text-slate-400">
+                                <span>{{ format_date(article.publishedAt) }}</span>
+                                <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                <span>{{ article.readingTime }} phút đọc</span>
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+
+                {% if show_more %}
+                <div class="text-center mt-8">
+                    <a href="{{ url_for('news_list', category=active_category, page=current_page + 1) }}"
+                       class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-6 py-3 rounded-xl transition shadow-sm shadow-brand-500/20">
+                        Xem thêm
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Sidebar (30%) -->
+            <aside class="lg:w-[30%] flex flex-col gap-6">
+
+                <!-- Chủ đề được quan tâm -->
+                <div class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-5">
+                    <h3 class="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                        </svg>
+                        Chủ đề được quan tâm
+                    </h3>
+                    <div class="flex flex-wrap gap-2">
+                        {% for topic in popular_topics %}
+                        <a href="{{ url_for('news_list', category=topic.slug) }}"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200/80 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition">
+                            <span>{{ topic.icon }}</span>
+                            {{ topic.name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Bài viết phổ biến -->
+                <div class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-5">
+                    <h3 class="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                        Bài viết phổ biến
+                    </h3>
+                    <div class="space-y-3.5">
+                        {% for article in popular_articles %}
+                        <a href="{{ url_for('news_detail', slug=article.slug) }}"
+                           class="group flex gap-3 items-start">
+                            <span class="flex-shrink-0 w-7 h-7 bg-brand-50 text-brand-600 rounded-lg flex items-center justify-center text-xs font-bold border border-brand-100">
+                                {{ loop.index }}
+                            </span>
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold text-slate-800 leading-snug group-hover:text-brand-600 transition-colors line-clamp-2">
+                                    {{ article.title }}
+                                </p>
+                                <span class="text-[10px] text-slate-400 mt-0.5 block">{{ article.readingTime }} phút đọc · {{ article.views }} lượt xem</span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- CTA -->
+                <div class="mesh-cta-bg rounded-2xl p-5 sm:p-6 text-center">
+                    <p class="text-white font-bold text-sm mb-1.5">Bạn đang cần phiên dịch?</p>
+                    <p class="text-blue-100 text-xs mb-4">Tìm phiên dịch viên phù hợp với nhu cầu của bạn.</p>
+                    <a href="{{ url_for('translator_list') }}"
+                       class="inline-flex items-center gap-2 bg-white text-brand-700 hover:bg-blue-50 font-bold text-xs px-5 py-2.5 rounded-xl transition shadow-md">
+                        Tìm phiên dịch viên
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                    </a>
+                </div>
+
+            </aside>
+
+        </div>
+    </div>
+</section>
+
+{% endblock %}

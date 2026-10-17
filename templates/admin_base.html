@@ -721,15 +721,24 @@
         /* ─── MOBILE TOGGLE ──────────────────── */
         .sidebar-toggle {
             display: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
+            min-width: 44px;
+            min-height: 44px;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
             border: 1px solid var(--border);
-            background: rgba(15,23,42,0.4);
-            color: var(--muted);
+            background: rgba(15,23,42,0.5);
+            color: var(--text);
             cursor: pointer;
             align-items: center;
             justify-content: center;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .sidebar-toggle:hover, .sidebar-toggle:focus-visible {
+            background: rgba(148,163,184,0.15);
+            color: #fff;
+            border-color: rgba(148,163,184,0.3);
+            outline: none;
         }
 
         /* ─── RESPONSIVE ─────────────────────── */
@@ -803,6 +812,7 @@
             <!-- DUYỆT & KIỂM DUYỆT -->
             <div class="nav-section-label">Duyệt & Kiểm duyệt</div>
 
+            {% if has_permission('view_translators') %}
             <a href="{{ url_for('admin_translators') }}"
                class="nav-item {% if request.endpoint == 'admin_translators' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -813,18 +823,37 @@
                 <span class="nav-badge">{{ admin_badge_pending_translators }}</span>
                 {% endif %}
             </a>
+            {% endif %}
 
+            {% if has_permission('view_hirers') %}
+            <a href="{{ url_for('admin_hirers') }}"
+               class="nav-item {% if request.endpoint in ('admin_hirers', 'admin_hirer_verify') %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                Người đăng
+                {% if admin_badge_pending_hirers and admin_badge_pending_hirers > 0 %}
+                <span class="nav-badge warning">{{ admin_badge_pending_hirers }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+
+            {% if has_permission('view_jobs') %}
             <a href="{{ url_for('admin_jobs') }}"
                class="nav-item {% if request.endpoint == 'admin_jobs' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
                 </svg>
                 Jobs
-                {% if admin_badge_flagged_jobs and admin_badge_flagged_jobs > 0 %}
-                <span class="nav-badge warning">{{ admin_badge_flagged_jobs }}</span>
+                {% if admin_badge_pending_jobs and admin_badge_pending_jobs > 0 %}
+                <span class="nav-badge warning">{{ admin_badge_pending_jobs }}</span>
+                {% elif admin_badge_flagged_jobs and admin_badge_flagged_jobs > 0 %}
+                <span class="nav-badge danger">{{ admin_badge_flagged_jobs }}</span>
                 {% endif %}
             </a>
+            {% endif %}
 
+            {% if has_permission('view_reports') %}
             <a href="{{ url_for('admin_reports') if 'admin_reports' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_reports' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -836,10 +865,12 @@
                 <span class="nav-badge">{{ admin_badge_reports }}</span>
                 {% endif %}
             </a>
+            {% endif %}
 
             <!-- QUẢN LÝ -->
             <div class="nav-section-label">Quản lý</div>
 
+            {% if has_permission('view_users') %}
             <a href="{{ url_for('admin_users') }}"
                class="nav-item {% if request.endpoint == 'admin_users' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -849,7 +880,9 @@
                 </svg>
                 Users
             </a>
+            {% endif %}
 
+            {% if has_permission('view_proposals') %}
             <a href="{{ url_for('admin_proposals') if 'admin_proposals' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_proposals' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -858,7 +891,9 @@
                 </svg>
                 Proposal
             </a>
+            {% endif %}
 
+            {% if has_permission('view_contracts') %}
             <a href="{{ url_for('admin_contracts') if 'admin_contracts' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_contracts' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -866,7 +901,9 @@
                 </svg>
                 Contract
             </a>
+            {% endif %}
 
+            {% if has_permission('view_schedules') %}
             <a href="{{ url_for('admin_schedules') if 'admin_schedules' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_schedules' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -874,7 +911,9 @@
                 </svg>
                 Schedule
             </a>
+            {% endif %}
 
+            {% if has_permission('view_payments') %}
             <a href="{{ url_for('admin_payments') if 'admin_payments' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_payments' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -882,7 +921,9 @@
                 </svg>
                 Payment
             </a>
+            {% endif %}
 
+            {% if has_permission('view_reviews') %}
             <a href="{{ url_for('admin_reviews') if 'admin_reviews' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_reviews' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -890,10 +931,12 @@
                 </svg>
                 Review
             </a>
+            {% endif %}
 
             <!-- HỆ THỐNG -->
             <div class="nav-section-label">Hệ thống</div>
 
+            {% if has_permission('view_notifications') %}
             <a href="{{ url_for('admin_notifications') if 'admin_notifications' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_notifications' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -905,15 +948,19 @@
                     <span class="nav-badge info">{{ admin_badge_notifications }}</span>
                 {% endif %}
             </a>
+            {% endif %}
 
-            <a href="{{ url_for('admin_analytics') if 'admin_analytics' in get_admin_routes() else '#' }}"
+            {% if 'admin_analytics' in get_admin_routes() %}
+            <a href="{{ url_for('admin_analytics') }}"
                class="nav-item {% if request.endpoint == 'admin_analytics' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                 </svg>
                 Analytics
             </a>
+            {% endif %}
 
+            {% if has_permission('view_audit_logs') %}
             <a href="{{ url_for('admin_audit_logs') if 'admin_audit_logs' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_audit_logs' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -922,7 +969,9 @@
                 </svg>
                 Audit Log
             </a>
+            {% endif %}
 
+            {% if has_permission('manage_admins') %}
             <a href="{{ url_for('admin_admins') if 'admin_admins' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_admins' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -930,8 +979,10 @@
                 </svg>
                 Manage Admins
             </a>
+            {% endif %}
 
-            <a href="{{ url_for('admin_settings') if 'admin_settings' in get_admin_routes() else '#' }}"
+            {% if (has_permission('manage_settings') or admin_role == 'super_admin') and 'admin_settings' in get_admin_routes() %}
+            <a href="{{ url_for('admin_settings') }}"
                class="nav-item {% if request.endpoint == 'admin_settings' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"/>
@@ -939,15 +990,25 @@
                 </svg>
                 Settings
             </a>
+            {% endif %}
 
         </nav>
 
         <!-- Sidebar Footer: Admin Info -->
         <div class="sidebar-footer">
             <div class="sidebar-admin-info">
+                {% if current_admin and current_admin.avatar_url %}
+                <img src="{{ current_admin.avatar_url }}" alt="Admin"
+                     style="width: 28px; height: 28px; border-radius: 8px; object-fit: cover; flex-shrink: 0;"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="admin-avatar" style="display: none;">
+                    {{ current_admin.name[0]|upper if current_admin and current_admin.name else 'A' }}
+                </div>
+                {% else %}
                 <div class="admin-avatar">
                     {{ current_admin.name[0]|upper if current_admin and current_admin.name else 'A' }}
                 </div>
+                {% endif %}
                 <div class="admin-name-wrap">
                     <div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                         {{ current_admin.name if current_admin else 'Admin' }}
@@ -974,8 +1035,9 @@
         <header class="admin-header">
 
             <!-- Mobile toggle -->
-            <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()"
+                    aria-label="Mở menu quản trị" aria-expanded="false" aria-controls="adminSidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
                 </svg>
             </button>
@@ -1078,22 +1140,44 @@
 
 <script>
 // ─── Sidebar Mobile ───────────────────────────────────
-function toggleSidebar() {
+function toggleSidebar(forceOpen) {
     const sidebar = document.getElementById('adminSidebar');
     const overlay = document.getElementById('sidebarOverlay');
+    const toggleBtn = document.getElementById('sidebarToggle');
+    if (!sidebar || !overlay) return;
     const isOpen = sidebar.classList.contains('open');
-    if (isOpen) {
-        closeSidebar();
-    } else {
+    const willOpen = (typeof forceOpen === 'boolean') ? forceOpen : !isOpen;
+    if (willOpen) {
         sidebar.classList.add('open');
         overlay.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        if (toggleBtn) {
+            toggleBtn.setAttribute('aria-expanded', 'true');
+            toggleBtn.setAttribute('aria-label', 'Đóng menu quản trị');
+        }
+    } else {
+        sidebar.classList.remove('open');
+        overlay.style.display = 'none';
+        document.body.style.overflow = '';
+        if (toggleBtn) {
+            toggleBtn.setAttribute('aria-expanded', 'false');
+            toggleBtn.setAttribute('aria-label', 'Mở menu quản trị');
+        }
     }
 }
 
 function closeSidebar() {
-    document.getElementById('adminSidebar').classList.remove('open');
-    document.getElementById('sidebarOverlay').style.display = 'none';
+    toggleSidebar(false);
 }
+
+// Tự động đóng sidebar khi chọn mục điều hướng trên thiết bị di động
+document.getElementById('adminSidebar')?.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+        if (window.innerWidth <= 768) {
+            closeSidebar();
+        }
+    });
+});
 
 // ─── Global Search ────────────────────────────────────
 function handleAdminSearch(e) {
@@ -1166,9 +1250,20 @@ function submitConfirmModal() {
     }
 }
 
-// Close modal on Escape
+// Close modal or sidebar on Escape
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeConfirmModal();
+    if (e.key === 'Escape') {
+        const confirmModal = document.getElementById('confirmModal');
+        if (confirmModal && confirmModal.classList.contains('open')) {
+            closeConfirmModal();
+            return;
+        }
+        const sidebar = document.getElementById('adminSidebar');
+        if (sidebar && sidebar.classList.contains('open')) {
+            closeSidebar();
+            document.getElementById('sidebarToggle')?.focus();
+        }
+    }
 });
 
 // ─── Flash auto-dismiss ───────────────────────────────

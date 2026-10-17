@@ -19,7 +19,14 @@
     "lang_en": "English",
     "default_title": "VietTranslate | Nền Tảng Kết Nối Phiên Dịch Chuyên Nghiệp",
     "messages_tooltip": "Tin nhắn",
-    "notifications_tooltip": "Thông báo"
+    "notifications_tooltip": "Thông báo",
+    "help_tooltip": "Trợ giúp & Hỗ trợ",
+    "settings_tooltip": "Cài đặt & Bảo mật",
+    "my_jobs": "Việc làm của tôi",
+    "find_jobs": "Tìm việc",
+    "recommended_jobs": "Việc phù hợp",
+    "my_services": "Dịch vụ của tôi",
+    "my_schedule": "Lịch làm việc"
   },
   "footer": {
     "tagline": "Nền tảng kết nối ngôn ngữ hiện đại. Uy tín trong từng kết nối, chất lượng trong từng trải nghiệm giữa khách hàng và phiên dịch viên chuyên nghiệp.",
@@ -62,18 +69,18 @@
     "popular_tags_label": "Tìm kiếm nhanh:"
   },
   "stats": {
-    "translators_count": "5,200+",
+    "translators_count": "11+",
     "translators_label": "Phiên dịch viên chuyên nghiệp",
-    "satisfaction_rate": "99.4%",
+    "satisfaction_rate": "100%",
     "satisfaction_label": "Tỷ lệ khách hàng hài lòng",
-    "contracts_count": "12,400+",
+    "contracts_count": "3+",
     "contracts_label": "Hợp đồng hoàn thành thành công",
     "escrow_amount": "100%",
     "escrow_label": "Quỹ thanh toán bảo vệ Escrow"
   },
   "home_languages": {
     "badge": "Ngôn ngữ phổ biến",
-    "title": "Hỗ Trợ Toàn Diện 10+ Ngôn Ngữ Trọng Tâm",
+    "title": "Hỗ Trợ Toàn Diện 13+ Ngôn Ngữ Trọng Tâm",
     "subtitle": "Mỗi ngôn ngữ đều có đội ngũ phiên dịch viên đã qua kiểm tra chứng chỉ quốc tế và kinh nghiệm thực chiến.",
     "view_all": "Xem tất cả phiên dịch viên",
     "translators_suffix": "chuyên gia"
@@ -185,8 +192,8 @@
     "policy_item1_text": "Áp dụng nếu phiên dịch viên vắng mặt, hủy ca đột xuất hoặc không bàn giao tài liệu như đã ký kết.",
     "policy_item2_label": "Hỗ trợ giải quyết tranh chấp:",
     "policy_item2_text": "Ban quản trị VietTranslate tham gia đối soát chứng từ, ghi âm, bản dịch trong vòng 24 giờ làm việc.",
-    "policy_item3_label": "99.4% tỉ lệ hài lòng:",
-    "policy_item3_text": "Hơn 12,000+ hợp đồng giao dịch an toàn không phát sinh tranh chấp."
+    "policy_item3_label": "100% tỉ lệ hài lòng:",
+    "policy_item3_text": "3 hợp đồng giao dịch an toàn không phát sinh tranh chấp."
   },
   "auth": {
     "login_title": "Đăng Nhập | VietTranslate",
@@ -410,13 +417,13 @@
     "cat_negotiation": "Phiên dịch Đàm phán thương mại",
     "cat_document": "Biên dịch tài liệu / Hợp đồng",
     "cat_legal": "Phiên dịch Pháp lý / Tòa án",
-    "submit_btn": "Đăng Tin Tuyển Dụng Ngay",
+    "submit_btn": "Gửi duyệt",
     "cancel_btn": "Hủy bỏ"
   },
   "profile_page": {
     "breadcrumb_home": "Trang chủ",
     "breadcrumb_translators": "Phiên dịch viên",
-    "verified": "Xác minh",
+    "verified": "Đã xác minh",
     "chat_now": "Trò chuyện ngay",
     "reviews_count": "đánh giá",
     "completed_projects": "Đã hoàn thành",
@@ -503,7 +510,21 @@
     "notif_new_messages": "Tin nhắn mới",
     "notif_new_reviews": "Đánh giá mới",
     "notif_contracts": "Cập nhật hợp đồng",
-    "save_preferences_btn": "Lưu cài đặt"
+    "save_preferences_btn": "Lưu cài đặt",
+    "heading_avatar": "Ảnh đại diện tài khoản",
+    "avatar_subtitle": "Tải lên ảnh chân dung rõ nét để tăng độ tin cậy và chuyên nghiệp",
+    "btn_upload_photo": "Tải ảnh mới lên",
+    "btn_change_photo": "Đổi ảnh khác",
+    "btn_remove_photo": "Gỡ ảnh hiện tại",
+    "avatar_guidelines": "Hỗ trợ định dạng JPG, PNG, WEBP, GIF. Dung lượng tối đa 5MB.",
+    "custom_avatar_badge": "Ảnh tùy chỉnh",
+    "default_avatar_badge": "Ảnh mặc định",
+    "select_photo_prompt": "Nhấn để chọn ảnh từ máy tính",
+    "modal_avatar_title": "Cập nhật ảnh đại diện",
+    "modal_avatar_preview": "Xem trước ảnh đại diện",
+    "btn_save_avatar": "Lưu ảnh đại diện",
+    "uploading_avatar": "Đang tải ảnh lên...",
+    "confirm_remove_avatar": "Bạn có chắc chắn muốn gỡ ảnh đại diện này?"
   },
   "common": {
     "all": "Tất cả",
@@ -555,7 +576,12 @@
     "already_applied": "Bạn đã gửi đề xuất cho công việc này rồi.",
     "missing_proposal_fields": "Không được để trống Giá đề xuất và Thời gian hoàn thành.",
     "proposal_sent": "Gửi đề xuất thành công!",
-    "message_sent": "Đã gửi tin nhắn!"
+    "message_sent": "Đã gửi tin nhắn!",
+    "avatar_updated": "Cập nhật ảnh đại diện thành công!",
+    "avatar_removed": "Đã gỡ ảnh đại diện thành công!",
+    "avatar_invalid_file": "Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WEBP, GIF)!",
+    "avatar_file_too_large": "Kích thước tệp vượt quá giới hạn 5MB!",
+    "avatar_upload_failed": "Có lỗi khi tải ảnh lên máy chủ, vui lòng thử lại!"
   },
   "auto": {
     "chờ_escrow": "Chờ Escrow",

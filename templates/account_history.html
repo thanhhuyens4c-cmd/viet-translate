@@ -28,6 +28,12 @@
                         <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
                         {{ t('account_history_page.nav_history') }}
                     </a>
+                    {% if current_user.role == 'translator' %}
+                    <a href="{{ url_for('my_schedule') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            {{ t('nav.my_schedule') }}
+                    </a>
+                    {% endif %}
                 </nav>
             </div>
         </aside>
@@ -35,13 +41,23 @@
         <!-- Main Content -->
         <div class="flex-grow space-y-8">
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                {% if tx_rows is defined %}
+                {% set vi = current_lang == 'vi' %}
+                {% set labels = {
+                    'awaiting_payment': ('Chờ thanh toán' if vi else 'Awaiting payment', 'bg-amber-50 text-amber-800 border-amber-200/70'),
+                    'processing': ('Đang xử lý' if vi else 'Processing', 'bg-sky-50 text-sky-800 border-sky-200/70'),
+                    'success': ('Thành công' if vi else 'Successful', 'bg-emerald-50 text-emerald-800 border-emerald-200/70'),
+                    'failed': ('Thất bại' if vi else 'Failed', 'bg-rose-50 text-rose-800 border-rose-200/70'),
+                    'refunded': ('Đã hoàn tiền' if vi else 'Refunded', 'bg-violet-50 text-violet-800 border-violet-200/70'),
+                    'cancelled': ('Đã hủy' if vi else 'Cancelled', 'bg-slate-100 text-slate-600 border-slate-200'),
+                    'unrecorded': ('Chưa ghi nhận thanh toán' if vi else 'No payment recorded', 'bg-slate-100 text-slate-600 border-slate-200')
+                } %}
                 <h1 class="text-lg font-bold mb-6 text-slate-900 flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                    {{ t('account_history_page.heading') }}
+                    {{ 'Lịch sử giao dịch' if vi else 'Transaction history' }}
                 </h1>
-                
-                {% if current_user.role == 'hirer' %}
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     <div class="rounded-xl border border-brand-200/60 bg-brand-50/50 p-4">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">{{ 'Tổng chi đến hiện tại' if current_lang == 'vi' else 'Total spent to date' }}</p>
                         <p class="text-xl font-extrabold text-brand-700 mt-1">{{ finance.total|vnd }} VND</p>
@@ -55,8 +71,101 @@
                         <p class="text-xl font-extrabold text-amber-700 mt-1">{{ finance.holding|vnd }} VND</p>
                     </div>
                 </div>
-                {% endif %}
 
+                <form method="get" action="{{ url_for('account_history') }}" class="flex flex-col sm:flex-row gap-3 mb-6">
+                    <input type="search" name="q" value="{{ tx_q }}" maxlength="100"
+                           placeholder="{{ 'Tìm theo mã giao dịch, mã đơn, dự án...' if vi else 'Search by transaction code, order, project...' }}"
+                           class="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm">
+                    <select name="status" class="px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm bg-white">
+                        <option value="">{{ 'Tất cả trạng thái' if vi else 'All statuses' }}</option>
+                        {% for s in tx_statuses %}
+                        <option value="{{ s }}" {{ 'selected' if s == tx_status }}>{{ labels[s][0] }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm">{{ 'Lọc' if vi else 'Filter' }}</button>
+                </form>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="pb-3.5 font-bold">{{ 'Mã giao dịch' if vi else 'Transaction' }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('account_history_page.th_project') }}</th>
+                                <th class="pb-3.5 font-bold">{{ 'Ngày' if vi else 'Date' }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('account_history_page.th_amount') }}</th>
+                                <th class="pb-3.5 font-bold">{{ 'Phương thức' if vi else 'Method' }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('account_history_page.th_status') }}</th>
+                                <th class="pb-3.5 font-bold text-right">{{ t('account_history_page.th_actions') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
+                            {% for r in tx_rows %}
+                            <tr class="hover:bg-slate-50/60 transition">
+                                <td class="py-4 font-mono text-xs text-slate-700">
+                                    {{ r.tx_code or '—' }}<br><span class="text-slate-400">{{ r.order_code }}</span>
+                                </td>
+                                <td class="py-4 font-bold text-slate-900 max-w-xs truncate">{{ r.title or r.order_code }}</td>
+                                <td class="py-4 text-slate-500 text-xs">{{ r.date.strftime('%d/%m/%Y %H:%M') }}</td>
+                                <td class="py-4 font-extrabold text-brand-700">{{ r.amount|vnd }} VND</td>
+                                <td class="py-4 text-slate-500">{{ r.method or '—' }}</td>
+                                <td class="py-4"><span class="px-2.5 py-1 text-[11px] font-bold rounded-full border {{ labels[r.status][1] }}">{{ labels[r.status][0] }}</span></td>
+                                <td class="py-4 text-right whitespace-nowrap">
+                                    {% if r.contract.status in ('in_progress', 'completed') %}
+                                    <a href="{{ url_for('contract_invoice', contract_id=r.contract.id) }}" target="_blank" class="text-xs font-bold text-emerald-700 hover:underline mr-3">{{ 'Hóa đơn' if vi else 'Invoice' }}</a>
+                                    {% endif %}
+                                    <a href="{{ url_for('account_transaction_detail', contract_id=r.contract.id) }}" class="text-xs font-bold text-brand-600 hover:underline">{{ t('account_history_page.view_detail') }}</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="7" class="py-12 text-center text-slate-400 text-xs sm:text-sm">
+                                {{ 'Không có giao dịch phù hợp.' if vi else 'No matching transactions.' }}
+                            </td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if tx_pages > 1 %}
+                <nav class="flex items-center justify-between mt-5 text-xs sm:text-sm">
+                    <span class="text-slate-400">{{ tx_total }} {{ 'giao dịch' if vi else 'items' }} · {{ tx_page }}/{{ tx_pages }}</span>
+                    <div class="flex gap-2">
+                        {% if tx_page > 1 %}<a class="px-3 py-1.5 border border-slate-200 rounded-lg font-bold" href="{{ url_for('account_history', q=tx_q, status=tx_status, page=tx_page-1) }}">‹</a>{% endif %}
+                        {% if tx_page < tx_pages %}<a class="px-3 py-1.5 border border-slate-200 rounded-lg font-bold" href="{{ url_for('account_history', q=tx_q, status=tx_status, page=tx_page+1) }}">›</a>{% endif %}
+                    </div>
+                </nav>
+                {% endif %}
+                {% else %}
+                <h1 class="text-lg font-bold mb-6 text-slate-900 flex items-center justify-between gap-2">
+                    <span class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                        {{ t('account_history_page.heading') }}
+                    </span>
+                    {% if period_filter or status_filter %}
+                    <a href="{{ url_for('account_history') }}" class="text-xs font-semibold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center gap-2" title="Xóa tất cả bộ lọc">
+                        <span>Đang lọc:</span>
+                        {% if period_filter == 'current_month' %}
+                        <span class="font-bold text-slate-800">Kỳ {{ period_label }}</span>
+                        {% endif %}
+                        {% if period_filter and status_filter %}•{% endif %}
+                        {% if status_filter == 'completed' %}
+                        <span class="font-bold text-emerald-700">Đã giải ngân (Hoàn tất)</span>
+                        {% elif status_filter in ['in_progress', 'active', 'escrow_held'] %}
+                        <span class="font-bold text-blue-700">Đang thực hiện • Tiền trong Escrow</span>
+                        {% elif status_filter == 'escrow_pending' %}
+                        <span class="font-bold text-amber-700">Chờ khách thanh toán Escrow</span>
+                        {% elif status_filter %}
+                        <span class="font-bold">{{ status_filter }}</span>
+                        {% endif %}
+                        {% if filtered_income_total is defined %}
+                        <span class="text-slate-300">|</span>
+                        <span class="font-black text-brand-700">{{ filtered_income_total|vnd }} VND</span>
+                        <span class="text-slate-400 font-normal">({{ contracts|length }} ca)</span>
+                        {% endif %}
+                        <span class="text-slate-400 hover:text-rose-600 font-bold ml-1">✕</span>
+                    </a>
+                    {% endif %}
+                </h1>
+                
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
@@ -79,7 +188,11 @@
                                     {{ contract.agreed_price|vnd }} VND
                                 </td>
                                 <td class="py-4">
-                                    {% if contract.status == 'escrow_pending' %}
+                                    {% if contract.status == 'awaiting_translator' %}
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200/70">{{ 'Chờ PDV xác nhận' if current_lang == 'vi' else 'Awaiting translator' }}</span>
+                                    {% elif contract.status == 'cancelled' %}
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-200">{{ 'Đã hủy' if current_lang == 'vi' else 'Cancelled' }}</span>
+                                    {% elif contract.status == 'escrow_pending' %}
                                     <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200/70">{{ t('auto.chờ_escrow') }}</span>
                                     {% elif contract.status == 'in_progress' %}
                                     <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-brand-50 text-brand-800 border border-brand-200/70">{{ t('auto.đang_thực_hiện') }}</span>
@@ -88,12 +201,7 @@
                                     {% endif %}
                                 </td>
                                 <td class="py-4 text-slate-400 text-xs">{{ contract.created_at.strftime('%d/%m/%Y') }}</td>
-                                <td class="py-4 text-right whitespace-nowrap">
-                                    {% if contract.status in ('in_progress', 'completed') %}
-                                    <a href="{{ url_for('contract_invoice', contract_id=contract.id) }}" target="_blank" class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50/60 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition border border-emerald-200/50 mr-1">
-                                        {{ 'Hóa đơn' if current_lang == 'vi' else 'Invoice' }}
-                                    </a>
-                                    {% endif %}
+                                <td class="py-4 text-right">
                                     <a href="{{ url_for('transaction_detail', contract_id=contract.id) }}" class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50/60 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition border border-brand-200/50">
                                         {{ t('auto.phòng_làm_việc_→') }}
                                     </a>
@@ -110,6 +218,8 @@
                     </table>
                 </div>
                 
+                {% endif %}
+
                 {% if current_user.role == 'hirer' %}
                 <h2 class="text-base font-bold mt-10 mb-5 text-slate-900 flex items-center gap-2 pt-6 border-t border-slate-100">
                     <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
@@ -155,9 +265,17 @@
                     </table>
                 </div>
                 {% elif current_user.role == 'translator' %}
-                <h2 class="text-base font-bold mt-10 mb-5 text-slate-900 flex items-center gap-2 pt-6 border-t border-slate-100">
-                    <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                    {{ t('auto.đề_xuất__báo_giá_đã') }}
+                <div id="proposals" class="scroll-mt-24">
+                <h2 class="text-base font-bold mt-10 mb-5 text-slate-900 flex items-center justify-between pt-6 border-t border-slate-100">
+                    <span class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                        {{ t('auto.đề_xuất__báo_giá_đã') }}
+                    </span>
+                    {% if prop_filter %}
+                    <a href="{{ url_for('account_history') }}#proposals" class="text-xs font-semibold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg border border-brand-200 hover:bg-brand-100 transition">
+                        Đang lọc: {{ 'Chờ duyệt' if prop_filter == 'pending' else prop_filter }} (Xóa lọc ✕)
+                    </a>
+                    {% endif %}
                 </h2>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
@@ -171,7 +289,8 @@
                             </tr>
                         </thead>
                         <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
-                            {% for prop in current_user.proposals %}
+                            {% set prop_list = proposals if proposals is defined and proposals is not none else current_user.proposals %}
+                            {% for prop in prop_list %}
                                 <tr class="hover:bg-slate-50/60 transition">
                                     <td class="py-4 font-bold text-slate-900 max-w-xs truncate">{{ prop.job.title }}</td>
                                     <td class="py-4 font-extrabold text-brand-700">{{ prop.price|vnd }} VND</td>
