@@ -40,6 +40,23 @@
                     {{ t('account_history_page.heading') }}
                 </h1>
                 
+                {% if current_user.role == 'hirer' %}
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                    <div class="rounded-xl border border-brand-200/60 bg-brand-50/50 p-4">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">{{ 'Tổng chi đến hiện tại' if current_lang == 'vi' else 'Total spent to date' }}</p>
+                        <p class="text-xl font-extrabold text-brand-700 mt-1">{{ finance.total|vnd }} VND</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">{{ 'Số lần thuê đã thanh toán' if current_lang == 'vi' else 'Paid bookings' }}</p>
+                        <p class="text-xl font-extrabold text-slate-900 mt-1">{{ finance.paid_count }}</p>
+                    </div>
+                    <div class="rounded-xl border border-amber-200/60 bg-amber-50/50 p-4">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">{{ 'Đang giữ trong Escrow' if current_lang == 'vi' else 'Held in escrow' }}</p>
+                        <p class="text-xl font-extrabold text-amber-700 mt-1">{{ finance.holding|vnd }} VND</p>
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
@@ -71,7 +88,12 @@
                                     {% endif %}
                                 </td>
                                 <td class="py-4 text-slate-400 text-xs">{{ contract.created_at.strftime('%d/%m/%Y') }}</td>
-                                <td class="py-4 text-right">
+                                <td class="py-4 text-right whitespace-nowrap">
+                                    {% if contract.status in ('in_progress', 'completed') %}
+                                    <a href="{{ url_for('contract_invoice', contract_id=contract.id) }}" target="_blank" class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50/60 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition border border-emerald-200/50 mr-1">
+                                        {{ 'Hóa đơn' if current_lang == 'vi' else 'Invoice' }}
+                                    </a>
+                                    {% endif %}
                                     <a href="{{ url_for('transaction_detail', contract_id=contract.id) }}" class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50/60 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition border border-brand-200/50">
                                         {{ t('auto.phòng_làm_việc_→') }}
                                     </a>

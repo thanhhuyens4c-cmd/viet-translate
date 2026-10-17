@@ -1175,7 +1175,73 @@ def account_history():
         contracts = Contract.query.filter_by(hirer_id=user.id).order_by(Contract.created_at.desc()).all()
     else:
         contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
-    return render_template('account_history.html', user=user, contracts=contracts)
+    # Chỉ tính các hợp đồng đã thanh toán (đã vào escrow trở đi) vào tổng chi
+    paid_statuses = ('in_progress', 'completed')
+    paid_contracts = [c for c in contracts if c.status in paid_statuses]
+    total_spent = sum(c.agreed_price for c in paid_contracts)
+    finance = {
+        'total': total_spent,
+        'paid_count': len(paid_contracts),
+        'completed_count': sum(1 for c in contracts if c.status == 'completed'),
+        'holding': sum(c.agreed_price for c in contracts if c.status == 'in_progress'),
+    }
+    return render_template('account_history.html', user=user, contracts=contracts, finance=finance)
+
+
+@app.route('/my-team')
+@login_required
+def my_team():
+    """Đội của tôi: các PDV khách hàng đã từng thuê (hợp đồng đã thanh toán), để tìm và book lại."""
+    user = get_current_user()
+    if not user or user.role != 'hirer':
+        flash('Chỉ khách hàng mới có danh sách "Đội của tôi".', 'warning')
+        return redirect(url_for('index'))
+    contracts = (Contract.query
+                 .filter(Contract.hirer_id == user.id,
+                         Contract.status.in_(('in_progress', 'completed')))
+                 .order_by(Contract.created_at.desc()).all())
+    team = {}
+    for c in contracts:  # mới nhất trước
+        entry = team.setdefault(c.translator_id, {
+            'user': c.translator, 'profile': c.translator.profile,
+            'count': 0, 'spent': 0, 'last': c.created_at})
+        entry['count'] += 1
+        entry['spent'] += c.agreed_price
+    members = sorted(team.values(), key=lambda m: m['last'] or datetime.min, reverse=True)
+    members_json = []
+    for m in members:
+        p = m['profile']
+        members_json.append({
+            'name': m['user'].name,
+            'avatar': m['user'].avatar_url,
+            'title': p.title if p else '',
+            'languages': p.languages if p else '',
+            'bio': p.bio if p else '',
+            'rating': p.rating or 0 if p else 0,
+            'reviews': p.total_reviews or 0 if p else 0,
+            'response': p.response_time if p else '',
+            'count': m['count'],
+            'spent': '{:,}'.format(m['spent']).replace(',', '.'),
+            'last': m['last'].strftime('%d/%m/%Y') if m['last'] else '',
+            'profile_url': url_for('translator_profile', profile_id=p.id) if p else '',
+        })
+    return render_template('my_team.html', members=members, members_json=members_json)
+
+
+@app.route('/invoice/<int:contract_id>')
+@login_required
+def contract_invoice(contract_id):
+    """Hóa đơn thuê PDV của một hợp đồng (bản in được / lưu PDF qua trình duyệt)."""
+    contract = Contract.query.get_or_404(contract_id)
+    from services.permissions import require_contract_access
+    require_contract_access(session['user_id'], contract)
+    if contract.status not in ('in_progress', 'completed'):
+        flash('Hợp đồng chưa thanh toán nên chưa có hóa đơn.', 'warning')
+        return redirect(url_for('account_history'))
+    platform_fee = int(contract.agreed_price * 0.10)
+    return render_template('invoice.html', contract=contract,
+                           platform_fee=platform_fee,
+                           translator_receives=contract.agreed_price - platform_fee)
 
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
