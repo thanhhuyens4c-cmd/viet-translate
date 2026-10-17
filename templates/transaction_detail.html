@@ -124,6 +124,17 @@
         </div>
         {% endif %}
 
+        {% set _active_dispute = contract.disputes | selectattr('status', 'in', ['pending_review', 'awaiting_response', 'under_review']) | list | first %}
+        {% if _active_dispute %}
+        <a href="{{ url_for('dispute_detail', dispute_id=_active_dispute.id) }}" class="mb-6 flex items-center justify-between gap-3 bg-rose-50 border border-rose-200 rounded-2xl p-4 text-sm font-bold text-rose-800 hover:bg-rose-100">
+            <span>Hợp đồng đang có khiếu nại #{{ _active_dispute.id }}</span><span class="text-xs">Xem tiến trình →</span>
+        </a>
+        {% elif current_user.id == contract.hirer_id and contract.status in ['in_progress', 'escrow_paid', 'delivered', 'revision_requested'] %}
+        <div class="mb-6 text-right">
+            <a href="{{ url_for('dispute_new', contract_id=contract.id) }}" class="text-xs font-bold text-rose-600 hover:underline">Gặp vấn đề? Gửi khiếu nại</a>
+        </div>
+        {% endif %}
+
         {% if contract.status in ['awaiting_translator', 'escrow_pending', 'in_progress'] and not contract.deliverables %}
         <details class="mb-6 text-xs">
             <summary class="cursor-pointer font-bold text-slate-500 hover:text-red-600">{{ 'Hủy hợp đồng' if vi else 'Cancel contract' }}</summary>
