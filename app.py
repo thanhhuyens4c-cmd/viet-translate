@@ -5246,7 +5246,7 @@ def translator_accepts_job(translator, job):
             job_tgt = _clean(job.target_lang)
             match_lang = False
             for p in int_langs:
-                p_standard = p.replace('->', '➔')
+                p_standard = p.replace('->', '➔').replace('>', '➔')
                 if '➔' in p_standard:
                     parts = p_standard.split('➔', 1)
                     src_p, tgt_p = _clean(parts[0]), _clean(parts[1])
@@ -5345,7 +5345,15 @@ def account_history():
         status = status_filter if status_filter in STATUSES else ''
         page = request.args.get('page', 1, type=int) or 1
         rows, total, page, pages = list_hirer_transactions(user.id, q=q, status=status, page=page)
-        return render_template('account_history.html', user=user, contracts=[], proposals=[],
+        # Tổng chi tính trên các hợp đồng đã thanh toán (đã vào escrow trở đi)
+        paid = Contract.query.filter(Contract.hirer_id == user.id,
+                                     Contract.status.in_(('in_progress', 'completed'))).all()
+        finance = {
+            'total': sum(c.agreed_price for c in paid),
+            'paid_count': len(paid),
+            'holding': sum(c.agreed_price for c in paid if c.status == 'in_progress'),
+        }
+        return render_template('account_history.html', user=user, contracts=[], proposals=[], finance=finance,
                                status_filter=status, prop_filter=prop_filter,
                                period_filter=period_filter, period_label=period_label,
                                tx_rows=rows, tx_total=total, tx_page=page, tx_pages=pages,
@@ -6774,6 +6782,62 @@ def interpreter_income_bank_info():
         subpage_code="bank_info"
     )
 
+@app.route('/my-team')
+@login_required
+def my_team():
+    """Đội của tôi: các PDV khách hàng đã từng thuê (hợp đồng đã thanh toán), để tìm và book lại."""
+    user = get_current_user()
+    if not user or user.role != 'hirer':
+        flash('Chỉ khách hàng mới có danh sách "Đội của tôi".', 'warning')
+        return redirect(url_for('index'))
+    contracts = (Contract.query
+                 .filter(Contract.hirer_id == user.id,
+                         Contract.status.in_(('in_progress', 'completed')))
+                 .order_by(Contract.created_at.desc()).all())
+    team = {}
+    for c in contracts:  # mới nhất trước
+        entry = team.setdefault(c.translator_id, {
+            'user': c.translator, 'profile': c.translator.profile,
+            'count': 0, 'spent': 0, 'last': c.created_at})
+        entry['count'] += 1
+        entry['spent'] += c.agreed_price
+    members = sorted(team.values(), key=lambda m: m['last'] or datetime.min, reverse=True)
+    members_json = []
+    for m in members:
+        p = m['profile']
+        members_json.append({
+            'name': m['user'].name,
+            'avatar': m['user'].avatar_url,
+            'title': p.title if p else '',
+            'languages': p.languages if p else '',
+            'bio': p.bio if p else '',
+            'rating': p.rating or 0 if p else 0,
+            'reviews': p.total_reviews or 0 if p else 0,
+            'response': p.response_time if p else '',
+            'count': m['count'],
+            'spent': '{:,}'.format(m['spent']).replace(',', '.'),
+            'last': m['last'].strftime('%d/%m/%Y') if m['last'] else '',
+            'profile_url': url_for('translator_profile', profile_id=p.id) if p else '',
+        })
+    return render_template('my_team.html', members=members, members_json=members_json)
+
+
+@app.route('/invoice/<int:contract_id>')
+@login_required
+def contract_invoice(contract_id):
+    """Hóa đơn thuê PDV của một hợp đồng (bản in được / lưu PDF qua trình duyệt)."""
+    contract = Contract.query.get_or_404(contract_id)
+    from services.permissions import require_contract_access
+    require_contract_access(session['user_id'], contract)
+    if contract.status not in ('in_progress', 'completed'):
+        flash('Hợp đồng chưa thanh toán nên chưa có hóa đơn.', 'warning')
+        return redirect(url_for('account_history'))
+    platform_fee = int(contract.agreed_price * 0.10)
+    return render_template('invoice.html', contract=contract,
+                           platform_fee=platform_fee,
+                           translator_receives=contract.agreed_price - platform_fee)
+
+
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
 @app.route('/translator')
@@ -6836,6 +6900,13 @@ def _translator_card(p, favorite_ids=frozenset()):
             prices.append(int(p.hourly_rate))
         if getattr(p, 'daily_rate', None):
             prices.append(int(p.daily_rate))
+    if not prices and p.user and hasattr(p.user, 'interpreter_services'):
+        for isvc in p.user.interpreter_services:
+            if getattr(isvc, 'is_active', True):
+                if getattr(isvc, 'hourly_rate', None):
+                    prices.append(int(isvc.hourly_rate))
+                if getattr(isvc, 'session_rate', None):
+                    prices.append(int(isvc.session_rate))
     min_days = None
     for s in p.services:
         for field in (s.basic_delivery, s.standard_delivery, s.premium_delivery):
@@ -6861,10 +6932,12 @@ def _translator_card(p, favorite_ids=frozenset()):
         'avatar_url': p.avatar_url,
         'initial': name[0].upper() if name else '?',
         'title': p.title or '',
+        'bio': p.bio or (p.user.bio if p.user else '') or '',
         'languages': split(p.languages),
         'language_pairs': pairs,
         'specialties': specialties,
         'badges': split(p.badges),
+        'experience_years': p.display_experience_years,
         'rating': float(p.rating or 0),
         'total_reviews': p.total_reviews or 0,
         'total_jobs': p.total_jobs or 0,
@@ -12406,6 +12479,11 @@ def reply_support_ticket_endpoint(ticket_code):
         'message': f'Đã gửi phản hồi cho ticket #{ticket.ticket_code} thành công!',
         'ticket': ticket.to_dict()
     }), 200
+
+
+# Khiếu nại đơn thuê (routes: /disputes, /dispute/<id>, /admin/disputes...)
+import disputes as _disputes
+_disputes.register(app)
 
 
 if __name__ == '__main__':
