@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('nav.news') }} | VietTranslate{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+    <div class="text-center max-w-2xl mx-auto mb-12">
+        <h1 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mb-3">{{ t('nav.news') }}</h1>
+        <p class="text-slate-500 text-sm sm:text-base">{% if current_lang == 'en' %}Tips, guides and updates for translators and hirers.{% else %}Mẹo, hướng dẫn và cập nhật dành cho phiên dịch viên và khách thuê.{% endif %}</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {% for a in articles %}
+        <a href="{{ url_for('news_detail', slug=a.slug) }}" class="group bg-white p-6 rounded-2xl border border-slate-200/90 shadow-soft hover:border-brand-300 transition block">
+            <div class="w-12 h-12 bg-brand-50 rounded-xl mb-4 flex items-center justify-center text-xl">{{ a.emoji }}</div>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-brand-600">{{ a.cat }}</span>
+            <h2 class="text-base font-bold text-slate-900 mt-1 mb-2 group-hover:text-brand-600">{{ a.title }}</h2>
+            <p class="text-slate-500 text-xs sm:text-sm leading-relaxed mb-3">{{ a.summary }}</p>
+            <span class="text-[11px] text-slate-400">{{ a.date }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

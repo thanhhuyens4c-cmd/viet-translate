@@ -855,6 +855,57 @@ def index():
 def about():
     return render_template('about.html')
 
+NEWS_ARTICLES = [
+    {'slug': 'tips-chon-phien-dich-vien', 'emoji': '🎯', 'date': '2026-10-15',
+     'cat': {'vi': 'Dành cho khách thuê', 'en': 'For hirers'},
+     'title': {'vi': '5 mẹo chọn phiên dịch viên phù hợp cho sự kiện của bạn', 'en': '5 tips for choosing the right interpreter for your event'},
+     'summary': {'vi': 'Từ chuyên môn lĩnh vực đến kinh nghiệm thực tế, đây là những tiêu chí giúp bạn chọn đúng người.', 'en': 'From domain expertise to real-world experience, the criteria that help you pick the right person.'},
+     'body': {'vi': ['Xác định rõ loại hình phiên dịch: phiên dịch song song, nối tiếp hay thì thầm.', 'Ưu tiên phiên dịch viên có kinh nghiệm đúng lĩnh vực (y tế, pháp lý, kỹ thuật...).', 'Xem đánh giá và số hợp đồng đã hoàn thành trên hồ sơ.', 'Trao đổi trước tài liệu, thuật ngữ để phiên dịch viên chuẩn bị.', 'Dùng thanh toán Escrow để bảo vệ cả hai bên.'],
+              'en': ['Define the interpreting mode: simultaneous, consecutive or whispered.', 'Prefer interpreters with experience in your field (medical, legal, technical...).', 'Check reviews and completed contracts on their profile.', 'Share documents and terminology in advance so they can prepare.', 'Use Escrow payments to protect both sides.']}},
+    {'slug': 'huong-dan-xay-dung-ho-so', 'emoji': '🌟', 'date': '2026-10-10',
+     'cat': {'vi': 'Dành cho phiên dịch viên', 'en': 'For translators'},
+     'title': {'vi': 'Cách xây dựng hồ sơ nổi bật để nhận nhiều việc hơn', 'en': 'How to build a standout profile and win more jobs'},
+     'summary': {'vi': 'Ảnh đại diện, mô tả chuyên môn và lịch làm việc rõ ràng giúp bạn được khách thuê chú ý.', 'en': 'A clear photo, expertise description and schedule get you noticed by hirers.'},
+     'body': {'vi': ['Dùng ảnh chân dung rõ nét, chuyên nghiệp.', 'Nêu cụ thể cặp ngôn ngữ, lĩnh vực và chứng chỉ.', 'Cập nhật lịch làm việc thường xuyên.', 'Phản hồi đề xuất và tin nhắn nhanh chóng.'],
+              'en': ['Use a clear, professional portrait.', 'List language pairs, specialties and certificates.', 'Keep your availability schedule up to date.', 'Reply to proposals and messages quickly.']}},
+    {'slug': 'escrow-an-toan-thanh-toan', 'emoji': '🛡️', 'date': '2026-10-05',
+     'cat': {'vi': 'Nền tảng', 'en': 'Platform'},
+     'title': {'vi': 'Escrow hoạt động như thế nào để bảo vệ thanh toán?', 'en': 'How Escrow protects your payments'},
+     'summary': {'vi': 'Khoản thanh toán được giữ an toàn cho đến khi công việc hoàn thành.', 'en': 'Funds are held safely until the work is completed.'},
+     'body': {'vi': ['Khách thuê nạp tiền vào Escrow khi ký hợp đồng.', 'Phiên dịch viên thực hiện công việc theo thỏa thuận.', 'Sau khi khách xác nhận hoàn thành, tiền được chuyển cho phiên dịch viên.', 'Nếu có tranh chấp, quản trị viên sẽ hỗ trợ giải quyết.'],
+              'en': ['The hirer funds Escrow when the contract is signed.', 'The translator delivers the agreed work.', 'Once the hirer confirms completion, funds are released.', 'In case of a dispute, admins step in to help resolve it.']}},
+]
+
+
+def _news_lang():
+    lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    return lang if lang in ('vi', 'en') else 'vi'
+
+
+def _news_localized(article, lang):
+    return {
+        'slug': article['slug'], 'emoji': article['emoji'], 'date': article['date'],
+        'cat': article['cat'][lang], 'title': article['title'][lang],
+        'summary': article['summary'][lang], 'body': article['body'][lang],
+    }
+
+
+@app.route('/news')
+def news_list():
+    lang = _news_lang()
+    return render_template('news.html', articles=[_news_localized(a, lang) for a in NEWS_ARTICLES])
+
+
+@app.route('/news/<slug>')
+def news_detail(slug):
+    lang = _news_lang()
+    article = next((a for a in NEWS_ARTICLES if a['slug'] == slug), None)
+    if not article:
+        abort(404)
+    others = [_news_localized(a, lang) for a in NEWS_ARTICLES if a['slug'] != slug]
+    return render_template('news_detail.html', article=_news_localized(article, lang), others=others)
+
+
 @app.route('/payment-info')
 def payment_info():
     return render_template('payment_info.html')
