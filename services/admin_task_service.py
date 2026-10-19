@@ -45,7 +45,10 @@ def get_admin_tasks_summary():
     # 1. Số lượng việc chờ theo phân hệ
     pending_jobs_count = Job.query.filter(
         db.or_(Job.moderation_status == 'pending', db.and_(Job.status == 'pending', Job.moderation_status.is_(None))),
-        db.or_(Job.is_flagged == False, Job.is_flagged.is_(None))
+        db.or_(Job.is_flagged == False, Job.is_flagged.is_(None)),
+        Job.status != 'closed',
+        Job.status != 'cancelled',
+        Job.closed_at.is_(None)
     ).count()
 
     flagged_jobs_count = Job.query.filter_by(is_flagged=True).count()
@@ -83,7 +86,10 @@ def get_admin_tasks_summary():
     # Quét nhanh các job pending để đếm job có vi phạm C
     try:
         pending_jobs_sample = Job.query.filter(
-            db.or_(Job.moderation_status == 'pending', Job.status == 'pending')
+            db.or_(Job.moderation_status == 'pending', Job.status == 'pending'),
+            Job.status != 'closed',
+            Job.status != 'cancelled',
+            Job.closed_at.is_(None)
         ).limit(50).all()
         for j in pending_jobs_sample:
             ev = evaluate_job_safety(j)
@@ -140,18 +146,26 @@ def query_admin_tasks(filters, page=1, per_page=15, admin_user=None):
         if status_filter == 'pending':
             job_query = job_query.filter(
                 db.or_(Job.moderation_status == 'pending', db.and_(Job.status == 'pending', Job.moderation_status.is_(None))),
-                db.or_(Job.is_flagged == False, Job.is_flagged.is_(None))
+                db.or_(Job.is_flagged == False, Job.is_flagged.is_(None)),
+                Job.status != 'closed',
+                Job.status != 'cancelled',
+                Job.closed_at.is_(None)
             )
         elif status_filter == 'critical':
             job_query = job_query.filter(db.or_(Job.is_flagged == True, Job.moderation_status == 'flagged'))
         elif status_filter == 'needs_revision':
             job_query = job_query.filter_by(moderation_status='needs_revision')
         elif status_filter == 'all':
-            # Ưu tiên các job pending/flagged trước
+            # Ưu tiên các job pending/flagged chưa bị đóng
             job_query = job_query.filter(
                 db.or_(
-                    Job.moderation_status.in_(['pending', 'needs_revision', 'flagged']),
-                    Job.status == 'pending',
+                    db.and_(
+                        Job.moderation_status.in_(['pending', 'needs_revision']),
+                        Job.status != 'closed',
+                        Job.status != 'cancelled',
+                        Job.closed_at.is_(None)
+                    ),
+                    Job.moderation_status == 'flagged',
                     Job.is_flagged == True
                 )
             )
@@ -170,17 +184,34 @@ def query_admin_tasks(filters, page=1, per_page=15, admin_user=None):
             # Kiểm tra duyệt nhanh
             can_quick, quick_reason, _ = check_quick_approve_eligibility(j, eval_res=ev)
 
-            st_key = 'flagged' if j.is_flagged else (j.moderation_status or j.status or 'pending')
-            st_label = 'Bị gắn cờ' if j.is_flagged else (
-                'Đã duyệt' if st_key in ('approved', 'open') else (
-                    'Cần sửa' if st_key == 'needs_revision' else (
-                        'Bị từ chối' if st_key == 'rejected' else 'Chờ duyệt'
-                    )
-                )
-            )
-            st_badge = 'badge-red' if j.is_flagged or st_key == 'rejected' else (
-                'badge-green' if st_key in ('approved', 'open') else 'badge-warning'
-            )
+            is_closed = (getattr(j, 'status', '') in ('closed', 'cancelled')) or (getattr(j, 'closed_at', None) is not None)
+            if j.is_flagged or getattr(j, 'moderation_status', None) == 'flagged':
+                st_key = 'flagged'
+                st_label = 'Bị gắn cờ'
+                st_badge = 'badge-red'
+            elif getattr(j, 'moderation_status', None) == 'rejected':
+                st_key = 'rejected'
+                st_label = 'Bị từ chối'
+                st_badge = 'badge-red'
+            elif getattr(j, 'moderation_status', None) == 'needs_revision':
+                st_key = 'needs_revision'
+                st_label = 'Cần sửa'
+                st_badge = 'badge-warning'
+            elif getattr(j, 'moderation_status', None) == 'approved':
+                st_key = 'approved'
+                if is_closed:
+                    st_label = 'Đã duyệt (Đã đóng)'
+                    st_badge = 'badge-gray'
+                elif getattr(j, 'status', '') == 'contracted':
+                    st_label = 'Đã ký HĐ'
+                    st_badge = 'badge-blue'
+                else:
+                    st_label = 'Đang hoạt động'
+                    st_badge = 'badge-green'
+            else:
+                st_key = 'pending'
+                st_label = 'Chờ duyệt'
+                st_badge = 'badge-warning'
 
             hirer_name = j.hirer.name if j.hirer else 'Khách ẩn danh'
             hirer_email = j.hirer.email if j.hirer else ''

@@ -451,10 +451,11 @@ def get_recommended_jobs_for_translator(user_id, limit=50, lang='vi'):
         return []
 
     today = date.today()
-    # Lấy các việc đang mở, đã duyệt, không bị gắn cờ và còn thời hạn
+    # Lấy các việc đang mở, đã duyệt, chưa đóng, không bị gắn cờ và còn thời hạn
     open_jobs = Job.query.join(User, Job.hirer_id == User.id).filter(
         Job.status == 'open',
         Job.moderation_status == 'approved',
+        Job.closed_at.is_(None),
         db.or_(Job.is_flagged == False, Job.is_flagged == None),
         User.is_active == True,
         db.or_(Job.deadline.is_(None), Job.deadline >= today)

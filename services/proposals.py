@@ -38,9 +38,12 @@ def effective_status(p):
 
 
 def job_accepts_selection(job):
-    """Yêu cầu còn cho phép tuyển chọn: đã duyệt, không bị gắn cờ, đang mở."""
-    return (job.status == 'open' and not job.is_flagged
-            and (job.moderation_status in (None, 'approved')))
+    """Yêu cầu còn cho phép tuyển chọn: đã duyệt, không bị gắn cờ, đang mở và chưa đóng."""
+    is_closed = (getattr(job, 'status', '') == 'closed') or (getattr(job, 'closed_at', None) is not None)
+    return (getattr(job, 'status', '') == 'open' and not getattr(job, 'is_flagged', False)
+            and not is_closed
+            and getattr(job, 'moderation_status', None) == 'approved')
+
 
 
 def build_proposal_views(job):

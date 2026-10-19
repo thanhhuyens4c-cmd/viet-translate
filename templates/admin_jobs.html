@@ -136,7 +136,13 @@
                 {% endif %}
             </a>
             <a href="{{ url_for('admin_jobs', status='needs_revision', q=q) }}" class="filter-tab {% if status_filter == 'needs_revision' %}active{% endif %}">Cần xem xét</a>
-            <a href="{{ url_for('admin_jobs', status='open', q=q) }}" class="filter-tab {% if status_filter == 'open' %}active{% endif %}">Đã duyệt</a>
+            <a href="{{ url_for('admin_jobs', status='open', q=q) }}" class="filter-tab {% if status_filter in ('open', 'active') %}active{% endif %}">Đang hoạt động</a>
+            <a href="{{ url_for('admin_jobs', status='closed', q=q) }}" class="filter-tab {% if status_filter == 'closed' %}active{% endif %}">
+                Đã đóng
+                {% if closed_count and closed_count > 0 %}
+                <span class="nav-badge" style="margin-left: 6px; background: #475569;">{{ closed_count }}</span>
+                {% endif %}
+            </a>
             <a href="{{ url_for('admin_jobs', status='rejected', q=q) }}" class="filter-tab danger {% if status_filter == 'rejected' %}active{% endif %}">Bị từ chối</a>
             <a href="{{ url_for('admin_jobs', status='flagged', q=q) }}" class="filter-tab danger {% if status_filter == 'flagged' %}active{% endif %}">Bị gắn cờ</a>
             <a href="{{ url_for('admin_jobs', status='archived', q=q) }}" class="filter-tab {% if status_filter == 'archived' %}active{% endif %}">Đã lưu trữ</a>
@@ -218,18 +224,26 @@
                     <!-- Cột 4: Ngày nộp -->
                     <td style="color: var(--muted); font-size: 12px;">{{ job.created_at.strftime('%d/%m/%Y') if job.created_at else '—' }}</td>
 
-                    <!-- Cột 5: Trạng thái kiểm duyệt -->
+                    <!-- Cột 5: Trạng thái kiểm duyệt & Vòng đời -->
                     <td>
                         {% if job.is_flagged %}
                         <span class="badge badge-red">Bị gắn cờ</span>
-                        {% elif job.moderation_status == 'approved' or job.status == 'open' %}
-                        <span class="badge badge-blue">Đã duyệt</span>
+                        {% elif job.status == 'closed' or job.closed_at %}
+                        <span class="badge badge-gray" title="Người đăng đã đóng/gỡ">Đã đóng</span>
+                        {% elif job.status == 'cancelled' %}
+                        <span class="badge badge-gray" title="Người đăng đã hủy">Đã hủy</span>
                         {% elif job.moderation_status == 'rejected' %}
                         <span class="badge badge-red">Bị từ chối</span>
                         {% elif job.moderation_status == 'needs_revision' %}
                         <span class="badge badge-warning">Cần sửa</span>
-                        {% elif job.moderation_status == 'archived' %}
+                        {% elif job.moderation_status == 'archived' or job.status == 'archived' %}
                         <span class="badge badge-gray">Lưu trữ</span>
+                        {% elif job.moderation_status == 'approved' and job.status == 'open' %}
+                        <span class="badge badge-green">Đang hoạt động</span>
+                        {% elif job.moderation_status == 'approved' and job.status == 'contracted' %}
+                        <span class="badge badge-blue">Đã ký HĐ</span>
+                        {% elif job.moderation_status == 'approved' %}
+                        <span class="badge badge-blue">Đã duyệt</span>
                         {% else %}
                         <span class="badge badge-warning">Chờ duyệt</span>
                         {% endif %}
@@ -300,12 +314,22 @@
                 <div>
                     {% if job.is_flagged %}
                     <span class="badge badge-red">Bị gắn cờ</span>
-                    {% elif job.moderation_status == 'approved' or job.status == 'open' %}
-                    <span class="badge badge-blue">Đã duyệt</span>
+                    {% elif job.status == 'closed' or job.closed_at %}
+                    <span class="badge badge-gray">Đã đóng</span>
+                    {% elif job.status == 'cancelled' %}
+                    <span class="badge badge-gray">Đã hủy</span>
                     {% elif job.moderation_status == 'rejected' %}
                     <span class="badge badge-red">Từ chối</span>
                     {% elif job.moderation_status == 'needs_revision' %}
                     <span class="badge badge-warning">Cần sửa</span>
+                    {% elif job.moderation_status == 'archived' or job.status == 'archived' %}
+                    <span class="badge badge-gray">Lưu trữ</span>
+                    {% elif job.moderation_status == 'approved' and job.status == 'open' %}
+                    <span class="badge badge-green">Đang hoạt động</span>
+                    {% elif job.moderation_status == 'approved' and job.status == 'contracted' %}
+                    <span class="badge badge-blue">Đã ký HĐ</span>
+                    {% elif job.moderation_status == 'approved' %}
+                    <span class="badge badge-blue">Đã duyệt</span>
                     {% else %}
                     <span class="badge badge-warning">Chờ duyệt</span>
                     {% endif %}

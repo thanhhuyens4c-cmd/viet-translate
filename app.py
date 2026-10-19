@@ -7939,11 +7939,11 @@ def _owned_job_or_404(user, job_id):
 def job_edit_policy(job, proposal_count=None):
     """Quy tắc nghiệp vụ: ai được sửa/đóng/hủy và trường nào bị khóa."""
     n = Proposal.query.filter_by(job_id=job.id).count() if proposal_count is None else proposal_count
-    is_open = job.status == 'open'
+    is_open = (job.status == 'open') and (job.closed_at is None)
     return {
         'proposal_count': n,
-        'can_edit': job.status in ('open', 'pending'),   # pending: chờ duyệt / cần chỉnh sửa / bị từ chối
-        'can_close': is_open,
+        'can_edit': job.status in ('open', 'pending') and (job.closed_at is None),
+        'can_close': is_open or (job.status == 'pending' and job.closed_at is None),
         'can_cancel': job.status in ('open', 'closed', 'pending'),
         'locked': is_open and n > 0,   # đã có báo giá → khóa ngôn ngữ, loại dịch vụ, ngân sách
     }
@@ -9450,6 +9450,7 @@ def job_list():
     base_query = Job.query.join(User, Job.hirer_id == User.id).filter(
         Job.status == 'open',
         Job.moderation_status == 'approved',
+        Job.closed_at.is_(None),
         db.or_(Job.is_flagged == False, Job.is_flagged == None),
         User.is_active == True,
         db.or_(Job.deadline.is_(None), Job.deadline >= today)
@@ -10660,11 +10661,18 @@ def admin_jobs():
     # Đếm số lượng nhanh chóng và chính xác cho badge tab
     pending_count = Job.query.filter(
         db.or_(Job.moderation_status == 'pending', db.and_(Job.status == 'pending', Job.moderation_status.is_(None))),
-        db.or_(Job.is_flagged == False, Job.is_flagged.is_(None))
+        db.or_(Job.is_flagged == False, Job.is_flagged.is_(None)),
+        Job.status != 'closed',
+        Job.status != 'cancelled',
+        Job.closed_at.is_(None)
     ).count()
 
     critical_count = Job.query.filter(
         db.or_(Job.is_flagged == True, Job.moderation_status == 'flagged')
+    ).count()
+
+    closed_count = Job.query.filter(
+        db.or_(Job.status.in_(['closed', 'cancelled']), Job.closed_at.isnot(None))
     ).count()
 
     query = Job.query.join(User, Job.hirer_id == User.id, isouter=True)
@@ -10680,17 +10688,24 @@ def admin_jobs():
     if status_filter == 'pending':
         query = query.filter(
             db.or_(Job.moderation_status == 'pending', db.and_(Job.status == 'pending', Job.moderation_status.is_(None))),
-            db.or_(Job.is_flagged == False, Job.is_flagged.is_(None))
+            db.or_(Job.is_flagged == False, Job.is_flagged.is_(None)),
+            Job.status != 'closed',
+            Job.status != 'cancelled',
+            Job.closed_at.is_(None)
         )
     elif status_filter == 'critical':
         query = query.filter(db.or_(Job.is_flagged == True, Job.moderation_status == 'flagged'))
     elif status_filter == 'needs_revision':
         query = query.filter_by(moderation_status='needs_revision')
-    elif status_filter == 'open':
+    elif status_filter in ('open', 'active'):
         query = query.filter(
-            db.or_(Job.moderation_status == 'approved', Job.status == 'open'),
+            Job.moderation_status == 'approved',
+            Job.status == 'open',
+            Job.closed_at.is_(None),
             db.or_(Job.is_flagged == False, Job.is_flagged.is_(None))
         )
+    elif status_filter == 'closed':
+        query = query.filter(db.or_(Job.status.in_(['closed', 'cancelled']), Job.closed_at.isnot(None)))
     elif status_filter == 'rejected':
         query = query.filter_by(moderation_status='rejected')
     elif status_filter == 'flagged':
@@ -10718,7 +10733,8 @@ def admin_jobs():
         status_filter=status_filter,
         q=q,
         pending_count=pending_count,
-        critical_count=critical_count
+        critical_count=critical_count,
+        closed_count=closed_count
     )
 
 @app.route('/admin/jobs/<int:job_id>/review', methods=['GET'])
@@ -10789,12 +10805,13 @@ def admin_moderate_job(job_id):
         if not success:
             flash(msg, 'error')
             return redirect(url_for('admin_job_review', job_id=job.id))
-        flash('Đã phê duyệt công việc thành công. Job đã hiển thị công khai.', 'success')
+        flash(msg, 'success')
         
     elif decision == 'needs_revision':
         notes = request.form.get('revision_notes', '').strip()
         job.moderation_status = 'needs_revision'
-        job.status = 'pending'
+        if job.status != 'closed' and not job.closed_at:
+            job.status = 'pending'
         job.moderation_notes = notes
         _audit_log(
             action=ADMIN_AUDIT_ACTIONS['REQUEST_JOB_REVISION'],
@@ -10822,6 +10839,8 @@ def admin_moderate_job(job_id):
         reason = request.form.get('rejection_reason', '').strip()
         job.moderation_status = 'rejected'
         job.status = 'closed'
+        if not job.closed_at:
+            job.closed_at = datetime.utcnow()
         job.moderation_notes = reason
         _audit_log(
             action=ADMIN_AUDIT_ACTIONS['REJECT_JOB'],
@@ -12394,7 +12413,7 @@ def api_recommended_jobs():
         today = date.today()
         for rec in recommended:
             job = Job.query.get(rec['job_id'])
-            if job and job.status == 'open' and not job.is_flagged:
+            if job and job.status == 'open' and job.moderation_status == 'approved' and not job.is_flagged and not job.closed_at:
                 if job.deadline and job.deadline < today:
                     continue
                 results.append({
