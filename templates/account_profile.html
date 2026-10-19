@@ -52,6 +52,7 @@
     <div class="w-full min-w-0 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex flex-col lg:flex-row gap-6 lg:gap-8 min-w-0">
 
+            {% if user.role != 'translator' %}
             <!-- Sidebar -->
             <aside class="w-full lg:w-64 shrink-0">
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden sticky top-24">
@@ -229,9 +230,10 @@
                     </nav>
                 </div>
             </aside>
+            {% endif %}
 
             <!-- Main Content -->
-            <div class="flex-grow min-w-0 space-y-6">
+            <div class="flex-grow min-w-0 space-y-6 w-full">
 
                 {% if user.role == 'translator' %}
                 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
