@@ -323,9 +323,11 @@ function buildFilterForm(s) {
   const TYPE_OPTIONS = CURRENT_LANG === 'en' ? [
     { label: 'All Profiles', value: 'all' },
     { label: 'Verified Interpreters Only', value: 'verified' },
+    { label: 'Demo Profiles Only', value: 'demo' },
   ] : [
     { label: 'Tất cả hồ sơ', value: 'all' },
     { label: 'Đã thẩm định minh chứng', value: 'verified' },
+    { label: 'Hồ sơ mẫu (Demo)', value: 'demo' },
   ];
   html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${typeHeader}</h4><div class="space-y-1">`;
   TYPE_OPTIONS.forEach(opt => {
@@ -393,7 +395,8 @@ function buildFilterForm(s) {
 
 function filterFreelancers(list, f) {
   return list.filter(fl => {
-    if (f.demoType === 'verified' && !fl.is_verified) return false;
+    if (f.demoType === 'verified' && (!fl.is_verified || fl.is_demo)) return false;
+    if (f.demoType === 'demo' && !fl.is_demo) return false;
     if (f.query) {
       const hay = norm([fl.name, fl.title, (fl.badges||[]).join(' '), (fl.languages||[]).join(' '), (fl.language_pairs||[]).join(' '), (fl.specialties||[]).join(' '), fl.location||'', (fl.work_modes||[]).join(' '), fl.employment_preference||'', fl.availability_status||''].join(' '));
       if (!f.query.split(/\s+/).every(w => hay.includes(w))) return false;
@@ -553,6 +556,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (langParam) filters.languages = [langParam];
   const qParam = urlParams.get('q');
   if (qParam) { document.getElementById('fl-search').value = qParam; filters.query = norm(qParam.trim()); }
+  const typeParam = urlParams.get('type') || urlParams.get('demo');
+  if (typeParam === 'verified' || typeParam === 'hide') {
+    filters.demoType = 'verified';
+  } else if (typeParam === 'demo' || typeParam === 'only') {
+    filters.demoType = 'demo';
+  }
 
   document.getElementById('filter-form-desktop').addEventListener('change', () => { syncFiltersFromDOM('d'); rerender(true); });
   document.getElementById('filter-form-mobile').addEventListener('change', () => { syncFiltersFromDOM('m'); rerender(true); });
@@ -570,7 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('vt:favchange', (e) => {
     const fl = allFreelancers.find(x => x.id === e.detail.id); if (fl) fl.is_favorite = e.detail.is_favorite;
   });
-  loadTranslators().then(() => { if (qParam || langParam) { syncDOMFromFilters('d'); syncDOMFromFilters('m'); } });
+  loadTranslators().then(() => { if (qParam || langParam || typeParam) { syncDOMFromFilters('d'); syncDOMFromFilters('m'); rerender(true); } });
 });
 </script>
 {% endblock %}

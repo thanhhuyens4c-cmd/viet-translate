@@ -6937,9 +6937,9 @@ def translator_list():
         User.is_active == True,
         db.or_(TranslatorProfile.is_public == True, TranslatorProfile.is_public.is_(None))
     )
-    if demo_filter == 'hide':
+    if demo_filter in ('hide', 'verified'):
         query = query.filter(TranslatorProfile.is_demo != True, TranslatorProfile.is_verified == True)
-    elif demo_filter == 'only':
+    elif demo_filter in ('only', 'demo'):
         query = query.filter(TranslatorProfile.is_demo == True)
     else:
         query = query.filter(db.or_(TranslatorProfile.is_verified == True, TranslatorProfile.is_demo == True))
@@ -7108,7 +7108,7 @@ def api_translators():
             User.is_active == True,
             db.or_(TranslatorProfile.is_public == True, TranslatorProfile.is_public.is_(None))
         )
-        if demo_filter == 'hide':
+        if demo_filter in ('hide', 'verified'):
             query = query.filter(TranslatorProfile.is_demo != True, TranslatorProfile.is_verified == True)
         elif demo_filter in ('only', 'demo'):
             query = query.filter(TranslatorProfile.is_demo == True)
