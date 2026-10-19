@@ -98,14 +98,14 @@ class HirerJobLifecycleIntegrationTestCase(unittest.TestCase):
         self.assertFalse(can_now, "Quyền đăng job phải bị thu hồi sau khi đổi thông tin quan trọng")
         self.assertIn("đang chờ Ban quản trị xét duyệt", reason)
 
-    def test_02_admin_review_gate_enforces_mandatory_criteria(self):
-        """Admin review gate: Không thể cấp verified nếu chưa đạt đủ tiêu chí bắt buộc X1 - X5."""
+    def test_02_moderator_cannot_verify_unmet_hirer_profile(self):
+        """Admin thường (moderator) không thể duyệt hồ sơ chưa đạt đủ 5/5 tiêu chí bắt buộc."""
         ts = int(datetime.utcnow().timestamp())
         admin = User(
-            name=f"Admin Test {ts}",
-            email=f"admin_{ts}@admin.local",
+            name=f"Admin Mod {ts}",
+            email=f"admin_mod_{ts}@admin.local",
             role='admin',
-            admin_role='super_admin',
+            admin_role='moderator',
             is_admin=True,
             is_active=True,
             password_hash='adminpass'
@@ -130,15 +130,16 @@ class HirerJobLifecycleIntegrationTestCase(unittest.TestCase):
         db.session.add(profile)
         db.session.commit()
 
-        # Giả lập Admin đăng nhập
+        # Giả lập Moderator đăng nhập
+        now_ts = datetime.utcnow().timestamp()
         with self.client.session_transaction() as sess:
             sess['admin_id'] = admin.id
-            sess['admin_role'] = 'super_admin'
+            sess['admin_role'] = 'moderator'
             sess['admin_csrf_token'] = 'test_token'
-            sess['admin_session_created'] = datetime.utcnow().timestamp()
-            sess['admin_session_last_seen'] = datetime.utcnow().timestamp()
+            sess['admin_session_created'] = now_ts
+            sess['admin_session_last_seen'] = now_ts
 
-        # Admin cố tình submit action=verify khi hồ sơ chưa đạt
+        # Moderator cố tình submit action=verify khi hồ sơ chưa đạt
         res = self.client.post(
             f'/admin/hirers/{hirer.id}/review',
             data={'action': 'verify', 'chk_X3': '0', '_csrf_token': 'test_token'},
@@ -146,10 +147,113 @@ class HirerJobLifecycleIntegrationTestCase(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 200)
 
-        # Refresh từ database
+        # Refresh từ database: hồ sơ vẫn pending, không được verified
         db.session.refresh(profile)
         self.assertEqual(profile.verification_status, 'pending', "Không được cấp verified khi checklist chưa đạt")
         self.assertFalse(profile.is_verified, "is_verified phải vẫn là False")
+
+    def test_02b_super_admin_can_override_verify_unmet_hirer_profile(self):
+        """Super Admin có thẩm quyền tối cao: được phép duyệt đặc cách hồ sơ chưa đạt chuẩn dù bất kì hoàn cảnh nào."""
+        ts = int(datetime.utcnow().timestamp())
+        super_admin = User(
+            name=f"Super Admin Test {ts}",
+            email=f"super_admin_{ts}@admin.local",
+            role='admin',
+            admin_role='super_admin',
+            is_admin=True,
+            is_active=True,
+            password_hash='adminpass'
+        )
+        hirer = User(
+            name=f"Hirer Unmet {ts}",
+            email=f"invalid_email_{ts}",
+            phone="111",
+            role='hirer',
+            is_active=True,
+            password_hash='hirerpass'
+        )
+        db.session.add_all([super_admin, hirer])
+        db.session.flush()
+
+        profile = HirerProfile(
+            user_id=hirer.id,
+            account_type='individual',
+            verification_status='pending',
+            is_verified=False
+        )
+        db.session.add(profile)
+        db.session.commit()
+
+        # Giả lập Super Admin đăng nhập
+        now_ts = datetime.utcnow().timestamp()
+        with self.client.session_transaction() as sess:
+            sess['admin_id'] = super_admin.id
+            sess['admin_role'] = 'super_admin'
+            sess['admin_csrf_token'] = 'test_token'
+            sess['admin_session_created'] = now_ts
+            sess['admin_session_last_seen'] = now_ts
+
+        # Super Admin thực hiện duyệt đặc cách
+        res = self.client.post(
+            f'/admin/hirers/{hirer.id}/review',
+            data={'action': 'verify', 'chk_X3': '0', '_csrf_token': 'test_token'},
+            follow_redirects=True
+        )
+        self.assertEqual(res.status_code, 200)
+
+        # Refresh từ database: hồ sơ đã được duyệt thành công!
+        db.session.refresh(profile)
+        self.assertEqual(profile.verification_status, 'verified', "Super Admin phải duyệt được hồ sơ dù bất kỳ hoàn cảnh nào")
+        self.assertTrue(profile.is_verified, "is_verified phải là True")
+        self.assertIsNotNone(profile.verified_at)
+
+    def test_02c_moderator_can_ask_super_admin_opinion(self):
+        """Admin thường có thể gửi yêu cầu hỏi ý kiến riêng của Super Admin."""
+        ts = int(datetime.utcnow().timestamp())
+        admin = User(
+            name=f"Mod Ask {ts}",
+            email=f"mod_ask_{ts}@admin.local",
+            role='admin',
+            admin_role='moderator',
+            is_admin=True,
+            is_active=True,
+            password_hash='adminpass'
+        )
+        hirer = User(
+            name=f"Hirer To Consult {ts}",
+            email=f"consult_{ts}@example.com",
+            phone="0988776655",
+            role='hirer',
+            is_active=True,
+            password_hash='hirerpass'
+        )
+        db.session.add_all([admin, hirer])
+        db.session.flush()
+
+        profile = HirerProfile(user_id=hirer.id, account_type='business', verification_status='pending', is_verified=False)
+        db.session.add(profile)
+        db.session.commit()
+
+        now_ts = datetime.utcnow().timestamp()
+        with self.client.session_transaction() as sess:
+            sess['admin_id'] = admin.id
+            sess['admin_role'] = 'moderator'
+            sess['admin_csrf_token'] = 'test_token'
+            sess['admin_session_created'] = now_ts
+            sess['admin_session_last_seen'] = now_ts
+
+        # Gửi yêu cầu hỏi ý kiến Super Admin
+        res = self.client.post(
+            f'/admin/hirers/{hirer.id}/review',
+            data={'action': 'ask_super_admin', 'reason': 'Khách hàng uy tín lớn, đề xuất Super Admin xem xét duyệt đặc cách', '_csrf_token': 'test_token'},
+            follow_redirects=True
+        )
+        self.assertEqual(res.status_code, 200)
+
+        # Kiểm tra AdminNotification được sinh ra cho Super Admin
+        notif = AdminNotification.query.filter_by(type='SUPER_ADMIN_CONSULTATION', related_id=hirer.id).first()
+        self.assertIsNotNone(notif, "Phải tạo AdminNotification khi hỏi ý kiến Super Admin")
+        self.assertIn("Xin ý kiến duyệt hồ sơ", notif.title)
 
     def test_03_post_job_succeeds_even_if_notification_fails(self):
         """Decoupled Notification: Job và schedule được commit thành công ngay cả khi tạo notification gặp lỗi."""
@@ -258,10 +362,37 @@ class HirerJobLifecycleIntegrationTestCase(unittest.TestCase):
             sess['admin_session_created'] = datetime.utcnow().timestamp()
             sess['admin_session_last_seen'] = datetime.utcnow().timestamp()
 
-        # Truy cập trang quản lý job của Admin
-        res = self.client.get('/admin/jobs')
-        self.assertEqual(res.status_code, 200, "Trang /admin/jobs phải phản hồi 200 OK")
-        self.assertIn(job1.title, res.data.decode('utf-8'))
+        # Truy cập trang quản lý job của Admin - Kiểm tra TẤT CẢ 9 tabs không bao giờ gặp lỗi (đặc biệt needs_revision và rejected - lỗi ERR-3C01DBCC)
+        for st in ['all', 'pending', 'critical', 'needs_revision', 'open', 'closed', 'rejected', 'flagged', 'archived']:
+            res = self.client.get(f'/admin/jobs?status={st}')
+            self.assertEqual(res.status_code, 200, f"Trang /admin/jobs?status={st} phải phản hồi 200 OK (không bị lỗi 500)")
+
+        # Kiểm tra hành động Gắn cờ / Bỏ cờ
+        res_flag = self.client.post(f'/admin/jobs/{job1.id}/flag', data={'_csrf_token': 'test_token'}, follow_redirects=True)
+        self.assertEqual(res_flag.status_code, 200)
+        self.assertTrue(job1.is_flagged)
+
+        res_unflag = self.client.post(f'/admin/jobs/{job1.id}/flag', data={'_csrf_token': 'test_token'}, follow_redirects=True)
+        self.assertEqual(res_unflag.status_code, 200)
+        self.assertFalse(job1.is_flagged)
+
+        # Kiểm tra hành động Lưu trữ
+        res_archive = self.client.post(f'/admin/jobs/{job1.id}/archive', data={'_csrf_token': 'test_token'}, follow_redirects=True)
+        self.assertEqual(res_archive.status_code, 200)
+        self.assertEqual(job1.moderation_status, 'archived')
+
+        # Kiểm tra hành động Hỏi ý kiến Super Admin
+        res_ask = self.client.post(f'/admin/jobs/{job1.id}/moderate', data={
+            '_csrf_token': 'test_token',
+            'decision': 'ask_super_admin',
+            'consultation_notes': 'Ghi chú tham vấn test'
+        }, follow_redirects=True)
+        self.assertEqual(res_ask.status_code, 200)
+
+        # Kiểm tra hành động Xóa an toàn
+        res_del = self.client.post(f'/admin/jobs/{job1.id}/delete', data={'_csrf_token': 'test_token'}, follow_redirects=True)
+        self.assertEqual(res_del.status_code, 200)
+        self.assertIsNone(Job.query.get(job1.id))
 
     def test_05_admin_can_access_verification_documents(self):
         """Admin có quyền tải và xem tài liệu minh chứng mà không bị lỗi 401 Unauthorized."""

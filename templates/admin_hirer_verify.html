@@ -175,11 +175,31 @@
 
                     </div>
 
+                    {% if not eval_result.all_mandatory_passed %}
+                        {% if admin_role == 'super_admin' %}
+                        <div style="margin-top: 16px; padding: 12px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; font-size: 12px; color: #92400e; display: flex; align-items: flex-start; gap: 8px;">
+                            <span style="font-size: 16px; line-height: 1;">⚡</span>
+                            <div>
+                                <strong style="color: #78350f;">Thẩm quyền Super Admin:</strong>
+                                <span>Hồ sơ hiện đạt {{ eval_result.mandatory_passed }}/{{ eval_result.mandatory_total }} tiêu chí bắt buộc. Với thẩm quyền <strong>Super Admin</strong>, bạn có toàn quyền duyệt đặc cách qua hồ sơ này dù trong bất kỳ hoàn cảnh nào.</span>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div style="margin-top: 16px; padding: 12px 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; font-size: 12px; color: #1e40af; display: flex; align-items: flex-start; gap: 8px;">
+                            <span style="font-size: 16px; line-height: 1;">ℹ️</span>
+                            <div>
+                                <strong style="color: #1e3a8a;">Giới hạn thẩm quyền:</strong>
+                                <span>Hồ sơ chưa đạt đủ 5/5 tiêu chí bắt buộc. Chỉ <strong>Super Admin</strong> mới có quyền duyệt qua. Đối với các phân loại Admin khác, cần phải hỏi ý kiến riêng của Super Admin.</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% else %}
                     <div style="margin-top: 16px; font-size: 12px; color: #64748b;">
                         Cần đạt đủ 5/5 mới cấp huy hiệu và mở chức năng đăng job.
                     </div>
+                    {% endif %}
 
-                    <!-- Footer Buttons (Từ chối / Yêu cầu bổ sung / Xác minh - Image 1) -->
+                    <!-- Footer Buttons (Từ chối / Yêu cầu bổ sung / Hỏi ý kiến Super Admin / Xác minh - Image 1) -->
                     <div style="display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 28px;">
                         <button type="button" onclick="submitHirerAction('reject')" style="min-height: 40px; background: #ffffff; border: 1px solid #cbd5e1; color: #dc2626; font-size: 13px; font-weight: 700; padding: 10px 18px; border-radius: 10px; cursor: pointer;">
                             Từ chối
@@ -187,9 +207,22 @@
                         <button type="button" onclick="submitHirerAction('needs_revision')" style="min-height: 40px; background: #ffffff; border: 1px solid #cbd5e1; color: #334155; font-size: 13px; font-weight: 700; padding: 10px 18px; border-radius: 10px; cursor: pointer;">
                             Yêu cầu bổ sung
                         </button>
+
+                        {% if not eval_result.all_mandatory_passed %}
+                            {% if admin_role == 'super_admin' %}
+                            <button type="button" onclick="submitHirerAction('verify')" style="min-height: 40px; background: #059669; border: none; color: #ffffff; font-size: 13px; font-weight: 700; padding: 10px 24px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Duyệt qua hồ sơ với thẩm quyền tối cao của Super Admin">
+                                <span>⚡</span> Duyệt đặc cách (Super Admin)
+                            </button>
+                            {% else %}
+                            <button type="button" onclick="submitHirerAction('ask_super_admin')" style="min-height: 40px; background: #2563eb; border: none; color: #ffffff; font-size: 13px; font-weight: 700; padding: 10px 20px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Chuyển tiếp và hỏi ý kiến riêng của Super Admin">
+                                <span>📩</span> Hỏi ý kiến Super Admin
+                            </button>
+                            {% endif %}
+                        {% else %}
                         <button type="button" onclick="submitHirerAction('verify')" style="min-height: 40px; background: #15803d; border: none; color: #ffffff; font-size: 13px; font-weight: 700; padding: 10px 24px; border-radius: 10px; cursor: pointer;">
                             Xác minh
                         </button>
+                        {% endif %}
                     </div>
 
                 </form>
@@ -202,6 +235,9 @@
 </div>
 
 <script>
+const IS_SUPER_ADMIN = {{ 'true' if admin_role == 'super_admin' else 'false' }};
+const ALL_MANDATORY_PASSED = {{ 'true' if eval_result.all_mandatory_passed else 'false' }};
+
 function submitHirerAction(act) {
     if (act === 'reject') {
         var r = prompt('Vui lòng nhập lý do từ chối xác minh:');
@@ -211,6 +247,21 @@ function submitHirerAction(act) {
         var r = prompt('Vui lòng nhập danh sách tiêu chí cần người đăng bổ sung (VD: Cần bổ sung file GPKD hoặc sao kê):');
         if (r === null) return;
         document.getElementById('reasonInput').value = r;
+    } else if (act === 'ask_super_admin') {
+        var r = prompt('Nhập lý do / nội dung cần xin ý kiến Super Admin xem xét duyệt đặc cách hồ sơ này:', 'Hồ sơ chưa đạt đủ 5/5 tiêu chí bắt buộc. Kính chuyển Super Admin xem xét duyệt đặc cách.');
+        if (r === null) return;
+        document.getElementById('reasonInput').value = r;
+    } else if (act === 'verify') {
+        if (!ALL_MANDATORY_PASSED) {
+            if (!IS_SUPER_ADMIN) {
+                alert('Không thể phê duyệt: Hồ sơ chưa đáp ứng đủ các tiêu chí bắt buộc (X1 - X5). Bạn không có thẩm quyền duyệt qua hồ sơ này. Chỉ Super Admin mới có quyền duyệt đặc cách trong mọi hoàn cảnh. Vui lòng bấm "Hỏi ý kiến Super Admin".');
+                return;
+            } else {
+                if (!confirm('⚡ THẨM QUYỀN SUPER ADMIN:\nHồ sơ này chưa đạt đủ 5/5 tiêu chí bắt buộc. Với thẩm quyền tối cao của Super Admin, bạn có chắc chắn muốn DUYỆT ĐẶC CÁCH cho hồ sơ này dù trong bất kỳ hoàn cảnh nào?')) {
+                    return;
+                }
+            }
+        }
     }
     document.getElementById('actionInput').value = act;
     document.getElementById('hirerVerifyForm').submit();

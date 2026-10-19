@@ -55,7 +55,7 @@
                 Xét duyệt job #{{ job.id }}
             </h2>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             {% if job.hirer and (job.hirer.hirer_profile and (job.hirer.hirer_profile.verification_status == 'verified' or job.hirer.hirer_profile.is_verified)) %}
             <span style="background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -78,6 +78,32 @@
             {% else %}
             <span class="badge badge-warning" style="font-size: 12px; padding: 5px 12px; background: #fbbf24; color: #1e293b;">Chờ duyệt</span>
             {% endif %}
+
+            <!-- Nút Gắn cờ vi phạm -->
+            <form method="POST" action="{{ url_for('admin_flag_job', job_id=job.id) }}" style="display: inline; margin-left: 6px;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                {% if job.is_flagged %}
+                <button type="submit" class="btn btn-success btn-sm" style="font-size: 11px; padding: 4px 10px;" title="Bỏ cờ vi phạm / Khôi phục bài đăng">✓ Bỏ cờ</button>
+                {% else %}
+                <button type="submit" class="btn btn-warning btn-sm" style="font-size: 11px; padding: 4px 10px;" onclick="return confirm('Bạn có chắc muốn gắn cờ vi phạm/tạm ẩn job này không?');" title="Gắn cờ vi phạm và tạm ẩn">🚩 Gắn cờ</button>
+                {% endif %}
+            </form>
+
+            <!-- Nút Lưu trữ an toàn -->
+            <form method="POST" action="{{ url_for('admin_archive_job', job_id=job.id) }}" style="display: inline;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 4px 8px; color: #94a3b8; border: 1px solid #334155;" title="Lưu trữ an toàn, bảo tồn giao dịch" onclick="return confirm('Lưu trữ job này sẽ ẩn khỏi sàn nhưng giữ nguyên lịch sử báo giá/hợp đồng?');">
+                    🗄 Lưu trữ
+                </button>
+            </form>
+
+            <!-- Nút Xóa vĩnh viễn -->
+            <form method="POST" action="{{ url_for('admin_delete_job', job_id=job.id) }}" style="display: inline;">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 4px 8px; color: #ef4444; border: 1px solid rgba(239,68,68,0.3);" title="Xóa vĩnh viễn (Chỉ tin rác)" onclick="return confirm('CẢNH BÁO: Xóa vĩnh viễn Job #{{ job.id }}? Hành động này không thể hoàn tác!');">
+                    🗑 Xóa
+                </button>
+            </form>
         </div>
     </div>
 
@@ -214,6 +240,7 @@
                 <input type="hidden" name="decision" id="decisionInput" value="approve">
                 <input type="hidden" name="rejection_reason" id="rejectionReasonInput" value="">
                 <input type="hidden" name="revision_notes" id="revisionNotesInput" value="">
+                <input type="hidden" name="consultation_notes" id="consultationNotesInput" value="">
 
                 <!-- NHÓM A · Tính đầy đủ thông tin (12 tiêu chí) -->
                 <div class="criteria-group-box" style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
@@ -370,19 +397,34 @@
         </span>
     </div>
 
-    <div class="review-actions" style="display: flex; align-items: center; gap: 12px;">
+    <div class="review-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <!-- Nút Yêu cầu chỉnh sửa -->
         <button type="button" onclick="openRevisionModal()" class="btn btn-ghost" style="border: 1px solid #475569; color: #f1f5f9; padding: 8px 18px; border-radius: 10px; font-weight: 600; font-size: 13px;">
             Yêu cầu chỉnh sửa
         </button>
 
-        <!-- Nút Duyệt -->
-        <button type="button" onclick="submitDecision('approve')" class="btn" style="background: {% if eval_result.total_critical > 0 %}#334155{% else %}#22c55e{% endif %}; color: #fff; padding: 8px 24px; border-radius: 10px; font-weight: 700; font-size: 13px; border: none; cursor: pointer;" {% if eval_result.total_critical > 0 %}title="Job đang có vi phạm nghiêm trọng, không nên duyệt"{% endif %}>
-            Duyệt
-        </button>
+        <!-- Nút Duyệt / Duyệt đặc cách / Hỏi ý kiến Super Admin -->
+        {% if eval_result.total_critical > 0 %}
+            {% if is_super_admin %}
+            <button type="button" onclick="submitDecision('approve_override')" class="btn" style="background: #f59e0b; color: #000; padding: 8px 22px; border-radius: 10px; font-weight: 800; font-size: 13px; border: none; cursor: pointer;" title="Super Admin có thẩm quyền duyệt đặc cách bài đăng có vi phạm">
+                ⚡ Duyệt đặc cách (Super Admin)
+            </button>
+            {% else %}
+            <button type="button" disabled class="btn" style="background: #334155; color: #64748b; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 13px; border: none; cursor: not-allowed;" title="Chỉ Super Admin mới có thẩm quyền duyệt khi có vi phạm nghiêm trọng">
+                Duyệt (Chỉ Super Admin)
+            </button>
+            <button type="button" onclick="openAskSuperAdminModal()" class="btn" style="background: #6366f1; color: #fff; padding: 8px 20px; border-radius: 10px; font-weight: 700; font-size: 13px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Gửi yêu cầu xin ý kiến phê duyệt tới Super Admin">
+                📩 Hỏi ý kiến Super Admin
+            </button>
+            {% endif %}
+        {% else %}
+            <button type="button" onclick="submitDecision('approve')" class="btn" style="background: #22c55e; color: #fff; padding: 8px 24px; border-radius: 10px; font-weight: 700; font-size: 13px; border: none; cursor: pointer;">
+                Duyệt
+            </button>
+        {% endif %}
 
         <!-- Nút Từ chối (Nổi bật màu đỏ khi có vi phạm nghiêm trọng - Hình 3) -->
-        <button type="button" onclick="openRejectModal()" class="btn" style="background: #dc2626; color: #fff; padding: 8px 24px; border-radius: 10px; font-weight: 700; font-size: 13px; border: none; cursor: pointer; box-shadow: {% if eval_result.total_critical > 0 %}0 0 15px rgba(220,38,38,0.5){% else %}none{% endif %};">
+        <button type="button" onclick="openRejectModal()" class="btn" style="background: #dc2626; color: #fff; padding: 8px 22px; border-radius: 10px; font-weight: 700; font-size: 13px; border: none; cursor: pointer; box-shadow: {% if eval_result.total_critical > 0 %}0 0 15px rgba(220,38,38,0.5){% else %}none{% endif %};">
             Từ chối
         </button>
     </div>
@@ -414,6 +456,23 @@
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
             <button type="button" onclick="closeRevisionModal()" class="btn btn-ghost btn-sm">Hủy</button>
             <button type="button" onclick="confirmRevision()" class="btn btn-warning btn-sm" style="color: #000; font-weight: 700;">Gửi yêu cầu sửa</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL HỎI Ý KIẾN SUPER ADMIN -->
+<div id="askSuperAdminModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;">
+    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 24px; max-width: 500px; width: 90%; color: #f1f5f9;">
+        <h4 style="font-size: 16px; font-weight: 800; margin-bottom: 8px; color: #a5b4fc; display: flex; align-items: center; gap: 8px;">
+            <span>📩</span> Xin ý kiến Super Admin phê duyệt Job #{{ job.id }}
+        </h4>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px; line-height: 1.5;">
+            Bài đăng này chưa đủ điều kiện duyệt thông thường (có vi phạm hoặc cảnh báo). Theo quy định, chỉ <strong>Super Admin</strong> mới có quyền duyệt đặc cách. Vui lòng ghi rõ lý do đề xuất:
+        </p>
+        <textarea id="askSuperAdminNotesText" rows="3" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px; margin-bottom: 16px;" placeholder="Ví dụ: Đã liên hệ xác nhận người đăng tuyển chỉ trao đổi sơ bộ, cam kết thanh toán qua sàn. Đề xuất Super Admin duyệt đặc cách."></textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="closeAskSuperAdminModal()" class="btn btn-ghost btn-sm">Hủy</button>
+            <button type="button" onclick="confirmAskSuperAdmin()" class="btn btn-primary btn-sm" style="background: #6366f1; border-color: #6366f1; font-weight: 700;">Gửi xin ý kiến</button>
         </div>
     </div>
 </div>
@@ -462,7 +521,12 @@ function toggleSubCriteria() {
 }
 
 function submitDecision(dec) {
-    if (dec === 'approve') {
+    if (dec === 'approve_override') {
+        if (!confirm('CẢNH BÁO [Super Admin Override]: Job này có {{ eval_result.total_critical }} vi phạm nghiêm trọng. Bạn có chắc chắn muốn dùng quyền Super Admin duyệt đặc cách công việc này không?')) {
+            return;
+        }
+        dec = 'approve';
+    } else if (dec === 'approve') {
         {% if eval_result.total_critical > 0 %}
         if (!confirm('Cảnh báo: Job này có vi phạm nghiêm trọng (C1/C2...). Bạn có chắc chắn muốn bỏ qua và duyệt công việc này không?')) {
             return;
@@ -474,36 +538,87 @@ function submitDecision(dec) {
 }
 
 function openRejectModal() {
-    document.getElementById('rejectModal').style.display = 'flex';
+    var m = document.getElementById('rejectModal');
+    m.style.display = 'flex';
+    var t = document.getElementById('rejectReasonText');
+    if (t) setTimeout(function() { t.focus(); }, 100);
 }
 function closeRejectModal() {
     document.getElementById('rejectModal').style.display = 'none';
 }
 function confirmReject() {
     var r = document.getElementById('rejectReasonText').value.trim();
+    if (!r) {
+        alert('Vui lòng nhập lý do từ chối để thông báo cho người đăng tuyển.');
+        return;
+    }
     document.getElementById('rejectionReasonInput').value = r;
     document.getElementById('decisionInput').value = 'reject';
     document.getElementById('moderationForm').submit();
 }
 
 function openRevisionModal() {
-    document.getElementById('revisionModal').style.display = 'flex';
+    var m = document.getElementById('revisionModal');
+    m.style.display = 'flex';
+    var t = document.getElementById('revisionNotesText');
+    if (t) setTimeout(function() { t.focus(); }, 100);
 }
 function closeRevisionModal() {
     document.getElementById('revisionModal').style.display = 'none';
 }
 function confirmRevision() {
     var n = document.getElementById('revisionNotesText').value.trim();
+    if (!n) {
+        alert('Vui lòng nhập ghi chú yêu cầu chỉnh sửa.');
+        return;
+    }
     document.getElementById('revisionNotesInput').value = n;
     document.getElementById('decisionInput').value = 'needs_revision';
     document.getElementById('moderationForm').submit();
 }
 
+function openAskSuperAdminModal() {
+    var m = document.getElementById('askSuperAdminModal');
+    m.style.display = 'flex';
+    var t = document.getElementById('askSuperAdminNotesText');
+    if (t) setTimeout(function() { t.focus(); }, 100);
+}
+function closeAskSuperAdminModal() {
+    document.getElementById('askSuperAdminModal').style.display = 'none';
+}
+function confirmAskSuperAdmin() {
+    var txt = document.getElementById('askSuperAdminNotesText').value.trim();
+    document.getElementById('consultationNotesInput').value = txt;
+    document.getElementById('decisionInput').value = 'ask_super_admin';
+    document.getElementById('moderationForm').submit();
+}
+
 function openEditTitleModal() {
-    document.getElementById('editTitleModal').style.display = 'flex';
+    var m = document.getElementById('editTitleModal');
+    m.style.display = 'flex';
 }
 function closeEditTitleModal() {
     document.getElementById('editTitleModal').style.display = 'none';
 }
+
+// Hỗ trợ Escape và click backdrop
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeRejectModal();
+        closeRevisionModal();
+        closeEditTitleModal();
+        closeAskSuperAdminModal();
+    }
+});
+['rejectModal', 'revisionModal', 'editTitleModal', 'askSuperAdminModal'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) {
+        el.addEventListener('click', function(e) {
+            if (e.target === el) {
+                el.style.display = 'none';
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

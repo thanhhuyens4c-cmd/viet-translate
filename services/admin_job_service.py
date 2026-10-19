@@ -93,12 +93,13 @@ def check_quick_approve_eligibility(job, eval_res=None):
 
     return True, "Đủ điều kiện phê duyệt nhanh an toàn.", eval_res
 
-def safe_approve_job(job, admin_id=None, is_quick=False, manual_overrides=None, audit_logger=None):
+def safe_approve_job(job, admin_id=None, is_quick=False, manual_overrides=None, audit_logger=None, is_super_admin=False):
     """
     Thực hiện phê duyệt công việc một cách an toàn và nhất quán.
     - is_quick: Nếu True, bắt buộc thỏa mãn 100% điều kiện duyệt nhanh.
     - manual_overrides: Dict ghi đè thủ công (ví dụ {'C7': True}) khi duyệt từ màn hình chi tiết.
     - audit_logger: Hàm ghi audit log (nếu có, mặc định dùng _audit_log nội bộ).
+    - is_super_admin: Nếu True, Super Admin có quyền duyệt đặc cách trong mọi hoàn cảnh.
     Trả về: (success: bool, message: str, eval_res: dict)
     """
     if not job:
@@ -123,9 +124,10 @@ def safe_approve_job(job, admin_id=None, is_quick=False, manual_overrides=None, 
         if not eligible:
             return False, f"Không thể duyệt nhanh: {reason}", eval_res
     else:
-        # Nếu là duyệt chi tiết, vẫn chặn nếu có vi phạm nghiêm trọng mà không có lý do hợp lệ
+        # Nếu là duyệt chi tiết, chỉ Super Admin mới có quyền đặc cách duyệt khi có vi phạm nghiêm trọng
         if eval_res.get('total_critical', 0) > 0 and not manual_overrides:
-            return False, "Công việc có vi phạm nghiêm trọng. Không thể phê duyệt nếu chưa xử lý vi phạm.", eval_res
+            if not is_super_admin:
+                return False, "Công việc có vi phạm nghiêm trọng. Không thể phê duyệt nếu chưa xử lý vi phạm. Chỉ Super Admin mới có quyền đặc cách duyệt.", eval_res
 
     # Xác định trạng thái vòng đời hiện tại của job
     is_closed_or_withdrawn = bool(

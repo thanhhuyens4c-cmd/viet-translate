@@ -10659,6 +10659,8 @@ def admin_jobs():
     from services.admin_job_service import evaluate_job_safety, check_quick_approve_eligibility
 
     # Đếm số lượng nhanh chóng và chính xác cho badge tab
+    all_count = Job.query.count()
+
     pending_count = Job.query.filter(
         db.or_(Job.moderation_status == 'pending', db.and_(Job.status == 'pending', Job.moderation_status.is_(None))),
         db.or_(Job.is_flagged == False, Job.is_flagged.is_(None)),
@@ -10671,8 +10673,27 @@ def admin_jobs():
         db.or_(Job.is_flagged == True, Job.moderation_status == 'flagged')
     ).count()
 
+    needs_revision_count = Job.query.filter(Job.moderation_status == 'needs_revision').count()
+
+    open_count = Job.query.filter(
+        Job.moderation_status == 'approved',
+        Job.status == 'open',
+        Job.closed_at.is_(None),
+        db.or_(Job.is_flagged == False, Job.is_flagged.is_(None))
+    ).count()
+
     closed_count = Job.query.filter(
         db.or_(Job.status.in_(['closed', 'cancelled']), Job.closed_at.isnot(None))
+    ).count()
+
+    rejected_count = Job.query.filter(Job.moderation_status == 'rejected').count()
+
+    flagged_count = Job.query.filter(
+        db.or_(Job.is_flagged == True, Job.moderation_status == 'flagged')
+    ).count()
+
+    archived_count = Job.query.filter(
+        db.or_(Job.moderation_status == 'archived', Job.status == 'archived')
     ).count()
 
     query = Job.query.join(User, Job.hirer_id == User.id, isouter=True)
@@ -10696,7 +10717,7 @@ def admin_jobs():
     elif status_filter == 'critical':
         query = query.filter(db.or_(Job.is_flagged == True, Job.moderation_status == 'flagged'))
     elif status_filter == 'needs_revision':
-        query = query.filter_by(moderation_status='needs_revision')
+        query = query.filter(Job.moderation_status == 'needs_revision')
     elif status_filter in ('open', 'active'):
         query = query.filter(
             Job.moderation_status == 'approved',
@@ -10707,7 +10728,7 @@ def admin_jobs():
     elif status_filter == 'closed':
         query = query.filter(db.or_(Job.status.in_(['closed', 'cancelled']), Job.closed_at.isnot(None)))
     elif status_filter == 'rejected':
-        query = query.filter_by(moderation_status='rejected')
+        query = query.filter(Job.moderation_status == 'rejected')
     elif status_filter == 'flagged':
         query = query.filter(db.or_(Job.is_flagged == True, Job.moderation_status == 'flagged'))
     elif status_filter == 'archived':
@@ -10732,9 +10753,15 @@ def admin_jobs():
         pagination=pagination,
         status_filter=status_filter,
         q=q,
+        all_count=all_count,
         pending_count=pending_count,
         critical_count=critical_count,
-        closed_count=closed_count
+        needs_revision_count=needs_revision_count,
+        open_count=open_count,
+        closed_count=closed_count,
+        rejected_count=rejected_count,
+        flagged_count=flagged_count,
+        archived_count=archived_count
     )
 
 @app.route('/admin/jobs/<int:job_id>/review', methods=['GET'])
@@ -10765,17 +10792,19 @@ def admin_job_review(job_id):
             },
             'highlighted_description': job.description or ''
         }
-    return render_template('admin_job_review.html', job=job, eval_result=eval_result)
+    admin_role = getattr(g, 'admin_role', None) or session.get('admin_role')
+    is_super_admin = (admin_role == 'super_admin')
+    return render_template('admin_job_review.html', job=job, eval_result=eval_result, is_super_admin=is_super_admin)
 
 @app.route('/admin/jobs/<int:job_id>/moderate', methods=['POST'])
 @admin_login_required
 @csrf_protected
 @require_permission('approve_job')
 def admin_moderate_job(job_id):
-    """Ra quyết định kiểm duyệt Job (Duyệt, Yêu cầu sửa, Từ chối)."""
+    """Ra quyết định kiểm duyệt Job (Duyệt, Yêu cầu sửa, Từ chối, Hỏi ý kiến Super Admin)."""
     job = Job.query.get_or_404(job_id)
     decision = (request.form.get('decision') or '').strip()
-    ALLOWED_DECISIONS = ('approve', 'needs_revision', 'reject')
+    ALLOWED_DECISIONS = ('approve', 'needs_revision', 'reject', 'ask_super_admin')
     if not decision or decision not in ALLOWED_DECISIONS:
         flash('Quyết định kiểm duyệt không hợp lệ hoặc bị thiếu.', 'error')
         return redirect(url_for('admin_job_review', job_id=job.id))
@@ -10791,7 +10820,9 @@ def admin_moderate_job(job_id):
     job.moderated_at = datetime.utcnow()
     job.moderated_by = session.get('admin_id')
 
-    admin_user = get_current_user()
+    current_admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
+    admin_role = getattr(g, 'admin_role', None) or (current_admin.admin_role if current_admin else None) or session.get('admin_role')
+    is_super_admin = (admin_role == 'super_admin')
     
     if decision == 'approve':
         from services.admin_job_service import safe_approve_job
@@ -10800,7 +10831,8 @@ def admin_moderate_job(job_id):
             admin_id=session.get('admin_id'),
             is_quick=False,
             manual_overrides=manual_overrides,
-            audit_logger=_audit_log
+            audit_logger=_audit_log,
+            is_super_admin=is_super_admin
         )
         if not success:
             flash(msg, 'error')
@@ -10863,6 +10895,33 @@ def admin_moderate_job(job_id):
             except Exception:
                 pass
         flash('Đã từ chối công việc.', 'error')
+
+    elif decision == 'ask_super_admin':
+        consultation_notes = (request.form.get('consultation_notes') or request.form.get('revision_notes') or '').strip()
+        admin_name = current_admin.name if current_admin else 'Cán bộ kiểm duyệt'
+        admin_role_title = getattr(current_admin, 'admin_role', 'admin') if current_admin else 'Admin'
+        try:
+            an = AdminNotification(
+                type='SUPER_ADMIN_CONSULTATION',
+                title=f'Xin ý kiến phê duyệt Job #{job.id}',
+                message=f"Admin {admin_name} ({admin_role_title}) xin ý kiến Super Admin phê duyệt đặc cách cho việc làm #{job.id} ({job.title}). Ghi chú: {consultation_notes or 'Không có ghi chú thêm'}",
+                url=url_for('admin_job_review', job_id=job.id),
+                related_id=job.id
+            )
+            db.session.add(an)
+            db.session.commit()
+        except Exception as e:
+            app.logger.warning(f"[ask_super_admin job] Lỗi khi tạo AdminNotification: {e}")
+
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS.get('CONSULT_SUPER_ADMIN', 'UPDATE_JOB'),
+            target_type='job',
+            target_id=job.id,
+            description=f'Admin {admin_name} xin ý kiến Super Admin phê duyệt Job #{job.id}',
+            extra_data={'notes': consultation_notes}
+        )
+        flash(f'Đã gửi yêu cầu xin ý kiến phê duyệt tới Super Admin cho công việc #{job.id}.', 'info')
+        return redirect(url_for('admin_jobs'))
 
     db.session.commit()
     return redirect(url_for('admin_jobs'))
@@ -11053,16 +11112,20 @@ def admin_hirer_verify(hirer_id):
 @csrf_protected
 @require_permission('verify_hirer')
 def admin_hirer_review_action(hirer_id):
-    """Xử lý quyết định xác minh người đăng (Xác minh, Bổ sung, Từ chối, Thu hồi)."""
+    """Xử lý quyết định xác minh người đăng (Xác minh, Bổ sung, Từ chối, Thu hồi, Hỏi ý kiến Super Admin)."""
     hirer = User.query.get_or_404(hirer_id)
     action = (request.form.get('action') or '').strip()
     reason = request.form.get('reason', '').strip()
     
-    ALLOWED_ACTIONS = ('verify', 'needs_revision', 'reject', 'revoke')
+    ALLOWED_ACTIONS = ('verify', 'needs_revision', 'reject', 'revoke', 'ask_super_admin')
     if not action or action not in ALLOWED_ACTIONS:
         flash('Hành động xét duyệt không hợp lệ hoặc bị thiếu.', 'error')
         return redirect(url_for('admin_hirer_verify', hirer_id=hirer_id))
     
+    current_admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
+    admin_role = getattr(g, 'admin_role', None) or (current_admin.admin_role if current_admin else None) or session.get('admin_role')
+    is_super_admin = (admin_role == 'super_admin')
+
     profile = hirer.hirer_profile
     if not profile:
         profile = HirerProfile(user_id=hirer.id)
@@ -11075,19 +11138,26 @@ def admin_hirer_review_action(hirer_id):
     profile.verification_checklist_data = json.dumps(eval_res)
     
     if action == 'verify':
-        if not eval_res.get('all_mandatory_passed'):
-            flash('Không thể phê duyệt: Hồ sơ chưa đáp ứng đủ các tiêu chí bắt buộc (X1 - X5). Vui lòng kiểm tra lại checklist hoặc yêu cầu bổ sung.', 'error')
-            return redirect(url_for('admin_hirer_verify', hirer_id=hirer_id))
+        all_passed = bool(eval_res.get('all_mandatory_passed'))
+        if not all_passed:
+            if not is_super_admin:
+                flash('Không thể phê duyệt: Hồ sơ chưa đáp ứng đủ các tiêu chí bắt buộc (X1 - X5). Bạn không có thẩm quyền duyệt qua hồ sơ này. Chỉ Super Admin mới có quyền phê duyệt đặc cách trong mọi hoàn cảnh. Vui lòng hỏi ý kiến riêng của Super Admin.', 'error')
+                return redirect(url_for('admin_hirer_verify', hirer_id=hirer_id))
+            else:
+                profile.verification_notes = f"[Super Admin Override] Phê duyệt đặc cách bởi Super Admin vào lúc {datetime.utcnow().strftime('%d/%m/%Y %H:%M:%S')}. Tiêu chí đạt {eval_res.get('mandatory_passed')}/{eval_res.get('mandatory_total')}."
         profile.verification_status = 'verified'
         profile.is_verified = True
         profile.verified_at = datetime.utcnow()
         hirer.verified_at = datetime.utcnow()
+        log_desc = f'Admin xác minh người đăng tuyển: {hirer.name} ({hirer.email})'
+        if not all_passed and is_super_admin:
+            log_desc = f'Super Admin duyệt đặc cách người đăng tuyển: {hirer.name} ({hirer.email}) (Chưa đạt đủ tiêu chí bắt buộc)'
         _audit_log(
             action=ADMIN_AUDIT_ACTIONS['VERIFY_HIRER'],
             target_type='user',
             target_id=hirer.id,
-            description=f'Admin xác minh người đăng tuyển: {hirer.name} ({hirer.email})',
-            extra_data={'checklist': eval_res}
+            description=log_desc,
+            extra_data={'checklist': eval_res, 'super_admin_override': (not all_passed and is_super_admin)}
         )
         try:
             from app import create_notification
@@ -11100,7 +11170,36 @@ def admin_hirer_review_action(hirer_id):
             )
         except Exception:
             pass
-        flash(f'Đã cấp xác minh thành công cho người đăng tuyển {hirer.name}.', 'success')
+        if not all_passed and is_super_admin:
+            flash(f'Super Admin đã phê duyệt đặc cách xác minh thành công cho người đăng tuyển {hirer.name} (Hồ sơ chưa đạt đủ 5/5 tiêu chí bắt buộc).', 'success')
+        else:
+            flash(f'Đã cấp xác minh thành công cho người đăng tuyển {hirer.name}.', 'success')
+
+    elif action == 'ask_super_admin':
+        consult_reason = reason or "Hồ sơ chưa đạt đủ tiêu chí bắt buộc, đề xuất Super Admin xem xét duyệt đặc cách."
+        profile.rejection_reason = f"[Chờ Super Admin cho ý kiến] {consult_reason}"
+        try:
+            from models import AdminNotification
+            admin_name = current_admin.name if current_admin else "Kiểm duyệt viên"
+            admin_role_title = current_admin.admin_role if current_admin else "Admin"
+            db.session.add(AdminNotification(
+                type='SUPER_ADMIN_CONSULTATION',
+                title=f'Xin ý kiến duyệt hồ sơ: {hirer.name}',
+                message=f'Admin {admin_name} ({admin_role_title}) xin ý kiến Super Admin về việc duyệt hồ sơ người đăng tuyển "{hirer.name}" (hiện đạt {eval_res.get("mandatory_passed")}/{eval_res.get("mandatory_total")} tiêu chí bắt buộc). Lý do: {consult_reason}',
+                url=url_for('admin_hirer_verify', hirer_id=hirer.id),
+                related_id=hirer.id
+            ))
+            db.session.commit()
+        except Exception as e:
+            app.logger.warning(f"[ask_super_admin] Lỗi khi tạo AdminNotification: {e}")
+        _audit_log(
+            action='CONSULT_SUPER_ADMIN',
+            target_type='user',
+            target_id=hirer.id,
+            description=f'Admin xin ý kiến Super Admin duyệt hồ sơ: {hirer.name}',
+            extra_data={'reason': consult_reason, 'checklist': eval_res}
+        )
+        flash(f'Đã gửi yêu cầu hỏi ý kiến tới Super Admin về hồ sơ của {hirer.name}. Vui lòng chờ phản hồi từ Super Admin.', 'info')
         
     elif action == 'needs_revision':
         profile.verification_status = 'needs_revision'

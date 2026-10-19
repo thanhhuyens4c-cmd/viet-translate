@@ -139,8 +139,14 @@ function submitReview(action) {
         });
         
         if (!allBbChecked) {
-            alert('Không thể Phê duyệt! Bạn phải tick đầy đủ các tiêu chí Bắt buộc (Nhóm A và D).');
+            {% if admin_role == 'super_admin' %}
+            if (!confirm('⚡ THẨM QUYỀN SUPER ADMIN:\nHồ sơ này chưa tick đủ các tiêu chí Bắt buộc (Nhóm A & D). Với thẩm quyền tối cao của Super Admin, bạn có chắc chắn muốn DUYỆT ĐẶC CÁCH cho hồ sơ này dù trong bất kỳ hoàn cảnh nào?')) {
+                return;
+            }
+            {% else %}
+            alert('Không thể Phê duyệt: Bạn phải tick đầy đủ các tiêu chí Bắt buộc (Nhóm A và D). Đối với các hồ sơ không đủ điều kiện, chỉ Super Admin mới có quyền duyệt qua. Bạn cần phải hỏi ý kiến riêng của Super Admin.');
             return;
+            {% endif %}
         }
     } else {
         if (!reason) {

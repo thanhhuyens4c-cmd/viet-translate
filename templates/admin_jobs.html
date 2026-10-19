@@ -122,7 +122,12 @@
 
         <!-- Filter Tabs -->
         <div class="filter-bar" style="display: flex; gap: 8px; flex-wrap: wrap; padding: 0 0 14px 0;">
-            <a href="{{ url_for('admin_jobs', status='all', q=q) }}" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">Tất cả</a>
+            <a href="{{ url_for('admin_jobs', status='all', q=q) }}" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">
+                Tất cả
+                {% if all_count is defined and all_count > 0 %}
+                <span class="nav-badge" style="margin-left: 6px; background: #334155;">{{ all_count }}</span>
+                {% endif %}
+            </a>
             <a href="{{ url_for('admin_jobs', status='pending', q=q) }}" class="filter-tab {% if status_filter == 'pending' %}active{% endif %}">
                 Chờ duyệt
                 {% if pending_count and pending_count > 0 %}
@@ -135,17 +140,42 @@
                 <span class="nav-badge" style="margin-left: 6px;">{{ critical_count }}</span>
                 {% endif %}
             </a>
-            <a href="{{ url_for('admin_jobs', status='needs_revision', q=q) }}" class="filter-tab {% if status_filter == 'needs_revision' %}active{% endif %}">Cần xem xét</a>
-            <a href="{{ url_for('admin_jobs', status='open', q=q) }}" class="filter-tab {% if status_filter in ('open', 'active') %}active{% endif %}">Đang hoạt động</a>
+            <a href="{{ url_for('admin_jobs', status='needs_revision', q=q) }}" class="filter-tab {% if status_filter == 'needs_revision' %}active{% endif %}">
+                Cần xem xét
+                {% if needs_revision_count and needs_revision_count > 0 %}
+                <span class="nav-badge warning" style="margin-left: 6px;">{{ needs_revision_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{{ url_for('admin_jobs', status='open', q=q) }}" class="filter-tab {% if status_filter in ('open', 'active') %}active{% endif %}">
+                Đang hoạt động
+                {% if open_count and open_count > 0 %}
+                <span class="nav-badge" style="margin-left: 6px; background: #059669;">{{ open_count }}</span>
+                {% endif %}
+            </a>
             <a href="{{ url_for('admin_jobs', status='closed', q=q) }}" class="filter-tab {% if status_filter == 'closed' %}active{% endif %}">
                 Đã đóng
                 {% if closed_count and closed_count > 0 %}
                 <span class="nav-badge" style="margin-left: 6px; background: #475569;">{{ closed_count }}</span>
                 {% endif %}
             </a>
-            <a href="{{ url_for('admin_jobs', status='rejected', q=q) }}" class="filter-tab danger {% if status_filter == 'rejected' %}active{% endif %}">Bị từ chối</a>
-            <a href="{{ url_for('admin_jobs', status='flagged', q=q) }}" class="filter-tab danger {% if status_filter == 'flagged' %}active{% endif %}">Bị gắn cờ</a>
-            <a href="{{ url_for('admin_jobs', status='archived', q=q) }}" class="filter-tab {% if status_filter == 'archived' %}active{% endif %}">Đã lưu trữ</a>
+            <a href="{{ url_for('admin_jobs', status='rejected', q=q) }}" class="filter-tab danger {% if status_filter == 'rejected' %}active{% endif %}">
+                Bị từ chối
+                {% if rejected_count and rejected_count > 0 %}
+                <span class="nav-badge" style="margin-left: 6px; background: #b91c1c;">{{ rejected_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{{ url_for('admin_jobs', status='flagged', q=q) }}" class="filter-tab danger {% if status_filter == 'flagged' %}active{% endif %}">
+                Bị gắn cờ
+                {% if flagged_count and flagged_count > 0 %}
+                <span class="nav-badge" style="margin-left: 6px; background: #dc2626;">{{ flagged_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{{ url_for('admin_jobs', status='archived', q=q) }}" class="filter-tab {% if status_filter == 'archived' %}active{% endif %}">
+                Đã lưu trữ
+                {% if archived_count and archived_count > 0 %}
+                <span class="nav-badge" style="margin-left: 6px; background: #475569;">{{ archived_count }}</span>
+                {% endif %}
+            </a>
         </div>
 
         <!-- Search Bar -->
@@ -266,7 +296,7 @@
                         {% endif %}
 
                         <!-- Nút xét duyệt chi tiết -->
-                        <a href="{{ url_for('admin_job_review', job_id=job.id) }}" class="btn btn-primary btn-sm" style="font-size: 12px; font-weight: 700; padding: 4px 10px;">
+                        <a href="{{ url_for('admin_job_review', job_id=job.id) }}" class="btn btn-primary btn-sm" style="font-size: 12px; font-weight: 700; padding: 4px 10px; margin-right: 4px;">
                             Xét duyệt →
                         </a>
 
@@ -274,17 +304,25 @@
                         <form method="POST" action="{{ url_for('admin_flag_job', job_id=job.id) }}" style="display: inline;">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             {% if job.is_flagged %}
-                            <button type="submit" class="btn btn-success btn-sm" style="font-size: 11px; padding: 4px 8px;">Khôi phục</button>
+                            <button type="submit" class="btn btn-success btn-sm" style="font-size: 11px; padding: 4px 8px; margin-right: 4px;" title="Bỏ cờ / Khôi phục bài đăng">Bỏ cờ</button>
                             {% else %}
-                            <button type="submit" class="btn btn-warning btn-sm" style="font-size: 11px; padding: 4px 8px;" onclick="return confirm('Bạn có chắc muốn gắn cờ/tạm ẩn job này không?');">Ẩn</button>
+                            <button type="submit" class="btn btn-warning btn-sm" style="font-size: 11px; padding: 4px 8px; margin-right: 4px;" onclick="return confirm('Bạn có chắc muốn gắn cờ/tạm ẩn job này không?');" title="Gắn cờ vi phạm và tạm ẩn">Ẩn</button>
                             {% endif %}
                         </form>
                         
                         <!-- Nút Lưu trữ an toàn -->
                         <form method="POST" action="{{ url_for('admin_archive_job', job_id=job.id) }}" style="display: inline;">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 4px 6px; color: #94a3b8;" title="Lưu trữ an toàn, bảo tồn giao dịch" onclick="return confirm('Lưu trữ job này sẽ ẩn khỏi sàn nhưng giữ nguyên lịch sử báo giá/hợp đồng?');">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 4px 6px; color: #94a3b8; margin-right: 4px;" title="Lưu trữ an toàn, bảo tồn giao dịch" onclick="return confirm('Lưu trữ job này sẽ ẩn khỏi sàn nhưng giữ nguyên lịch sử báo giá/hợp đồng?');">
                                 🗄
+                            </button>
+                        </form>
+
+                        <!-- Nút Xóa vĩnh viễn (Chỉ xóa bài đăng rác/spam, có bảo vệ cascade) -->
+                        <form method="POST" action="{{ url_for('admin_delete_job', job_id=job.id) }}" style="display: inline;">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="font-size: 11px; padding: 4px 6px; color: #ef4444;" title="Xóa vĩnh viễn bài đăng (Chỉ áp dụng với tin rác/spam)" onclick="return confirm('CẢNH BÁO: Bạn có chắc chắn muốn xóa vĩnh viễn Job #{{ job.id }}? Hành động này không thể hoàn tác!');">
+                                🗑
                             </button>
                         </form>
                     </td>
@@ -372,10 +410,27 @@
                 </form>
                 {% endif %}
 
+                <!-- Nút Gắn cờ vi phạm / Khôi phục -->
                 <form method="POST" action="{{ url_for('admin_flag_job', job_id=job.id) }}" style="flex: 0 0 44px;">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-ghost" style="width: 44px; height: 44px; padding: 0; color: #f87171;" title="Gắn cờ / Ẩn">
-                        🚩
+                    <button type="submit" class="btn btn-ghost" style="width: 44px; height: 44px; padding: 0; color: {% if job.is_flagged %}#22c55e{% else %}#f87171{% endif %};" title="{% if job.is_flagged %}Bỏ cờ / Khôi phục{% else %}Gắn cờ vi phạm / Ẩn{% endif %}">
+                        {% if job.is_flagged %}✓{% else %}🚩{% endif %}
+                    </button>
+                </form>
+
+                <!-- Nút Lưu trữ -->
+                <form method="POST" action="{{ url_for('admin_archive_job', job_id=job.id) }}" style="flex: 0 0 44px;">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-ghost" style="width: 44px; height: 44px; padding: 0; color: #94a3b8;" title="Lưu trữ an toàn" onclick="return confirm('Lưu trữ an toàn job #{{ job.id }}?');">
+                        🗄
+                    </button>
+                </form>
+
+                <!-- Nút Xóa vĩnh viễn -->
+                <form method="POST" action="{{ url_for('admin_delete_job', job_id=job.id) }}" style="flex: 0 0 44px;">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-ghost" style="width: 44px; height: 44px; padding: 0; color: #ef4444;" title="Xóa vĩnh viễn" onclick="return confirm('CẢNH BÁO: Xóa vĩnh viễn Job #{{ job.id }}?');">
+                        🗑
                     </button>
                 </form>
             </div>

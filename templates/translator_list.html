@@ -394,34 +394,56 @@ function buildFilterForm(s) {
 }
 
 function filterFreelancers(list, f) {
-  return list.filter(fl => {
-    if (f.demoType === 'verified' && (!fl.is_verified || fl.is_demo)) return false;
-    if (f.demoType === 'demo' && !fl.is_demo) return false;
+  const verifiedList = [];
+  const demoList = [];
+
+  list.forEach(fl => {
+    // 1. Kiểm tra các bộ lọc tìm kiếm & tiêu chí chung
     if (f.query) {
       const hay = norm([fl.name, fl.title, (fl.badges||[]).join(' '), (fl.languages||[]).join(' '), (fl.language_pairs||[]).join(' '), (fl.specialties||[]).join(' '), fl.location||'', (fl.work_modes||[]).join(' '), fl.employment_preference||'', fl.availability_status||''].join(' '));
-      if (!f.query.split(/\s+/).every(w => hay.includes(w))) return false;
+      if (!f.query.split(/\s+/).every(w => hay.includes(w))) return;
     }
     if (f.languages.length > 0) {
       if (!f.languages.some(lang => {
         const langItem = LANG_LIST.find(l => l.name === lang || l.enName === lang);
         const matchTerms = langItem ? [langItem.name.toLowerCase(), langItem.enName.toLowerCase()] : [lang.toLowerCase()];
         return fl.languages.some(l => matchTerms.some(term => l.toLowerCase().includes(term)));
-      })) return false;
+      })) return;
     }
-    if (f.specialties.length && !f.specialties.some(p => (fl.specialties || []).includes(p))) return false;
-    if (f.locations && f.locations.length && !f.locations.includes(fl.location)) return false;
-    if (f.workModes && f.workModes.length && !f.workModes.some(m => (fl.work_modes || []).includes(m))) return false;
-    if (f.minJobs !== null && (fl.total_jobs || 0) < f.minJobs) return false;
+    if (f.specialties.length && !f.specialties.some(p => (fl.specialties || []).includes(p))) return;
+    if (f.locations && f.locations.length && !f.locations.includes(fl.location)) return;
+    if (f.workModes && f.workModes.length && !f.workModes.some(m => (fl.work_modes || []).includes(m))) return;
+    if (f.minJobs !== null && (fl.total_jobs || 0) < f.minJobs) return;
     if (f.priceRange) {
       const r = PRICE_RANGES.find(p => p.value === f.priceRange);
-      if (r && (fl.min_price == null || fl.min_price < r.min || fl.min_price > r.max)) return false;
+      if (r && (fl.min_price == null || fl.min_price < r.min || fl.min_price > r.max)) return;
     }
-    if (f.minRating !== null && (fl.total_reviews === 0 || fl.rating < f.minRating)) return false;
+    if (f.minRating !== null && (fl.total_reviews === 0 || fl.rating < f.minRating)) return;
     if (f.badges.length > 0) {
-      if (!f.badges.some(b => fl.badges.some(fb => fb.toLowerCase().includes(b.toLowerCase())))) return false;
+      if (!f.badges.some(b => fl.badges.some(fb => fb.toLowerCase().includes(b.toLowerCase())))) return;
     }
-    return true;
+
+    // 2. Phân loại theo trạng thái demo / xác minh
+    if (fl.is_demo) {
+      demoList.push(fl);
+    } else if (fl.is_verified) {
+      verifiedList.push(fl);
+    }
   });
+
+  if (f.demoType === 'verified') {
+    // Chỉ hiển thị hồ sơ đã thẩm định minh chứng (loại bỏ hoàn toàn hồ sơ demo)
+    return verifiedList;
+  }
+  if (f.demoType === 'demo') {
+    // Chỉ hiển thị các hồ sơ mẫu (Demo)
+    return demoList;
+  }
+
+  // Mặc định: "Tất cả hồ sơ" -> Chỉ hiển thị tối đa 1 hồ sơ mẫu, còn lại là các hồ sơ đã xác minh
+  const sortedDemos = sortFreelancers(demoList, typeof sortBy !== 'undefined' ? sortBy : 'rating');
+  const maxOneDemo = sortedDemos.slice(0, 1);
+  return [...verifiedList, ...maxOneDemo];
 }
 
 function sortFreelancers(list, by) {
