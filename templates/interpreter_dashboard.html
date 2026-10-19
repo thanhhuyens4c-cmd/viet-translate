@@ -326,56 +326,56 @@
         <!-- ═══════════════════════════════════════════════════════════════
              3. THỐNG KÊ THU NHẬP (ID: section-income)
              ═══════════════════════════════════════════════════════════════ -->
-        <div id="section-income" class="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 transition-all">
+        <div id="section-income" class="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200 transition-all">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
                 <div>
                     <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
                         Thống kê thu nhập
                     </h2>
                     <p class="text-xs text-slate-500 mt-0.5">Theo dõi doanh thu thực tế, tiền đã giải ngân và ký quỹ Escrow theo kỳ (Múi giờ UTC+7)</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <a href="{{ url_for('interpreter_income_transactions') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1" title="Xem toàn bộ lịch sử giao dịch và ví">
+                    <a href="{{ url_for('interpreter_income_transactions') }}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1 transition" title="Xem toàn bộ lịch sử giao dịch và ví">
                         Xem chi tiết lịch sử ví →
                     </a>
                 </div>
             </div>
 
             <!-- Grid 3 thẻ chỉ số thu nhập chính -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
                 <!-- Thẻ 1: Thu nhập trong kỳ hiện tại -->
                 <a href="{{ url_for('interpreter_income_details', status='paid') }}"
-                    class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-amber-50/30 border border-slate-200/90 hover:border-amber-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                    class="group relative block p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 hover:shadow-xs transition duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
                     title="Nhấn để xem danh sách hợp đồng hoàn tất giải ngân trong {{ income_stats.period_label }}">
                     <div class="flex items-start justify-between">
-                        <div class="w-12 h-12 rounded-2xl bg-amber-100/80 text-amber-600 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-600 group-hover:text-white transition duration-200 shadow-2xs">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center transition shadow-2xs">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
                         </div>
-                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/80">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-50 text-slate-700 border border-slate-200">
                             <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                             {{ income_stats.period_label }}
                         </span>
                     </div>
 
                     <div class="mt-4">
-                        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">
                             Thu nhập kỳ hiện tại
                         </span>
-                        <div class="mt-1 flex items-baseline gap-2">
-                            <span class="text-2xl sm:text-3xl font-black text-slate-900 group-hover:text-amber-600 transition">
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
                                 {{ income_stats.monthly_earned|vnd }}
                             </span>
-                            <span class="text-xs font-extrabold text-slate-400">VND</span>
+                            <span class="text-xs font-semibold text-slate-400">VND</span>
                         </div>
                         <p class="text-xs text-slate-500 mt-1 line-clamp-1">
                             Kỳ: {{ income_stats.period_range }} ({{ income_stats.monthly_contracts_count }} hợp đồng hoàn tất)
                         </p>
                     </div>
 
-                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-700 group-hover:text-amber-800">
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-brand-600 group-hover:text-brand-700">
                         <span>Xem sao kê kỳ này</span>
                         <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
                     </div>
@@ -383,36 +383,36 @@
 
                 <!-- Thẻ 2: Thu nhập đã thanh toán (Tích lũy) -->
                 <a href="{{ url_for('interpreter_income_transactions', status='completed') }}"
-                    class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-emerald-50/30 border border-slate-200/90 hover:border-emerald-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                    class="group relative block p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 hover:shadow-xs transition duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
                     title="Nhấn để xem toàn bộ danh sách hợp đồng đã giải ngân hoàn tất">
                     <div class="flex items-start justify-between">
-                        <div class="w-12 h-12 rounded-2xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition duration-200 shadow-2xs">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center transition shadow-2xs">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                             </svg>
                         </div>
-                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                             Đã giải ngân
                         </span>
                     </div>
 
                     <div class="mt-4">
-                        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">
                             Thu nhập đã thanh toán
                         </span>
-                        <div class="mt-1 flex items-baseline gap-2">
-                            <span class="text-2xl sm:text-3xl font-black text-slate-900 group-hover:text-emerald-600 transition">
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
                                 {{ income_stats.total_earned|vnd }}
                             </span>
-                            <span class="text-xs font-extrabold text-slate-400">VND</span>
+                            <span class="text-xs font-semibold text-slate-400">VND</span>
                         </div>
                         <p class="text-xs text-slate-500 mt-1 line-clamp-1">
                             Tổng tích lũy từ {{ income_stats.completed_contracts_count }} hợp đồng đã hoàn tất
                         </p>
                     </div>
 
-                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-700 group-hover:text-emerald-800">
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-brand-600 group-hover:text-brand-700">
                         <span>Xem lịch sử giải ngân</span>
                         <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
                     </div>
@@ -420,36 +420,36 @@
 
                 <!-- Thẻ 3: Khoản thu nhập đang chờ xử lý -->
                 <a href="{{ url_for('interpreter_income_payouts', status='escrow_held') }}"
-                    class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-blue-50/30 border border-slate-200/90 hover:border-blue-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    class="group relative block p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 hover:shadow-xs transition duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
                     title="Nhấn để xem các hợp đồng đang thực hiện với tiền được ký quỹ Escrow bảo đảm">
                     <div class="flex items-start justify-between">
-                        <div class="w-12 h-12 rounded-2xl bg-blue-100/80 text-blue-600 flex items-center justify-center group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition duration-200 shadow-2xs">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center transition shadow-2xs">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                             </svg>
                         </div>
-                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/80">
-                            <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                            <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
                             Escrow đang giữ
                         </span>
                     </div>
 
                     <div class="mt-4">
-                        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">
                             Khoản thu nhập đang chờ xử lý
                         </span>
-                        <div class="mt-1 flex items-baseline gap-2">
-                            <span class="text-2xl sm:text-3xl font-black text-slate-900 group-hover:text-blue-600 transition">
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
                                 {{ income_stats.pending_payout|vnd }}
                             </span>
-                            <span class="text-xs font-extrabold text-slate-400">VND</span>
+                            <span class="text-xs font-semibold text-slate-400">VND</span>
                         </div>
                         <p class="text-xs text-slate-500 mt-1 line-clamp-1">
                             Tiền ký quỹ an toàn từ {{ income_stats.active_contracts_count }} hợp đồng đang triển khai
                         </p>
                     </div>
 
-                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-700 group-hover:text-blue-800">
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-brand-600 group-hover:text-brand-700">
                         <span>Xem hợp đồng đang ký quỹ</span>
                         <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
                     </div>
@@ -457,14 +457,14 @@
             </div>
 
             <!-- Khung biểu đồ biến động thu nhập 6 tháng gần nhất (Tầng 3) -->
-            <div class="mt-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-slate-50/70 via-white to-white border border-slate-200/90 shadow-2xs">
+            <div class="mt-6 p-5 sm:p-6 rounded-2xl bg-white border border-slate-200 shadow-xs">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
                     <div>
                         <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
                             <h3 class="text-sm sm:text-base font-bold text-slate-900">Biến động thu nhập 6 tháng gần nhất</h3>
                             {% if income_stats.chart_data and income_stats.chart_data.start_month and income_stats.chart_data.end_month %}
-                            <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                            <span class="text-[11px] font-medium text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
                                 {{ income_stats.chart_data.start_month }} - {{ income_stats.chart_data.end_month }}
                             </span>
                             {% endif %}
@@ -474,8 +474,8 @@
                     {% if income_stats.chart_data and income_stats.chart_data.has_data %}
                     <div class="flex items-center gap-3 self-start sm:self-auto">
                         <div class="text-left sm:text-right">
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Tổng 6 tháng gần nhất</span>
-                            <span class="text-base sm:text-lg font-black text-emerald-700">
+                            <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">Tổng 6 tháng gần nhất</span>
+                            <span class="text-base sm:text-lg font-bold text-slate-900">
                                 {{ income_stats.chart_data.total_earned|vnd }} <span class="text-xs font-semibold text-slate-400">VND</span>
                             </span>
                         </div>
@@ -490,12 +490,12 @@
                         <svg viewBox="0 0 600 180" class="w-full h-44 sm:h-56 overflow-visible" preserveAspectRatio="none">
                             <defs>
                                 <linearGradient id="incomeAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stop-color="#10b981" stop-opacity="0.25" />
-                                    <stop offset="60%" stop-color="#10b981" stop-opacity="0.06" />
-                                    <stop offset="100%" stop-color="#10b981" stop-opacity="0.0" />
+                                    <stop offset="0%" stop-color="#2563eb" stop-opacity="0.15" />
+                                    <stop offset="60%" stop-color="#2563eb" stop-opacity="0.04" />
+                                    <stop offset="100%" stop-color="#2563eb" stop-opacity="0.0" />
                                 </linearGradient>
                                 <filter id="pointShadow" x="-30%" y="-30%" width="160%" height="160%">
-                                    <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.15" />
+                                    <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#0f172a" flood-opacity="0.1" />
                                 </filter>
                             </defs>
 
@@ -517,20 +517,20 @@
                             <path d="{{ income_stats.chart_data.area_path }}" fill="url(#incomeAreaGradient)" />
 
                             <!-- Stroke Line -->
-                            <path d="{{ income_stats.chart_data.line_path }}" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="{{ income_stats.chart_data.line_path }}" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
 
                             <!-- Point Circles & Native Tooltips -->
                             {% for pt in income_stats.chart_data.points %}
                             <g class="group cursor-pointer">
                                 <!-- Point Circle -->
-                                <circle cx="{{ pt.x }}" cy="{{ pt.y }}" r="{% if pt.is_current %}6.5{% else %}4.5{% endif %}"
-                                        fill="{% if pt.is_current %}#10b981{% else %}#ffffff{% endif %}"
-                                        stroke="#10b981"
-                                        stroke-width="{% if pt.is_current %}3{% else %}2.5{% endif %}"
+                                <circle cx="{{ pt.x }}" cy="{{ pt.y }}" r="{% if pt.is_current %}5.5{% else %}4{% endif %}"
+                                        fill="{% if pt.is_current %}#2563eb{% else %}#ffffff{% endif %}"
+                                        stroke="#2563eb"
+                                        stroke-width="{% if pt.is_current %}2.5{% else %}2{% endif %}"
                                         filter="url(#pointShadow)"
                                         class="transition-all duration-200 group-hover:scale-125" />
                                 {% if pt.is_current %}
-                                <circle cx="{{ pt.x }}" cy="{{ pt.y }}" r="2" fill="#ffffff" />
+                                <circle cx="{{ pt.x }}" cy="{{ pt.y }}" r="1.5" fill="#ffffff" />
                                 {% endif %}
 
                                 <!-- Hit Area for Hover -->
@@ -546,7 +546,7 @@
                     <div class="flex items-center justify-between px-2 sm:px-4 mt-3 pt-2.5 border-t border-slate-100 text-[11px] sm:text-xs font-medium">
                         {% for pt in income_stats.chart_data.points %}
                         <div class="flex flex-col items-center flex-1 text-center">
-                            <span class="{% if pt.is_current %}font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs{% else %}text-slate-600{% endif %}">
+                            <span class="{% if pt.is_current %}font-semibold text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-full border border-brand-200 shadow-2xs{% else %}text-slate-600{% endif %}">
                                 {{ pt.label }}
                             </span>
                             <span class="text-[10px] text-slate-400 mt-1 hidden sm:inline-block">
@@ -560,7 +560,7 @@
                 {% else %}
                 <!-- Empty State khi chưa có dữ liệu thu nhập -->
                 <div class="py-10 px-4 text-center">
-                    <div class="w-12 h-12 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
+                    <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
                         </svg>
@@ -570,7 +570,7 @@
                         Hệ thống sẽ tự động vẽ biểu đồ trực quan hóa xu hướng tăng trưởng ngay khi bạn hoàn tất nghiệm thu ca phiên dịch đầu tiên.
                     </p>
                     <div class="mt-4">
-                        <a href="{{ url_for('job_list') }}" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-xl transition border border-brand-200 shadow-2xs">
+                        <a href="{{ url_for('job_list') }}" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-xl transition border border-brand-200 shadow-2xs">
                             Khám phá việc làm mới →
                         </a>
                     </div>
@@ -581,7 +581,7 @@
             <!-- Box bảo chứng thanh toán Escrow & liên kết nhanh -->
             <div class="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-slate-500">
                 <div class="flex items-start sm:items-center gap-2.5">
-                    <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
+                    <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                     </div>
                     <span>
@@ -591,7 +591,7 @@
                         {% endif %}
                     </span>
                 </div>
-                <a href="{{ url_for('interpreter_income_transactions') }}" class="font-bold text-slate-700 hover:text-brand-600 hover:underline flex-shrink-0">
+                <a href="{{ url_for('interpreter_income_transactions') }}" class="font-semibold text-brand-600 hover:text-brand-700 hover:underline flex-shrink-0 transition">
                     Xem toàn bộ lịch sử giao dịch →
                 </a>
             </div>
