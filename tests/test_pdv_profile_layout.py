@@ -122,11 +122,11 @@ class TestPDVProfileLayout(unittest.TestCase):
         html = resp.data.decode('utf-8')
 
         # Banner uses items-start to place banner title at the top, clear of the avatar
-        self.assertIn('h-32 sm:h-36', html)
+        self.assertIn('h-36 sm:h-44 md:h-48', html)
         self.assertIn('items-start justify-between', html)
 
-        # Avatar uses -mt-12 sm:-mt-14 and w-24 h-24
-        self.assertIn('-mt-12 sm:-mt-14', html)
+        # Avatar uses -mt-14 sm:-mt-16 md:-mt-20
+        self.assertIn('-mt-14 sm:-mt-16 md:-mt-20', html)
         self.assertIn('id="translator-header-avatar-box"', html)
 
         # 'None' must NOT be rendered under the name
