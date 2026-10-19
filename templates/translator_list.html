@@ -224,7 +224,7 @@
 <script>
 const CURRENT_LANG = "{{ current_lang }}";
 
-const emptyFilters = () => ({ languages: [], pairs: [], specialties: [], locations: [], workModes: [], minJobs: null, priceRange: null, minRating: null, badges: [], demoType: 'all', query: '' });
+const emptyFilters = () => ({ languages: [], specialties: [], locations: [], workModes: [], minJobs: null, priceRange: null, minRating: null, badges: [], demoType: 'all', query: '' });
 let filters = emptyFilters();
 let allFreelancers = [];
 let sortBy = 'rating';
@@ -322,11 +322,9 @@ function buildFilterForm(s) {
   const typeHeader = CURRENT_LANG === 'en' ? 'Profile Type' : 'Phân loại hồ sơ';
   const TYPE_OPTIONS = CURRENT_LANG === 'en' ? [
     { label: 'All Profiles', value: 'all' },
-    { label: 'Demo Sample Profiles (50)', value: 'demo' },
     { label: 'Verified Interpreters Only', value: 'verified' },
   ] : [
     { label: 'Tất cả hồ sơ', value: 'all' },
-    { label: 'Hồ sơ mẫu demo (50 Demo)', value: 'demo' },
     { label: 'Đã thẩm định minh chứng', value: 'verified' },
   ];
   html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${typeHeader}</h4><div class="space-y-1">`;
@@ -347,7 +345,6 @@ function buildFilterForm(s) {
   });
   html += `</div></div>`;
 
-  html += cbSection(CURRENT_LANG === 'en' ? 'Language pairs' : 'Cặp ngôn ngữ', 'pair-cb', s, facet(allFreelancers, 'language_pairs'));
   html += cbSection(CURRENT_LANG === 'en' ? 'Specialty' : 'Lĩnh vực chuyên môn', 'spec-cb', s, facet(allFreelancers, 'specialties'));
   html += cbSection(CURRENT_LANG === 'en' ? 'Location' : 'Khu vực / Tỉnh thành', 'loc-cb', s, facet(allFreelancers, 'location'));
   html += cbSection(CURRENT_LANG === 'en' ? 'Work format' : 'Hình thức làm việc (Online/Offline)', 'mode-cb', s, facet(allFreelancers, 'work_modes'));
@@ -396,8 +393,7 @@ function buildFilterForm(s) {
 
 function filterFreelancers(list, f) {
   return list.filter(fl => {
-    if (f.demoType === 'demo' && !fl.is_demo) return false;
-    if (f.demoType === 'verified' && (fl.is_demo || !fl.is_verified)) return false;
+    if (f.demoType === 'verified' && !fl.is_verified) return false;
     if (f.query) {
       const hay = norm([fl.name, fl.title, (fl.badges||[]).join(' '), (fl.languages||[]).join(' '), (fl.language_pairs||[]).join(' '), (fl.specialties||[]).join(' '), fl.location||'', (fl.work_modes||[]).join(' '), fl.employment_preference||'', fl.availability_status||''].join(' '));
       if (!f.query.split(/\s+/).every(w => hay.includes(w))) return false;
@@ -409,7 +405,6 @@ function filterFreelancers(list, f) {
         return fl.languages.some(l => matchTerms.some(term => l.toLowerCase().includes(term)));
       })) return false;
     }
-    if (f.pairs.length && !f.pairs.some(p => (fl.language_pairs || []).includes(p))) return false;
     if (f.specialties.length && !f.specialties.some(p => (fl.specialties || []).includes(p))) return false;
     if (f.locations && f.locations.length && !f.locations.includes(fl.location)) return false;
     if (f.workModes && f.workModes.length && !f.workModes.some(m => (fl.work_modes || []).includes(m))) return false;
@@ -439,7 +434,7 @@ function sortFreelancers(list, by) {
 
 function countActiveFilters() {
   let c = 0;
-  ['languages', 'pairs', 'specialties', 'locations', 'workModes', 'badges'].forEach(k => { if (filters[k] && filters[k].length) c++; });
+  ['languages', 'specialties', 'locations', 'workModes', 'badges'].forEach(k => { if (filters[k] && filters[k].length) c++; });
   if (filters.priceRange) c++;
   if (filters.minRating !== null) c++;
   if (filters.minJobs !== null) c++;
@@ -489,7 +484,6 @@ const checked = (sel) => [...document.querySelectorAll(sel + ':checked')].map(e 
 function syncFiltersFromDOM(s) {
   const te = document.querySelector(`.type-rb-${s}:checked`); filters.demoType = te ? te.value : 'all';
   filters.languages = checked(`.lang-cb-${s}`);
-  filters.pairs = checked(`.pair-cb-${s}`);
   filters.specialties = checked(`.spec-cb-${s}`);
   filters.locations = checked(`.loc-cb-${s}`);
   filters.workModes = checked(`.mode-cb-${s}`);
@@ -504,7 +498,6 @@ function syncFiltersFromDOM(s) {
 function syncDOMFromFilters(s) {
   document.querySelectorAll(`.type-rb-${s}`).forEach(e => { e.checked = e.value === (filters.demoType || 'all'); });
   document.querySelectorAll(`.lang-cb-${s}`).forEach(e => { e.checked = filters.languages.includes(e.value); });
-  document.querySelectorAll(`.pair-cb-${s}`).forEach(e => { e.checked = filters.pairs.includes(e.value); });
   document.querySelectorAll(`.spec-cb-${s}`).forEach(e => { e.checked = (filters.specialties || []).includes(e.value); });
   document.querySelectorAll(`.loc-cb-${s}`).forEach(e => { e.checked = (filters.locations || []).includes(e.value); });
   document.querySelectorAll(`.mode-cb-${s}`).forEach(e => { e.checked = (filters.workModes || []).includes(e.value); });
