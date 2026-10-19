@@ -540,7 +540,7 @@
                                     onclick="toggleHeaderPopover('help', event)"
                                     data-page-active="{{ 'true' if is_support_active else 'false' }}"
                                     aria-haspopup="dialog" aria-expanded="false" aria-controls="nav-help-popover"
-                                    class="header-mobile-action-btn relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer {% if is_support_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
+                                    class="header-mobile-action-btn relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer flex items-center justify-center {% if is_support_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
                                     title="{{ t('nav.help_tooltip') }}" aria-label="{{ t('nav.help_tooltip') }}">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -629,14 +629,14 @@
                             </div>
 
                             <!-- Cài đặt & Bảo mật (Settings Popover Wrapper) -->
-                            {% set is_security_active = (request.endpoint or '').startswith('settings_') or (request.endpoint == 'account_profile' and request.args.get('tab') == 'security') %}
+                            {% set is_settings_active = (request.endpoint or '').startswith('settings_') or (request.endpoint == 'account_profile' and request.args.get('tab') == 'security') %}
                             {% set profile_tab_target = 'profile' if current_user.role == 'translator' else 'basic' %}
                             <div class="relative inline-block" id="nav-settings-wrapper">
                                 <button type="button" id="nav-settings-btn"
                                     onclick="toggleHeaderPopover('settings', event)"
-                                    data-page-active="{{ 'true' if is_security_active else 'false' }}"
+                                    data-page-active="{{ 'true' if is_settings_active else 'false' }}"
                                     aria-haspopup="dialog" aria-expanded="false" aria-controls="nav-settings-popover"
-                                    class="header-mobile-action-btn relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer {% if is_security_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
+                                    class="header-mobile-action-btn relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer flex items-center justify-center {% if is_settings_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
                                     title="{{ t('nav.settings_tooltip') }}" aria-label="{{ t('nav.settings_tooltip') }}">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -1038,14 +1038,14 @@
                     {{ t('nav.notifications_tooltip') }}
                 </a>
                 <a href="{{ url_for('account_profile', tab='support') }}"
-                    class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 flex items-center gap-2">
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if is_support_active %}text-brand-600 bg-brand-50 font-bold{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} flex items-center gap-2">
                     <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span>Trợ giúp & Hỗ trợ</span>
                 </a>
                 <a href="{{ url_for('account_profile', tab='security') }}"
-                    class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 flex items-center gap-2">
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if is_settings_active %}text-brand-600 bg-brand-50 font-bold{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} flex items-center gap-2">
                     <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1953,6 +1953,23 @@
                     loadHeaderNotifications();
                 }
             }
+        }
+
+        function handleHeaderDirectNav(event, url, tab) {
+            closeAllHeaderPopovers();
+            if (window.location.pathname.includes('/account') && typeof switchTab === 'function') {
+                if (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                switchTab(tab);
+                try {
+                    window.history.pushState(null, '', url);
+                } catch (err) { }
+                return false;
+            }
+            window.location.href = url;
+            return false;
         }
 
         function handleHeaderPopoverNav(event, url, tab, sectionId) {
