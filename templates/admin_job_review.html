@@ -3,6 +3,44 @@
 {% block title %}Xét duyệt job #{{ job.id }} | VietTranslate Admin{% endblock %}
 {% block header_title %}Xét duyệt job #{{ job.id }}{% endblock %}
 
+{% block head_extra %}
+<style>
+    .sticky-review-bar {
+        position: fixed;
+        bottom: 0;
+        left: var(--sidebar-w);
+        right: 0;
+        background: #0f172a;
+        border-top: 1px solid #334155;
+        padding: 14px 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 50;
+        box-shadow: 0 -10px 25px rgba(0,0,0,0.4);
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    @media (max-width: 768px) {
+        .sticky-review-bar {
+            left: 0 !important;
+            padding: 12px 16px !important;
+        }
+        .sticky-review-bar .review-actions {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .sticky-review-bar .review-actions button {
+            flex: 1;
+            padding: 10px 8px !important;
+            min-height: 44px;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="job-review-container" style="max-width: 1200px; margin: 0 auto; padding-bottom: 90px;">
     
@@ -321,8 +359,8 @@
 
 </div>
 
-<!-- THANH HÀNH ĐỘNG DƯỚI CÙNG (STICKY FOOTER ACTION BAR - HÌNH 3) -->
-<div style="position: fixed; bottom: 0; left: var(--sidebar-w); right: 0; background: #0f172a; border-top: 1px solid #334155; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; z-index: 50; box-shadow: 0 -10px 25px rgba(0,0,0,0.4);">
+<!-- THANH HÀNH ĐỘNG DƯỚI CÙNG (STICKY FOOTER ACTION BAR - HÌNH 3 - TỐI ƯU MOBILE) -->
+<div class="sticky-review-bar">
     <div style="display: flex; align-items: center; gap: 12px;">
         <span style="font-size: 13px; color: #94a3b8; font-weight: 500;">
             Đề xuất: 
@@ -332,7 +370,7 @@
         </span>
     </div>
 
-    <div style="display: flex; align-items: center; gap: 12px;">
+    <div class="review-actions" style="display: flex; align-items: center; gap: 12px;">
         <!-- Nút Yêu cầu chỉnh sửa -->
         <button type="button" onclick="openRevisionModal()" class="btn btn-ghost" style="border: 1px solid #475569; color: #f1f5f9; padding: 8px 18px; border-radius: 10px; font-weight: 600; font-size: 13px;">
             Yêu cầu chỉnh sửa

@@ -812,6 +812,18 @@
             <!-- DUYỆT & KIỂM DUYỆT -->
             <div class="nav-section-label">Duyệt & Kiểm duyệt</div>
 
+            <a href="{{ url_for('admin_tasks') }}"
+               class="nav-item {% if request.endpoint == 'admin_tasks' %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 11l3 3L22 4"/>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                Tác vụ cần xử lý
+                {% if admin_badge_total_tasks and admin_badge_total_tasks > 0 %}
+                <span class="nav-badge danger">{{ admin_badge_total_tasks }}</span>
+                {% endif %}
+            </a>
+
             {% if has_permission('view_translators') %}
             <a href="{{ url_for('admin_translators') }}"
                class="nav-item {% if request.endpoint == 'admin_translators' %}active{% endif %}">

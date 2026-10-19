@@ -1365,6 +1365,7 @@ def inject_admin_badges():
     Chỉ query DB khi đang ở admin session để tránh overhead cho user thường.
     """
     default_badges = {
+        'admin_badge_total_tasks': 0,
         'admin_badge_pending_translators': 0,
         'admin_badge_pending_verifications': 0,
         'admin_badge_pending_hirers': 0,
@@ -1389,6 +1390,12 @@ def inject_admin_badges():
         badges['admin_badge_flagged_jobs'] = Job.query.filter_by(is_flagged=True).count()
         badges['admin_badge_reports'] = Report.query.filter_by(status='new').count()
         badges['admin_badge_notifications'] = AdminNotification.query.filter_by(is_read=False).count()
+        badges['admin_badge_total_tasks'] = (
+            badges['admin_badge_pending_jobs'] +
+            badges['admin_badge_pending_verifications'] +
+            badges['admin_badge_pending_hirers'] +
+            badges['admin_badge_reports']
+        )
     except Exception:
         db.session.rollback()
     badges['badge_counts'] = badges.copy()
@@ -10608,68 +10615,108 @@ def admin_dashboard():
     recent_jobs = Job.query.order_by(Job.created_at.desc()).limit(5).all()
     return render_template('admin_dashboard.html', stats=stats, recent_users=recent_users, recent_jobs=recent_jobs)
 
+@app.route('/admin/tasks')
+@admin_login_required
+@require_permission('view_dashboard')
+def admin_tasks():
+    """Trung tâm tác vụ quản trị tập trung (Admin Task Center)."""
+    from services.admin_task_service import get_admin_tasks_summary, query_admin_tasks
+    summary = get_admin_tasks_summary()
+    filters = {
+        'q': request.args.get('q', ''),
+        'type': request.args.get('type', 'all'),
+        'status': request.args.get('status', 'all'),
+        'priority': request.args.get('priority', 'all'),
+        'time_range': request.args.get('time_range', 'all'),
+    }
+    page = request.args.get('page', 1, type=int)
+    tasks, total_count, total_pages, current_page = query_admin_tasks(
+        filters=filters,
+        page=page,
+        per_page=15,
+        admin_user=get_current_user()
+    )
+    return render_template(
+        'admin_tasks.html',
+        summary=summary,
+        tasks=tasks,
+        filters=filters,
+        total_count=total_count,
+        total_pages=total_pages,
+        current_page=current_page
+    )
+
 @app.route('/admin/jobs')
 @admin_login_required
 @require_permission('view_jobs')
 def admin_jobs():
     status_filter = request.args.get('status', 'all')
-    from services.job_moderation import evaluate_job_39_criteria
-    
-    # Lấy tất cả job để đánh giá tiêu chí
-    all_jobs = Job.query.order_by(Job.created_at.desc()).all()
-    
+    q = request.args.get('q', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+
+    from services.admin_job_service import evaluate_job_safety, check_quick_approve_eligibility
+
+    # Đếm số lượng nhanh chóng và chính xác cho badge tab
+    pending_count = Job.query.filter(
+        db.or_(Job.moderation_status == 'pending', db.and_(Job.status == 'pending', Job.moderation_status.is_(None))),
+        db.or_(Job.is_flagged == False, Job.is_flagged.is_(None))
+    ).count()
+
+    critical_count = Job.query.filter(
+        db.or_(Job.is_flagged == True, Job.moderation_status == 'flagged')
+    ).count()
+
+    query = Job.query.join(User, Job.hirer_id == User.id, isouter=True)
+
+    # Lọc từ khóa (Mã ID, Tiêu đề, Tên/Email khách đăng)
+    if q:
+        if q.isdigit():
+            query = query.filter(db.or_(Job.id == int(q), Job.title.ilike(f'%{q}%'), User.name.ilike(f'%{q}%')))
+        else:
+            query = query.filter(db.or_(Job.title.ilike(f'%{q}%'), User.name.ilike(f'%{q}%'), User.email.ilike(f'%{q}%')))
+
+    # Lọc theo trạng thái tại database
+    if status_filter == 'pending':
+        query = query.filter(
+            db.or_(Job.moderation_status == 'pending', db.and_(Job.status == 'pending', Job.moderation_status.is_(None))),
+            db.or_(Job.is_flagged == False, Job.is_flagged.is_(None))
+        )
+    elif status_filter == 'critical':
+        query = query.filter(db.or_(Job.is_flagged == True, Job.moderation_status == 'flagged'))
+    elif status_filter == 'needs_revision':
+        query = query.filter_by(moderation_status='needs_revision')
+    elif status_filter == 'open':
+        query = query.filter(
+            db.or_(Job.moderation_status == 'approved', Job.status == 'open'),
+            db.or_(Job.is_flagged == False, Job.is_flagged.is_(None))
+        )
+    elif status_filter == 'rejected':
+        query = query.filter_by(moderation_status='rejected')
+    elif status_filter == 'flagged':
+        query = query.filter(db.or_(Job.is_flagged == True, Job.moderation_status == 'flagged'))
+    elif status_filter == 'archived':
+        query = query.filter(db.or_(Job.moderation_status == 'archived', Job.status == 'archived'))
+
+    pagination = query.order_by(Job.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
     job_items = []
-    pending_count = 0
-    critical_count = 0
-    
-    for job in all_jobs:
-        try:
-            eval_res = evaluate_job_39_criteria(job)
-        except Exception as e:
-            app.logger.error(f"[admin_jobs error] Exception evaluating criteria for job {job.id}: {e}", exc_info=True)
-            eval_res = {
-                'total_critical': 0,
-                'total_warnings': 0,
-                'total_passed': 0,
-                'summary_label': 'Chưa đánh giá được — cần kiểm tra thủ công',
-                'summary_class': 'badge-warning',
-                'needs_manual_review': True,
-                'eval_error': str(e),
-                'criteria': {},
-                'groups': {}
-            }
-        is_pending = bool((job.moderation_status == 'pending' or (job.status == 'pending' and job.moderation_status not in ('approved', 'rejected', 'archived', 'flagged'))) and not job.is_flagged)
-        is_critical = (eval_res.get('total_critical', 0) > 0)
-        
-        if is_pending:
-            pending_count += 1
-        if is_critical and not job.is_flagged:
-            critical_count += 1
-            
-        # Áp dụng bộ lọc
-        include = True
-        if status_filter == 'pending':
-            include = is_pending
-        elif status_filter == 'critical':
-            include = is_critical
-        elif status_filter == 'needs_revision':
-            include = (job.moderation_status == 'needs_revision' or (eval_res.get('total_warnings', 0) > 0 and is_pending))
-        elif status_filter == 'open':
-            include = (job.moderation_status == 'approved' or job.status == 'open') and not job.is_flagged
-        elif status_filter == 'rejected':
-            include = bool(job.moderation_status == 'rejected')
-        elif status_filter == 'flagged':
-            include = bool(job.is_flagged or job.moderation_status == 'flagged')
-        elif status_filter == 'archived':
-            include = (job.moderation_status == 'archived' or job.status == 'archived')
-            
-        if include:
-            job_items.append({'job': job, 'eval': eval_res})
-            
+    for job in pagination.items:
+        eval_res = evaluate_job_safety(job)
+        can_quick, quick_reason, _ = check_quick_approve_eligibility(job, eval_res=eval_res)
+        job_items.append({
+            'job': job,
+            'eval': eval_res,
+            'can_quick_approve': can_quick,
+            'quick_approve_reason': quick_reason
+        })
+
     return render_template(
         'admin_jobs.html',
         job_items=job_items,
+        pagination=pagination,
         status_filter=status_filter,
+        q=q,
         pending_count=pending_count,
         critical_count=critical_count
     )
@@ -10731,36 +10778,17 @@ def admin_moderate_job(job_id):
     admin_user = get_current_user()
     
     if decision == 'approve':
-        job.moderation_status = 'approved'
-        job.status = 'open'
-        job.is_flagged = False
-        _audit_log(
-            action=ADMIN_AUDIT_ACTIONS['APPROVE_JOB'],
-            target_type='job',
-            target_id=job.id,
-            description=f'Phê duyệt job "{job.title}" (ID={job.id}) đạt kiểm duyệt.',
-            extra_data={'checklist_summary': eval_res['summary_label']}
+        from services.admin_job_service import safe_approve_job
+        success, msg, _ = safe_approve_job(
+            job,
+            admin_id=session.get('admin_id'),
+            is_quick=False,
+            manual_overrides=manual_overrides,
+            audit_logger=_audit_log
         )
-        # Gửi thông báo cho Hirer
-        if job.hirer:
-            try:
-                from app import create_notification
-                create_notification(
-                    user_id=job.hirer_id,
-                    notification_type='JOB_APPROVED',
-                    title='Công việc đã được phê duyệt',
-                    message=f'Công việc "{job.title}" của bạn đã được kiểm duyệt và hiển thị công khai.',
-                    url=url_for('job_detail', job_id=job.id),
-                    related_job_id=job.id
-                )
-            except Exception:
-                pass
-        # Gửi thông báo cho các phiên dịch viên phù hợp trên sàn
-        try:
-            from services.matching import notify_matching_translators_for_new_job
-            notify_matching_translators_for_new_job(job)
-        except Exception:
-            pass
+        if not success:
+            flash(msg, 'error')
+            return redirect(url_for('admin_job_review', job_id=job.id))
         flash('Đã phê duyệt công việc thành công. Job đã hiển thị công khai.', 'success')
         
     elif decision == 'needs_revision':
@@ -10893,24 +10921,21 @@ def admin_flag_job(job_id):
 @require_permission('approve_job')
 def admin_approve_job(job_id):
     job = Job.query.get_or_404(job_id)
-    job.status = 'open'
-    job.moderation_status = 'approved'
-    job.is_flagged = False
-    _audit_log(
-        action=ADMIN_AUDIT_ACTIONS['APPROVE_JOB'],
-        target_type='job',
-        target_id=job.id,
-        description=f'Phê duyệt job "{job.title}" (ID={job.id})',
+    from services.admin_job_service import safe_approve_job
+    success, msg, _ = safe_approve_job(
+        job,
+        admin_id=session.get('admin_id'),
+        is_quick=True,
+        audit_logger=_audit_log
     )
-    db.session.commit()
-    # Gửi thông báo cho các phiên dịch viên phù hợp trên sàn
-    try:
-        from services.matching import notify_matching_translators_for_new_job
-        notify_matching_translators_for_new_job(job)
-    except Exception:
-        pass
-    flash('Đã phê duyệt bài đăng thành công.', 'success')
-    return redirect(url_for('admin_jobs'))
+    if success:
+        db.session.commit()
+        flash(msg, 'success')
+    else:
+        flash(msg, 'error')
+
+    next_url = request.args.get('next') or request.referrer or url_for('admin_jobs')
+    return redirect(next_url)
 
 @app.route('/admin/jobs/<int:job_id>/delete', methods=['POST'])
 @admin_login_required
