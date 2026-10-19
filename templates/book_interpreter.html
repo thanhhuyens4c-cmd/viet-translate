@@ -162,15 +162,15 @@
                         </div>
 
                         <!-- Nút gửi yêu cầu -->
-                        <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                        <div class="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-3">
                             {% if profile %}
                             <a href="{{ url_for('translator_profile', profile_id=profile.id) }}"
-                                class="px-5 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 transition">
+                                class="w-full sm:w-auto px-5 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 transition text-center">
                                 Hủy bỏ
                             </a>
                             {% endif %}
                             <button type="submit"
-                                class="px-7 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm rounded-xl shadow-md transition">
+                                class="w-full sm:w-auto px-7 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm rounded-xl shadow-md transition text-center">
                                 Xác nhận gửi yêu cầu đặt dịch vụ
                             </button>
                         </div>
