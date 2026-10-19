@@ -442,13 +442,12 @@
                 </div>
 
                 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
-                <!-- HỆ THỐNG TAB ĐIỀU HƯỚNG PHIÊN DỊCH VIÊN (MỤC V - 5 TABS)                     -->
+                <!-- HỆ THỐNG TAB ĐIỀU HƯỚNG PHIÊN DỊCH VIÊN (4 TABS CHÍNH)                        -->
                 <!-- Tab 1: Hồ sơ cá nhân (5.1)                                                    -->
                 <!-- Tab 2: Năng lực & Bảng giá (5.2)                                              -->
                 <!-- Tab 3: Tiêu chí nhận việc (5.4)                                               -->
-                <!-- Tab 4: Cài đặt thông báo & Bảo mật (5.6)                                     -->
-                <!-- Tab 5: Trợ giúp & Hỗ trợ (5.7)                                                -->
-                <!-- (TUYỆT ĐỐI KHÔNG TẠO THÊM TAB XÁC MINH HỒ SƠ Ở ĐÂY)                          -->
+                <!-- Tab 4: Gói dịch vụ & Quyền lợi (5.5)                                          -->
+                <!-- (Mục "Thông báo & Bảo mật" và "Trợ giúp & Hỗ trợ" đã chuyển lên header)      -->
                 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-1.5 flex items-center overflow-x-auto whitespace-nowrap scroll-smooth hide-scrollbar gap-1 sm:gap-1.5">
                     <button id="tab-btn-profile"
@@ -477,20 +476,6 @@
                         onclick="switchTab('subscription', this)">
                         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
                         <span>Gói dịch vụ & Quyền lợi</span>
-                    </button>
-
-                    <button id="tab-btn-security"
-                        class="tab-btn {% if active_tab == 'security' %}active{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100/70{% endif %} shrink-0 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 cursor-pointer transition"
-                        onclick="switchTab('security', this)">
-                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                        <span>Thông báo & Bảo mật</span>
-                    </button>
-
-                    <button id="tab-btn-support"
-                        class="tab-btn {% if active_tab == 'support' %}active{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100/70{% endif %} shrink-0 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 cursor-pointer transition"
-                        onclick="switchTab('support', this)">
-                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                        <span>Trợ giúp & Hỗ trợ</span>
                     </button>
                 </div>
 
@@ -5952,24 +5937,28 @@
         });
 
         // Đồng bộ trạng thái active của icon Cài đặt & Trợ giúp trên Header
-        const navSettingsBtn = document.getElementById('nav-settings-btn');
         const navHelpBtn = document.getElementById('nav-help-btn');
-        if (navSettingsBtn) {
-            if (tab === 'security') {
-                navSettingsBtn.classList.add('bg-brand-50', 'text-brand-600', 'font-bold');
-                navSettingsBtn.dataset.pageActive = 'true';
-            } else {
-                navSettingsBtn.classList.remove('bg-brand-50', 'text-brand-600', 'font-bold');
-                navSettingsBtn.dataset.pageActive = 'false';
-            }
-        }
+        const navSettingsBtn = document.getElementById('nav-settings-btn');
         if (navHelpBtn) {
             if (tab === 'support') {
                 navHelpBtn.classList.add('bg-brand-50', 'text-brand-600', 'font-bold');
+                navHelpBtn.classList.remove('text-slate-500');
                 navHelpBtn.dataset.pageActive = 'true';
             } else {
                 navHelpBtn.classList.remove('bg-brand-50', 'text-brand-600', 'font-bold');
+                navHelpBtn.classList.add('text-slate-500');
                 navHelpBtn.dataset.pageActive = 'false';
+            }
+        }
+        if (navSettingsBtn) {
+            if (tab === 'security') {
+                navSettingsBtn.classList.add('bg-brand-50', 'text-brand-600', 'font-bold');
+                navSettingsBtn.classList.remove('text-slate-500');
+                navSettingsBtn.dataset.pageActive = 'true';
+            } else {
+                navSettingsBtn.classList.remove('bg-brand-50', 'text-brand-600', 'font-bold');
+                navSettingsBtn.classList.add('text-slate-500');
+                navSettingsBtn.dataset.pageActive = 'false';
             }
         }
 
