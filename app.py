@@ -1039,6 +1039,11 @@ def _ensure_account_schema(force=False):
     if _account_schema_ensured and not force:
         return
 
+    # Tránh chạy DDL khóa bảng trong production web worker
+    if os.environ.get('FLASK_ENV', '').lower() == 'production' and not force:
+        _account_schema_ensured = True
+        return
+
     from sqlalchemy import text, inspect
     try:
         engine_url = str(db.engine.url).lower()
@@ -3106,15 +3111,15 @@ def save_notification_settings_action(user):
     return redirect(url_for('account_profile', tab='security'))
 
 
+@app.route('/profile', methods=['GET', 'POST'])
+@app.route('/client/profile', methods=['GET', 'POST'])
+@app.route('/hirer/profile', methods=['GET', 'POST'])
 @app.route('/account', methods=['GET', 'POST'])
-@app.route('/account/profile', methods=['GET', 'POST'])
+@app.route('/account/overview', endpoint='account_overview', methods=['GET', 'POST'])
 @app.route('/account/profile', endpoint='profile', methods=['GET', 'POST'])
-@app.route('/account/overview', methods=['GET', 'POST'])
+@app.route('/account/profile', methods=['GET', 'POST'])
 @login_required
 def account_profile():
-    # Đồng bộ schema Phân hệ Tài khoản (idempotent, an toàn trên cả Vercel/Supabase)
-    _ensure_account_schema()
-
     # TASK 6: Account dùng SQL only.
     # TASK 9: Legacy session sẽ bị login_required redirect vì get_current_user() trả về None.
     uid = session.get('user_id')
@@ -12651,6 +12656,8 @@ EMPTY_DASHBOARD = {
 
 
 @app.route('/dashboard')
+@app.route('/client/dashboard')
+@app.route('/hirer/dashboard')
 @login_required
 def client_dashboard():
     user = get_current_user()

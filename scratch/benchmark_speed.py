@@ -1,43 +1,46 @@
-import sys
-sys.path.insert(0, '.')
-import time
-import gzip
+import time, sys, os
+sys.path.insert(0, os.path.abspath('.'))
+sys.stdout.reconfigure(encoding='utf-8')
 from app import app
-from models import db
-from sqlalchemy import event
+from models import db, User
 
-queries = []
+client = app.test_client()
+
 with app.app_context():
-    @event.listens_for(db.engine, 'before_cursor_execute')
-    def count_query(conn, cursor, statement, parameters, context, executemany):
-        queries.append(statement)
-
-    client = app.test_client()
-
-    routes = [
-        ('/', None),
-        ('/jobs', None),
-        ('/translators', None),
-        ('/translator/1', None),
-        ('/account/profile', 14),
-    ]
-
-    print(f"{'Route':<22} | {'Status':<6} | {'Time':<10} | {'Queries':<7} | {'Raw Size':<10} | {'Gzip Size':<10} | {'Reduction':<10}")
-    print('-' * 85)
-
-    for url, uid in routes:
-        queries.clear()
-        with client.session_transaction() as s:
-            s.clear()
-            if uid:
-                s['user_id'] = uid
+    trans = User.query.filter_by(role='translator').first()
+    hirer = User.query.filter_by(role='hirer').first()
+    
+    print('=== PERFORMANCE & PAGE LOAD SPEED BENCHMARK ===')
+    
+    # 1. Anonymous visitor
+    urls_guest = ['/index', '/about', '/tin-tuc', '/payment-info', '/translator/1']
+    print('\n[1. Khach vang lai / Guest]')
+    for url in urls_guest:
         t0 = time.perf_counter()
-        resp = client.get(url, headers={'Accept-Encoding': 'gzip'})
+        r = client.get(url)
         dt = (time.perf_counter() - t0) * 1000
-        comp_len = len(resp.data)
-        decomp = gzip.decompress(resp.data) if resp.headers.get('Content-Encoding') == 'gzip' else resp.data
-        raw_kb = len(decomp) / 1024
-        comp_kb = comp_len / 1024
-        red = (1 - comp_kb / raw_kb) * 100 if raw_kb > 0 else 0
-        q_count = len(queries)
-        print(f"{url:<22} | {resp.status_code:<6} | {dt:7.1f} ms | {q_count:<7} | {raw_kb:7.1f} KB | {comp_kb:7.1f} KB | {red:7.1f} %")
+        print(f'  GET {url:<28} -> {r.status_code} | {dt:6.2f} ms | {len(r.data)/1024:6.1f} KB')
+
+    # 2. Translator (PDV)
+    with client.session_transaction() as s:
+        s.clear()
+        s['user_id'] = trans.id
+    urls_trans = ['/interpreter/dashboard', '/account/profile', '/profile', '/account/overview', '/jobs', '/my-schedule', '/interpreter/income/overview']
+    print('\n[2. Phien dich vien / Translator]')
+    for url in urls_trans:
+        t0 = time.perf_counter()
+        r = client.get(url)
+        dt = (time.perf_counter() - t0) * 1000
+        print(f'  GET {url:<28} -> {r.status_code} | {dt:6.2f} ms | {len(r.data)/1024:6.1f} KB')
+
+    # 3. Hirer (Người đi thuê)
+    with client.session_transaction() as s:
+        s.clear()
+        s['user_id'] = hirer.id
+    urls_hirer = ['/client/dashboard', '/account/profile', '/profile', '/client/profile', '/my-jobs', '/my-projects', '/translators']
+    print('\n[3. Nguoi di thue / Hirer]')
+    for url in urls_hirer:
+        t0 = time.perf_counter()
+        r = client.get(url)
+        dt = (time.perf_counter() - t0) * 1000
+        print(f'  GET {url:<28} -> {r.status_code} | {dt:6.2f} ms | {len(r.data)/1024:6.1f} KB')
