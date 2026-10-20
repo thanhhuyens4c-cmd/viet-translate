@@ -89,15 +89,23 @@
                 </a>
                 {% endif %}
 
-                {% if verification_status.code == 'needs_revision' %}
+                {% if verification_status.code == 'verified' %}
+                <a href="{{ url_for('verification_status_page') }}" class="inline-flex justify-center items-center bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold px-3 py-2.5 rounded-xl border border-slate-200 transition">
+                    Đã xác minh
+                </a>
+                {% elif verification_status.code == 'pending' %}
+                <a href="{{ url_for('verification_status_page') }}" class="inline-flex justify-center items-center bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold px-3 py-2.5 rounded-xl border border-slate-200 transition">
+                    Tiến độ duyệt
+                </a>
+                {% elif verification_status.code == 'needs_revision' %}
                 <a href="{{ url_for('verification_revision_page') }}" class="inline-flex justify-center items-center bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs sm:text-sm font-bold px-3 py-2.5 rounded-xl border border-amber-200 transition">
                     Bổ sung hồ sơ
                 </a>
-                {% elif verification_status.code in ['pending', 'rejected', 'verified'] %}
+                {% elif verification_status.code == 'rejected' %}
                 <a href="{{ url_for('verification_status_page') }}" class="inline-flex justify-center items-center bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold px-3 py-2.5 rounded-xl border border-slate-200 transition">
-                    Trạng thái duyệt
+                    Xem phản hồi
                 </a>
-                {% elif verification_status.code == 'unverified' %}
+                {% else %}
                 <a href="{{ url_for('account_verification') }}" class="inline-flex justify-center items-center bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold px-3 py-2.5 rounded-xl border border-slate-200 transition">
                     Xác minh
                 </a>
@@ -106,8 +114,8 @@
         </div>
 
         <!-- 2. Thống kê công việc -->
-        <section id="section-jobs" class="scroll-mt-24 space-y-3">
-            <div class="flex items-center justify-between">
+        <section id="section-jobs" class="scroll-mt-24 bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+            <div class="flex items-center justify-between mb-4">
                 <h2 class="text-base sm:text-lg font-bold text-slate-900">Thống kê công việc</h2>
                 <a href="{{ url_for('job_statistics') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 transition">
                     Xem chi tiết →
@@ -116,7 +124,7 @@
 
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <!-- Đang ứng tuyển -->
-                <a href="{{ url_for('job_statistics', tab='applied') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-4 sm:p-5 hover:border-brand-300 hover:shadow-md transition min-w-0">
+                <a href="{{ url_for('job_statistics', tab='applied') }}" class="group block p-4 rounded-xl border border-slate-200/80 hover:border-brand-300 hover:bg-slate-50/40 transition min-w-0">
                     <span class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     </span>
@@ -127,7 +135,7 @@
                 </a>
 
                 <!-- Đã nhận -->
-                <a href="{{ url_for('job_statistics', tab='accepted') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-4 sm:p-5 hover:border-brand-300 hover:shadow-md transition min-w-0">
+                <a href="{{ url_for('job_statistics', tab='accepted') }}" class="group block p-4 rounded-xl border border-slate-200/80 hover:border-brand-300 hover:bg-slate-50/40 transition min-w-0">
                     <span class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </span>
@@ -138,7 +146,7 @@
                 </a>
 
                 <!-- Đang thực hiện -->
-                <a href="{{ url_for('job_statistics', tab='in_progress') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-4 sm:p-5 hover:border-brand-300 hover:shadow-md transition min-w-0">
+                <a href="{{ url_for('job_statistics', tab='in_progress') }}" class="group block p-4 rounded-xl border border-slate-200/80 hover:border-brand-300 hover:bg-slate-50/40 transition min-w-0">
                     <span class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mb-3">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     </span>
@@ -149,7 +157,7 @@
                 </a>
 
                 <!-- Đã hoàn thành -->
-                <a href="{{ url_for('job_statistics', tab='completed') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-4 sm:p-5 hover:border-brand-300 hover:shadow-md transition min-w-0">
+                <a href="{{ url_for('job_statistics', tab='completed') }}" class="group block p-4 rounded-xl border border-slate-200/80 hover:border-brand-300 hover:bg-slate-50/40 transition min-w-0">
                     <span class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     </span>
@@ -162,8 +170,8 @@
         </section>
 
         <!-- 3. Thống kê thu nhập -->
-        <section id="section-income" class="scroll-mt-24 space-y-3">
-            <div class="flex items-center justify-between">
+        <section id="section-income" class="scroll-mt-24 bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+            <div class="flex items-center justify-between mb-4">
                 <h2 class="text-base sm:text-lg font-bold text-slate-900">Thống kê thu nhập</h2>
                 <a href="{{ url_for('interpreter_income_transactions') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 transition">
                     Lịch sử ví & sao kê →
@@ -172,7 +180,7 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <!-- Thu nhập kỳ hiện tại -->
-                <a href="{{ url_for('interpreter_income_details', status='paid') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-4 sm:p-5 hover:border-brand-300 hover:shadow-md transition min-w-0">
+                <a href="{{ url_for('interpreter_income_details', status='paid') }}" class="group block p-4 rounded-xl border border-slate-200/80 hover:border-brand-300 hover:bg-slate-50/40 transition min-w-0">
                     <div class="flex items-center justify-between mb-3">
                         <span class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -188,7 +196,7 @@
                 </a>
 
                 <!-- Thu nhập đã thanh toán -->
-                <a href="{{ url_for('interpreter_income_transactions', status='completed') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-4 sm:p-5 hover:border-brand-300 hover:shadow-md transition min-w-0">
+                <a href="{{ url_for('interpreter_income_transactions', status='completed') }}" class="group block p-4 rounded-xl border border-slate-200/80 hover:border-brand-300 hover:bg-slate-50/40 transition min-w-0">
                     <div class="flex items-center justify-between mb-3">
                         <span class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -204,7 +212,7 @@
                 </a>
 
                 <!-- Khoản thu nhập đang chờ xử lý (Escrow) -->
-                <a href="{{ url_for('interpreter_income_payouts', status='escrow_held') }}" class="group bg-white rounded-2xl border border-slate-200/90 shadow-soft p-4 sm:p-5 hover:border-brand-300 hover:shadow-md transition min-w-0">
+                <a href="{{ url_for('interpreter_income_payouts', status='escrow_held') }}" class="group block p-4 rounded-xl border border-slate-200/80 hover:border-brand-300 hover:bg-slate-50/40 transition min-w-0">
                     <div class="flex items-center justify-between mb-3">
                         <span class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
