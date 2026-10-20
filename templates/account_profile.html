@@ -4184,7 +4184,8 @@
                 </div>
                 {% endif %}
 
-                <!-- Tab 1: Thông tin cơ bản -->
+                {% if user.role != 'translator' %}
+                <!-- Tab 1: Thông tin cơ bản (Dành cho Người thuê / Khách hàng) -->
                 <div id="tab-basic" class="tab-panel {% if active_tab == 'basic' %}active{% endif %}">
                     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
                         <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
@@ -4302,6 +4303,7 @@
                         </form>
                     </div>
                 </div>
+                {% endif %}
 
                 <!-- Tab 2: Hồ sơ nghề nghiệp (chỉ translator) -->
                 {% if user.role == 'translator' %}

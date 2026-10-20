@@ -211,20 +211,20 @@ class User(db.Model):
 
 class TranslatorProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     title = db.Column(db.String(200))
     bio = db.Column(db.Text)
     languages = db.Column(db.String(300))
     badges = db.Column(db.String(200))
-    rating = db.Column(db.Float, default=0.0)
+    rating = db.Column(db.Float, default=0.0, index=True)
     total_reviews = db.Column(db.Integer, default=0)
     total_jobs = db.Column(db.Integer, default=0)
     response_time = db.Column(db.String(50), default='2 giờ')
-    is_verified = db.Column(db.Boolean, default=False)
+    is_verified = db.Column(db.Boolean, default=False, index=True)
     certificates = db.Column(db.Text)
 
     # Cấu hình công khai & quyền riêng tư hồ sơ
-    is_public = db.Column(db.Boolean, default=True)
+    is_public = db.Column(db.Boolean, default=True, index=True)
     is_cv_public = db.Column(db.Boolean, default=False)
 
     # Cặp ngôn ngữ & Chiều phiên dịch
@@ -693,7 +693,7 @@ class Service(db.Model):
 
 class Job(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)
     category = db.Column(db.String(100))
@@ -964,12 +964,12 @@ class Proposal(db.Model):
         db.UniqueConstraint('job_id', 'translator_id', name='uq_proposal_job_translator'),
     )
     id = db.Column(db.Integer, primary_key=True)
-    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False)
-    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False, index=True)
+    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     cover_letter = db.Column(db.Text, nullable=True)
     price = db.Column(db.Integer, nullable=False)
     time_estimate = db.Column(db.String(100))
-    status = db.Column(db.String(20), default='pending')  # pending, accepted, rejected, not_selected
+    status = db.Column(db.String(20), default='pending', index=True)  # pending, accepted, rejected, not_selected
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     client_note = db.Column(db.Text, nullable=True)
@@ -1202,8 +1202,8 @@ class Contract(db.Model):
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)
     interpreter_service_id = db.Column(db.Integer, db.ForeignKey('interpreter_service.id'), nullable=True)
     proposal_id = db.Column(db.Integer, db.ForeignKey('proposal.id'), nullable=True)
-    hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     agreed_price = db.Column(db.Integer, nullable=False)
     scheduled_date = db.Column(db.String(100))
     scheduled_time_start = db.Column(db.String(10))

@@ -3130,8 +3130,13 @@ def account_profile():
         flash(_t('flash.login_required'), 'warning')
         return redirect(url_for('login'))
 
-    # SQL user
-    user = User.query.get(uid)
+    # SQL user (eager load profile và interpreter_services để tối ưu tốc độ load)
+    from sqlalchemy.orm import joinedload, selectinload
+    user = User.query.options(
+        joinedload(User.profile),
+        selectinload(User.interpreter_services),
+        joinedload(User.hirer_profile)
+    ).get(uid)
     if not user:
         flash(_t('flash.account_not_found'), 'error')
         return redirect(url_for('index'))
@@ -7157,8 +7162,8 @@ def _translator_card(p, favorite_ids=frozenset()):
         'hourly_rate': getattr(p, 'hourly_rate', None),
         'daily_rate': getattr(p, 'daily_rate', None),
         'is_favorite': p.user_id in favorite_ids,
-        'profile_url': url_for('translator_profile', profile_id=p.id),
-        'chat_url': url_for('direct_chat', translator_user_id=p.user_id),
+        'profile_url': f'/translator/{p.id}',
+        'chat_url': f'/chat/direct/{p.user_id}',
     }
 
 
@@ -7186,10 +7191,11 @@ def _current_favorite_ids():
 def api_translators():
     """JSON API cho tìm kiếm/lọc phía client. Chỉ trả dữ liệu hồ sơ công khai của tài khoản đang hoạt động."""
     try:
-        from sqlalchemy.orm import joinedload
+        from sqlalchemy.orm import joinedload, selectinload
         demo_filter = request.args.get('demo', '')
         query = TranslatorProfile.query.options(
-            joinedload(TranslatorProfile.user), joinedload(TranslatorProfile.services)
+            joinedload(TranslatorProfile.user).selectinload(User.interpreter_services),
+            joinedload(TranslatorProfile.services)
         ).join(User).filter(
             User.is_active == True,
             db.or_(TranslatorProfile.is_public == True, TranslatorProfile.is_public.is_(None))
@@ -7203,7 +7209,10 @@ def api_translators():
 
         profiles = query.order_by(TranslatorProfile.rating.desc(), TranslatorProfile.id.asc()).all()
         fav = _current_favorite_ids()
-        return jsonify([_translator_card(p, fav) for p in profiles if _translator_listed(p)])
+        cards = [_translator_card(p, fav) for p in profiles if _translator_listed(p)]
+        resp = jsonify(cards)
+        resp.headers['Cache-Control'] = 'private, max-age=30'
+        return resp
     except Exception as e:
         import traceback
         print(f"Error in api_translators: {e}\n{traceback.format_exc()}", file=sys.stderr)
@@ -7296,7 +7305,11 @@ def translator_profile(profile_id):
       + Khách ngoài: Không công khai ngoài ý muốn, hiển thị trang thông báo riêng tư.
     - Hồ sơ bị hạn chế / khóa: Từ chối truy cập (403) kèm thông báo an toàn.
     """
-    profile = TranslatorProfile.query.get_or_404(profile_id)
+    from sqlalchemy.orm import joinedload
+    profile = TranslatorProfile.query.options(
+        joinedload(TranslatorProfile.user),
+        joinedload(TranslatorProfile.services)
+    ).get_or_404(profile_id)
     
     viewer_id = session.get('user_id')
     viewer = User.query.get(viewer_id) if viewer_id else None
