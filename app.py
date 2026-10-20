@@ -677,6 +677,47 @@ def delete_user_avatar(current_avatar):
 db.init_app(app)
 
 import sys
+import gzip
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+
+# Tối ưu hóa SQLite: Bật WAL mode, synchronous=NORMAL và cache RAM 64MB
+@event.listens_for(Engine, "connect")
+def _optimize_sqlite_connection(dbapi_connection, connection_record):
+    if type(dbapi_connection).__module__.startswith("sqlite3"):
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode = WAL")
+            cursor.execute("PRAGMA synchronous = NORMAL")
+            cursor.execute("PRAGMA cache_size = -64000")
+            cursor.close()
+        except Exception:
+            pass
+
+# Tối ưu nén dữ liệu truyền tải (Gzip Compression)
+@app.after_request
+def _compress_response(response):
+    """Nén tự động gzip cho HTML/CSS/JS/JSON (giảm ~85% dung lượng truyền tải mạng)"""
+    if (
+        response.status_code < 400
+        and not response.direct_passthrough
+        and response.mimetype in ('text/html', 'text/css', 'application/javascript', 'application/json', 'image/svg+xml')
+        and 'Content-Encoding' not in response.headers
+    ):
+        try:
+            accept_encoding = request.headers.get('Accept-Encoding', '')
+            if 'gzip' in accept_encoding:
+                response_data = response.get_data()
+                if len(response_data) >= 1024:
+                    compressed_data = gzip.compress(response_data, compresslevel=6)
+                    if len(compressed_data) < len(response_data):
+                        response.set_data(compressed_data)
+                        response.headers['Content-Encoding'] = 'gzip'
+                        response.headers['Content-Length'] = len(compressed_data)
+                        response.headers['Vary'] = 'Accept-Encoding'
+        except Exception:
+            pass
+    return response
 
 def _add_missing_columns():
     """Tự thêm các cột model có nhưng DB thiếu (schema drift) để tránh ProgrammingError/UndefinedColumn.
@@ -9580,8 +9621,12 @@ def job_list():
     per_page = request.args.get('per_page', 120, type=int)
 
     # Lấy các công việc đang mở, đã duyệt, không bị gắn cờ và còn trong thời hạn ứng tuyển
+    from sqlalchemy.orm import joinedload, selectinload
     today = date.today()
-    base_query = Job.query.join(User, Job.hirer_id == User.id).filter(
+    base_query = Job.query.options(
+        joinedload(Job.hirer),
+        selectinload(Job.proposals)
+    ).join(User, Job.hirer_id == User.id).filter(
         Job.status == 'open',
         Job.moderation_status == 'approved',
         Job.closed_at.is_(None),
