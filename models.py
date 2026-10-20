@@ -132,6 +132,24 @@ class User(db.Model):
         return None
 
     @property
+    def active_cv_document(self):
+        """Trả về tài liệu CV đang hoạt động hợp lệ của người dùng."""
+        if getattr(self, 'profile', None) and hasattr(self.profile, 'active_cv_document'):
+            doc = self.profile.active_cv_document
+            if doc:
+                return doc
+        try:
+            return VerificationDocument.query.filter_by(
+                user_id=self.id,
+                document_type='cv',
+                is_active=True
+            ).filter(
+                VerificationDocument.status.notin_(['rejected', 'replaced', 'deleted'])
+            ).order_by(VerificationDocument.created_at.desc()).first()
+        except Exception:
+            return None
+
+    @property
     def is_verified(self):
         """Kiểm tra tài khoản đã xác minh định danh chưa."""
         if self.role == 'translator':
@@ -477,12 +495,15 @@ class TranslatorProfile(db.Model):
         """
         Trả về tệp CV đang hoạt động của phiên dịch viên (bất kể cờ is_cv_public bật hay tắt).
         Dùng cho chính chủ, Quản trị viên hoặc Người thuê có ứng viên nộp hồ sơ.
+        Loại trừ các tài liệu đã bị từ chối ('rejected'), đã thay thế ('replaced') hoặc đã xóa ('deleted').
         """
         try:
             doc = VerificationDocument.query.filter_by(
                 user_id=self.user_id,
                 document_type='cv',
                 is_active=True
+            ).filter(
+                VerificationDocument.status.notin_(['rejected', 'replaced', 'deleted'])
             ).order_by(VerificationDocument.created_at.desc()).first()
             if doc:
                 return doc
@@ -491,14 +512,18 @@ class TranslatorProfile(db.Model):
 
         if self.latest_verification and hasattr(self.latest_verification, 'documents'):
             for doc in self.latest_verification.documents:
-                if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                if (doc.document_type == 'cv' and 
+                    getattr(doc, 'is_active', True) and 
+                    getattr(doc, 'status', '') not in ('rejected', 'replaced', 'deleted')):
                     return doc
 
         if self.user and hasattr(self.user, 'verifications') and self.user.verifications:
             for v in self.user.verifications:
                 if hasattr(v, 'documents'):
                     for doc in v.documents:
-                        if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                        if (doc.document_type == 'cv' and 
+                            getattr(doc, 'is_active', True) and 
+                            getattr(doc, 'status', '') not in ('rejected', 'replaced', 'deleted')):
                             return doc
         return None
 
@@ -1953,6 +1978,33 @@ class TranslatorVerification(db.Model):
 
     user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('verifications', lazy=True, cascade='all, delete-orphan', order_by='desc(TranslatorVerification.created_at)'))
     reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref=db.backref('reviewed_verifications', lazy=True))
+
+    @property
+    def active_cv_doc(self):
+        """Trả về tài liệu CV đang hoạt động gắn với hồ sơ xác minh này nếu có."""
+        if hasattr(self, 'documents') and self.documents:
+            for d in self.documents:
+                if (d.document_type == 'cv' and 
+                    getattr(d, 'is_active', True) and 
+                    getattr(d, 'status', '') not in ('rejected', 'replaced', 'deleted')):
+                    return d
+        return None
+
+    @property
+    def effective_cv_filename(self):
+        """Trả về tên tệp CV hiển thị: ưu tiên từ tài liệu hoạt động, sau đó đến cv_filename legacy."""
+        doc = self.active_cv_doc
+        if doc and doc.original_filename:
+            return doc.original_filename
+        return self.cv_filename
+
+    @property
+    def effective_cv_url(self):
+        """Trả về URL tải / xem CV: ưu tiên endpoint VerificationDocument nếu có tài liệu, fallback sang cv_url."""
+        doc = self.active_cv_doc
+        if doc:
+            return f"/account/verification/documents/{doc.id}/download"
+        return self.cv_url
 
     def get_submitted_snapshot(self):
         """Trả về dữ liệu snapshot của lần nộp hồ sơ gần nhất."""

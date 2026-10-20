@@ -205,23 +205,45 @@ def resolve_document_file_path(doc):
     if not stored_name and doc.storage_path:
         stored_name = os.path.basename(doc.storage_path)
 
+    basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
     # 2. Quét các đường dẫn đĩa cứng tiềm năng
     candidate_paths = []
-    if doc.storage_path and os.path.isabs(doc.storage_path):
-        candidate_paths.append(doc.storage_path)
+    if doc.storage_path:
+        norm_path = doc.storage_path.replace('/', os.sep).replace('\\', os.sep)
+        if os.path.isabs(norm_path):
+            candidate_paths.append(norm_path)
+        else:
+            candidate_paths.append(os.path.join(basedir, norm_path))
+            candidate_paths.append(os.path.join(get_private_verification_folder(), norm_path))
+            candidate_paths.append(os.path.join(basedir, 'instance', norm_path))
 
     if stored_name:
         candidate_paths.append(os.path.join(get_private_verification_folder(), stored_name))
         candidate_paths.append(os.path.join('/var/lib/viettranslate/private_storage/private_verifications', stored_name))
-        
-        basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         candidate_paths.append(os.path.join(basedir, 'instance', 'storage', 'private_verifications', stored_name))
+        candidate_paths.append(os.path.join(basedir, 'uploads', 'verification_docs', stored_name))
+        candidate_paths.append(os.path.join(basedir, 'uploads', stored_name))
         candidate_paths.append(os.path.join(basedir, 'instance', 'uploads', stored_name))
         candidate_paths.append(os.path.join(basedir, 'static', 'uploads', stored_name))
         candidate_paths.append(os.path.join('/tmp', 'private_verifications', stored_name))
 
-    for path in candidate_paths:
-        if path and os.path.exists(path) and os.path.isfile(path):
+    orig_name = getattr(doc, 'original_filename', None)
+    if orig_name and orig_name != stored_name:
+        candidate_paths.append(os.path.join(get_private_verification_folder(), orig_name))
+        candidate_paths.append(os.path.join(basedir, 'instance', 'storage', 'private_verifications', orig_name))
+        candidate_paths.append(os.path.join(basedir, 'uploads', 'verification_docs', orig_name))
+
+    # Loại trừ trùng lặp nhưng giữ nguyên thứ tự ưu tiên
+    seen = set()
+    unique_candidates = []
+    for p in candidate_paths:
+        if p and p not in seen:
+            seen.add(p)
+            unique_candidates.append(p)
+
+    for path in unique_candidates:
+        if os.path.exists(path) and os.path.isfile(path):
             return 'file', path
 
     # 3. Fallback: Tải từ Supabase Storage nếu lưu trữ trên cloud

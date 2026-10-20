@@ -4009,6 +4009,11 @@
                     <!-- 5. Thẻ Liên Kết Trực Tiếp (Quick Link Hub) -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <!-- Link 1: Hồ sơ CV & Bằng cấp -->
+                        {% set active_cv = active_cv_document or (profile_completion and profile_completion.active_cv) or (user.active_cv_document if hasattr(user, 'active_cv_document') else None) %}
+                        {% set verif_cv_url = profile_completion.latest_verification.effective_cv_url if (profile_completion and profile_completion.latest_verification and hasattr(profile_completion.latest_verification, 'effective_cv_url')) else (profile_completion.latest_verification.cv_url if (profile_completion and profile_completion.latest_verification) else None) %}
+                        {% set has_cv = (active_cv is not none) or (verif_cv_url is not none) %}
+                        {% set cv_name = (active_cv.original_filename if active_cv else (profile_completion.latest_verification.effective_cv_filename if (profile_completion and profile_completion.latest_verification and hasattr(profile_completion.latest_verification, 'effective_cv_filename')) else (profile_completion.latest_verification.cv_filename if (profile_completion and profile_completion.latest_verification) else 'File CV đã tải lên'))) %}
+                        {% set cv_action_url = ('/account/verification/documents/' ~ active_cv.id ~ '/view' if (active_cv and active_cv.can_preview) else ('/account/verification/documents/' ~ active_cv.id ~ '/download' if active_cv else verif_cv_url)) %}
                         <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 flex flex-col justify-between hover:border-brand-300 transition group">
                             <div>
                                 <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3 group-hover:bg-blue-100 transition">
@@ -4016,18 +4021,23 @@
                                 </div>
                                 <h4 class="text-xs sm:text-sm font-bold text-slate-900">CV & Tài liệu nộp</h4>
                                 <p class="text-xs text-slate-500 mt-1 line-clamp-2">
-                                    {% if profile_completion.latest_verification and profile_completion.latest_verification.cv_url %}
-                                        {{ profile_completion.latest_verification.cv_filename or 'File CV đã tải lên hệ thống' }}
+                                    {% if has_cv %}
+                                        <span class="font-medium text-slate-800">{{ cv_name }}</span>
+                                        {% if active_cv and active_cv.status == 'approved' %}
+                                            <span class="block text-[10px] text-emerald-600 font-bold mt-0.5">✓ Đã phê duyệt</span>
+                                        {% elif active_cv and active_cv.status == 'uploaded' %}
+                                            <span class="block text-[10px] text-amber-600 font-semibold mt-0.5">● Đã lưu (Chờ thẩm định)</span>
+                                        {% endif %}
                                     {% else %}
                                         Chưa tải lên hồ sơ CV
                                     {% endif %}
                                 </p>
                             </div>
                             <div class="pt-4 mt-2 border-t border-slate-100">
-                                {% if profile_completion.latest_verification and profile_completion.latest_verification.cv_url %}
-                                <a href="{{ profile_completion.latest_verification.cv_url }}" target="_blank"
+                                {% if has_cv and cv_action_url %}
+                                <a href="{{ cv_action_url }}" target="_blank"
                                     class="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:text-brand-700">
-                                    <span>Mở file CV</span>
+                                    <span>{% if active_cv and not active_cv.can_preview %}Tải xuống CV{% else %}Mở file CV{% endif %}</span>
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                 </a>
                                 {% else %}
@@ -4699,8 +4709,10 @@
                                             🌐 Ngôn ngữ chính: <strong>{{ user.latest_verification.primary_language }}</strong>
                                         </span>
                                         {% endif %}
-                                        {% if user.latest_verification.cv_url %}
-                                        <a href="{{ user.latest_verification.cv_url }}" target="_blank" class="inline-flex items-center gap-1 bg-white hover:bg-emerald-100/50 border border-emerald-300 text-emerald-700 px-2.5 py-1 rounded-lg font-bold transition">
+                                        {% set active_cv_link = user.latest_verification.effective_cv_url if hasattr(user.latest_verification, 'effective_cv_url') else user.latest_verification.cv_url %}
+                                        {% set active_cv_title = user.latest_verification.effective_cv_filename if hasattr(user.latest_verification, 'effective_cv_filename') else user.latest_verification.cv_filename %}
+                                        {% if active_cv_link %}
+                                        <a href="{{ active_cv_link }}" target="_blank" class="inline-flex items-center gap-1 bg-white hover:bg-emerald-100/50 border border-emerald-300 text-emerald-700 px-2.5 py-1 rounded-lg font-bold transition">
                                             📄 Xem lại CV đã nộp
                                         </a>
                                         {% endif %}
@@ -4724,10 +4736,12 @@
                                         <span>·</span>
                                         <span>Phiên bản hồ sơ: <strong>v{{ user.latest_verification.submission_version }}</strong></span>
                                         {% endif %}
-                                        {% if user.latest_verification.cv_url %}
+                                        {% set active_pending_cv_link = user.latest_verification.effective_cv_url if hasattr(user.latest_verification, 'effective_cv_url') else user.latest_verification.cv_url %}
+                                        {% set active_pending_cv_title = user.latest_verification.effective_cv_filename if hasattr(user.latest_verification, 'effective_cv_filename') else (user.latest_verification.cv_filename or 'Tải xuống') %}
+                                        {% if active_pending_cv_link %}
                                         <span>·</span>
-                                        <a href="{{ user.latest_verification.cv_url }}" target="_blank" class="font-bold underline hover:text-amber-900 inline-flex items-center gap-1">
-                                            📄 Tệp CV: {{ user.latest_verification.cv_filename or 'Tải xuống' }}
+                                        <a href="{{ active_pending_cv_link }}" target="_blank" class="font-bold underline hover:text-amber-900 inline-flex items-center gap-1">
+                                            📄 Tệp CV: {{ active_pending_cv_title }}
                                         </a>
                                         {% endif %}
                                     </div>

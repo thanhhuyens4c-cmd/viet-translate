@@ -2838,6 +2838,12 @@ def compute_profile_completion(user):
         else:
             verification_state = 'not_started'
 
+        active_cv = None
+        if prof and hasattr(prof, 'active_cv_document'):
+            active_cv = prof.active_cv_document
+        if not active_cv:
+            active_cv = getattr(user, 'active_cv_document', None)
+
         return {
             'completed_count': completed_count,
             'total_count': total_count,
@@ -2845,7 +2851,8 @@ def compute_profile_completion(user):
             'criteria': criteria,
             'missing_items': missing_items,
             'verification_state': verification_state,
-            'latest_verification': verif
+            'latest_verification': verif,
+            'active_cv': active_cv
         }
     except Exception as e:
         print(f"[compute_profile_completion error] {e}", file=sys.stderr)
@@ -3596,6 +3603,12 @@ def account_profile():
             profile_completion = compute_profile_completion(user)
             if user.latest_verification and hasattr(user.latest_verification, 'documents'):
                 verification_documents = [d for d in user.latest_verification.documents if getattr(d, 'is_active', True)]
+            if not verification_documents:
+                from models import VerificationDocument
+                verification_documents = VerificationDocument.query.filter_by(
+                    user_id=user.id,
+                    is_active=True
+                ).order_by(VerificationDocument.created_at.desc()).all()
         except Exception as e:
             try:
                 db.session.rollback()
@@ -3670,6 +3683,7 @@ def account_profile():
         profile_completion=profile_completion,
         unread_notifs_count=unread_notifs_count,
         verification_documents=verification_documents,
+        active_cv_document=getattr(user, 'active_cv_document', None),
         DOCUMENT_POLICIES=DOCUMENT_POLICIES,
         declared_language_pairs=declared_language_pairs,
         notification_setting=notification_setting,
@@ -4467,13 +4481,17 @@ def download_verification_document(doc_id):
     - Chỉ Chủ sở hữu hoặc Quản trị viên (Admin) mới có quyền tải xuống.
     - Người khác nhận mã lỗi 403 Forbidden.
     """
+    import mimetypes
     from admin_auth import is_admin_session_valid
     admin_ok, _ = is_admin_session_valid()
 
     uid = session.get('user_id')
     user = User.query.get(uid) if uid else None
     if not user and not admin_ok:
-        abort(401)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'error': 'Unauthorized'}), 401
+        flash('Vui lòng đăng nhập để truy cập tài liệu.', 'warning')
+        return redirect(url_for('login'))
 
     doc = VerificationDocument.query.get_or_404(doc_id)
 
@@ -4490,13 +4508,16 @@ def download_verification_document(doc_id):
     elif ftype == 'file' and target:
         file_path = target
     else:
+        app.logger.warning(f"[DOC DOWNLOAD ERROR] Document ID {doc.id} (provider={doc.storage_provider}, type={doc.document_type}, stored_name={doc.stored_filename}) file not found on storage.")
         abort(404)
+
+    mimetype = doc.mime_type or mimetypes.guess_type(doc.original_filename)[0] or 'application/octet-stream'
 
     response = send_file(
         file_path,
         as_attachment=True,
         download_name=doc.original_filename,
-        mimetype=doc.mime_type or 'application/octet-stream'
+        mimetype=mimetype
     )
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Content-Security-Policy'] = "default-src 'none'"
@@ -4510,13 +4531,17 @@ def view_verification_document(doc_id):
     Endpoint xem trước tài liệu minh chứng (PDF hoặc ảnh).
     Kiểm tra nghiêm ngặt quyền truy cập ở backend (RBAC).
     """
+    import mimetypes
     from admin_auth import is_admin_session_valid
     admin_ok, _ = is_admin_session_valid()
 
     uid = session.get('user_id')
     user = User.query.get(uid) if uid else None
     if not user and not admin_ok:
-        abort(401)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'error': 'Unauthorized'}), 401
+        flash('Vui lòng đăng nhập để truy cập tài liệu.', 'warning')
+        return redirect(url_for('login'))
 
     doc = VerificationDocument.query.get_or_404(doc_id)
 
@@ -4533,13 +4558,17 @@ def view_verification_document(doc_id):
     elif ftype == 'file' and target:
         file_path = target
     else:
+        app.logger.warning(f"[DOC VIEW ERROR] Document ID {doc.id} (provider={doc.storage_provider}, type={doc.document_type}, stored_name={doc.stored_filename}) file not found on storage.")
         abort(404)
+
+    can_inline = (doc.file_extension or '').lower() in ('pdf', 'jpg', 'jpeg', 'png', 'webp')
+    mimetype = doc.mime_type or mimetypes.guess_type(doc.original_filename)[0] or 'application/octet-stream'
 
     response = send_file(
         file_path,
-        as_attachment=False,
+        as_attachment=not can_inline,
         download_name=doc.original_filename,
-        mimetype=doc.mime_type or 'application/octet-stream'
+        mimetype=mimetype
     )
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
@@ -7310,41 +7339,96 @@ def view_public_cv(profile_id):
         for v in (profile.user.verifications or []):
             if hasattr(v, 'documents'):
                 for d in v.documents:
-                    if d.document_type == 'cv' and getattr(d, 'is_active', True):
+                    if (d.document_type == 'cv' and 
+                        getattr(d, 'is_active', True) and 
+                        getattr(d, 'status', '') not in ('rejected', 'replaced', 'deleted')):
                         cv_doc = d
                         break
             if cv_doc:
                 break
 
-    if not cv_doc:
-        flash('Chưa có tệp CV nào được tải lên cho hồ sơ này.', 'info')
-        return redirect(url_for('translator_profile', profile_id=profile.id))
+    mode = request.args.get('mode', 'view')
 
-    if cv_doc.document_type != 'cv':
-        abort(403)
+    file_path = None
+    target_url = None
+    original_filename = 'CV_ChuyenNghiep.pdf'
+    mime_type = 'application/pdf'
+    ext = 'pdf'
 
     from services.verification import resolve_document_file_path
-    ftype, target = resolve_document_file_path(cv_doc)
 
-    if ftype == 'url':
-        return redirect(target)
-    elif ftype == 'file' and target:
-        file_path = target
-    else:
-        # Kiểm tra thêm nếu có cv_url trực tiếp trên verification
+    if cv_doc:
+        if cv_doc.document_type != 'cv':
+            abort(403)
+        original_filename = cv_doc.original_filename or 'CV_ChuyenNghiep.pdf'
+        ext = (cv_doc.file_extension or 'pdf').lower()
+        import mimetypes
+        mime_type = cv_doc.mime_type or mimetypes.guess_type(original_filename)[0] or 'application/pdf'
+
+        ftype, target = resolve_document_file_path(cv_doc)
+        if ftype == 'url':
+            target_url = target
+        elif ftype == 'file' and target:
+            file_path = target
+
+    # Nếu chưa có file_path / target_url (hoặc không có cv_doc), thử fallback legacy từ verification
+    if not file_path and not target_url:
         verif = profile.latest_verification
-        if verif and verif.cv_url and verif.cv_url.startswith(('http://', 'https://')):
-            return redirect(verif.cv_url)
-        abort(404)
+        if verif:
+            # 1. Thử cv_url nếu là link ngoài
+            if verif.cv_url and verif.cv_url.startswith(('http://', 'https://')):
+                target_url = verif.cv_url
+            # 2. Thử cv_url nếu là internal endpoint /documents/<id>/download
+            elif verif.cv_url and '/documents/' in verif.cv_url:
+                match = re.search(r'/documents/(\d+)', verif.cv_url)
+                if match:
+                    ref_doc = VerificationDocument.query.get(int(match.group(1)))
+                    if ref_doc and ref_doc.document_type == 'cv':
+                        ft, tg = resolve_document_file_path(ref_doc)
+                        if ft == 'file' and tg:
+                            file_path = tg
+                            original_filename = ref_doc.original_filename or verif.cv_filename or original_filename
+                            ext = (ref_doc.file_extension or 'pdf').lower()
+                            import mimetypes
+                            mime_type = ref_doc.mime_type or mimetypes.guess_type(original_filename)[0] or 'application/pdf'
+            # 3. Thử tìm cv_filename trên disk nếu có
+            if not file_path and not target_url and verif.cv_filename:
+                from services.verification import get_private_verification_folder
+                basedir = os.path.dirname(os.path.abspath(__file__))
+                legacy_candidates = [
+                    os.path.join(get_private_verification_folder(), verif.cv_filename),
+                    os.path.join(basedir, 'instance', 'storage', 'private_verifications', verif.cv_filename),
+                    os.path.join(basedir, 'uploads', 'verification_docs', verif.cv_filename),
+                    os.path.join(basedir, 'instance', 'uploads', verif.cv_filename),
+                ]
+                for cand in legacy_candidates:
+                    if os.path.exists(cand) and os.path.isfile(cand):
+                        file_path = cand
+                        original_filename = verif.cv_filename
+                        ext = verif.cv_filename.rsplit('.', 1)[-1].lower() if '.' in verif.cv_filename else 'pdf'
+                        import mimetypes
+                        mime_type = mimetypes.guess_type(original_filename)[0] or 'application/pdf'
+                        break
 
-    mode = request.args.get('mode', 'view')
-    as_attachment = (mode == 'download')
+    if target_url:
+        return redirect(target_url)
+
+    if not file_path:
+        app.logger.warning(f"[PUBLIC CV NOT FOUND] Profile {profile_id} (user {profile.user_id}): no physical file found.")
+        flash('Tệp CV hiện không khả dụng trên hệ thống lưu trữ. Phiên dịch viên có thể cần tải lại CV.', 'warning')
+        return redirect(url_for('translator_profile', profile_id=profile.id))
+
+    # Xử lý chế độ xem (inline) vs tải về (attachment) theo định dạng tệp:
+    # Nếu file là DOC/DOCX, trình duyệt không thể xem inline trực tiếp an toàn,
+    # nên tự động chuyển thành as_attachment=True để tải về máy cho người dùng mở.
+    can_inline = ext in ('pdf', 'jpg', 'jpeg', 'png', 'webp')
+    as_attachment = (mode == 'download') or (not can_inline)
 
     response = send_file(
         file_path,
         as_attachment=as_attachment,
-        download_name=cv_doc.original_filename or 'CV_ChuyenNghiep.pdf',
-        mimetype=cv_doc.mime_type or 'application/pdf'
+        download_name=original_filename,
+        mimetype=mime_type
     )
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Content-Security-Policy'] = "default-src 'none'"
