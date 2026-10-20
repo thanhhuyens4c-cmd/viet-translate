@@ -3356,10 +3356,9 @@ def account_profile():
             profile.response_time = request.form.get('response_time', '< 1 giờ').strip()
 
             # Quyền riêng tư & Công khai
-            if 'is_public' in request.form:
-                profile.is_public = (request.form.get('is_public') in ('1', 'on', 'true', 'True'))
-            if 'is_cv_public' in request.form:
-                profile.is_cv_public = (request.form.get('is_cv_public') in ('1', 'on', 'true', 'True'))
+            profile.is_public = (request.form.get('is_public') in ('1', 'on', 'true', 'True'))
+            profile.is_cv_public = (request.form.get('is_cv_public') in ('1', 'on', 'true', 'True'))
+            user.is_public_profile = profile.is_public
 
             # Cặp ngôn ngữ & Chiều phiên dịch
             if 'source_language' in request.form:
@@ -7271,6 +7270,23 @@ def translator_profile(profile_id):
             is_private=(getattr(profile, 'is_public', True) is False),
             access_reason=access_reason
         ), status_code
+    # Kiểm tra xem người xem có phải là người thuê có quan hệ công việc với phiên dịch viên này không
+    is_hirer_with_relation = False
+    if viewer and viewer.role == 'hirer':
+        has_prop = Proposal.query.join(Job).filter(
+            Proposal.translator_id == profile.user_id,
+            Job.hirer_id == viewer.id
+        ).first()
+        if has_prop:
+            is_hirer_with_relation = True
+        else:
+            has_contract = Contract.query.filter_by(
+                hirer_id=viewer.id,
+                translator_id=profile.user_id
+            ).first()
+            if has_contract:
+                is_hirer_with_relation = True
+
     # Reviews received by this translator (lọc bỏ các đánh giá đã bị Admin ẩn)
     reviews = Review.query.filter_by(reviewee_id=profile.user_id, is_hidden=False).order_by(Review.created_at.desc()).limit(10).all()
     verification = profile.latest_verification
@@ -7282,6 +7298,7 @@ def translator_profile(profile_id):
         reviews=reviews,
         is_owner=is_owner,
         is_admin=is_admin,
+        is_hirer_with_relation=is_hirer_with_relation,
         is_preview_mode=is_preview_mode,
         access_reason=access_reason,
         is_verified=is_verified,

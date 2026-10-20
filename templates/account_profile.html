@@ -813,7 +813,7 @@
                                 </div>
 
                                 <!-- Card 2: Công khai hồ sơ CV -->
-                                <div class="p-4 sm:p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 flex flex-col justify-between gap-3.5 hover:border-slate-300/80 transition">
+                                <div id="cv-settings" class="p-4 sm:p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 flex flex-col justify-between gap-3.5 hover:border-slate-300/80 transition scroll-mt-24">
                                     <input type="hidden" name="has_cv_public_field" value="1">
                                     <div class="flex items-start gap-3">
                                         <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100/80">
@@ -826,6 +826,19 @@
                                             <p class="text-xs text-slate-500 mt-1 leading-relaxed">
                                                 Cho phép khách hàng xem &amp; tải CV trực tiếp từ trang hồ sơ.
                                             </p>
+                                            {% set cur_cv = active_cv_document or (user.active_cv_document if hasattr(user, 'active_cv_document') else None) %}
+                                            {% if cur_cv %}
+                                            <div class="mt-2 flex items-center gap-2 text-[11px] text-slate-600 bg-white/80 p-2 rounded-lg border border-slate-200/60">
+                                                <span class="font-bold text-emerald-700 shrink-0">Tệp hiện tại:</span>
+                                                <span class="truncate max-w-[200px]" title="{{ cur_cv.original_filename }}">{{ cur_cv.original_filename }}</span>
+                                                <a href="/account/verification/documents/{{ cur_cv.id }}/view" target="_blank" class="text-brand-600 font-semibold hover:underline shrink-0 ml-auto">Xem thử</a>
+                                            </div>
+                                            {% else %}
+                                            <div class="mt-2 text-[11px] text-amber-700 bg-amber-50/80 p-2 rounded-lg border border-amber-200/60 flex items-center justify-between">
+                                                <span>Chưa có tệp CV khả dụng</span>
+                                                <a href="#tab-verification" onclick="switchTab('verification')" class="font-bold text-amber-800 underline">Tải lên</a>
+                                            </div>
+                                            {% endif %}
                                         </div>
                                     </div>
                                     <div class="flex items-center justify-between pt-2.5 border-t border-slate-200/60">
@@ -4337,9 +4350,19 @@
 
                                     <label class="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-brand-300 transition">
                                         <input type="checkbox" name="is_cv_public" value="1" {% if user.profile and user.profile.is_cv_public %}checked{% endif %} class="mt-0.5 rounded text-brand-600 focus:ring-brand-500">
-                                        <div>
+                                        <div class="min-w-0 flex-1">
                                             <span class="text-xs font-bold text-slate-800 block">Công khai CV chuyên môn</span>
                                             <span class="text-[11px] text-slate-500 leading-relaxed block mt-0.5">Cho phép khách hàng xem và tải file CV từ trang hồ sơ nghề nghiệp của bạn.</span>
+                                            {% set cur_cv = active_cv_document or (user.active_cv_document if hasattr(user, 'active_cv_document') else None) %}
+                                            {% if cur_cv %}
+                                            <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded mt-1.5 border border-emerald-200/60">
+                                                <span>✓ Tệp: {{ cur_cv.original_filename }}</span>
+                                            </span>
+                                            {% else %}
+                                            <span class="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded mt-1.5 border border-amber-200/60">
+                                                <span>Chưa có CV. <a href="#tab-verification" onclick="switchTab('verification')" class="underline font-bold text-amber-800">Tải lên</a></span>
+                                            </span>
+                                            {% endif %}
                                         </div>
                                     </label>
                                 </div>

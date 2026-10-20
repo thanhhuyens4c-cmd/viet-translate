@@ -178,16 +178,31 @@
                                 </a>
                                 {% endif %}
 
-                                <!-- Public CV Button if user opted in -->
-                                {% if profile.has_public_cv %}
-                                {% set pub_cv = profile.public_cv_document %}
-                                {% set pub_ext = (pub_cv.file_extension or 'pdf').lower() if pub_cv else 'pdf' %}
-                                {% set pub_can_preview = pub_cv.can_preview if pub_cv else (pub_ext in ['pdf', 'jpg', 'jpeg', 'png', 'webp']) %}
-                                <a href="{{ url_for('view_public_cv', profile_id=profile.id, mode='view' if pub_can_preview else 'download') }}" {% if pub_can_preview %}target="_blank"{% endif %} class="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 font-bold px-3 py-2 rounded-xl text-xs sm:text-sm transition">
+                                <!-- CV Button for Authorized Viewers -->
+                                {% set can_access_cv = profile.has_public_cv or (profile.active_cv_document and (is_owner or is_admin or is_hirer_with_relation)) %}
+                                {% set cv_to_display = profile.active_cv_document if (is_owner or is_admin or is_hirer_with_relation) else profile.public_cv_document %}
+                                {% if can_access_cv and cv_to_display %}
+                                {% set pub_ext = (cv_to_display.file_extension or 'pdf').lower() %}
+                                {% set pub_can_preview = cv_to_display.can_preview %}
+                                <a href="{{ url_for('view_public_cv', profile_id=profile.id, mode='view' if pub_can_preview else 'download') }}" {% if pub_can_preview %}target="_blank"{% endif %} class="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 font-bold px-3 py-2 rounded-xl text-xs sm:text-sm transition" title="Xem hồ sơ năng lực CV">
                                     <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                     </svg>
                                     <span>{% if pub_can_preview %}Xem CV{% else %}Tải CV ({{ pub_ext.upper() }}){% endif %}</span>
+                                    {% if is_owner and not profile.is_cv_public %}
+                                    <span class="text-[10px] bg-slate-200/90 text-slate-700 px-1.5 py-0.5 rounded font-medium ml-0.5">Riêng tư</span>
+                                    {% elif is_admin and not profile.is_cv_public %}
+                                    <span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium ml-0.5">Admin</span>
+                                    {% elif is_hirer_with_relation and not profile.is_cv_public %}
+                                    <span class="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-medium ml-0.5">Ứng viên</span>
+                                    {% endif %}
+                                </a>
+                                {% elif is_owner and not cv_to_display %}
+                                <a href="{{ url_for('account_profile', tab='verification') }}" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-semibold px-3 py-2 rounded-xl text-xs sm:text-sm transition" title="Tải lên CV chuyên môn của bạn">
+                                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                    <span>+ Tải lên CV</span>
                                 </a>
                                 {% endif %}
                             </div>
@@ -566,19 +581,30 @@
 
                     {% if is_owner %}
                     <div class="bg-brand-50/70 border border-brand-200/70 rounded-2xl p-4 text-xs space-y-2">
-                        <div class="font-bold text-brand-900 flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                            <span>Hồ sơ của bạn</span>
+                        <div class="font-bold text-brand-900 flex items-center justify-between">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                                <span>Hồ sơ của bạn</span>
+                            </div>
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full {% if profile.is_public %}bg-emerald-100 text-emerald-800{% else %}bg-amber-100 text-amber-800{% endif %}">
+                                {% if profile.is_public %}Công khai{% else %}Ẩn danh bạ{% endif %}
+                            </span>
                         </div>
-                        <p class="text-brand-800 leading-relaxed">
-                            Trạng thái hiển thị: <strong>{% if profile.is_public %}Công khai{% else %}Ẩn / Riêng tư{% endif %}</strong>.
-                            {% if not profile.is_cv_public %}
-                            <br><span class="text-slate-500 italic">CV chuyên môn đang tắt công khai.</span>
+                        <p class="text-brand-800 leading-relaxed text-[11px]">
+                            {% if profile.is_cv_public %}
+                            <span class="text-emerald-700 font-medium">✓ CV đang bật công khai cho khách hàng.</span>
+                            {% else %}
+                            <span class="text-slate-500 italic">CV chuyên môn đang tắt công khai (chỉ bạn &amp; khách có báo giá/hợp đồng thấy).</span>
                             {% endif %}
                         </p>
-                        <a href="{{ url_for('account_profile') }}?tab=translator" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-2 rounded-xl transition shadow-xs mt-2">
-                            Cài đặt hồ sơ &amp; CV
-                        </a>
+                        <div class="grid grid-cols-2 gap-2 pt-1">
+                            <a href="{{ url_for('account_profile') }}?tab=profile#cv-settings" class="text-center bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs py-2 rounded-xl transition shadow-2xs">
+                                Bật/Tắt CV
+                            </a>
+                            <a href="{{ url_for('account_profile') }}?tab=translator" class="text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-2 rounded-xl transition shadow-2xs">
+                                Sửa hồ sơ
+                            </a>
+                        </div>
                     </div>
                     {% else %}
                     <a href="{{ url_for('direct_chat', translator_user_id=profile.user_id) }}" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm py-3.5 rounded-2xl transition shadow-sm shadow-brand-500/20">
@@ -586,11 +612,10 @@
                     </a>
                     {% endif %}
 
-                    <!-- Public CV Download Card (ONLY when active and selected) -->
-                    {% if profile.has_public_cv %}
-                    {% set pub_cv = profile.public_cv_document %}
-                    {% set pub_ext = (pub_cv.file_extension or 'pdf').lower() if pub_cv else 'pdf' %}
-                    {% set pub_can_preview = pub_cv.can_preview if pub_cv else (pub_ext in ['pdf', 'jpg', 'jpeg', 'png', 'webp']) %}
+                    <!-- Role-based CV Download / Management Card -->
+                    {% if can_access_cv and cv_to_display %}
+                    {% set pub_ext = (cv_to_display.file_extension or 'pdf').lower() %}
+                    {% set pub_can_preview = cv_to_display.can_preview %}
                     <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
                         <div class="flex items-center gap-3 mb-3">
                             <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
@@ -600,9 +625,33 @@
                             </div>
                             <div class="min-w-0 flex-1">
                                 <h4 class="text-xs font-bold text-slate-900 truncate">Hồ sơ năng lực (CV / Resume)</h4>
-                                <p class="text-[11px] text-slate-500">Được chủ động công khai bởi phiên dịch viên</p>
+                                <p class="text-[11px] text-slate-500 truncate" title="{{ cv_to_display.original_filename }}">
+                                    {{ cv_to_display.original_filename or 'File CV chuyên môn' }}
+                                </p>
                             </div>
                         </div>
+
+                        <!-- Visibility status note -->
+                        <div class="mb-3">
+                            {% if profile.is_cv_public %}
+                            <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Đang công khai cho mọi người
+                            </span>
+                            {% elif is_owner %}
+                            <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 bg-slate-200/80 px-2 py-0.5 rounded-md">
+                                🔒 Đang tắt công khai (Chỉ bạn thấy)
+                            </span>
+                            {% elif is_admin %}
+                            <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
+                                🛡️ Admin: CV đang tắt công khai ngoài
+                            </span>
+                            {% elif is_hirer_with_relation %}
+                            <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/60">
+                                💼 Chia sẻ theo báo giá / hợp đồng của bạn
+                            </span>
+                            {% endif %}
+                        </div>
+
                         {% if pub_can_preview %}
                         <div class="grid grid-cols-2 gap-2">
                             <a href="{{ url_for('view_public_cv', profile_id=profile.id, mode='view') }}" target="_blank" class="text-center py-2 px-3 rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-bold text-xs border border-slate-200 transition">
@@ -620,6 +669,20 @@
                             <p class="text-[10px] text-slate-400 text-center">Định dạng {{ pub_ext.upper() }} — Vui lòng tải về máy để xem.</p>
                         </div>
                         {% endif %}
+                    </div>
+                    {% elif is_owner and not cv_to_display %}
+                    <!-- Empty State for Owner without CV -->
+                    <div class="bg-amber-50/60 border border-dashed border-amber-300 rounded-2xl p-4 text-center">
+                        <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                        </div>
+                        <h4 class="text-xs font-bold text-slate-900">Chưa có CV chuyên môn</h4>
+                        <p class="text-[11px] text-slate-500 mt-1 mb-3">Tải lên hồ sơ CV để tăng độ tin cậy và cơ hội nhận dự án.</p>
+                        <a href="{{ url_for('account_profile', tab='verification') }}" class="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition shadow-xs">
+                            <span>Tải lên CV ngay</span>
+                        </a>
                     </div>
                     {% endif %}
 

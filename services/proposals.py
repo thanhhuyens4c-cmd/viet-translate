@@ -67,6 +67,7 @@ def build_proposal_views(job):
             'title': (prof.title or '') if prof else '',
             'profile_id': prof.id if prof else None,
             'is_verified': bool(prof and prof.is_verified),
+            'has_cv': bool((prof and prof.active_cv_document) or (t and getattr(t, 'active_cv_document', None))),
             'rating': float(prof.rating or 0) if prof and reviews else None,
             'total_reviews': reviews,
             'total_jobs': (prof.total_jobs or 0) if prof else 0,

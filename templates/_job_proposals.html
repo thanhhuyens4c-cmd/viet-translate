@@ -67,11 +67,13 @@
             </dl>
 
             <div class="flex flex-wrap items-center justify-end gap-2">
-                {% if p.profile_id %}
+                {% if p.profile_id and p.has_cv %}
                 <a href="{{ url_for('view_public_cv', profile_id=p.profile_id, mode='view') }}" target="_blank" class="px-3.5 py-2 border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5" title="Xem hồ sơ năng lực CV của ứng viên">
                     <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span>Xem CV</span>
                 </a>
+                {% endif %}
+                {% if p.profile_id %}
                 <a href="{{ url_for('translator_profile', profile_id=p.profile_id) }}" class="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">Xem hồ sơ</a>
                 {% endif %}
                 {% if p.translator_id %}<a href="{{ url_for('direct_chat', translator_user_id=p.translator_id) }}" class="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">Nhắn tin làm rõ</a>{% endif %}
@@ -116,7 +118,7 @@
                     {% call row('Trạng thái') %}{% for p in comparable %}<td class="px-3 py-2.5"><span class="inline-block px-2.5 py-1 text-[11px] font-bold rounded-full border {{ badge_cls.get(p.status, '') }}">{{ p.status_label }}</span></td>{% endfor %}{% endcall %}
                     {% call row('Thao tác') %}{% for p in comparable %}<td class="px-3 py-2.5"><div class="flex flex-col gap-1.5">
                         {% if p.profile_id %}
-                        <a href="{{ url_for('view_public_cv', profile_id=p.profile_id, mode='view') }}" target="_blank" class="font-bold text-emerald-700 hover:underline text-xs inline-flex items-center gap-1">📄 Xem CV</a>
+                        {% if p.has_cv %}<a href="{{ url_for('view_public_cv', profile_id=p.profile_id, mode='view') }}" target="_blank" class="font-bold text-emerald-700 hover:underline text-xs inline-flex items-center gap-1">📄 Xem CV</a>{% endif %}
                         <a href="{{ url_for('translator_profile', profile_id=p.profile_id) }}" class="font-bold text-brand-600 hover:underline">Xem hồ sơ</a>
                         {% endif %}
                         {% if p.translator_id %}<a href="{{ url_for('direct_chat', translator_user_id=p.translator_id) }}" class="font-bold text-slate-700 hover:underline">Nhắn tin làm rõ</a>{% endif %}

@@ -222,5 +222,136 @@ class TestCvComprehensiveAudit(unittest.TestCase):
             except OSError:
                 pass
 
+    def test_06_translator_profile_cv_visibility_by_role(self):
+        """Kiểm tra ma trận hiển thị nút CV trên translator_profile.html theo từng vai trò"""
+        user = User.query.filter_by(role='translator').first()
+        self.assertIsNotNone(user)
+        if not user.profile:
+            user.profile = TranslatorProfile(user_id=user.id)
+            db.session.add(user.profile)
+            db.session.commit()
+
+        # Đảm bảo profile có CV active
+        doc = VerificationDocument.query.filter_by(user_id=user.id, document_type='cv', is_active=True).first()
+        if not doc:
+            doc = VerificationDocument(
+                verification_id=user.verifications[0].id if user.verifications else 1,
+                user_id=user.id,
+                document_type='cv',
+                original_filename='CV_VaiTro_Test.pdf',
+                stored_filename='pdoc_test_vaitro.pdf',
+                storage_path='instance/storage/private_verifications/pdoc_test_vaitro.pdf',
+                status='approved',
+                is_active=True,
+                file_extension='pdf',
+                mime_type='application/pdf'
+            )
+            db.session.add(doc)
+            db.session.commit()
+
+        # TH1: is_public = True, is_cv_public = False
+        user.profile.is_public = True
+        user.profile.is_cv_public = False
+        db.session.commit()
+
+        cv_url_pattern = f'/translator/{user.profile.id}/cv'
+
+        # 1. Khách vãng lai: KHÔNG được thấy link CV
+        with self.client.session_transaction() as sess:
+            sess.clear()
+        resp_anon = self.client.get(f'/translator/{user.profile.id}')
+        self.assertEqual(resp_anon.status_code, 200)
+        self.assertNotIn(cv_url_pattern, resp_anon.get_data(as_text=True))
+
+        # 2. Chính chủ (Owner): PHẢI thấy link CV
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = user.id
+        resp_owner = self.client.get(f'/translator/{user.profile.id}')
+        self.assertEqual(resp_owner.status_code, 200)
+        html_owner = resp_owner.get_data(as_text=True)
+        self.assertIn(cv_url_pattern, html_owner)
+        self.assertIn('Riêng tư', html_owner)
+
+        # 3. Quản trị viên (Admin session): PHẢI thấy link CV
+        with self.client.session_transaction() as sess:
+            sess.clear()
+            sess['admin_id'] = 1
+        resp_admin = self.client.get(f'/translator/{user.profile.id}')
+        self.assertEqual(resp_admin.status_code, 200)
+        html_admin = resp_admin.get_data(as_text=True)
+        self.assertIn(cv_url_pattern, html_admin)
+        self.assertIn('Admin', html_admin)
+
+        # 4. Người thuê có quan hệ (Hirer with Proposal): PHẢI thấy link CV
+        hirer = User.query.filter_by(role='hirer').first()
+        if not hirer:
+            hirer = User(name='Hirer Test CV', email='hirer_cv_test@test.vn', role='hirer')
+            hirer.set_password('Pass123456!')
+            db.session.add(hirer)
+            db.session.commit()
+
+        job = Job.query.filter_by(hirer_id=hirer.id).first()
+        if not job:
+            job = Job(title='Job Test CV Relation', hirer_id=hirer.id, status='open')
+            db.session.add(job)
+            db.session.commit()
+
+        prop = Proposal.query.filter_by(job_id=job.id, translator_id=user.id).first()
+        if not prop:
+            prop = Proposal(job_id=job.id, translator_id=user.id, price=1000000, status='pending')
+            db.session.add(prop)
+            db.session.commit()
+
+        with self.client.session_transaction() as sess:
+            sess.clear()
+            sess['user_id'] = hirer.id
+        resp_hirer = self.client.get(f'/translator/{user.profile.id}')
+        self.assertEqual(resp_hirer.status_code, 200)
+        html_hirer = resp_hirer.get_data(as_text=True)
+        self.assertIn(cv_url_pattern, html_hirer)
+        self.assertIn('Ứng viên', html_hirer)
+
+        # 5. Khách vãng lai khi is_cv_public = True: PHẢI thấy link CV
+        user.profile.is_cv_public = True
+        db.session.commit()
+        with self.client.session_transaction() as sess:
+            sess.clear()
+        resp_anon_pub = self.client.get(f'/translator/{user.profile.id}')
+        self.assertEqual(resp_anon_pub.status_code, 200)
+        self.assertIn(cv_url_pattern, resp_anon_pub.get_data(as_text=True))
+
+    def test_07_translator_profile_form_uncheck_is_cv_public(self):
+        """Kiểm tra lưu form tab translator: bỏ chọn is_cv_public lưu chính xác False vào DB"""
+        user = User.query.filter_by(role='translator').first()
+        self.assertIsNotNone(user)
+
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = user.id
+
+        # 1. Bật công khai
+        self.client.post('/account/profile', data={
+            'action': 'translator_profile',
+            'title': 'Biên dịch viên cao cấp',
+            'is_cv_public': '1',
+            'is_public': '1'
+        })
+        db.session.refresh(user.profile)
+        self.assertTrue(user.profile.is_cv_public)
+
+        # 2. Bỏ chọn công khai (checkbox không được gửi trong POST request)
+        self.client.post('/account/profile', data={
+            'action': 'translator_profile',
+            'title': 'Biên dịch viên cao cấp',
+            'is_public': '1'
+        })
+        db.session.refresh(user.profile)
+        self.assertFalse(user.profile.is_cv_public)
+
+        # Khôi phục trạng thái
+        user.profile.is_cv_public = True
+        user.profile.is_public = True
+        db.session.commit()
+
 if __name__ == '__main__':
     unittest.main()
+
