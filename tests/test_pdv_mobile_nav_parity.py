@@ -14,6 +14,7 @@ class TestPDVMobileNavParity(unittest.TestCase):
         self.client = self.app.test_client()
 
         with self.app.app_context():
+            db.create_all()
             # Translator user
             self.translator = User.query.filter_by(email='nav_test_pdv@example.com').first()
             if not self.translator:

@@ -1220,10 +1220,14 @@
         btn.disabled = true;
         btn.innerHTML = 'Đang xử lý...';
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
         fetch('/api/proposals/' + id + '/withdraw', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason: reason })
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ reason: reason, _csrf_token: csrfToken })
         })
         .then(r => r.json())
         .then(data => {
@@ -1268,13 +1272,16 @@
         btn.disabled = true;
         btn.innerHTML = 'Đang lưu...';
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
         const form = new FormData();
         form.append('price', price);
         form.append('time_estimate', timeEstimate);
         form.append('cover_letter', coverLetter);
+        form.append('_csrf_token', csrfToken);
 
         fetch('/api/proposals/' + id + '/update', {
             method: 'POST',
+            headers: { 'X-CSRF-Token': csrfToken },
             body: form
         })
         .then(r => r.json())
@@ -1317,8 +1324,14 @@
         btn.disabled = true;
         btn.innerHTML = 'Đang xác nhận...';
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
         fetch('/api/proposals/' + activeConfirmProposalId + '/confirm-job', {
-            method: 'POST'
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ _csrf_token: csrfToken })
         })
         .then(r => r.json())
         .then(data => {

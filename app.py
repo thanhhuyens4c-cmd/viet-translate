@@ -478,6 +478,8 @@ else:
         )
         print(error_msg, file=sys.stderr)
         raise RuntimeError(error_msg)
+    elif flask_env == 'testing':
+        database_url = 'sqlite:///:memory:'
     else:
         # Local development: dùng SQLite file cục bộ
         db_path = os.path.join(basedir, 'instance', 'database.db')
@@ -1271,10 +1273,14 @@ def _init_db():
     else:
         print(f"[DB] Database sẵn sàng. Users={user_count}", file=sys.stderr)
 
-# Trên Vercel (serverless) KHÔNG chạy create_all/seed ở mỗi cold start vì rất chậm
-# (hàng chục round-trip tới DB). Chạy thủ công bằng INIT_DB=1 hoặc script migration.
+# Trên Vercel hoặc Production nhiều workers KHÔNG tự ý chạy DDL/create_all ở mỗi tiến trình
+# Chạy thủ công bằng script migration hoặc cờ INIT_DB=1 / AUTO_INIT_DB=1
 _db_ready = False
-_SKIP_AUTO_INIT = os.environ.get('VERCEL') == '1' and os.environ.get('INIT_DB') != '1'
+_is_prod = os.environ.get('FLASK_ENV', '').lower() == 'production'
+_auto_init_allowed = os.environ.get('AUTO_INIT_DB') == '1' or os.environ.get('INIT_DB') == '1'
+_is_vercel_cold = os.environ.get('VERCEL') == '1' and not _auto_init_allowed
+
+_SKIP_AUTO_INIT = _is_vercel_cold or (_is_prod and not _auto_init_allowed)
 
 if not _SKIP_AUTO_INIT:
     try:
@@ -1284,6 +1290,10 @@ if not _SKIP_AUTO_INIT:
     except Exception as e:
         db.session.rollback()
         print(f"[DB INIT ERROR] {e}", file=sys.stderr)
+else:
+    if _is_prod:
+        print("[DB PROD] Môi trường Production: Bỏ qua tự động chạy DDL/create_all khi khởi động worker. Quản trị schema qua migration scripts.", file=sys.stderr)
+    _db_ready = True
 
 
 @app.after_request
@@ -6976,17 +6986,19 @@ def api_health():
     })
 
 
-@app.route('/api/admin/seed-demo-interpreters', methods=['GET', 'POST'])
+@app.route('/api/admin/seed-demo-interpreters', methods=['POST'])
+@login_required
 def api_admin_seed_demo_interpreters():
-    """Endpoint an toàn để quản trị viên đồng bộ 50 PDV demo vào cơ sở dữ liệu (hỗ trợ cả Vercel/Supabase)."""
-    secret = request.args.get('secret') or request.headers.get('X-Admin-Secret')
-    admin_id = session.get('admin_id')
-    user_id = session.get('user_id')
-    user = User.query.get(user_id) if user_id else None
-    is_admin = bool(admin_id or (user and getattr(user, 'is_admin', False)))
+    """Endpoint an toàn để Super Admin đồng bộ PDV demo vào cơ sở dữ liệu (chỉ áp dụng ở môi trường dev/staging)."""
+    if os.getenv('FLASK_ENV', '').lower() == 'production':
+        return jsonify({'error': 'forbidden', 'message': 'Tính năng nạp dữ liệu demo bị vô hiệu hóa trên môi trường Production.'}), 403
 
-    if secret != 'viettranslate_seed_2026' and not is_admin:
-        return jsonify({'error': 'unauthorized', 'message': 'Cần secret key hoặc quyền Admin.'}), 403
+    user = get_current_user()
+    if not user or not getattr(user, 'is_admin', False) or user.role != 'super_admin':
+        return jsonify({'error': 'unauthorized', 'message': 'Yêu cầu quyền Super Admin để thực hiện thao tác này.'}), 403
+
+    if not _csrf_ok():
+        return jsonify({'error': 'csrf', 'message': 'Phiên làm việc không hợp lệ hoặc đã hết hạn.'}), 403
 
     try:
         from scripts.seed_demo_interpreters import seed_demo_interpreters
@@ -7916,9 +7928,21 @@ JOB_SPECIALTIES = ['Pháp lý', 'Y tế', 'Kỹ thuật', 'Tài chính - Kế to
 JOB_LOCKED_FIELDS = ('source_lang', 'target_lang', 'category_group', 'service_type', 'budget_type', 'budget_min', 'budget_max')
 
 
-def _csrf_ok():
+def _csrf_ok(token=None):
     from admin_auth import validate_csrf_token
-    return validate_csrf_token(request.form.get('_csrf_token') or request.headers.get('X-CSRF-Token'))
+    if token:
+        return validate_csrf_token(token)
+    req_token = (
+        request.headers.get('X-CSRF-Token') or
+        request.headers.get('X-CSRFToken') or
+        request.form.get('_csrf_token') or
+        request.form.get('csrf_token')
+    )
+    if not req_token and request.is_json:
+        data = request.get_json(silent=True) or {}
+        if isinstance(data, dict):
+            req_token = data.get('csrf_token') or data.get('_csrf_token')
+    return validate_csrf_token(req_token)
 
 
 def _require_hirer():
@@ -8908,6 +8932,8 @@ def api_withdraw_proposal(proposal_id):
     user = get_current_user()
     if not user:
         return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    if not _csrf_ok():
+        return jsonify({'success': False, 'message': 'Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng tải lại trang.'}), 403
     proposal = Proposal.query.get_or_404(proposal_id)
     if proposal.translator_id != user.id:
         return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên đơn này.'}), 403
@@ -8951,6 +8977,8 @@ def api_update_proposal(proposal_id):
     user = get_current_user()
     if not user:
         return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    if not _csrf_ok():
+        return jsonify({'success': False, 'message': 'Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng tải lại trang.'}), 403
     proposal = Proposal.query.get_or_404(proposal_id)
     if proposal.translator_id != user.id:
         return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên đơn này.'}), 403
@@ -9002,6 +9030,8 @@ def api_confirm_job_acceptance(proposal_id):
     user = get_current_user()
     if not user:
         return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    if not _csrf_ok():
+        return jsonify({'success': False, 'message': 'Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng tải lại trang.'}), 403
     proposal = Proposal.query.get_or_404(proposal_id)
     if proposal.translator_id != user.id:
         return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên đơn này.'}), 403
@@ -9067,6 +9097,8 @@ def api_hirer_select_proposal(proposal_id):
     user = get_current_user()
     if not user:
         return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    if not _csrf_ok():
+        return jsonify({'success': False, 'message': 'Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng tải lại trang.'}), 403
     proposal = Proposal.query.get_or_404(proposal_id)
     job = proposal.job
     if not job or job.hirer_id != user.id:
@@ -9108,13 +9140,12 @@ def api_reject_proposal(proposal_id):
     Hỗ trợ cả JSON payload {reason: ..., note: ...} và Form POST {note: ...}.
     Kiểm tra quyền sở hữu công việc, trạng thái hợp lệ, CSRF token và thông báo cho phiên dịch viên.
     """
+    if not _csrf_ok():
+        return jsonify({'ok': False, 'success': False, 'message': 'Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng tải lại trang.'}), 403
+
     user = _require_hirer()
     if not user:
         return jsonify({'ok': False, 'success': False, 'message': 'Chỉ khách thuê mới thực hiện được thao tác này.'}), 403
-    
-    token = request.headers.get('X-CSRF-Token') or request.form.get('_csrf_token')
-    if token and not _csrf_ok():
-        return jsonify({'ok': False, 'success': False, 'message': 'Phiên làm việc không hợp lệ. Vui lòng tải lại trang.'}), 403
 
     reason = ''
     if request.is_json:
@@ -9149,6 +9180,8 @@ def api_hirer_request_info(proposal_id):
     user = get_current_user()
     if not user:
         return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    if not _csrf_ok():
+        return jsonify({'success': False, 'message': 'Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng tải lại trang.'}), 403
     proposal = Proposal.query.get_or_404(proposal_id)
     job = proposal.job
     if not job or job.hirer_id != user.id:
@@ -12608,23 +12641,28 @@ def api_invite_translator(job_id, translator_id):
         db.session.commit()
         
     return jsonify({'status': 'success'})
-@app.route('/api/cron/release-expired', methods=['GET', 'POST'])
+@app.route('/api/cron/release-expired', methods=['POST'])
 def cron_release_expired():
-    # Simple secret verification
-    cron_secret = request.args.get('secret') or request.headers.get('Authorization')
+    """Chạy tác vụ cron giải phóng slot/trạng thái hết hạn. Chỉ nhận POST với Authorization header."""
     expected_secret = os.environ.get('CRON_SECRET')
-    
-    if not expected_secret:
-        return jsonify({'error': 'CRON_SECRET not configured'}), 500
-        
-    if cron_secret != expected_secret and cron_secret != f'Bearer {expected_secret}':
+    if not expected_secret or len(expected_secret.strip()) < 16:
+        return jsonify({'error': 'CRON_SECRET not properly configured'}), 500
+
+    auth_header = request.headers.get('Authorization', '').strip()
+    if not auth_header:
+        return jsonify({'error': 'Missing Authorization header'}), 401
+
+    token = auth_header[7:].strip() if auth_header.startswith('Bearer ') else auth_header
+    import secrets
+    if not secrets.compare_digest(token, expected_secret.strip()):
         return jsonify({'error': 'Unauthorized'}), 401
-        
+
     from services.scheduling import release_expired
     try:
         count = release_expired()
         return jsonify({'success': True, 'released_count': count})
     except Exception as e:
+        app.logger.error("Lỗi khi chạy cron release_expired: %s", e)
         return jsonify({'error': str(e)}), 500
 
 

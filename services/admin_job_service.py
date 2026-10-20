@@ -124,10 +124,22 @@ def safe_approve_job(job, admin_id=None, is_quick=False, manual_overrides=None, 
         if not eligible:
             return False, f"Không thể duyệt nhanh: {reason}", eval_res
     else:
-        # Nếu là duyệt chi tiết, chỉ Super Admin mới có quyền đặc cách duyệt khi có vi phạm nghiêm trọng
-        if eval_res.get('total_critical', 0) > 0 and not manual_overrides:
+        # Nếu là duyệt chi tiết:
+        # Đối với các hồ sơ/công việc không đủ điều kiện thẩm quyền hoặc có vi phạm nghiêm trọng:
+        # CHỈ Super Admin mới có thể duyệt qua dù bất kỳ hoàn cảnh nào.
+        # Các phân loại admin khác cần phải hỏi ý kiến riêng của Super Admin.
+        has_critical = (eval_res.get('total_critical', 0) > 0)
+        hirer = getattr(job, 'hirer', None)
+        hirer_profile = getattr(hirer, 'hirer_profile', None) if hirer else None
+        is_hirer_verified = bool(
+            hirer_profile and (
+                getattr(hirer_profile, 'is_verified', False) is True or 
+                getattr(hirer_profile, 'verification_status', None) == 'verified'
+            )
+        )
+        if has_critical or not is_hirer_verified:
             if not is_super_admin:
-                return False, "Công việc có vi phạm nghiêm trọng. Không thể phê duyệt nếu chưa xử lý vi phạm. Chỉ Super Admin mới có quyền đặc cách duyệt.", eval_res
+                return False, "Công việc chưa đủ điều kiện tiêu chuẩn hoặc có vi phạm. Đối với trường hợp này, chỉ Super Admin mới có thẩm quyền duyệt qua dù bất kỳ hoàn cảnh nào. Các admin khác vui lòng báo cáo xin ý kiến Super Admin.", eval_res
 
     # Xác định trạng thái vòng đời hiện tại của job
     is_closed_or_withdrawn = bool(

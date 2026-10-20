@@ -916,6 +916,20 @@ def review_verification_request(verification_id, admin_user, action, reason=None
         verification.checklist_data = json.dumps(checklist_data, ensure_ascii=False)
 
     if action == 'approve':
+        if checklist_data:
+            mandatory_keys = ['A1', 'A2', 'A3', 'A4', 'A5', 'D1', 'D2']
+            all_mandatory_passed = all(bool(checklist_data.get(k)) for k in mandatory_keys)
+            if not all_mandatory_passed:
+                is_super_admin = bool(
+                    admin_user and (
+                        getattr(admin_user, 'admin_role', '') == 'super_admin' or
+                        getattr(admin_user, 'role', '') == 'super_admin' or
+                        (hasattr(admin_user, 'has_role') and admin_user.has_role('super_admin'))
+                    )
+                )
+                if not is_super_admin:
+                    return False, 'Hồ sơ chưa đạt đầy đủ các tiêu chuẩn bắt buộc (Nhóm A và D). Đối với các trường hợp này, chỉ Super Admin mới có thẩm quyền duyệt qua dù bất kỳ hoàn cảnh nào. Các phân loại admin khác cần phải hỏi ý kiến riêng của Super Admin.'
+
         verification.status = 'approved'
         verification.rejection_reason = None
         if profile:

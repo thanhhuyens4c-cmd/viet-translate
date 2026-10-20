@@ -17,6 +17,7 @@ from datetime import datetime
 
 # Ensure root is in path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ['FLASK_ENV'] = 'testing'
 
 from app import app, db
 from models import User, Contract, PayoutMethod, PayoutHistory, InterpreterService
@@ -33,6 +34,37 @@ class AuditFixesRegressionTest(unittest.TestCase):
     def setUpClass(cls):
         app.config['TESTING'] = True
         cls.client = app.test_client()
+        with app.app_context():
+            db.create_all()
+            if not User.query.get(1):
+                admin = User(
+                    id=1,
+                    email='admin_audit_test@viettranslate.vn',
+                    name='Admin Audit Test',
+                    role='admin',
+                    admin_role='super_admin',
+                    is_admin=True,
+                    is_active=True,
+                    password_hash='testpass'
+                )
+                db.session.add(admin)
+                db.session.commit()
+
+    def setUp(self):
+        with app.app_context():
+            if not User.query.get(1):
+                admin = User(
+                    id=1,
+                    email='admin_audit_test@viettranslate.vn',
+                    name='Admin Audit Test',
+                    role='admin',
+                    admin_role='super_admin',
+                    is_admin=True,
+                    is_active=True,
+                    password_hash='testpass'
+                )
+                db.session.add(admin)
+                db.session.commit()
 
     def test_01_reject_proposal_single_route(self):
         """Xác minh chỉ có duy nhất 1 route handler cho POST /api/proposals/<proposal_id>/reject."""
@@ -191,6 +223,102 @@ class AuditFixesRegressionTest(unittest.TestCase):
             self.assertIn("Người dùng cũ (#11111)", rendered)
             self.assertIn("Người dùng cũ (#22222)", rendered)
             self.assertIn("#REV-777", rendered)
+
+    def test_12_proposal_mutation_requires_csrf(self):
+        """Xác minh các API mutation proposal từ chối request thiếu CSRF token (403)."""
+        # Giả lập đăng nhập Hirer
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+            sess['role'] = 'hirer'
+            sess['_fresh'] = True
+
+        # 1. Gọi reject mà KHÔNG có CSRF token -> bắt buộc bị từ chối 403
+        res_reject = self.client.post('/api/proposals/1/reject', json={'reason': 'test reject'})
+        self.assertEqual(res_reject.status_code, 403)
+        data_reject = res_reject.get_json() or {}
+        self.assertIn('không hợp lệ', data_reject.get('message', ''))
+
+        # 2. Gọi withdraw mà KHÔNG có CSRF token -> bắt buộc bị từ chối 403
+        res_withdraw = self.client.post('/api/proposals/1/withdraw', json={'reason': 'test withdraw'})
+        self.assertEqual(res_withdraw.status_code, 403)
+        data_withdraw = res_withdraw.get_json() or {}
+        self.assertIn('không hợp lệ', data_withdraw.get('message', ''))
+
+    def test_13_seed_demo_endpoint_hardened(self):
+        """Xác minh endpoint seed demo từ chối GET và không chấp nhận secret hard-code."""
+        # 1. GET request -> 405 Method Not Allowed
+        res_get = self.client.get('/api/admin/seed-demo-interpreters?secret=viettranslate_seed_2026')
+        self.assertEqual(res_get.status_code, 405)
+
+        # 2. POST request từ người dùng vãng lai -> 302/401/403
+        res_post = self.client.post('/api/admin/seed-demo-interpreters?secret=viettranslate_seed_2026')
+        self.assertIn(res_post.status_code, [302, 401, 403])
+
+    def test_14_cron_release_expired_hardened(self):
+        """Xác minh endpoint cron chỉ nhận POST với Authorization header, từ chối GET và query secret."""
+        cron_secret = 'test_cron_secret_super_key_12345'
+        old_secret = os.environ.get('CRON_SECRET')
+        os.environ['CRON_SECRET'] = cron_secret
+        try:
+            # 1. GET request -> 405 Method Not Allowed
+            res_get = self.client.get('/api/cron/release-expired?secret=' + cron_secret)
+            self.assertEqual(res_get.status_code, 405)
+
+            # 2. POST request không có header Authorization -> 401 Unauthorized
+            res_post_no_auth = self.client.post('/api/cron/release-expired?secret=' + cron_secret)
+            self.assertEqual(res_post_no_auth.status_code, 401)
+
+            # 3. POST request có Bearer token sai -> 401 Unauthorized
+            res_post_wrong_auth = self.client.post(
+                '/api/cron/release-expired',
+                headers={'Authorization': 'Bearer wrong_token_123456789'}
+            )
+            self.assertEqual(res_post_wrong_auth.status_code, 401)
+
+            # 4. POST request có Bearer token đúng -> 200 OK
+            res_post_ok = self.client.post(
+                '/api/cron/release-expired',
+                headers={'Authorization': f'Bearer {cron_secret}'}
+            )
+            self.assertEqual(res_post_ok.status_code, 200)
+            data_ok = res_post_ok.get_json() or {}
+            self.assertTrue(data_ok.get('success'))
+        finally:
+            if old_secret is not None:
+                os.environ['CRON_SECRET'] = old_secret
+            else:
+                os.environ.pop('CRON_SECRET', None)
+
+    def test_15_legacy_job_routes_redirect_to_statistics(self):
+        """Xác minh các route quản lý job legacy (/accepted-jobs, /applied-jobs, /completed-jobs) chuyển hướng đúng tab."""
+        # Giả lập phiên dịch viên đăng nhập
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = 1
+            sess['role'] = 'translator'
+            sess['_fresh'] = True
+
+        for path, expected_tab in [
+            ('/accepted-jobs', 'tab=accepted'),
+            ('/applied-jobs', 'tab=applied'),
+            ('/completed-jobs', 'tab=completed')
+        ]:
+            res = self.client.get(path)
+            self.assertEqual(res.status_code, 302, f"Đường dẫn {path} không chuyển hướng 302")
+            self.assertIn('/job-statistics', res.location)
+            self.assertIn(expected_tab, res.location)
+
+    def test_16_admin_job_review_modals_responsive_styling(self):
+        """Xác minh các modal thẩm định job trong admin có CSS responsive chống che nút trên mobile."""
+        template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'templates', 'admin_job_review.html')
+        with open(template_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Kiểm tra sự tồn tại của cấu trúc modal chống che khuất bởi bàn phím ảo
+        self.assertIn('max-height: 85vh', content)
+        self.assertIn('overflow-y: auto', content)
+        self.assertIn('id="rejectModal"', content)
+        self.assertIn('id="revisionModal"', content)
+        self.assertIn('id="askSuperAdminModal"', content)
 
 if __name__ == '__main__':
     unittest.main()

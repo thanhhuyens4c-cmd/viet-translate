@@ -14,6 +14,8 @@ import sys
 import json
 from datetime import datetime
 
+os.environ['FLASK_ENV'] = 'testing'
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import app, db, _apply_hirer_profile_form
@@ -35,6 +37,8 @@ class HirerJobLifecycleIntegrationTestCase(unittest.TestCase):
         app.config['TESTING'] = True
         app.config['WTF_CSRF_ENABLED'] = False
         cls.client = app.test_client()
+        with app.app_context():
+            db.create_all()
 
     def setUp(self):
         self.app_ctx = app.app_context()
@@ -455,14 +459,17 @@ class HirerJobLifecycleIntegrationTestCase(unittest.TestCase):
         res_download = self.client.get(f'/account/verification/documents/{doc.id}/download')
         self.assertEqual(res_download.status_code, 200, "Admin phải tải được tài liệu minh chứng (không bị 401/403)")
         self.assertEqual(res_download.data, b"%PDF-1.4 test document content")
+        res_download.close()
 
         # Admin xem tài liệu minh chứng
         res_view = self.client.get(f'/account/verification/documents/{doc.id}/view')
         self.assertEqual(res_view.status_code, 200, "Admin phải xem được tài liệu minh chứng (không bị 401/403)")
+        res_view.close()
 
         # Dọn dẹp file tạm
         try:
-            os.remove(test_filepath)
+            if os.path.exists(test_filepath):
+                os.remove(test_filepath)
         except OSError:
             pass
 

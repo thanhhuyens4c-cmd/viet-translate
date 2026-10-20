@@ -304,7 +304,8 @@ def get_current_admin():
         user = User.query.get(admin_id)
         # Xác minh lại server-side: phải là admin và còn active
         if user and getattr(user, 'is_admin', False) and getattr(user, 'is_active', False):
-            if getattr(user, 'admin_role', None) in ADMIN_ROLES:
+            admin_role = getattr(user, 'admin_role', None) or ('super_admin' if getattr(user, 'role', '') == 'admin' else None)
+            if admin_role in ADMIN_ROLES:
                 return user
         return None
     except SQLAlchemyError as e:
@@ -341,7 +342,7 @@ def admin_login_required(f):
 
         # 3. Lưu admin vào g để dùng trong request
         g.current_admin = admin
-        g.admin_role = admin.admin_role
+        g.admin_role = getattr(admin, 'admin_role', None) or ('super_admin' if getattr(admin, 'role', '') == 'admin' else None)
         g.csrf_token = get_csrf_token()
 
         # 4. Refresh idle timer

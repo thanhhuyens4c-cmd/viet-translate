@@ -14,6 +14,7 @@ class TestPDVProfileLayout(unittest.TestCase):
         self.client = self.app.test_client()
 
         with self.app.app_context():
+            db.create_all()
             # Setup or get PDV user
             self.user = User.query.filter_by(email='hieu@gmail.com').first()
             if not self.user:

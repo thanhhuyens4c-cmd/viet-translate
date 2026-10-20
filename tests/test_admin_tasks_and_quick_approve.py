@@ -9,6 +9,8 @@ import os
 import sys
 from datetime import datetime, timedelta
 
+os.environ['FLASK_ENV'] = 'testing'
+
 # Ensure root directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -23,6 +25,8 @@ class AdminTasksAndQuickApproveTest(unittest.TestCase):
         app.config['TESTING'] = True
         app.config['WTF_CSRF_ENABLED'] = False
         cls.client = app.test_client()
+        with app.app_context():
+            db.create_all()
 
     def setUp(self):
         self.app_context = app.app_context()
@@ -33,6 +37,25 @@ class AdminTasksAndQuickApproveTest(unittest.TestCase):
 
     def _login_admin(self, client):
         """Helper to simulate an active Super Admin session."""
+        admin = User.query.get(1)
+        if not admin:
+            admin = User(
+                id=1,
+                email='superadmin_test@viettranslate.vn',
+                name='Super Admin Test',
+                role='admin',
+                admin_role='super_admin',
+                is_admin=True,
+                is_active=True,
+                password_hash='testpass'
+            )
+            db.session.add(admin)
+        else:
+            admin.admin_role = 'super_admin'
+            admin.is_admin = True
+            admin.is_active = True
+        db.session.commit()
+
         now_ts = datetime.utcnow().timestamp()
         with client.session_transaction() as sess:
             sess['admin_id'] = 1

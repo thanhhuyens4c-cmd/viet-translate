@@ -1132,7 +1132,15 @@
     function hirerSelectProposal(propId, btn) {
         if (!confirm('Bạn có chắc chắn muốn chọn ứng viên này cho công việc?')) return;
         btn.disabled = true;
-        fetch('/api/proposals/' + propId + '/select', { method: 'POST' })
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="_csrf_token"]')?.value || '';
+        fetch('/api/proposals/' + propId + '/select', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ _csrf_token: csrfToken })
+        })
             .then(r => r.json())
             .then(d => {
                 alert(d.message);
@@ -1148,7 +1156,7 @@
         const reason = prompt('Nhập lý do từ chối (tùy chọn):');
         if (reason === null) return;
         btn.disabled = true;
-        const csrfToken = document.querySelector('input[name="_csrf_token"]')?.value || '';
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="_csrf_token"]')?.value || '';
         fetch('/api/proposals/' + propId + '/reject', {
             method: 'POST',
             headers: { 
@@ -1172,10 +1180,14 @@
         const note = prompt('Nhập nội dung bạn cần ứng viên giải thích / bổ sung:');
         if (!note) return;
         btn.disabled = true;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="_csrf_token"]')?.value || '';
         fetch('/api/proposals/' + propId + '/request-info', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ note: note })
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ note: note, _csrf_token: csrfToken })
         })
         .then(r => r.json())
         .then(d => {

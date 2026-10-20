@@ -431,14 +431,14 @@
 </div>
 
 <!-- MODAL TỪ CHỐI -->
-<div id="rejectModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;">
-    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 24px; max-width: 480px; width: 90%; color: #f1f5f9;">
+<div id="rejectModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; box-sizing: border-box;">
+    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 20px; max-width: 480px; width: 100%; color: #f1f5f9; max-height: 85vh; overflow-y: auto; margin: auto; box-sizing: border-box;">
         <h4 style="font-size: 16px; font-weight: 800; margin-bottom: 12px; color: #f87171;">Xác nhận từ chối Job #{{ job.id }}</h4>
         <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px;">
             Vui lòng nhập lý do từ chối để thông báo cho người đăng tuyển:
         </p>
-        <textarea id="rejectReasonText" rows="3" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px; margin-bottom: 16px;" placeholder="Ví dụ: Vi phạm điều khoản liên hệ ngoài nền tảng (Zalo/SĐT)">{{ eval_result.recommendation_text }}</textarea>
-        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <textarea id="rejectReasonText" rows="3" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px; margin-bottom: 16px; box-sizing: border-box;" placeholder="Ví dụ: Vi phạm điều khoản liên hệ ngoài nền tảng (Zalo/SĐT)">{{ eval_result.recommendation_text }}</textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding-bottom: 4px;">
             <button type="button" onclick="closeRejectModal()" class="btn btn-ghost btn-sm">Hủy</button>
             <button type="button" onclick="confirmReject()" class="btn btn-danger btn-sm">Xác nhận Từ chối</button>
         </div>
@@ -446,14 +446,14 @@
 </div>
 
 <!-- MODAL YÊU CẦU CHỈNH SỬA -->
-<div id="revisionModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;">
-    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 24px; max-width: 480px; width: 90%; color: #f1f5f9;">
+<div id="revisionModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; box-sizing: border-box;">
+    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 20px; max-width: 480px; width: 100%; color: #f1f5f9; max-height: 85vh; overflow-y: auto; margin: auto; box-sizing: border-box;">
         <h4 style="font-size: 16px; font-weight: 800; margin-bottom: 12px; color: #fbbf24;">Yêu cầu chỉnh sửa Job #{{ job.id }}</h4>
         <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px;">
             Nhập các mục tiêu chí cần người đăng cập nhật trước khi duyệt:
         </p>
-        <textarea id="revisionNotesText" rows="3" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px; margin-bottom: 16px;" placeholder="Ví dụ: Vui lòng bổ sung địa điểm làm việc chi tiết và làm rõ khung thời gian."></textarea>
-        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <textarea id="revisionNotesText" rows="3" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px; margin-bottom: 16px; box-sizing: border-box;" placeholder="Ví dụ: Vui lòng bổ sung địa điểm làm việc chi tiết và làm rõ khung thời gian."></textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding-bottom: 4px;">
             <button type="button" onclick="closeRevisionModal()" class="btn btn-ghost btn-sm">Hủy</button>
             <button type="button" onclick="confirmRevision()" class="btn btn-warning btn-sm" style="color: #000; font-weight: 700;">Gửi yêu cầu sửa</button>
         </div>
@@ -461,16 +461,16 @@
 </div>
 
 <!-- MODAL HỎI Ý KIẾN SUPER ADMIN -->
-<div id="askSuperAdminModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;">
-    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 24px; max-width: 500px; width: 90%; color: #f1f5f9;">
+<div id="askSuperAdminModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; box-sizing: border-box;">
+    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 20px; max-width: 500px; width: 100%; color: #f1f5f9; max-height: 85vh; overflow-y: auto; margin: auto; box-sizing: border-box;">
         <h4 style="font-size: 16px; font-weight: 800; margin-bottom: 8px; color: #a5b4fc; display: flex; align-items: center; gap: 8px;">
             <span>📩</span> Xin ý kiến Super Admin phê duyệt Job #{{ job.id }}
         </h4>
         <p style="font-size: 13px; color: #94a3b8; margin-bottom: 14px; line-height: 1.5;">
             Bài đăng này chưa đủ điều kiện duyệt thông thường (có vi phạm hoặc cảnh báo). Theo quy định, chỉ <strong>Super Admin</strong> mới có quyền duyệt đặc cách. Vui lòng ghi rõ lý do đề xuất:
         </p>
-        <textarea id="askSuperAdminNotesText" rows="3" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px; margin-bottom: 16px;" placeholder="Ví dụ: Đã liên hệ xác nhận người đăng tuyển chỉ trao đổi sơ bộ, cam kết thanh toán qua sàn. Đề xuất Super Admin duyệt đặc cách."></textarea>
-        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <textarea id="askSuperAdminNotesText" rows="3" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px; margin-bottom: 16px; box-sizing: border-box;" placeholder="Ví dụ: Đã liên hệ xác nhận người đăng tuyển chỉ trao đổi sơ bộ, cam kết thanh toán qua sàn. Đề xuất Super Admin duyệt đặc cách."></textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding-bottom: 4px;">
             <button type="button" onclick="closeAskSuperAdminModal()" class="btn btn-ghost btn-sm">Hủy</button>
             <button type="button" onclick="confirmAskSuperAdmin()" class="btn btn-primary btn-sm" style="background: #6366f1; border-color: #6366f1; font-weight: 700;">Gửi xin ý kiến</button>
         </div>
@@ -478,16 +478,16 @@
 </div>
 
 <!-- MODAL SỬA NHẸ TIÊU ĐỀ (D3) -->
-<div id="editTitleModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;">
-    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 24px; max-width: 480px; width: 90%; color: #f1f5f9;">
+<div id="editTitleModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; box-sizing: border-box;">
+    <div style="background: #1e293b; border: 1px solid #475569; border-radius: 16px; padding: 20px; max-width: 480px; width: 100%; color: #f1f5f9; max-height: 85vh; overflow-y: auto; margin: auto; box-sizing: border-box;">
         <h4 style="font-size: 16px; font-weight: 800; margin-bottom: 12px; color: #60a5fa;">Sửa định dạng tiêu đề (D3)</h4>
         <form method="POST" action="{{ url_for('admin_edit_job_title', job_id=job.id) }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <div style="margin-bottom: 14px;">
                 <label style="font-size: 12px; color: #94a3b8; display: block; margin-bottom: 6px;">Tiêu đề chuẩn hóa:</label>
-                <input type="text" name="new_title" value="{{ job.title }}" required style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px;">
+                <input type="text" name="new_title" value="{{ job.title }}" required style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 10px; font-size: 13px; box-sizing: border-box;">
             </div>
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <div style="display: flex; justify-content: flex-end; gap: 10px; padding-bottom: 4px;">
                 <button type="button" onclick="closeEditTitleModal()" class="btn btn-ghost btn-sm">Hủy</button>
                 <button type="submit" class="btn btn-primary btn-sm">Lưu tiêu đề mới</button>
             </div>

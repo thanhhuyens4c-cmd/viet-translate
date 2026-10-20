@@ -17,9 +17,13 @@ Bao gồm các kịch bản kiểm thử bắt buộc:
 7. Job rejected, needs_revision, flagged, archived -> không xuất hiện trong "Đang hoạt động".
 """
 
+import os
 import unittest
 import uuid
 from datetime import datetime, timedelta, date
+
+os.environ['FLASK_ENV'] = 'testing'
+
 from flask import session
 from app import app, db
 from models import User, Job, HirerProfile, Proposal, Contract
@@ -28,10 +32,16 @@ from services.permissions import can_view_job
 from services.proposals import job_accepts_selection
 
 class JobStatusModerationLifecycleTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.config['TESTING'] = True
+        app.config['WTF_CSRF_ENABLED'] = False
+        cls.client = app.test_client()
+        with app.app_context():
+            db.create_all()
+
     def setUp(self):
         self.app = app
-        self.app.config['TESTING'] = True
-        self.app.config['WTF_CSRF_ENABLED'] = False
         self.client = self.app.test_client()
         self.ctx = self.app.app_context()
         self.ctx.push()

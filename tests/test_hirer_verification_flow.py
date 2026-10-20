@@ -23,6 +23,8 @@ class HirerVerificationFlowTestCase(unittest.TestCase):
         app.config['TESTING'] = True
         app.config['WTF_CSRF_ENABLED'] = False
         cls.client = app.test_client()
+        with app.app_context():
+            db.create_all()
 
     def setUp(self):
         self.app_ctx = app.app_context()

@@ -60,7 +60,14 @@ class TestingConfig(Config):
 
 def get_config():
     """Get configuration based on environment"""
-    env = os.getenv('FLASK_ENV', 'development').lower()
+    env = os.getenv('FLASK_ENV', '').strip().lower()
+    if not env:
+        # Tự động nhận diện nếu có DATABASE_URL PostgreSQL
+        db_url = os.getenv('DATABASE_URL', '') or os.getenv('SUPABASE_DB_URL', '')
+        if db_url.startswith(('postgresql://', 'postgres://')):
+            env = 'production'
+        else:
+            env = 'development'
 
     config_map = {
         'development': DevelopmentConfig,
