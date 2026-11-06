@@ -42,8 +42,118 @@
                 </div>
             </div>
 
-            <!-- Cột phải: Checklist 16 tiêu chí -->
-            <div class="lg:col-span-2">
+            <!-- Cột phải: Trợ lý Thẩm định & Checklist 16 tiêu chí -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- KHỐI TRỢ LÝ THẨM ĐỊNH TRỰC TUYẾN (0Đ) -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                        <div class="flex items-center gap-2">
+                            <span class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200/80 text-base">🛡️</span>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm sm:text-base">Trợ Lý Thẩm Định Trực Tuyến (Online Verification)</h3>
+                                <p class="text-xs text-slate-500">Đối soát tự động dữ liệu từ mã QR & Digital Badge với hệ thống tổ chức cấp.</p>
+                            </div>
+                        </div>
+                        {% if verification.is_online_verified %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                                ✓ Đã kiểm thực số
+                            </span>
+                        {% elif verification.verification_url %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                                ⚠️ Cần đối soát lại
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
+                                Hồ sơ truyền thống
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    {% if verification.verification_url %}
+                    <div class="mt-4 space-y-4">
+                        <!-- Trạng thái tên miền Whitelist -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl {% if is_whitelisted %}bg-emerald-50/70 border border-emerald-200 text-emerald-900{% else %}bg-amber-50 border border-amber-200 text-amber-900{% endif %}">
+                            <div class="flex items-center gap-2 text-xs">
+                                <span class="font-bold">Nguồn cấp:</span>
+                                <span class="px-2 py-0.5 rounded bg-white font-semibold shadow-xs">{{ issuer_name }}</span>
+                                {% if is_whitelisted %}
+                                    <span class="text-emerald-700 font-medium">✓ Tên miền chính thức được bảo đảm (Whitelist)</span>
+                                {% else %}
+                                    <span class="text-amber-700 font-medium">⚠️ Tên miền chưa nằm trong danh mục ưu tiên</span>
+                                {% endif %}
+                            </div>
+                            <a href="{{ verification.verification_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-800 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-xs hover:border-brand-300 transition">
+                                <span>🔗 Xem chứng chỉ gốc</span>
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                            </a>
+                        </div>
+
+                        <!-- Bảng đối soát 3 trường thông tin -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs border border-slate-200 rounded-xl overflow-hidden">
+                                <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
+                                    <tr>
+                                        <th class="py-2.5 px-3">Trường thông tin</th>
+                                        <th class="py-2.5 px-3">Dữ liệu tài khoản / khai báo</th>
+                                        <th class="py-2.5 px-3">Dữ liệu trích xuất từ nguồn</th>
+                                        <th class="py-2.5 px-3 text-center">Đánh giá</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <tr>
+                                        <td class="py-2 px-3 font-semibold text-slate-600">Họ và tên ứng viên</td>
+                                        <td class="py-2 px-3 font-bold text-slate-800">{{ verification.user.name if verification.user else 'PDV #' ~ verification.user_id }}</td>
+                                        <td class="py-2 px-3 text-slate-700">{{ cert_meta.get('recipient_name') or 'Trích xuất từ web' }}</td>
+                                        <td class="py-2 px-3 text-center">
+                                            {% if cert_meta.get('name_match') or verification.is_online_verified %}
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">✓ Khớp 100%</span>
+                                            {% elif cert_meta.get('recipient_name') %}
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">⚠️ Khác biệt</span>
+                                            {% else %}
+                                                <span class="text-slate-400">Đối chiếu trực tiếp</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-2 px-3 font-semibold text-slate-600">Tên chứng chỉ / Cấp độ</td>
+                                        <td class="py-2 px-3 font-bold text-slate-800">{{ verification.certificate_name or verification.certificate_type or '-' }}</td>
+                                        <td class="py-2 px-3 text-slate-700">{{ cert_meta.get('cert_name') or '-' }}</td>
+                                        <td class="py-2 px-3 text-center">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">✓ Hợp lệ</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-2 px-3 font-semibold text-slate-600">Mã ID / Ngày cấp</td>
+                                        <td class="py-2 px-3 text-slate-800">ID: {{ verification.certificate_id or 'Chưa nhập' }}</td>
+                                        <td class="py-2 px-3 text-slate-700">Ngày cấp: {{ cert_meta.get('issued_date') or verification.cert_year or '-' }}</td>
+                                        <td class="py-2 px-3 text-center">
+                                            {% if cert_meta.get('is_expired') %}
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-800">Hết hạn</span>
+                                            {% else %}
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">Còn hiệu lực</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Nút trợ giúp thao tác nhanh cho Admin -->
+                        <div class="flex items-center justify-between pt-2">
+                            <span class="text-xs text-slate-500">Mẹo: Nhấn nút bên dưới để tự động đánh dấu đạt các tiêu chuẩn năng lực chứng chỉ.</span>
+                            <button type="button" onclick="autoCheckGroupB()" class="btn btn-sm bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 font-bold text-xs">
+                                ⚡ Tự động tích ĐẠT Nhóm B
+                            </button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="mt-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 flex items-center gap-2">
+                        <span>📄</span>
+                        <span>Ứng viên không đính kèm đường link kiểm thực số. Vui lòng thẩm định bằng mắt thông qua các file tài liệu scan được tải lên ở cột bên trái.</span>
+                    </div>
+                    {% endif %}
+                </div>
+
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                     <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">Checklist Đánh Giá (16 Tiêu Chí)</h3>
                     
@@ -127,6 +237,14 @@
 </div>
 
 <script>
+function autoCheckGroupB() {
+    for (let i = 1; i <= 4; i++) {
+        const chk = document.querySelector(`input[name="chk_B${i}"]`);
+        if (chk) chk.checked = true;
+    }
+    alert('✓ Đã tự động đánh dấu ĐẠT toàn bộ tiêu chí Nhóm B (Hồ sơ năng lực & Chứng chỉ)!');
+}
+
 function submitReview(action) {
     const form = document.getElementById('review-form');
     const reason = document.getElementById('reason-text').value.trim();

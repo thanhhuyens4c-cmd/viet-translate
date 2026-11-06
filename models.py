@@ -245,6 +245,12 @@ class TranslatorProfile(db.Model):
     cert_name = db.Column(db.String(255), nullable=True)
     cert_year = db.Column(db.Integer, nullable=True)
 
+    # Huy hiệu chứng thực số công khai (QR & Digital Badge - 0đ)
+    has_digital_credential = db.Column(db.Boolean, default=False, index=True)
+    credential_public_url = db.Column(db.String(500), nullable=True)
+    credential_issuer = db.Column(db.String(100), nullable=True)
+    credential_badge_name = db.Column(db.String(255), nullable=True)
+
     # Kinh nghiệm nghề nghiệp
     experience_years = db.Column(db.Integer, default=0)
     current_position = db.Column(db.String(255), nullable=True)
@@ -1953,6 +1959,14 @@ class TranslatorVerification(db.Model):
     university = db.Column(db.String(255), nullable=True)
     major = db.Column(db.String(255), nullable=True)
     cert_year = db.Column(db.Integer, nullable=True)
+
+    # Kiểm thực chứng chỉ trực tuyến & Mã QR (0đ)
+    certificate_id = db.Column(db.String(100), nullable=True)          # Mã số hiệu chứng chỉ
+    verification_url = db.Column(db.String(500), nullable=True)        # Link từ QR / Digital Badge
+    verification_source = db.Column(db.String(50), nullable=True)      # 'credly', 'accredible', 'official_qr', 'manual'
+    verification_metadata = db.Column(db.Text, nullable=True)          # JSON metadata kết quả bóc tách
+    is_online_verified = db.Column(db.Boolean, default=False)          # Đã kiểm thực online thành công
+    online_verified_at = db.Column(db.DateTime, nullable=True)         # Thời điểm kiểm thực
 
     # Bước 5: Kinh nghiệm nghề nghiệp
     current_position = db.Column(db.String(255), nullable=True)

@@ -44,7 +44,7 @@ window.VT = {
       </div>`;
     const verified = fl.is_demo
       ? `<span class="bg-amber-50 border border-amber-200/80 text-amber-700 text-[11px] px-2 py-0.5 rounded-md font-semibold" title="${T('Dữ liệu mẫu demo', 'Demo Profile')}">⚡ ${T('Hồ sơ demo', 'Demo Profile')}</span>`
-      : (fl.is_verified ? `<span class="bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] px-2 py-0.5 rounded-md font-semibold">✓ ${T('Xác minh', 'Verified')}</span>` : '');
+      : (fl.is_verified ? `<span class="bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] px-2 py-0.5 rounded-md font-semibold">✓ ${T('Xác minh', 'Verified')}</span>${fl.has_digital_credential ? ` <span class="bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-[11px] px-2 py-0.5 rounded-md font-semibold" title="${T('Chứng chỉ số đã kiểm thực', 'Digital Verified')}">🌐 ${T('Chứng thực số', 'Digital Badge')}</span>` : ''}` : '');
     const favBtn = showFav ? `<button type="button" data-fav="${fl.id}" aria-pressed="${fl.is_favorite ? 'true' : 'false'}" title="${T('Lưu / bỏ lưu', 'Save / unsave')}" aria-label="${T('Lưu phiên dịch viên', 'Save interpreter')} ${esc(fl.name)}" class="fav-btn w-8 h-8 shrink-0 rounded-full border border-slate-200 bg-white text-slate-400 hover:text-rose-500 flex items-center justify-center text-base leading-none">♥</button>` : '';
 
     const rating = fl.total_reviews > 0

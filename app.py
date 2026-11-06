@@ -4926,6 +4926,35 @@ def check_verification_eligibility_api():
     })
 
 
+@app.route('/api/account/verification/precheck-cert', methods=['POST'])
+@login_required
+def precheck_cert_verification_api():
+    """
+    API thẩm định nhanh chứng chỉ từ URL/mã QR (0đ).
+    Dành cho phiên dịch viên kiểm tra tính hợp lệ trước khi gửi hồ sơ chính thức.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Chỉ tài khoản phiên dịch viên mới có quyền sử dụng tính năng này.'}), 403
+
+    payload = request.get_json(silent=True) or {}
+    url = (payload.get('url') or '').strip()
+    declared_cert_name = (payload.get('certificate_name') or '').strip()
+
+    if not url:
+        return jsonify({'success': False, 'message': 'Vui lòng cung cấp đường dẫn tra cứu chứng chỉ hoặc quét mã QR.'}), 400
+
+    from services.cert_verifier import verify_certificate
+    result = verify_certificate(
+        user_name=user.name or '',
+        raw_url=url,
+        declared_cert_name=declared_cert_name
+    )
+
+    return jsonify(result)
+
+
 # ─── TRANSLATOR VERIFICATION STATUS TRACKER ROUTES ────────────────────────────
 
 @app.route('/account/verification/status', methods=['GET'])
@@ -7152,6 +7181,9 @@ def _translator_card(p, favorite_ids=frozenset()):
         'max_price': max(prices) if prices else None,
         'completion_days': min_days,
         'is_verified': bool(p.is_verified),
+        'has_digital_credential': bool(getattr(p, 'has_digital_credential', False)),
+        'credential_issuer': getattr(p, 'credential_issuer', None),
+        'credential_public_url': getattr(p, 'credential_public_url', None),
         'is_demo': bool(getattr(p, 'is_demo', False)),
         'location': city,
         'country': getattr(p, 'country', 'Việt Nam'),
@@ -11578,7 +11610,30 @@ def admin_verification_detail(verification_id):
             checklist_data = json.loads(verification.checklist_data)
         except Exception:
             pass
-    return render_template('admin_verification_detail.html', verification=verification, checklist_data=checklist_data)
+
+    cert_meta = {}
+    if getattr(verification, 'verification_metadata', None):
+        try:
+            cert_meta = json.loads(verification.verification_metadata)
+        except Exception:
+            pass
+
+    from services.cert_whitelist import is_whitelisted_domain, get_issuer_display_name
+    is_whitelisted = False
+    issuer_name = verification.verification_source or 'Tổ chức cấp'
+    if getattr(verification, 'verification_url', None):
+        is_whitelisted, issuer_key = is_whitelisted_domain(verification.verification_url)
+        if issuer_key:
+            issuer_name = get_issuer_display_name(issuer_key)
+
+    return render_template(
+        'admin_verification_detail.html',
+        verification=verification,
+        checklist_data=checklist_data,
+        cert_meta=cert_meta,
+        is_whitelisted=is_whitelisted,
+        issuer_name=issuer_name
+    )
 
 @app.route('/admin/verifications/<int:verification_id>/<action>', methods=['POST'])
 @admin_login_required

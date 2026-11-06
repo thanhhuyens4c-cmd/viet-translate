@@ -606,6 +606,87 @@
                             <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-cert_year"></p>
                         </div>
                     </div>
+
+                    <!-- 3. Xác thực số trực tuyến & Mã QR (0đ) -->
+                    <div class="mt-6 pt-5 border-t border-slate-100 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200/80 text-sm">🛡️</span>
+                                <div>
+                                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                                        3. Xác Thực Số Trực Tuyến & Mã QR (Khuyến Nghị - Tự Động 100%)
+                                    </h4>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">
+                                        Hỗ trợ liên kết tra cứu từ Credly, Accredible, Coursera, IDP IELTS, British Council, Cambridge, IIG/ETS, gov.vn...
+                                    </p>
+                                </div>
+                            </div>
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                Miễn phí 0đ
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Mã ID chứng chỉ -->
+                            <div>
+                                <label for="input-certificate_id" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                    Mã số chứng chỉ (Certificate / Candidate ID)
+                                </label>
+                                <input type="text" id="input-certificate_id" name="certificate_id"
+                                    value="{{ draft.certificate_id or '' }}"
+                                    placeholder="VD: TRF-2024-8899, CRED-998811..."
+                                    class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                            </div>
+
+                            <!-- Đường dẫn xác thực trực tuyến -->
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label for="input-verification_url" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                        Đường dẫn định danh / Digital Badge URL
+                                    </label>
+                                    <button type="button" onclick="document.getElementById('qr-scan-input').click()" class="text-xs font-bold text-brand-600 hover:text-brand-800 transition flex items-center gap-1">
+                                        <span>📷 Quét QR từ ảnh</span>
+                                    </button>
+                                    <input type="file" id="qr-scan-input" accept="image/*" class="hidden" onchange="handleQRFileSelected(this)">
+                                </div>
+                                <div class="relative">
+                                    <input type="url" id="input-verification_url" name="verification_url"
+                                        value="{{ draft.verification_url or '' }}"
+                                        placeholder="https://www.credly.com/badges/... hoặc quét mã QR"
+                                        oninput="debouncePrecheckCert()"
+                                        class="form-field w-full px-4 py-2.5 pr-20 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
+                                    <button type="button" onclick="triggerManualPrecheck()" class="absolute right-1.5 top-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition">
+                                        Kiểm tra
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ẩn các trường lưu metadata xác thực trực tuyến -->
+                        <input type="hidden" id="input-verification_source" name="verification_source" value="{{ draft.verification_source or '' }}">
+                        <input type="hidden" id="input-verification_metadata" name="verification_metadata" value="{{ draft.verification_metadata or '' }}">
+                        <input type="hidden" id="input-is_online_verified" name="is_online_verified" value="{{ 'true' if draft.is_online_verified else 'false' }}">
+                        <div id="qr-dummy-container" class="hidden"></div>
+
+                        <!-- Hộp kết quả kiểm tra tức thì (Real-time Live Pre-check Alert) -->
+                        <div id="cert-precheck-box" class="p-3.5 rounded-2xl border transition text-xs {% if draft.is_online_verified %}bg-emerald-50 border-emerald-200 text-emerald-800{% else %}bg-slate-50 border-slate-200/80 text-slate-600{% endif %}">
+                            <div id="cert-precheck-content" class="flex items-start gap-2.5">
+                                {% if draft.is_online_verified %}
+                                    <span class="text-base text-emerald-600 font-bold">✓</span>
+                                    <div>
+                                        <p class="font-bold text-emerald-900">Đã kiểm thực trực tuyến thành công!</p>
+                                        <p class="text-[11px] text-emerald-700 mt-0.5">Nguồn: {{ draft.verification_source or 'Tổ chức cấp' }} · Đã đối soát họ tên trùng khớp.</p>
+                                    </div>
+                                {% else %}
+                                    <span class="text-base text-slate-400">💡</span>
+                                    <div>
+                                        <p class="font-bold text-slate-800">Kiểm tra tính hợp lệ tức thì</p>
+                                        <p class="text-[11px] text-slate-500 mt-0.5">Dán link chứng chỉ Credly/Accredible hoặc bấm "Quét QR từ ảnh". Trình duyệt sẽ tự động bóc tách dữ liệu và hỗ trợ duyệt hồ sơ ưu tiên.</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -837,6 +918,10 @@
                             <div><span class="text-slate-400 block text-[11px]">Loại chứng chỉ:</span> <strong id="rev-certificate_type" class="text-slate-800">-</strong></div>
                             <div><span class="text-slate-400 block text-[11px]">Điểm số / Cấp độ:</span> <strong id="rev-certificate_name" class="text-emerald-700 font-bold">-</strong></div>
                             <div><span class="text-slate-400 block text-[11px]">Năm cấp:</span> <strong id="rev-cert_year" class="text-slate-800">-</strong></div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-slate-200/60 text-xs flex items-center justify-between" id="rev-online-verified-container">
+                            <div><span class="text-slate-400 block text-[11px]">Chứng thực trực tuyến / QR:</span> <strong id="rev-verification_status" class="text-slate-600">Chưa liên kết</strong></div>
+                            <span id="rev-verification_badge" class="hidden inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">✓ Đã kiểm thực số</span>
                         </div>
                     </div>
 
@@ -1874,6 +1959,29 @@ function populateReviewStep() {
     setText('rev-certificate_name', data.certificate_name || '-');
     setText('rev-cert_year', data.cert_year || '-');
 
+    const isOnlineVer = data.is_online_verified === 'true' || data.is_online_verified === true;
+    const badgeEl = document.getElementById('rev-verification_badge');
+    const statusEl = document.getElementById('rev-verification_status');
+    if (isOnlineVer) {
+        if (badgeEl) badgeEl.classList.remove('hidden');
+        if (statusEl) {
+            statusEl.className = 'text-emerald-700 font-bold';
+            statusEl.innerText = `Đã kiểm thực số từ ${data.verification_source || 'Tổ chức cấp'}`;
+        }
+    } else if (data.verification_url) {
+        if (badgeEl) badgeEl.classList.add('hidden');
+        if (statusEl) {
+            statusEl.className = 'text-amber-700 font-semibold';
+            statusEl.innerText = 'Đã đính kèm liên kết, chờ Admin rà soát';
+        }
+    } else {
+        if (badgeEl) badgeEl.classList.add('hidden');
+        if (statusEl) {
+            statusEl.className = 'text-slate-500 font-normal';
+            statusEl.innerText = 'Chưa liên kết tra cứu số (sử dụng ảnh scan)';
+        }
+    }
+
     // Bước 5
     setText('rev-experience_years', data.experience_years !== undefined ? data.experience_years : '-');
     setText('rev-current_position', data.current_position || '-');
@@ -2031,6 +2139,150 @@ function initLiveCounters() {
         };
         projInput.addEventListener('input', updateProjCount);
         updateProjCount();
+    }
+}
+
+// ─── TỰ ĐỘNG HÓA QUÉT MÃ QR & PRE-CHECK CHỨNG CHỈ (0Đ) ────────────────────────
+let precheckTimer = null;
+
+function debouncePrecheckCert() {
+    clearTimeout(precheckTimer);
+    precheckTimer = setTimeout(() => {
+        triggerManualPrecheck();
+    }, 800);
+}
+
+async function triggerManualPrecheck() {
+    const urlInput = document.getElementById('input-verification_url');
+    const url = (urlInput ? urlInput.value : '').trim();
+    if (!url) return;
+
+    const certName = (document.getElementById('input-certificate_name')?.value || '').trim();
+    const box = document.getElementById('cert-precheck-box');
+    const content = document.getElementById('cert-precheck-content');
+    if (!box || !content) return;
+
+    box.className = 'p-3.5 rounded-2xl border transition text-xs bg-indigo-50 border-indigo-200 text-indigo-800';
+    content.innerHTML = `<span class="animate-spin inline-block text-base">⏳</span><div><p class="font-bold text-indigo-900">Đang kiểm tra chứng chỉ...</p><p class="text-[11px] text-indigo-700 mt-0.5">Hệ thống đang đối soát dữ liệu với tổ chức cấp trực tuyến...</p></div>`;
+
+    try {
+        const res = await fetch('/api/account/verification/precheck-cert', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                url: url,
+                certificate_name: certName
+            })
+        });
+        const data = await res.json();
+
+        if (data.success && data.is_valid) {
+            box.className = 'p-3.5 rounded-2xl border transition text-xs bg-emerald-50 border-emerald-200 text-emerald-800';
+            content.innerHTML = `
+                <span class="text-base text-emerald-600 font-bold">✓</span>
+                <div>
+                    <p class="font-bold text-emerald-900">Xác thực thành công từ ${data.issuer_name || 'Tổ chức cấp'}</p>
+                    <p class="text-[11px] text-emerald-800 mt-0.5">
+                        Chứng chỉ: <strong>${data.cert_name}</strong> · Người nhận: <strong>${data.recipient_name || 'Khớp hồ sơ'}</strong> (${data.name_match ? '✓ Khớp họ tên' : 'Độ tương đồng cao'})
+                    </p>
+                </div>
+            `;
+            if (document.getElementById('input-verification_source')) {
+                document.getElementById('input-verification_source').value = data.issuer_key || 'online_qr';
+            }
+            if (document.getElementById('input-verification_metadata')) {
+                document.getElementById('input-verification_metadata').value = JSON.stringify(data);
+            }
+            if (document.getElementById('input-is_online_verified')) {
+                document.getElementById('input-is_online_verified').value = 'true';
+            }
+        } else if (data.success && !data.is_valid) {
+            box.className = 'p-3.5 rounded-2xl border transition text-xs bg-amber-50 border-amber-200 text-amber-800';
+            content.innerHTML = `
+                <span class="text-base text-amber-600 font-bold">⚠️</span>
+                <div>
+                    <p class="font-bold text-amber-900">Cần lưu ý: ${data.issuer_name || 'Tổ chức cấp'}</p>
+                    <p class="text-[11px] text-amber-800 mt-0.5">
+                        ${data.name_match === false ? 'Họ tên trên chứng chỉ (' + (data.recipient_name || '-') + ') khác với họ tên đăng ký của bạn. Ban quản trị sẽ rà soát thủ công.' : (data.error || 'Chứng chỉ đã hết hạn hoặc không thể xác nhận người nhận.')}
+                    </p>
+                </div>
+            `;
+            if (document.getElementById('input-verification_source')) {
+                document.getElementById('input-verification_source').value = data.issuer_key || '';
+            }
+            if (document.getElementById('input-verification_metadata')) {
+                document.getElementById('input-verification_metadata').value = JSON.stringify(data);
+            }
+            if (document.getElementById('input-is_online_verified')) {
+                document.getElementById('input-is_online_verified').value = 'false';
+            }
+        } else {
+            box.className = 'p-3.5 rounded-2xl border transition text-xs bg-rose-50 border-rose-200 text-rose-800';
+            content.innerHTML = `
+                <span class="text-base text-rose-600 font-bold">✗</span>
+                <div>
+                    <p class="font-bold text-rose-900">Không thể xác thực trực tuyến</p>
+                    <p class="text-[11px] text-rose-700 mt-0.5">${data.error || data.message || 'Tên miền không thuộc danh mục hoặc liên kết không truy cập được.'}</p>
+                </div>
+            `;
+            if (document.getElementById('input-is_online_verified')) {
+                document.getElementById('input-is_online_verified').value = 'false';
+            }
+        }
+    } catch (e) {
+        box.className = 'p-3.5 rounded-2xl border transition text-xs bg-rose-50 border-rose-200 text-rose-800';
+        content.innerHTML = `<span class="text-base text-rose-600 font-bold">✗</span><div><p class="font-bold text-rose-900">Lỗi kết nối máy chủ</p><p class="text-[11px] text-rose-700 mt-0.5">Không thể gửi yêu cầu kiểm tra.</p></div>`;
+    }
+}
+
+// Xử lý quét mã QR từ ảnh tải lên tại Client (0đ, 0% CPU server)
+async function handleQRFileSelected(fileInput) {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+
+    const box = document.getElementById('cert-precheck-box');
+    const content = document.getElementById('cert-precheck-content');
+
+    box.className = 'p-3.5 rounded-2xl border transition text-xs bg-indigo-50 border-indigo-200 text-indigo-800';
+    content.innerHTML = `<span class="animate-spin inline-block text-base">⏳</span><div><p class="font-bold text-indigo-900">Đang quét mã QR từ ảnh...</p><p class="text-[11px] text-indigo-700 mt-0.5">Trình duyệt đang giải mã trực tiếp từ tệp...</p></div>`;
+
+    if (typeof Html5Qrcode === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+        script.onload = () => doScanQR(file);
+        script.onerror = () => {
+            box.className = 'p-3.5 rounded-2xl border transition text-xs bg-rose-50 border-rose-200 text-rose-800';
+            content.innerHTML = `<span class="text-base text-rose-600 font-bold">✗</span><div><p class="font-bold text-rose-900">Không thể tải bộ quét QR</p><p class="text-[11px] text-rose-700 mt-0.5">Vui lòng dán trực tiếp đường dẫn kiểm tra.</p></div>`;
+        };
+        document.head.appendChild(script);
+    } else {
+        doScanQR(file);
+    }
+}
+
+async function doScanQR(file) {
+    const box = document.getElementById('cert-precheck-box');
+    const content = document.getElementById('cert-precheck-content');
+    try {
+        const html5QrCode = new Html5Qrcode("qr-dummy-container", false);
+        const qrCodeMessage = await html5QrCode.scanFile(file, true);
+        html5QrCode.clear();
+
+        document.getElementById('input-verification_url').value = qrCodeMessage;
+        showToast('✓ Đã quét thành công mã QR!');
+        triggerManualPrecheck();
+    } catch (err) {
+        box.className = 'p-3.5 rounded-2xl border transition text-xs bg-amber-50 border-amber-200 text-amber-800';
+        content.innerHTML = `
+            <span class="text-base text-amber-600 font-bold">⚠️</span>
+            <div>
+                <p class="font-bold text-amber-900">Không tìm thấy mã QR rõ nét</p>
+                <p class="text-[11px] text-amber-800 mt-0.5">Không nhận diện được mã QR trong ảnh. Bạn có thể dán đường dẫn trực tiếp vào ô bên cạnh.</p>
+            </div>
+        `;
     }
 }
 

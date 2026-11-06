@@ -706,6 +706,7 @@ def submit_verification_for_review(user, form_data=None, confirmed=False, ip_add
             'source_language', 'target_language', 'interpreting_direction', 'language_proficiency',
             'specializations', 'interpreting_types',
             'education_level', 'university', 'major', 'certificate_type', 'certificate_name',
+            'certificate_id', 'verification_url', 'verification_source', 'verification_metadata',
             'current_position', 'notable_clients', 'featured_projects', 'notes'
         ]
         for f in field_mappings:
@@ -733,6 +734,13 @@ def submit_verification_for_review(user, form_data=None, confirmed=False, ip_add
                 verification.experience_years = ey
             except (ValueError, TypeError):
                 pass
+
+        if 'is_online_verified' in form_data:
+            iov = form_data['is_online_verified'] in (True, 'true', '1', 1, 'True')
+            draft['is_online_verified'] = iov
+            verification.is_online_verified = iov
+            if iov and not getattr(verification, 'online_verified_at', None):
+                verification.online_verified_at = datetime.utcnow()
 
         if verification.source_language and verification.target_language:
             verification.primary_language = f"{verification.source_language} ➔ {verification.target_language}"
@@ -956,6 +964,11 @@ def review_verification_request(verification_id, admin_user, action, reason=None
         verification.rejection_reason = None
         if profile:
             profile.is_verified = True
+            if getattr(verification, 'is_online_verified', False) or getattr(verification, 'verification_url', None):
+                profile.has_digital_credential = True
+                profile.credential_public_url = verification.verification_url
+                profile.credential_issuer = verification.verification_source or 'Đã kiểm thực trực tuyến'
+                profile.credential_badge_name = verification.certificate_name or 'Chứng chỉ đã kiểm thực'
 
         # Đồng bộ trạng thái đánh giá tài liệu minh chứng
         for doc in verification.documents:
@@ -1313,6 +1326,7 @@ def save_verification_draft(user, form_data, target_step=None):
         'source_language', 'target_language', 'interpreting_direction', 'language_proficiency',
         'specializations', 'interpreting_types',
         'education_level', 'university', 'major', 'certificate_type', 'certificate_name',
+        'certificate_id', 'verification_url', 'verification_source', 'verification_metadata',
         'current_position', 'notable_clients', 'featured_projects', 'notes'
     ]
 
@@ -1343,6 +1357,13 @@ def save_verification_draft(user, form_data, target_step=None):
             verification.experience_years = exp_years
         except (ValueError, TypeError):
             pass
+
+    if 'is_online_verified' in form_data:
+        iov = form_data.get('is_online_verified') in (True, 'true', '1', 1, 'True')
+        draft['is_online_verified'] = iov
+        verification.is_online_verified = iov
+        if iov and not getattr(verification, 'online_verified_at', None):
+            verification.online_verified_at = datetime.utcnow()
 
     # Xử lý các cặp ngôn ngữ phụ (secondary_language_pairs) nếu có
     if 'secondary_language_pairs' in form_data:
@@ -2374,6 +2395,7 @@ def resubmit_verification(user, form_data=None, files=None, ip_address=None, use
         'source_language', 'target_language', 'interpreting_direction', 'language_proficiency',
         'specializations', 'interpreting_types',
         'education_level', 'university', 'major', 'certificate_type', 'certificate_name',
+        'certificate_id', 'verification_url', 'verification_source', 'verification_metadata',
         'current_position', 'notable_clients', 'featured_projects', 'notes'
     ]
     if form_data and isinstance(form_data, dict):
