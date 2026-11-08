@@ -1231,6 +1231,98 @@ def _ensure_account_schema(force=False):
         print(f"[Account Schema Sync Error] {e}", file=sys.stderr)
 
 
+_cert_verification_schema_ensured = False
+
+def _ensure_cert_verification_schema(force=False):
+    """
+    Tự động đồng bộ các cột phục vụ tính năng Xác thực chứng chỉ trực tuyến & Digital Badge (0đ):
+    - translator_profile: has_digital_credential, credential_public_url, credential_issuer, credential_badge_name
+    - translator_verification: certificate_id, verification_url, verification_source, verification_metadata, is_online_verified, online_verified_at
+    Tương thích cả PostgreSQL (Production VPS / Supabase) và SQLite (Local Dev / Test).
+    Chạy idempotent, an toàn, không gián đoạn hoặc xung đột dữ liệu.
+    """
+    global _cert_verification_schema_ensured
+    if _cert_verification_schema_ensured and not force:
+        return
+
+    from sqlalchemy import text, inspect
+    try:
+        engine_url = str(db.engine.url).lower()
+        is_postgres = (db.engine.dialect.name == 'postgresql' or 'postgresql' in engine_url)
+
+        with db.engine.connect() as conn:
+            if is_postgres:
+                pg_statements = [
+                    'ALTER TABLE translator_profile ADD COLUMN IF NOT EXISTS has_digital_credential BOOLEAN DEFAULT FALSE',
+                    'ALTER TABLE translator_profile ADD COLUMN IF NOT EXISTS credential_public_url VARCHAR(500)',
+                    'ALTER TABLE translator_profile ADD COLUMN IF NOT EXISTS credential_issuer VARCHAR(100)',
+                    'ALTER TABLE translator_profile ADD COLUMN IF NOT EXISTS credential_badge_name VARCHAR(255)',
+                    'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS certificate_id VARCHAR(100)',
+                    'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS verification_url VARCHAR(500)',
+                    'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS verification_source VARCHAR(50)',
+                    'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS verification_metadata TEXT',
+                    'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS is_online_verified BOOLEAN DEFAULT FALSE',
+                    'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS online_verified_at TIMESTAMP',
+                ]
+                for stmt in pg_statements:
+                    try:
+                        conn.execute(text(stmt))
+                        conn.commit()
+                    except Exception:
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+            else:
+                inspector = inspect(db.engine)
+                existing_tables = set(inspector.get_table_names())
+
+                if 'translator_profile' in existing_tables:
+                    tp_cols = {c['name'] for c in inspector.get_columns('translator_profile')}
+                    tp_fields = [
+                        ('has_digital_credential', 'BOOLEAN DEFAULT 0'),
+                        ('credential_public_url', 'VARCHAR(500)'),
+                        ('credential_issuer', 'VARCHAR(100)'),
+                        ('credential_badge_name', 'VARCHAR(255)'),
+                    ]
+                    for col, typ in tp_fields:
+                        if col not in tp_cols:
+                            try:
+                                conn.execute(text(f'ALTER TABLE translator_profile ADD COLUMN {col} {typ}'))
+                                conn.commit()
+                            except Exception:
+                                try:
+                                    conn.rollback()
+                                except Exception:
+                                    pass
+
+                if 'translator_verification' in existing_tables:
+                    tv_cols = {c['name'] for c in inspector.get_columns('translator_verification')}
+                    tv_fields = [
+                        ('certificate_id', 'VARCHAR(100)'),
+                        ('verification_url', 'VARCHAR(500)'),
+                        ('verification_source', 'VARCHAR(50)'),
+                        ('verification_metadata', 'TEXT'),
+                        ('is_online_verified', 'BOOLEAN DEFAULT 0'),
+                        ('online_verified_at', 'TIMESTAMP'),
+                    ]
+                    for col, typ in tv_fields:
+                        if col not in tv_cols:
+                            try:
+                                conn.execute(text(f'ALTER TABLE translator_verification ADD COLUMN {col} {typ}'))
+                                conn.commit()
+                            except Exception:
+                                try:
+                                    conn.rollback()
+                                except Exception:
+                                    pass
+
+        _cert_verification_schema_ensured = True
+        print("[DB Sync] Phân hệ Xác thực chứng chỉ: Đã đồng bộ schema thành công.", file=sys.stderr)
+    except Exception as e:
+        print(f"[Cert Schema Sync Error] {e}", file=sys.stderr)
+
+
 def _init_db():
     """Tạo bảng nếu chưa tồn tại và nạp seed data DUY NHẤT khi DB trống.
     
@@ -1286,6 +1378,7 @@ def _init_db():
     _ensure_new_columns()
     _ensure_job_columns()
     _ensure_account_schema()
+    _ensure_cert_verification_schema()
     _add_missing_columns()
 
     try:
@@ -1665,7 +1758,17 @@ def interpreter_dashboard():
     uid = user.id
 
     # ── 1. Hồ sơ & xác minh ──────────────────────────────────────────────────
-    profile = user.profile
+    _ensure_cert_verification_schema()
+    try:
+        profile = user.profile
+    except Exception as e:
+        db.session.rollback()
+        try:
+            _ensure_cert_verification_schema(force=True)
+            profile = user.profile
+        except Exception:
+            db.session.rollback()
+            profile = None
     preference = getattr(user, 'preference', None)
 
     # Tiêu chí hoàn thiện hồ sơ có căn cứ rõ ràng từ các trường dữ liệu thực tế (100% tổng thể):
@@ -4710,6 +4813,7 @@ def verification_form():
     5. Kinh nghiệm nghề nghiệp
     6. Xem lại thông tin (Review & Confirm Draft)
     """
+    _ensure_cert_verification_schema()
     uid = session.get('user_id')
     user = User.query.get(uid)
     if not user:
@@ -4933,6 +5037,7 @@ def precheck_cert_verification_api():
     API thẩm định nhanh chứng chỉ từ URL/mã QR (0đ).
     Dành cho phiên dịch viên kiểm tra tính hợp lệ trước khi gửi hồ sơ chính thức.
     """
+    _ensure_cert_verification_schema()
     uid = session.get('user_id')
     user = User.query.get(uid)
     if not user or user.role != 'translator':
@@ -4977,6 +5082,7 @@ def verification_status_page():
     - Không suy đoán dữ liệu thiếu.
     - Không lộ kết quả nội bộ không được phép.
     """
+    _ensure_cert_verification_schema()
     uid = session.get('user_id')
     if uid and not isinstance(uid, int):
         session.clear()
@@ -11601,6 +11707,7 @@ def admin_verify_translator(profile_id):
 @admin_login_required
 @require_permission('verify_translator')
 def admin_verification_detail(verification_id):
+    _ensure_cert_verification_schema()
     from models import TranslatorVerification
     import json
     verification = TranslatorVerification.query.get_or_404(verification_id)

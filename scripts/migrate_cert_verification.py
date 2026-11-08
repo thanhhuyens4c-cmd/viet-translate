@@ -31,15 +31,24 @@ def run_migration():
             ('online_verified_at', 'TIMESTAMP')
         ]
 
+        is_postgres = (dialect == 'postgresql')
+
         with engine.connect() as conn:
             for col_name, col_type in tv_additions:
                 if col_name not in tv_cols:
                     print(f"  + Thêm cột '{col_name}' vào bảng 'translator_verification'...")
                     try:
-                        conn.execute(text(f"ALTER TABLE translator_verification ADD COLUMN {col_name} {col_type};"))
+                        if is_postgres:
+                            conn.execute(text(f"ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS {col_name} {col_type};"))
+                        else:
+                            conn.execute(text(f"ALTER TABLE translator_verification ADD COLUMN {col_name} {col_type};"))
                         conn.commit()
                         print(f"    ✓ Thành công: {col_name}")
                     except Exception as e:
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
                         print(f"    ✗ Lỗi khi thêm {col_name}: {e}")
                 else:
                     print(f"  - Cột '{col_name}' đã tồn tại trong 'translator_verification'.")
@@ -57,10 +66,17 @@ def run_migration():
                 if col_name not in tp_cols:
                     print(f"  + Thêm cột '{col_name}' vào bảng 'translator_profile'...")
                     try:
-                        conn.execute(text(f"ALTER TABLE translator_profile ADD COLUMN {col_name} {col_type};"))
+                        if is_postgres:
+                            conn.execute(text(f"ALTER TABLE translator_profile ADD COLUMN IF NOT EXISTS {col_name} {col_type};"))
+                        else:
+                            conn.execute(text(f"ALTER TABLE translator_profile ADD COLUMN {col_name} {col_type};"))
                         conn.commit()
                         print(f"    ✓ Thành công: {col_name}")
                     except Exception as e:
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
                         print(f"    ✗ Lỗi khi thêm {col_name}: {e}")
                 else:
                     print(f"  - Cột '{col_name}' đã tồn tại trong 'translator_profile'.")

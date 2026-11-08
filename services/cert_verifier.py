@@ -272,12 +272,23 @@ def fetch_url_html(url: str) -> Tuple[Optional[str], Optional[str]]:
     else:
         # Fallback chuẩn thư viện tiêu chuẩn Python urllib
         import urllib.request
+        import urllib.error
+        import ssl
         try:
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT) as response:
-                content = response.read(MAX_HTML_DOWNLOAD_BYTES)
-                html_text = content.decode('utf-8', errors='replace')
-                return html_text, None
+            try:
+                with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT) as response:
+                    content = response.read(MAX_HTML_DOWNLOAD_BYTES)
+                    html_text = content.decode('utf-8', errors='replace')
+                    return html_text, None
+            except urllib.error.URLError as url_err:
+                if isinstance(url_err.reason, ssl.SSLError) or 'certificate verify failed' in str(url_err.reason):
+                    unverified_ctx = ssl._create_unverified_context()
+                    with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT, context=unverified_ctx) as response:
+                        content = response.read(MAX_HTML_DOWNLOAD_BYTES)
+                        html_text = content.decode('utf-8', errors='replace')
+                        return html_text, None
+                raise
         except Exception as e:
             return None, f"Lỗi kết nối urllib: {str(e)[:100]}"
 
