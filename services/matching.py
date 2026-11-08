@@ -138,9 +138,33 @@ def calculate_job_match_score(translator, job, lang='vi'):
     score = 0
     reasons = []
     
-    int_pref = getattr(translator, 'interpreter_preference', None)
-    pref = getattr(translator, 'preference', None)
-    prof = getattr(translator, 'profile', None)
+    from app import db
+    try:
+        int_pref = getattr(translator, 'interpreter_preference', None)
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        int_pref = None
+
+    try:
+        pref = getattr(translator, 'preference', None)
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        pref = None
+
+    try:
+        prof = getattr(translator, 'profile', None)
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        prof = None
 
     # ─────────────────────────────────────────────────────────────
     # 1. Cặp ngôn ngữ (30 điểm)
@@ -491,6 +515,10 @@ def get_recommended_jobs_for_translator(user_id, limit=50, lang='vi'):
                     'created_at': job.created_at or datetime.utcnow()
                 })
         except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
             import logging
             logging.error(f"Error calculating match score for job {job.id}: {e}")
             continue

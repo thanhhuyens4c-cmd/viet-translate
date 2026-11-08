@@ -1435,6 +1435,14 @@ else:
     _db_ready = True
 
 
+@app.before_request
+def _ensure_startup_schemas():
+    """Đảm bảo các cột mới của phân hệ chứng thực và tài khoản được tự động bù đắp ở request đầu tiên."""
+    global _cert_verification_schema_ensured
+    if not _cert_verification_schema_ensured:
+        _ensure_cert_verification_schema()
+
+
 @app.after_request
 def _static_cache(resp):
     if request.path.startswith('/static/') and resp.status_code == 200:
@@ -9815,6 +9823,7 @@ def job_list():
             else:
                 query = base_query.filter(Job.id == -1)
         except Exception as e:
+            db.session.rollback()
             import logging
             logging.error(f"Error fetching recommended jobs in job_list: {e}")
             query = base_query.filter(Job.id == -1)
