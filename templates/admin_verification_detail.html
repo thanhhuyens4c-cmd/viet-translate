@@ -44,30 +44,78 @@
 
             <!-- Cột phải: Trợ lý Thẩm định & Checklist 16 tiêu chí -->
             <div class="lg:col-span-2 space-y-6">
-                <!-- KHỐI TRỢ LÝ THẨM ĐỊNH TRỰC TUYẾN (0Đ) -->
+                <!-- Khối Phân Tích Của Bộ Máy Tự Động (Hybrid Verification Engine) -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-                    <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
                         <div class="flex items-center gap-2">
-                            <span class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200/80 text-base">🛡️</span>
+                            <span class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 text-base">🤖</span>
                             <div>
-                                <h3 class="font-bold text-slate-800 text-sm sm:text-base">Trợ Lý Thẩm Định Trực Tuyến (Online Verification)</h3>
-                                <p class="text-xs text-slate-500">Đối soát tự động dữ liệu từ mã QR & Digital Badge với hệ thống tổ chức cấp.</p>
+                                <h3 class="font-bold text-slate-800 text-sm sm:text-base">Kết Quả Phân Tích Tự Động (Hybrid Engine)</h3>
+                                <p class="text-xs text-slate-500">Đối chiếu 4 tiêu chí độc lập: Email, Định danh, CV và Chứng chỉ số.</p>
                             </div>
                         </div>
-                        {% if verification.is_online_verified %}
-                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                                ✓ Đã kiểm thực số
-                            </span>
-                        {% elif verification.verification_url %}
-                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                                ⚠️ Cần đối soát lại
-                            </span>
-                        {% else %}
-                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
-                                Hồ sơ truyền thống
-                            </span>
-                        {% endif %}
+                        <div>
+                            {% if auto_eval and auto_eval.decision == 'auto_eligible' %}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    Đủ điều kiện tự động duyệt
+                                </span>
+                            {% elif auto_eval and auto_eval.decision == 'needs_revision' %}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                    ⚠️ Cần yêu cầu bổ sung
+                                </span>
+                            {% elif auto_eval and auto_eval.decision == 'rejected' %}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                                    🚫 Rủi ro / Không hợp lệ
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300">
+                                    🔍 Cần Admin thẩm định
+                                </span>
+                            {% endif %}
+                        </div>
                     </div>
+
+                    <!-- Lưới 4 tiêu chí độc lập -->
+                    {% if auto_eval and auto_eval.checks %}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 my-4">
+                        <!-- 1. Email -->
+                        <div class="p-3 rounded-xl border {% if auto_eval.checks.email.passed %}bg-emerald-50/50 border-emerald-200{% else %}bg-amber-50/50 border-amber-200{% endif %}">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold text-slate-700">1. Email xác thực</span>
+                                <span class="text-xs">{% if auto_eval.checks.email.passed %}✅{% else %}⚠️{% endif %}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.email.reason }}</p>
+                        </div>
+
+                        <!-- 2. Định danh CCCD -->
+                        <div class="p-3 rounded-xl border {% if auto_eval.checks.identity.passed %}bg-emerald-50/50 border-emerald-200{% else %}bg-amber-50/50 border-amber-200{% endif %}">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold text-slate-700">2. Hồ sơ CCCD</span>
+                                <span class="text-xs">{% if auto_eval.checks.identity.passed %}✅{% else %}⚠️{% endif %}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.identity.reason }}</p>
+                        </div>
+
+                        <!-- 3. CV nghề nghiệp -->
+                        <div class="p-3 rounded-xl border {% if auto_eval.checks.cv.passed %}bg-emerald-50/50 border-emerald-200{% else %}bg-amber-50/50 border-amber-200{% endif %}">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold text-slate-700">3. CV nghề nghiệp</span>
+                                <span class="text-xs">{% if auto_eval.checks.cv.passed %}✅{% else %}⚠️{% endif %}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.cv.reason }}</p>
+                        </div>
+
+                        <!-- 4. Chứng chỉ số -->
+                        <div class="p-3 rounded-xl border {% if auto_eval.checks.certificate.passed %}bg-emerald-50/50 border-emerald-200{% else %}bg-amber-50/50 border-amber-200{% endif %}">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold text-slate-700">4. Chứng thực số</span>
+                                <span class="text-xs">{% if auto_eval.checks.certificate.passed %}✅{% else %}⚠️{% endif %}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-600 truncate" title="{{ auto_eval.checks.certificate.reason }}">{{ auto_eval.checks.certificate.reason }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
 
                     {% if verification.verification_url %}
                     <div class="mt-4 space-y-4">
@@ -106,9 +154,9 @@
                                         <td class="py-2 px-3 text-slate-700">{{ cert_meta.get('recipient_name') or 'Trích xuất từ web' }}</td>
                                         <td class="py-2 px-3 text-center">
                                             {% if cert_meta.get('name_match') or verification.is_online_verified %}
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">✓ Khớp 100%</span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">✓ Khớp (Score: {{ ((verification.name_match_score or 1.0) * 100)|round|int }}%)</span>
                                             {% elif cert_meta.get('recipient_name') %}
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">⚠️ Khác biệt</span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">⚠️ Khác biệt (Score: {{ ((verification.name_match_score or 0) * 100)|round|int }}%)</span>
                                             {% else %}
                                                 <span class="text-slate-400">Đối chiếu trực tiếp</span>
                                             {% endif %}
@@ -138,18 +186,23 @@
                             </table>
                         </div>
 
-                        <!-- Nút trợ giúp thao tác nhanh cho Admin -->
+                        <!-- Nút trợ giúp thao tác nhanh cho Admin dựa trên kết quả Engine -->
                         <div class="flex items-center justify-between pt-2">
-                            <span class="text-xs text-slate-500">Mẹo: Nhấn nút bên dưới để tự động đánh dấu đạt các tiêu chuẩn năng lực chứng chỉ.</span>
-                            <button type="button" onclick="autoCheckGroupB()" class="btn btn-sm bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 font-bold text-xs">
-                                ⚡ Tự động tích ĐẠT Nhóm B
+                            <span class="text-xs text-slate-500">Mẹo: Nhấn nút bên dưới để áp dụng kết quả phân tích tự động vào Checklist (chỉ tick các mục thực sự đạt).</span>
+                            <button type="button" onclick="applyEngineReviewToForm()" class="btn btn-sm bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 font-bold text-xs flex items-center gap-1.5">
+                                <span>⚡ Áp dụng phân tích tự động vào Checklist</span>
                             </button>
                         </div>
                     </div>
                     {% else %}
-                    <div class="mt-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 flex items-center gap-2">
-                        <span>📄</span>
-                        <span>Ứng viên không đính kèm đường link kiểm thực số. Vui lòng thẩm định bằng mắt thông qua các file tài liệu scan được tải lên ở cột bên trái.</span>
+                    <div class="mt-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span>📄</span>
+                            <span>Ứng viên không đính kèm đường link kiểm thực số. Vui lòng thẩm định bằng mắt thông qua các file tài liệu scan được tải lên ở cột bên trái.</span>
+                        </div>
+                        <button type="button" onclick="applyEngineReviewToForm()" class="btn btn-sm bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs shrink-0">
+                            ⚡ Điền các mục đã xác thực
+                        </button>
                     </div>
                     {% endif %}
                 </div>
@@ -237,12 +290,47 @@
 </div>
 
 <script>
-function autoCheckGroupB() {
-    for (let i = 1; i <= 4; i++) {
-        const chk = document.querySelector(`input[name="chk_B${i}"]`);
-        if (chk) chk.checked = true;
+function applyEngineReviewToForm() {
+    const checks = {{ (auto_eval.checks if auto_eval and auto_eval.checks else {}) | tojson }};
+    let count = 0;
+
+    // 1. Nếu Email xác thực đạt
+    if (checks.email && checks.email.passed) {
+        const chkA4 = document.querySelector('input[name="chk_A4"]');
+        if (chkA4 && !chkA4.checked) { chkA4.checked = true; count++; }
     }
-    alert('✓ Đã tự động đánh dấu ĐẠT toàn bộ tiêu chí Nhóm B (Hồ sơ năng lực & Chứng chỉ)!');
+
+    // 2. Nếu Hồ sơ định danh CCCD đạt
+    if (checks.identity && checks.identity.passed) {
+        ['chk_A1', 'chk_A2', 'chk_A3', 'chk_A5'].forEach(name => {
+            const chk = document.querySelector(`input[name="${name}"]`);
+            if (chk && !chk.checked) { chk.checked = true; count++; }
+        });
+    }
+
+    // 3. Nếu Chứng chỉ số hợp lệ & xác thực nguồn
+    if (checks.certificate && checks.certificate.passed) {
+        for (let i = 1; i <= 4; i++) {
+            const chk = document.querySelector(`input[name="chk_B${i}"]`);
+            if (chk && !chk.checked) { chk.checked = true; count++; }
+        }
+    }
+
+    // 4. Nếu CV nghề nghiệp đạt
+    if (checks.cv && checks.cv.passed) {
+        for (let i = 1; i <= 5; i++) {
+            const chk = document.querySelector(`input[name="chk_C${i}"]`);
+            if (chk && !chk.checked) { chk.checked = true; count++; }
+        }
+    }
+
+    // 5. Cam kết bảo mật chuẩn (D1, D2)
+    ['chk_D1', 'chk_D2'].forEach(name => {
+        const chk = document.querySelector(`input[name="${name}"]`);
+        if (chk && !chk.checked) { chk.checked = true; count++; }
+    });
+
+    alert(`✓ Đã đối chiếu và tự động đánh dấu ${count} tiêu chí hợp lệ từ kết quả phân tích Hybrid Engine! Vui lòng rà soát trước khi Phê duyệt.`);
 }
 
 function submitReview(action) {

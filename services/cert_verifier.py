@@ -12,6 +12,9 @@ Hỗ trợ:
 from __future__ import annotations
 import re
 import json
+import socket
+import ipaddress
+import difflib
 import unicodedata
 import urllib.parse
 from html.parser import HTMLParser
@@ -80,41 +83,64 @@ def remove_accents(input_str: str) -> str:
     return re.sub(r'\s+', ' ', res).lower().strip()
 
 
-def calculate_name_match(name1: str, name2: str) -> Tuple[bool, float]:
+def calculate_name_match(name1: str, name2: str) -> Tuple[bool, float, str]:
     """
     So khớp họ tên giữa tài khoản người dùng và thông tin trích xuất trên chứng chỉ.
-    Xử lý được thứ tự viết tên (VD: "Nguyen Van A" vs "Van A Nguyen" hoặc "A Nguyen").
+    Áp dụng mô hình 3 vùng độ tin cậy (Confidence Zones):
+    - 'high' (score >= 0.85): Đủ điều kiện xem xét tự duyệt.
+    - 'medium' (0.60 <= score < 0.85): Thiếu tên đệm hoặc đảo thứ tự chưa trọn vẹn -> Cần Admin kiểm tra.
+    - 'low' (score < 0.60): Sai lệch lớn hoặc khác người -> Không tự duyệt.
 
     Returns:
-        (is_match: bool, match_score: float)
+        (is_match: bool, match_score: float, confidence_zone: str)
     """
     n1 = remove_accents(name1)
     n2 = remove_accents(name2)
     if not n1 or not n2:
-        return False, 0.0
+        return False, 0.0, 'low'
 
     if n1 == n2:
-        return True, 1.0
+        return True, 1.0, 'high'
 
-    words1 = set(n1.split())
-    words2 = set(n2.split())
+    words1 = [w for w in n1.split() if w]
+    words2 = [w for w in n2.split() if w]
     if not words1 or not words2:
-        return False, 0.0
+        return False, 0.0, 'low'
 
-    intersect = words1.intersection(words2)
-    smaller_len = min(len(words1), len(words2))
+    set1 = set(words1)
+    set2 = set(words2)
 
-    # Nếu tất cả các từ của một tên nằm trọn trong tên còn lại
-    if len(intersect) == smaller_len and smaller_len >= 2:
-        score = len(intersect) / max(len(words1), len(words2))
-        return True, round(score, 2)
+    # Nếu tập từ giống hệt nhau (chỉ khác thứ tự như "Nguyen Van A" vs "A Nguyen Van")
+    if set1 == set2:
+        return True, 1.0, 'high'
 
-    # Chỉ số tương đồng Jaccard
-    jaccard = len(intersect) / len(words1.union(words2))
-    if jaccard >= 0.5:
-        return True, round(jaccard, 2)
+    intersect = set1.intersection(set2)
+    union = set1.union(set2)
+    jaccard = len(intersect) / len(union) if union else 0.0
 
-    return False, round(jaccard, 2)
+    # Kiểm tra họ (từ đầu) và tên chính (từ cuối)
+    first_name_match = (words1[-1] == words2[-1] or words1[-1] in set2 or words2[-1] in set1)
+    last_name_match = (words1[0] == words2[0] or words1[0] in set2 or words2[0] in set1)
+
+    # Đo độ tương đồng chuỗi tổng thể
+    seq_ratio = difflib.SequenceMatcher(None, n1, n2).ratio()
+    sorted_seq_ratio = difflib.SequenceMatcher(None, ' '.join(sorted(words1)), ' '.join(sorted(words2))).ratio()
+    best_seq = max(seq_ratio, sorted_seq_ratio)
+
+    combined_score = round(0.5 * jaccard + 0.5 * best_seq, 2)
+
+    # Phân loại vào 3 vùng
+    # Nếu họ khác nhau hoàn toàn mà không có từ họ nào trùng thì hạ độ tin cậy để tránh nhầm người nhà
+    if words1[0] != words2[0] and words1[0] not in set2 and words2[0] not in set1:
+        if combined_score > 0.70:
+            combined_score = 0.65  # Hạ về vùng medium để Admin kiểm tra
+
+    if combined_score >= 0.85 and (first_name_match or last_name_match):
+        return True, combined_score, 'high'
+    elif combined_score >= 0.60:
+        return False, combined_score, 'medium'
+    else:
+        return False, combined_score, 'low'
 
 
 def extract_cert_data_from_html(html_text: str, source_url: str = "") -> Dict[str, Any]:
@@ -241,12 +267,63 @@ def extract_cert_data_from_html(html_text: str, source_url: str = "") -> Dict[st
     return result
 
 
+def is_safe_destination(url: str) -> Tuple[bool, Optional[str]]:
+    """
+    Kiểm tra bảo mật URL:
+    - Bắt buộc giao thức http hoặc https.
+    - Phân giải DNS và kiểm tra IP không được thuộc các dải private, loopback, link-local, multicast.
+    - Ngăn chặn triệt để SSRF (Server-Side Request Forgery).
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+        hostname = (parsed.hostname or '').strip().lower()
+        if not hostname:
+            return False, "Không xác định được hostname từ URL."
+
+        if parsed.scheme.lower() not in ('http', 'https'):
+            return False, f"Giao thức '{parsed.scheme}' không được hỗ trợ."
+
+        if parsed.username or parsed.password:
+            return False, "URL chứa thông tin xác thực nhúng không an toàn."
+
+        # Chặn các hostname localhost tường minh
+        if hostname in ('localhost', '127.0.0.1', '::1', '0.0.0.0'):
+            return False, "Không cho phép truy vấn máy chủ cục bộ (localhost)."
+
+        # Phân giải IP
+        try:
+            addr_info = socket.getaddrinfo(hostname, None)
+        except socket.gaierror:
+            return False, "Không thể phân giải tên miền (DNS lookup failed)."
+
+        if not addr_info:
+            return False, "Không tìm thấy địa chỉ IP cho tên miền này."
+
+        for item in addr_info:
+            ip_str = item[4][0]
+            try:
+                ip_obj = ipaddress.ip_address(ip_str)
+                if (ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or 
+                    ip_obj.is_multicast or ip_obj.is_reserved or ip_obj.is_unspecified):
+                    return False, f"Địa chỉ IP đích ({ip_str}) thuộc dải mạng nội bộ hoặc không an toàn (SSRF Blocked)."
+            except ValueError:
+                return False, f"Địa chỉ IP ({ip_str}) không hợp lệ."
+
+        return True, None
+    except Exception as e:
+        return False, f"Lỗi kiểm tra an toàn URL: {str(e)[:100]}"
+
+
 def fetch_url_html(url: str) -> Tuple[Optional[str], Optional[str]]:
     """
-    Thực hiện HTTP GET an toàn, giới hạn timeout và dung lượng byte tải về.
-    Sử dụng httpx (hoặc urllib.request fallback).
+    Thực hiện HTTP GET an toàn, kiểm tra SSRF trước khi gửi request.
+    Giới hạn timeout 5s và dung lượng tối đa 2MB.
     Returns: (html_text, error_message)
     """
+    is_safe, ssrf_err = is_safe_destination(url)
+    if not is_safe:
+        return None, f"Bị chặn bởi bộ lọc an toàn SSRF: {ssrf_err}"
+
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 VietTranslate-Verifier/1.0',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -257,8 +334,16 @@ def fetch_url_html(url: str) -> Tuple[Optional[str], Optional[str]]:
         try:
             with httpx.Client(timeout=DEFAULT_HTTP_TIMEOUT, follow_redirects=True) as client:
                 response = client.get(url, headers=headers)
+                if response.status_code == 404:
+                    return None, "HTTP_404_NOT_FOUND"
                 if response.status_code != 200:
                     return None, f"Máy chủ đơn vị cấp phản hồi mã lỗi HTTP {response.status_code}"
+
+                # Kiểm tra sau redirect URL có bị trỏ về IP nội bộ không
+                final_url = str(response.url)
+                is_final_safe, final_ssrf_err = is_safe_destination(final_url)
+                if not is_final_safe:
+                    return None, f"Chuyển hướng (Redirect) không an toàn: {final_ssrf_err}"
 
                 content = response.content[:MAX_HTML_DOWNLOAD_BYTES]
                 html_text = content.decode('utf-8', errors='replace')
@@ -278,9 +363,18 @@ def fetch_url_html(url: str) -> Tuple[Optional[str], Optional[str]]:
             req = urllib.request.Request(url, headers=headers)
             try:
                 with urllib.request.urlopen(req, timeout=DEFAULT_HTTP_TIMEOUT) as response:
+                    final_url = response.geturl()
+                    is_final_safe, final_ssrf_err = is_safe_destination(final_url)
+                    if not is_final_safe:
+                        return None, f"Chuyển hướng (Redirect) không an toàn: {final_ssrf_err}"
+
                     content = response.read(MAX_HTML_DOWNLOAD_BYTES)
                     html_text = content.decode('utf-8', errors='replace')
                     return html_text, None
+            except urllib.error.HTTPError as http_err:
+                if http_err.code == 404:
+                    return None, "HTTP_404_NOT_FOUND"
+                return None, f"Máy chủ phản hồi mã lỗi HTTP {http_err.code}"
             except urllib.error.URLError as url_err:
                 if isinstance(url_err.reason, ssl.SSLError) or 'certificate verify failed' in str(url_err.reason):
                     unverified_ctx = ssl._create_unverified_context()
@@ -301,9 +395,10 @@ def verify_certificate(
     """
     Quy trình kiểm thực toàn diện cho một chứng chỉ:
     1. Kiểm tra Domain Whitelist.
-    2. Tải HTML an toàn (0đ).
+    2. Chống SSRF & Tải HTML an toàn (0đ).
     3. Bóc tách dữ liệu JSON-LD / Open Graph.
-    4. Đối soát họ tên người dùng và tính hợp lệ.
+    4. Đối soát họ tên theo 3 vùng tin cậy (high, medium, low).
+    5. Đánh giá trạng thái chứng chỉ: 'verified', 'manual_review', 'expired', 'revoked', 'unable_to_verify', 'not_verified'.
 
     Returns: Dict kết quả chuẩn hóa
     """
@@ -312,6 +407,8 @@ def verify_certificate(
         return {
             'success': False,
             'is_valid': False,
+            'cert_status': 'not_verified',
+            'confidence_zone': 'low',
             'error': 'Đường dẫn chứng chỉ không hợp lệ hoặc bị để trống.',
             'raw_url': raw_url
         }
@@ -322,21 +419,27 @@ def verify_certificate(
         return {
             'success': False,
             'is_valid': False,
+            'cert_status': 'not_verified',
+            'confidence_zone': 'low',
             'error': 'Tên miền không thuộc danh mục tổ chức cấp chứng chỉ được công nhận.',
             'raw_url': url
         }
 
     issuer_display_name = get_issuer_display_name(issuer_key)
 
-    # 2. Tải HTML
+    # 2. Tải HTML an toàn (chống SSRF)
     html_text, err = fetch_url_html(url)
     if err or not html_text:
+        cert_status = 'revoked' if err == "HTTP_404_NOT_FOUND" else 'unable_to_verify'
+        err_msg = 'Chứng chỉ không tồn tại hoặc đã bị thu hồi (Mã 404).' if err == "HTTP_404_NOT_FOUND" else (err or 'Không thể tải nội dung trang xác thực.')
         return {
             'success': False,
             'is_valid': False,
+            'cert_status': cert_status,
+            'confidence_zone': 'low',
             'issuer_key': issuer_key,
             'issuer_name': issuer_display_name,
-            'error': err or 'Không thể tải nội dung trang xác thực.',
+            'error': err_msg,
             'raw_url': url
         }
 
@@ -348,19 +451,38 @@ def verify_certificate(
     issued_date = extracted.get('issued_date') or ''
     is_expired = extracted.get('is_expired', False)
 
-    # 4. Đối soát họ tên
+    # 4. Đối soát họ tên theo 3 vùng
     name_match = False
     match_score = 0.0
+    confidence_zone = 'low'
     if recipient_name and user_name:
-        name_match, match_score = calculate_name_match(user_name, recipient_name)
+        name_match, match_score, confidence_zone = calculate_name_match(user_name, recipient_name)
+    elif not recipient_name:
+        # Nếu trang web không ghi tên người nhận (chỉ ghi tên chứng chỉ công khai)
+        confidence_zone = 'medium'
 
-    is_valid = bool(cert_name) and not is_expired
-    if recipient_name:
-        is_valid = is_valid and (name_match or match_score >= 0.5)
+    # 5. Xác định trạng thái chứng chỉ cuối cùng
+    if is_expired:
+        cert_status = 'expired'
+        is_valid = False
+    elif not bool(cert_name):
+        cert_status = 'not_verified'
+        is_valid = False
+    elif confidence_zone == 'high':
+        cert_status = 'verified'
+        is_valid = True
+    elif confidence_zone == 'medium':
+        cert_status = 'manual_review'
+        is_valid = False
+    else:  # 'low'
+        cert_status = 'not_verified'
+        is_valid = False
 
     return {
         'success': True,
         'is_valid': is_valid,
+        'cert_status': cert_status,
+        'confidence_zone': confidence_zone,
         'issuer_key': issuer_key,
         'issuer_name': issuer_display_name,
         'cert_name': cert_name,

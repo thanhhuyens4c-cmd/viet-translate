@@ -1263,6 +1263,11 @@ def _ensure_cert_verification_schema(force=False):
                     'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS verification_metadata TEXT',
                     'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS is_online_verified BOOLEAN DEFAULT FALSE',
                     'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS online_verified_at TIMESTAMP',
+                    'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS cert_status VARCHAR(30) DEFAULT \'pending\'',
+                    'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS name_match_score FLOAT',
+                    'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS auto_status VARCHAR(30) DEFAULT \'none\'',
+                    'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS auto_review_metadata TEXT',
+                    'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS auto_evaluated_at TIMESTAMP',
                     'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS email_verification_requested BOOLEAN DEFAULT FALSE',
                     'UPDATE "user" SET email_verification_requested = FALSE WHERE email_verification_requested IS NULL',
                 ]
@@ -1307,6 +1312,11 @@ def _ensure_cert_verification_schema(force=False):
                         ('verification_metadata', 'TEXT'),
                         ('is_online_verified', 'BOOLEAN DEFAULT 0'),
                         ('online_verified_at', 'TIMESTAMP'),
+                        ('cert_status', 'VARCHAR(30) DEFAULT \'pending\''),
+                        ('name_match_score', 'FLOAT'),
+                        ('auto_status', 'VARCHAR(30) DEFAULT \'none\''),
+                        ('auto_review_metadata', 'TEXT'),
+                        ('auto_evaluated_at', 'TIMESTAMP'),
                     ]
                     for col, typ in tv_fields:
                         if col not in tv_cols:
@@ -11884,59 +11894,215 @@ def admin_bulk_verify_email():
 @admin_login_required
 @require_permission('view_translators')
 def admin_translators():
-    show = request.args.get('show', 'pending')
-    from models import TranslatorVerification
-    verifications_query = TranslatorVerification.query.order_by(TranslatorVerification.created_at.desc())
-    pending_verifications = TranslatorVerification.query.filter_by(status='pending').order_by(TranslatorVerification.created_at.desc()).all()
+    _ensure_cert_verification_schema()
+    from models import TranslatorVerification, TranslatorProfile
+    from services.auto_verification_service import get_auto_verification_settings
 
-    if show == 'verified':
-        profiles = TranslatorProfile.query.filter_by(is_verified=True).all()
-        active_verifications = []
-    elif show == 'all':
-        profiles = TranslatorProfile.query.all()
-        active_verifications = verifications_query.all()
+    show = request.args.get('show', 'pending')
+    q = request.args.get('q', '').strip()
+
+    base_query = TranslatorVerification.query
+
+    # Đếm số lượng theo từng phân loại trạng thái
+    total_count = base_query.count()
+    pending_count = base_query.filter_by(status='pending').count()
+    auto_eligible_count = base_query.filter_by(status='pending', auto_status='auto_eligible').count()
+    manual_review_count = base_query.filter(
+        TranslatorVerification.status == 'pending',
+        db.or_(
+            TranslatorVerification.auto_status == 'manual_review',
+            TranslatorVerification.auto_status == 'none',
+            TranslatorVerification.auto_status.is_(None)
+        )
+    ).count()
+    verified_count = base_query.filter_by(status='approved').count()
+    needs_revision_count = base_query.filter_by(status='needs_revision').count()
+    rejected_count = base_query.filter_by(status='rejected').count()
+
+    query = base_query
+    if show == 'auto_eligible':
+        query = query.filter_by(status='pending', auto_status='auto_eligible')
+    elif show == 'manual_review':
+        query = query.filter(
+            TranslatorVerification.status == 'pending',
+            db.or_(
+                TranslatorVerification.auto_status == 'manual_review',
+                TranslatorVerification.auto_status == 'none',
+                TranslatorVerification.auto_status.is_(None)
+            )
+        )
+    elif show == 'verified':
+        query = query.filter_by(status='approved')
+    elif show == 'needs_revision':
+        query = query.filter_by(status='needs_revision')
     elif show == 'rejected':
-        profiles = []
-        active_verifications = TranslatorVerification.query.filter_by(status='rejected').order_by(TranslatorVerification.created_at.desc()).all()
+        query = query.filter_by(status='rejected')
+    elif show == 'all':
+        query = query
     else:  # 'pending'
-        profiles = TranslatorProfile.query.filter_by(is_verified=False).all()
-        active_verifications = pending_verifications
+        query = query.filter_by(status='pending')
+
+    if q:
+        query = query.join(User, TranslatorVerification.user_id == User.id).filter(
+            db.or_(
+                User.name.ilike(f'%{q}%'),
+                User.email.ilike(f'%{q}%'),
+                TranslatorVerification.certificate_name.ilike(f'%{q}%'),
+                TranslatorVerification.primary_language.ilike(f'%{q}%')
+            )
+        )
+
+    verifications = query.order_by(TranslatorVerification.created_at.desc()).all()
+    auto_settings = get_auto_verification_settings()
 
     return render_template(
         'admin_translators.html',
-        profiles=profiles,
+        verifications=verifications,
         show=show,
-        verifications=active_verifications,
-        pending_count=len(pending_verifications)
+        q=q,
+        total_count=total_count,
+        pending_count=pending_count,
+        auto_eligible_count=auto_eligible_count,
+        manual_review_count=manual_review_count,
+        verified_count=verified_count,
+        needs_revision_count=needs_revision_count,
+        rejected_count=rejected_count,
+        auto_settings=auto_settings,
     )
+
+@app.route('/admin/translators/batch-evaluate', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('verify_translator')
+def admin_batch_evaluate_translators():
+    """
+    Kích hoạt quét phân tích lô hồ sơ đang chờ (Dry-Run mode) tối đa 15 hồ sơ.
+    Không thay đổi trạng thái duyệt, chỉ gắn cờ auto_status và lưu metadata phân tích.
+    """
+    _ensure_cert_verification_schema()
+    from services.auto_verification_service import batch_evaluate_pending_submissions
+    limit = 15
+    try:
+        limit = int(request.form.get('limit') or request.args.get('limit') or 15)
+    except Exception:
+        limit = 15
+
+    report = batch_evaluate_pending_submissions(limit=limit)
+
+    msg = f"Đã quét phân tích {report['total_scanned']} hồ sơ: {report['auto_eligible_count']} hồ sơ đủ điều kiện tự duyệt, {report['manual_review_count']} hồ sơ cần Admin kiểm tra, {report['not_eligible_count']} hồ sơ không đạt."
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'report': report, 'message': msg})
+
+    flash(msg, 'info')
+    return redirect(url_for('admin_translators', show='pending'))
+
+@app.route('/admin/translators/batch-auto-approve', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('verify_translator')
+def admin_batch_auto_approve_translators():
+    """
+    Duyệt hàng loạt hồ sơ đã được máy xác nhận 'auto_eligible' (tối đa 15 hồ sơ / lô).
+    """
+    _ensure_cert_verification_schema()
+    from services.auto_verification_service import batch_auto_approve_eligible
+
+    admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
+    limit = 15
+    try:
+        limit = int(request.form.get('limit') or request.args.get('limit') or 15)
+    except Exception:
+        limit = 15
+
+    report = batch_auto_approve_eligible(admin_user=admin, limit=limit)
+
+    msg = f"Đã duyệt tự động thành công {report['approved_count']} hồ sơ đủ điều kiện ({report['failed_count']} lỗi)."
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'report': report, 'message': msg})
+
+    flash(msg, 'success' if report['approved_count'] > 0 else 'warning')
+    return redirect(url_for('admin_translators', show='verified'))
+
+@app.route('/admin/translators/update-auto-settings', methods=['POST'])
+@admin_login_required
+@csrf_protected
+def admin_update_auto_settings():
+    """
+    Cập nhật cài đặt Hybrid Auto-Verification (Chỉ Super Admin).
+    """
+    admin_role = getattr(g, 'admin_role', None) or session.get(ADMIN_SESSION_ROLE)
+    if admin_role != 'super_admin':
+        msg = 'Chỉ Super Admin mới có thẩm quyền điều chỉnh cấu hình Tự động duyệt hồ sơ.'
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': msg}), 403
+        flash(msg, 'danger')
+        return redirect(url_for('admin_translators'))
+
+    from services.auto_verification_service import save_auto_verification_settings
+    from admin_auth import get_client_ip
+
+    admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
+
+    auto_approve_enabled = request.form.get('auto_approve_enabled') == 'on'
+    dry_run_mode = request.form.get('dry_run_mode') == 'on'
+
+    new_settings = {
+        'auto_approve_enabled': auto_approve_enabled,
+        'dry_run_mode': dry_run_mode
+    }
+
+    ok, msg = save_auto_verification_settings(new_settings, admin_user=admin, ip_address=get_client_ip())
+
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': ok, 'message': msg})
+
+    flash(msg, 'success' if ok else 'danger')
+    return redirect(url_for('admin_translators'))
 
 @app.route('/admin/translators/<int:profile_id>/verify', methods=['POST'])
 @admin_login_required
 @csrf_protected
 @require_permission('verify_translator')
 def admin_verify_translator(profile_id):
+    """
+    Route tương thích: Khi Admin bấm duyệt trực tiếp từ hồ sơ profile,
+    chuyển tiếp sang quy trình review_verification_request chuẩn mực để đảm bảo không bypass checklist.
+    """
+    from models import TranslatorProfile, TranslatorVerification
+    from services.verification import review_verification_request
+    from admin_auth import get_client_ip
+
     profile = TranslatorProfile.query.get_or_404(profile_id)
-    action = request.form.get('action')
-    profile.is_verified = (action == 'verify')
+    action_raw = request.form.get('action')
+    action = 'approve' if action_raw == 'verify' else 'reject'
 
-    # Đồng bộ với bản ghi TranslatorVerification nếu có
-    from models import TranslatorVerification
     verif = TranslatorVerification.query.filter_by(user_id=profile.user_id).order_by(TranslatorVerification.created_at.desc()).first()
-    if verif:
-        verif.status = 'approved' if profile.is_verified else 'rejected'
-        verif.reviewed_at = datetime.utcnow()
-        verif.reviewed_by = session.get('admin_id')
+    admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
 
-    action_key = ADMIN_AUDIT_ACTIONS['VERIFY_TRANSLATOR'] if profile.is_verified else ADMIN_AUDIT_ACTIONS['REJECT_TRANSLATOR']
-    msg = 'Đã xác minh' if profile.is_verified else 'Đã từ chối xác minh'
-    _audit_log(
-        action=action_key,
-        target_type='translator',
-        target_id=profile.id,
-        description=f'{msg} hồ sơ {profile.user.name} ({profile.user.email})',
-    )
-    db.session.commit()
-    flash(f'{msg} hồ sơ {profile.user.name}.', 'success')
+    if verif:
+        ok, msg = review_verification_request(
+            verification_id=verif.id,
+            admin_user=admin,
+            action=action,
+            reason='Phê duyệt qua giao diện quản lý hồ sơ phiên dịch viên.',
+            ip_address=get_client_ip(),
+            user_agent=request.headers.get('User-Agent', '')[:512]
+        )
+        flash(msg, 'success' if ok else 'error')
+    else:
+        # Nếu không có hồ sơ TranslatorVerification cũ, cập nhật profile và ghi audit
+        profile.is_verified = (action == 'approve')
+        action_key = ADMIN_AUDIT_ACTIONS['VERIFY_TRANSLATOR'] if profile.is_verified else ADMIN_AUDIT_ACTIONS['REJECT_TRANSLATOR']
+        msg = 'Đã xác minh' if profile.is_verified else 'Đã thu hồi xác minh'
+        _audit_log(
+            action=action_key,
+            target_type='translator',
+            target_id=profile.id,
+            description=f'{msg} hồ sơ {profile.user.name} ({profile.user.email})',
+        )
+        db.session.commit()
+        flash(f'{msg} hồ sơ {profile.user.name}.', 'success')
+
     return redirect(url_for('admin_translators'))
 
 @app.route('/admin/verifications/<int:verification_id>', methods=['GET'])
@@ -11945,9 +12111,53 @@ def admin_verify_translator(profile_id):
 def admin_verification_detail(verification_id):
     _ensure_cert_verification_schema()
     from models import TranslatorVerification
+    from services.auto_verification_service import evaluate_verification_submission
     import json
     verification = TranslatorVerification.query.get_or_404(verification_id)
     checklist_data = {}
+    if verification.checklist_data:
+        try:
+            checklist_data = json.loads(verification.checklist_data)
+        except Exception:
+            pass
+
+    cert_meta = {}
+    if getattr(verification, 'verification_metadata', None):
+        try:
+            cert_meta = json.loads(verification.verification_metadata)
+        except Exception:
+            pass
+
+    auto_eval = {}
+    if getattr(verification, 'auto_review_metadata', None):
+        try:
+            auto_eval = json.loads(verification.auto_review_metadata)
+        except Exception:
+            pass
+    elif verification.status == 'pending':
+        try:
+            eval_res = evaluate_verification_submission(verification.id)
+            auto_eval = eval_res
+        except Exception:
+            pass
+
+    from services.cert_whitelist import is_whitelisted_domain, get_issuer_display_name
+    is_whitelisted = False
+    issuer_name = verification.verification_source or 'Tổ chức cấp'
+    if getattr(verification, 'verification_url', None):
+        is_whitelisted, issuer_key = is_whitelisted_domain(verification.verification_url)
+        if issuer_key:
+            issuer_name = get_issuer_display_name(issuer_key)
+
+    return render_template(
+        'admin_verification_detail.html',
+        verification=verification,
+        checklist_data=checklist_data,
+        cert_meta=cert_meta,
+        auto_eval=auto_eval,
+        is_whitelisted=is_whitelisted,
+        issuer_name=issuer_name
+    )
     if verification.checklist_data:
         try:
             checklist_data = json.loads(verification.checklist_data)

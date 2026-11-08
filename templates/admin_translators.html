@@ -6,52 +6,124 @@
 
 {% block content %}
 <div class="admin-card">
-    <!-- Filter Tabs -->
-    <div class="filter-bar flex items-center justify-between">
-        <div class="flex items-center gap-2">
-            <a href="?show=pending" class="filter-tab {% if show == 'pending' %}active{% endif %}">
-                <span>{{ t('admin_page.tab_pending_verify') }}</span>
-                {% if pending_count and pending_count > 0 %}
-                <span class="nav-badge warning text-[10px] ml-1">{{ pending_count }}</span>
+    <!-- Top Summary & Control Bar -->
+    <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px;">
+        <!-- Row 1: KPI Stats & Batch Actions -->
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+            <!-- KPI Counters -->
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+                <div style="padding: 6px 14px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px;">
+                    <span style="font-size: 11px; color: var(--muted); display: block;">Tổng hồ sơ</span>
+                    <strong style="font-size: 16px; color: #f1f5f9;">{{ total_count }}</strong>
+                </div>
+                <div style="padding: 6px 14px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px;">
+                    <span style="font-size: 11px; color: #fbbf24; display: block;">Chờ xử lý</span>
+                    <strong style="font-size: 16px; color: #f59e0b;">{{ pending_count }}</strong>
+                </div>
+                <div style="padding: 6px 14px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px;">
+                    <span style="font-size: 11px; color: #34d399; display: block;">⚡ Máy đề xuất duyệt</span>
+                    <strong style="font-size: 16px; color: #10b981;">{{ auto_eligible_count }}</strong>
+                </div>
+                <div style="padding: 6px 14px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px;">
+                    <span style="font-size: 11px; color: #60a5fa; display: block;">Cần Admin kiểm tra</span>
+                    <strong style="font-size: 16px; color: #3b82f6;">{{ manual_review_count }}</strong>
+                </div>
+            </div>
+
+            <!-- Batch Action Buttons -->
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <!-- Nút 1: Chạy thử quét phân tích -->
+                <form method="POST" action="{{ url_for('admin_batch_evaluate_translators') }}" style="margin: 0;">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-ghost" title="Quét tự động tối đa 15 hồ sơ đang chờ để đưa ra đề xuất mà không thay đổi trạng thái duyệt"
+                            onclick="return confirm('Chạy quét phân tích tự động (Chế độ chạy thử) cho lô 15 hồ sơ đang chờ?');">
+                        <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        Phân tích tự động
+                    </button>
+                </form>
+
+                <!-- Nút 2: Duyệt hàng loạt hồ sơ đủ điều kiện -->
+                <form method="POST" action="{{ url_for('admin_batch_auto_approve_translators') }}" style="margin: 0;">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-primary" {% if auto_eligible_count == 0 %}disabled style="opacity: 0.5; cursor: not-allowed;"{% endif %}
+                            onclick="return confirm('Xác nhận phê duyệt đồng loạt cho {{ auto_eligible_count }} hồ sơ đã được máy thẩm định hợp lệ?');"
+                            title="Chỉ duyệt những hồ sơ đã đạt 100% tiêu chí email, CV, CCCD và chứng chỉ số">
+                        <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        Duyệt hồ sơ đủ điều kiện ({{ auto_eligible_count }})
+                    </button>
+                </form>
+
+                <!-- Nút 3: Cài đặt chính sách (Chỉ Super Admin) -->
+                {% if admin_role == 'super_admin' %}
+                <button type="button" class="btn btn-sm btn-ghost" onclick="toggleSettingsModal()" title="Cài đặt chính sách Hybrid Auto-Verification">
+                    ⚙️ Cài đặt
+                </button>
                 {% endif %}
-            </a>
-            <a href="?show=verified" class="filter-tab {% if show == 'verified' %}active{% endif %}">
-                {{ t('admin_page.tab_verified') }}
-            </a>
-            <a href="?show=all" class="filter-tab {% if show == 'all' %}active{% endif %}">
-                {{ t('admin_page.tab_all_translators') }}
-            </a>
+            </div>
         </div>
-        <div class="text-xs text-slate-400">
-            Hệ thống thẩm định & xác minh hồ sơ chuyên môn
+
+        <!-- Row 2: Search & Filter Tabs -->
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid rgba(148, 163, 184, 0.12);">
+            <div class="filter-bar" style="margin-bottom: 0;">
+                <a href="{{ url_for('admin_translators', show='pending', q=q) }}" class="filter-tab {% if show == 'pending' %}active{% endif %}">
+                    Chờ xử lý ({{ pending_count }})
+                </a>
+                <a href="{{ url_for('admin_translators', show='auto_eligible', q=q) }}" class="filter-tab {% if show == 'auto_eligible' %}active{% endif %}" style="{% if auto_eligible_count > 0 %}color: #34d399; font-weight: 700;{% endif %}">
+                    ⚡ Đủ điều kiện duyệt ({{ auto_eligible_count }})
+                </a>
+                <a href="{{ url_for('admin_translators', show='manual_review', q=q) }}" class="filter-tab {% if show == 'manual_review' %}active{% endif %}">
+                    ⚠️ Cần kiểm tra ({{ manual_review_count }})
+                </a>
+                <a href="{{ url_for('admin_translators', show='verified', q=q) }}" class="filter-tab {% if show == 'verified' %}active{% endif %}">
+                    ✓ Đã duyệt ({{ verified_count }})
+                </a>
+                <a href="{{ url_for('admin_translators', show='needs_revision', q=q) }}" class="filter-tab {% if show == 'needs_revision' %}active{% endif %}">
+                    Cần bổ sung ({{ needs_revision_count }})
+                </a>
+                <a href="{{ url_for('admin_translators', show='rejected', q=q) }}" class="filter-tab {% if show == 'rejected' %}active{% endif %}">
+                    Từ chối ({{ rejected_count }})
+                </a>
+                <a href="{{ url_for('admin_translators', show='all', q=q) }}" class="filter-tab {% if show == 'all' %}active{% endif %}">
+                    Tất cả ({{ total_count }})
+                </a>
+            </div>
+
+            <!-- Search Form -->
+            <form method="GET" action="{{ url_for('admin_translators') }}" style="display: flex; gap: 8px; align-items: center; margin: 0;">
+                <input type="hidden" name="show" value="{{ show }}">
+                <div style="position: relative; width: 240px;">
+                    <input type="text" name="q" value="{{ q or '' }}" placeholder="Tìm tên, email, chứng chỉ..."
+                           style="width: 100%; padding: 6px 12px 6px 30px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 8px; color: #f1f5f9; font-size: 12px; outline: none;">
+                    <svg style="position: absolute; left: 8px; top: 8px; width: 14px; height: 14px; color: var(--muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+                <button type="submit" class="btn btn-sm btn-ghost" style="padding: 4px 10px; font-size: 11px;">Tìm</button>
+                {% if q %}
+                <a href="{{ url_for('admin_translators', show=show) }}" class="btn btn-sm btn-ghost" style="padding: 4px 8px; font-size: 11px;" title="Xóa tìm kiếm">✕</a>
+                {% endif %}
+            </form>
         </div>
     </div>
 
-    <!-- 1. DANH SÁCH ĐƠN YÊU CẦU XÁC MINH CẦN DUYỆT -->
-    {% if show == 'pending' and verifications and verifications | length > 0 %}
-    <div class="p-4 bg-slate-900/60 border-b border-slate-700/60 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
-            <span class="text-xs font-bold text-amber-300 uppercase tracking-wider">Hồ sơ đã gửi đơn & tài liệu thẩm định ({{ verifications | length }})</span>
-        </div>
-        <span class="text-[11px] text-slate-400">Kiểm tra CV và bản scan bằng cấp trước khi phê duyệt</span>
-    </div>
-
+    <!-- Main Table -->
     <div style="overflow-x: auto;">
         <table class="admin-table">
             <thead>
                 <tr>
                     <th>{{ t('admin_page.th_translator') }}</th>
-                    <th>{{ t('admin_page.th_credentials') }}</th>
-                    <th>{{ t('admin_page.th_documents') }}</th>
-                    <th>Ghi chú & Thời gian</th>
+                    <th>Chuyên môn & Ngôn ngữ</th>
+                    <th>Chứng chỉ & Minh chứng</th>
+                    <th>Đánh giá của Máy</th>
+                    <th>Trạng thái</th>
+                    <th>Ngày nộp</th>
                     <th style="text-align: right;">{{ t('admin_page.th_actions') }}</th>
                 </tr>
             </thead>
             <tbody>
                 {% for v in verifications %}
-                <tr>
-                    <!-- Translator info -->
+                <tr {% if v.auto_status == 'auto_eligible' and v.status == 'pending' %}style="background: rgba(16, 185, 129, 0.05);"{% elif v.status == 'rejected' %}style="background: rgba(239, 68, 68, 0.04);"{% endif %}>
+                    <!-- Translator Profile -->
                     <td>
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <div style="position: relative; width: 38px; height: 38px; flex-shrink: 0;">
@@ -60,7 +132,7 @@
                                      style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.15);"
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                 <div style="display: none; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; font-weight: 700; font-size: 14px; align-items: center; justify-content: center; text-transform: uppercase;">
-                                    {{ (v.user.name or 'P')[0]|upper }}
+                                    {{ (v.user.name or 'P')[0]|upper if v.user else 'P' }}
                                 </div>
                                 {% else %}
                                 <div style="display: flex; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; font-weight: 700; font-size: 14px; align-items: center; justify-content: center; text-transform: uppercase;">
@@ -69,7 +141,14 @@
                                 {% endif %}
                             </div>
                             <div>
-                                <div style="font-weight: 600; color: #f1f5f9;">{{ v.user.name if v.user else 'PDV #' ~ v.user_id }}</div>
+                                <div style="font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 6px;">
+                                    {{ v.user.name if v.user else 'PDV #' ~ v.user_id }}
+                                    {% if v.user and v.user.email_verified %}
+                                    <span title="Email đã xác minh" style="color: #10b981; font-size: 11px;">✓</span>
+                                    {% else %}
+                                    <span title="Email chưa xác minh" style="color: #f59e0b; font-size: 11px;">⚠️</span>
+                                    {% endif %}
+                                </div>
                                 <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">{{ v.user.email if v.user else '--' }}</div>
                                 {% if v.user and v.user.phone %}
                                 <div style="font-size: 10px; color: #94a3b8;">📞 {{ v.user.phone }}</div>
@@ -78,198 +157,118 @@
                         </div>
                     </td>
 
-                    <!-- Credentials info -->
+                    <!-- Specialty & Languages -->
                     <td>
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            {% if v.certificate_name %}
-                            <span class="badge badge-indigo">
-                                🎖️ {{ v.certificate_name }}
-                            </span>
-                            {% endif %}
-                            {% if v.certificate_type %}
-                            <span class="badge badge-gray">
-                                {{ v.certificate_type }}
-                            </span>
-                            {% endif %}
+                        <div style="font-weight: 600; color: #e2e8f0; font-size: 12px;">
+                            {{ v.source_language or v.primary_language or 'Chung' }}
+                            {% if v.target_language %} → {{ v.target_language }}{% endif %}
                         </div>
-                        <div class="text-xs text-slate-400 mt-1.5 flex items-center gap-2">
-                            <span>Ngôn ngữ: <strong class="text-slate-200">{{ v.primary_language or 'Chung' }}</strong></span>
-                            <span>·</span>
-                            <span>Kinh nghiệm: <strong class="text-slate-200">{{ v.experience_years }} năm</strong></span>
+                        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">
+                            Kinh nghiệm: <strong style="color: #cbd5e1;">{{ v.experience_years or 0 }} năm</strong>
                         </div>
                     </td>
 
-                    <!-- Attached Documents -->
+                    <!-- Credentials & Documents -->
                     <td>
-                        <div class="flex flex-col gap-1.5">
-                            {% set cv_href = v.effective_cv_url if hasattr(v, 'effective_cv_url') else v.cv_url %}
-                            {% set cv_fname = v.effective_cv_filename if hasattr(v, 'effective_cv_filename') else v.cv_filename %}
-                            {% if cv_href %}
-                            <a href="{{ cv_href }}" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-semibold transition underline">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                <span>{{ t('admin_page.btn_view_cv') }}</span>
-                                <span class="text-[10px] text-slate-400 font-normal">({{ cv_fname or 'Tải' }})</span>
-                            </a>
-                            {% else %}
-                            <span class="text-xs text-slate-500 italic">Chưa có CV</span>
-                            {% endif %}
-
-                            {% if v.certificate_url %}
-                            <a href="{{ v.certificate_url }}" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-semibold transition underline">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                                <span>{{ t('admin_page.btn_view_cert') }}</span>
-                                <span class="text-[10px] text-slate-400 font-normal">({{ v.certificate_filename or 'Scan' }})</span>
-                            </a>
-                            {% endif %}
-
-                            {% if v.id_card_url %}
-                            <a href="{{ v.id_card_url }}" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 font-semibold transition underline">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/></svg>
-                                <span>{{ t('admin_page.btn_view_id') }}</span>
-                            </a>
-                            {% endif %}
-                        </div>
-                    </td>
-
-                    <!-- Notes & Date -->
-                    <td>
-                        <div class="max-w-[220px] text-xs text-slate-300 truncate" title="{{ v.notes or 'Không có ghi chú' }}">
-                            {{ v.notes or '—' }}
-                        </div>
-                        <div class="text-[10px] text-slate-400 mt-1">
-                            Gửi lúc: {{ v.created_at.strftime('%d/%m/%Y %H:%M') }}
-                        </div>
-                    </td>
-
-                    <!-- Actions -->
-                    <td style="text-align: right; white-space: nowrap;">
-                        <a href="{{ url_for('translator_profile', profile_id=v.user.profile.id if (v.user and v.user.profile) else 1) }}" target="_blank" class="btn btn-ghost btn-sm mr-1">
-                            {{ t('admin_page.action_view_profile') }}
-                        </a>
-
-                        <!-- Detailed Review Button -->
-                        <a href="{{ url_for('admin_verification_detail', verification_id=v.id) }}" class="btn btn-primary btn-sm ml-1">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                            <span>Đánh giá chi tiết</span>
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% endif %}
-
-    <!-- 2. DANH SÁCH PROFILES (TẤT CẢ / ĐÃ XÁC MINH / CHƯA XÁC MINH) -->
-    <div class="p-4 bg-slate-900/40 border-t border-slate-700/60 flex items-center justify-between">
-        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">
-            {% if show == 'verified' %}
-            Danh sách phiên dịch viên đã xác minh ({{ profiles | length }})
-            {% elif show == 'pending' %}
-            Tài khoản phiên dịch viên chưa có tích xanh ({{ profiles | length }})
-            {% else %}
-            Toàn bộ tài khoản phiên dịch viên ({{ profiles | length }})
-            {% endif %}
-        </span>
-    </div>
-
-    <div style="overflow-x: auto;">
-        <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>{{ t('admin_page.th_translator') }}</th>
-                    <th>{{ t('admin_page.th_languages') }}</th>
-                    <th>{{ t('admin_page.th_specialty') }}</th>
-                    <th>Trạng thái xác minh</th>
-                    <th style="text-align: right;">{{ t('admin_page.th_actions') }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for profile in profiles %}
-                <tr>
-                    <td>
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="position: relative; width: 38px; height: 38px; flex-shrink: 0;">
-                                {% set trans_avatar = profile.avatar_url or (profile.user.avatar_url if profile.user else None) %}
-                                {% if trans_avatar %}
-                                <img src="{{ trans_avatar }}" alt="{{ profile.user.name if profile.user else 'PDV' }}"
-                                     style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.15);"
-                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                <div style="display: none; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; font-weight: 700; font-size: 14px; align-items: center; justify-content: center; text-transform: uppercase;">
-                                    {{ (profile.user.name or 'P')[0]|upper if profile.user else 'P' }}
-                                </div>
-                                {% else %}
-                                <div style="display: flex; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; font-weight: 700; font-size: 14px; align-items: center; justify-content: center; text-transform: uppercase;">
-                                    {{ (profile.user.name or 'P')[0]|upper if profile.user else 'P' }}
-                                </div>
+                        <div style="display: flex; flex-direction: column; gap: 3px;">
+                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                {% if v.certificate_name or v.certificate_type %}
+                                <span class="badge badge-gray" style="font-size: 11px;">
+                                    🎖️ {{ v.certificate_name or v.certificate_type }}
+                                </span>
+                                {% endif %}
+                                {% if v.verification_url %}
+                                <span class="badge badge-blue" style="font-size: 10px;" title="Có đường dẫn kiểm thực trực tuyến (Digital Badge / QR)">
+                                    🌐 Có link số
+                                </span>
                                 {% endif %}
                             </div>
-                            <div>
-                                <div style="font-weight: 600; color: #f1f5f9;">{{ profile.user.name if profile.user else 'PDV #' ~ profile.user_id }}</div>
-                                <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">{{ profile.user.email if profile.user else '--' }}</div>
+
+                            <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; margin-top: 2px;">
+                                {% set cv_href = v.effective_cv_url if hasattr(v, 'effective_cv_url') else v.cv_url %}
+                                {% if cv_href %}
+                                <a href="{{ cv_href }}" target="_blank" style="color: #60a5fa; text-decoration: underline;" title="Xem CV">CV</a>
+                                {% endif %}
+                                {% if v.id_card_url %}
+                                <a href="{{ v.id_card_url }}" target="_blank" style="color: #a78bfa; text-decoration: underline;" title="Xem CCCD">CCCD</a>
+                                {% endif %}
+                                {% if v.certificate_url %}
+                                <a href="{{ v.certificate_url }}" target="_blank" style="color: #34d399; text-decoration: underline;" title="Xem chứng chỉ đính kèm">Bằng cấp</a>
+                                {% endif %}
                             </div>
                         </div>
                     </td>
-                    <td>
-                        <div style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1;" title="{{ profile.languages }}">
-                            {{ profile.languages or 'Chưa cập nhật' }}
-                        </div>
-                    </td>
-                    <td>
-                        <div style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1;" title="{{ profile.title }}">
-                            {{ profile.title or 'Phiên dịch viên tự do' }}
-                        </div>
-                    </td>
-                    <td>
-                        {% if profile.is_verified %}
-                        <span class="badge badge-green">
-                            <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                            Đã xác minh
-                        </span>
-                        {% elif profile.latest_verification and profile.latest_verification.status == 'pending' %}
-                        <span class="badge badge-yellow">
-                            Đã gửi đơn chờ duyệt
-                        </span>
-                        {% else %}
-                        <span class="badge badge-gray">
-                            Chưa xác minh
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td style="text-align: right; white-space: nowrap;">
-                        <a href="{{ url_for('translator_profile', profile_id=profile.id) }}" target="_blank" class="btn btn-ghost btn-sm">
-                            {{ t('admin_page.action_view_profile') }}
-                        </a>
 
-                        {% if not profile.is_verified %}
-                        <form method="POST" action="{{ url_for('admin_verify_translator', profile_id=profile.id) }}" style="display: inline;">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="action" value="verify">
-                            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('{{ t('admin_page.action_verify_confirm') }}');">
-                                {{ t('admin_page.action_grant_verify') }}
-                            </button>
-                        </form>
+                    <!-- Engine Machine Evaluation -->
+                    <td>
+                        {% if v.auto_status == 'auto_eligible' %}
+                        <span class="badge badge-green" style="font-size: 11px; font-weight: 700;" title="Đạt 100% điều kiện: Email xác minh, có CV, có CCCD, chứng chỉ số Whitelist và khớp tên cao">
+                            ⚡ Đủ điều kiện duyệt
+                        </span>
+                        {% elif v.auto_status == 'not_eligible' %}
+                        <span class="badge badge-red" style="font-size: 11px;" title="Chứng chỉ hết hạn hoặc không hợp lệ">
+                            ✕ Không đạt
+                        </span>
+                        {% elif v.auto_status == 'manual_review' %}
+                        <span class="badge badge-yellow" style="font-size: 11px;" title="Hồ sơ truyền thống hoặc cần Admin rà soát đối chiếu">
+                            ⚠️ Cần kiểm tra
+                        </span>
                         {% else %}
-                        <form method="POST" action="{{ url_for('admin_verify_translator', profile_id=profile.id) }}" style="display: inline;">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="action" value="unverify">
-                            <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('{{ t('admin_page.action_revoke_confirm') }}');">
-                                {{ t('admin_page.action_revoke') }}
-                            </button>
-                        </form>
+                        <span class="badge badge-gray" style="font-size: 11px; opacity: 0.7;">
+                            Chưa phân tích
+                        </span>
                         {% endif %}
+
+                        {% if v.name_match_score is not none and v.name_match_score > 0 %}
+                        <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
+                            Khớp tên: <strong style="color: #e2e8f0;">{{ (v.name_match_score * 100)|round|int }}%</strong>
+                        </div>
+                        {% endif %}
+                    </td>
+
+                    <!-- Workflow Status -->
+                    <td>
+                        {% if v.status == 'approved' %}
+                        <span class="badge badge-green">✓ Đã duyệt</span>
+                        {% elif v.status == 'needs_revision' %}
+                        <span class="badge badge-yellow">Cần bổ sung</span>
+                        {% elif v.status == 'rejected' %}
+                        <span class="badge badge-red">Đã từ chối</span>
+                        {% else %}
+                        <span class="badge badge-yellow" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.35);">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>
+                            Chờ duyệt
+                        </span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Submission Date -->
+                    <td style="color: var(--muted); font-size: 11px; white-space: nowrap;">
+                        {{ v.submitted_at.strftime('%d/%m/%Y') if v.submitted_at else (v.created_at.strftime('%d/%m/%Y') if v.created_at else '--') }}
+                    </td>
+
+                    <!-- Unified Actions (NO bypass shortcut) -->
+                    <td style="text-align: right; white-space: nowrap;">
+                        <div style="display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end;">
+                            <!-- Xem trang cá nhân -->
+                            {% if v.user and v.user.profile %}
+                            <a href="{{ url_for('translator_profile', profile_id=v.user.profile.id) }}" target="_blank" class="btn btn-ghost btn-sm" style="padding: 4px 8px; font-size: 11px;" title="Xem trang hồ sơ công khai">
+                                🔗 Xem hồ sơ
+                            </a>
+                            {% endif %}
+
+                            <!-- Đánh giá hồ sơ chuẩn mực (điểm hành động duy nhất) -->
+                            <a href="{{ url_for('admin_verification_detail', verification_id=v.id) }}" class="btn btn-primary btn-sm" style="padding: 4px 10px; font-size: 11px; font-weight: 600;">
+                                <svg class="w-3.5 h-3.5 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                Đánh giá chi tiết
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="empty-state">
-                        <div class="empty-state-title">
-                            {% if show == 'pending' %}
-                            {{ t('admin_page.no_pending_profiles') }}
-                            {% else %}
-                            {{ t('admin_page.no_verified_profiles') }}
-                            {% endif %}
-                        </div>
+                    <td colspan="7" class="empty-state">
+                        <div class="empty-state-title">Không tìm thấy hồ sơ xác minh nào phù hợp.</div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -278,56 +277,54 @@
     </div>
 </div>
 
-<!-- MODAL TỪ CHỐI YÊU CẦU XÁC MINH -->
-<div id="reject-modal" class="fixed inset-0 z-50 bg-black/75 hidden items-center justify-center p-4">
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100 max-h-[85vh] overflow-y-auto">
-        <div class="flex items-center justify-between pb-4 border-b border-slate-700/80">
-            <h3 class="text-base font-bold text-rose-400 flex items-center gap-2">
-                <svg class="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <span>{{ t('admin_page.reject_modal_title') }}</span>
-            </h3>
-            <button type="button" onclick="closeRejectModal()" class="text-slate-400 hover:text-white">✕</button>
+<!-- Modal Cài đặt Chính sách Auto-Verification (Dành riêng cho Super Admin) -->
+{% if admin_role == 'super_admin' %}
+<div id="settingsModal" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 16px;">
+    <div style="background: #1e293b; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 16px; max-width: 480px; width: 100%; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(148, 163, 184, 0.15); padding-bottom: 12px; margin-bottom: 16px;">
+            <h3 style="font-size: 15px; font-weight: 700; color: #f1f5f9;">⚙️ Cài đặt Chính sách Hybrid Auto-Verification</h3>
+            <button type="button" onclick="toggleSettingsModal()" style="color: #94a3b8; font-size: 18px; line-height: 1; background: none; border: none; cursor: pointer;">✕</button>
         </div>
 
-        <form id="reject-form" method="POST" action="" class="space-y-4 pt-4">
+        <form method="POST" action="{{ url_for('admin_update_auto_settings') }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-            <p class="text-xs text-slate-300">
-                Từ chối hồ sơ của <strong id="reject-user-name" class="text-white"></strong>. Vui lòng nêu rõ lý do để phiên dịch viên có thể khắc phục và nộp lại.
-            </p>
 
-            <div>
-                <label class="block text-xs font-bold text-slate-300 mb-1.5">{{ t('admin_page.reject_reason_label') }}</label>
-                <textarea name="reason" rows="4" required
-                    placeholder="{{ t('admin_page.reject_reason_placeholder') }}"
-                    class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 text-xs text-slate-100 leading-relaxed"></textarea>
+            <div style="display: flex; flex-direction: column; gap: 14px; font-size: 13px; color: #cbd5e1;">
+                <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" name="dry_run_mode" {% if auto_settings.get('dry_run_mode') %}checked{% endif %} style="margin-top: 3px; accent-color: #2563eb;">
+                    <div>
+                        <strong style="color: #f1f5f9; display: block;">Chế độ Chạy thử (Dry-Run Mode)</strong>
+                        <span style="font-size: 11px; color: #94a3b8;">Khi bật: Hệ thống chỉ phân tích và gắn cờ đề xuất, KHÔNG tự động thay đổi trạng thái hồ sơ.</span>
+                    </div>
+                </label>
+
+                <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" name="auto_approve_enabled" {% if auto_settings.get('auto_approve_enabled') %}checked{% endif %} style="margin-top: 3px; accent-color: #10b981;">
+                    <div>
+                        <strong style="color: #34d399; display: block;">Bật Tự Động Phê Duyệt (Auto-Approve)</strong>
+                        <span style="font-size: 11px; color: #94a3b8;">Chỉ hoạt động khi hồ sơ đạt 100% điều kiện: Email đã xác minh, có CV hợp lệ, có CCCD, chứng chỉ số hợp lệ và khớp họ tên cao.</span>
+                    </div>
+                </label>
+
+                <div style="padding: 10px 12px; background: rgba(15, 23, 42, 0.5); border-radius: 8px; font-size: 11px; color: #94a3b8;">
+                    ℹ️ Giới hạn mỗi mẻ (Batch Limit): <strong>15 hồ sơ / lượt</strong> (tối ưu tải cho cấu hình VPS 1 vCPU / 2GB RAM).
+                </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-700/80">
-                <button type="button" onclick="closeRejectModal()" class="btn btn-ghost btn-sm text-slate-300">Hủy bỏ</button>
-                <button type="submit" class="btn btn-danger btn-sm">
-                    Xác nhận từ chối
-                </button>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; pt-3; border-top: 1px solid rgba(148, 163, 184, 0.15);">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSettingsModal()">Hủy</button>
+                <button type="submit" class="btn btn-primary btn-sm">Lưu cấu hình</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-function openRejectModal(verificationId, userName) {
-    const modal = document.getElementById('reject-modal');
-    const form = document.getElementById('reject-form');
-    const nameEl = document.getElementById('reject-user-name');
-    
-    form.action = `/admin/verifications/${verificationId}/reject`;
-    nameEl.textContent = userName;
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function closeRejectModal() {
-    const modal = document.getElementById('reject-modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
+function toggleSettingsModal() {
+    const modal = document.getElementById('settingsModal');
+    if (!modal) return;
+    modal.style.display = (modal.style.display === 'none' || !modal.style.display) ? 'flex' : 'none';
 }
 </script>
+{% endif %}
 {% endblock %}

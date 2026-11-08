@@ -1851,6 +1851,10 @@ ADMIN_AUDIT_ACTIONS = {
     'PROMOTE_TO_ADMIN': 'PROMOTE_TO_ADMIN',
     'VERIFY_EMAIL': 'VERIFY_EMAIL',
     'BULK_VERIFY_EMAIL': 'BULK_VERIFY_EMAIL',
+    'AUTO_VERIFY_TRANSLATOR': 'AUTO_VERIFY_TRANSLATOR',
+    'BATCH_EVALUATE_TRANSLATORS': 'BATCH_EVALUATE_TRANSLATORS',
+    'BATCH_AUTO_VERIFY_TRANSLATORS': 'BATCH_AUTO_VERIFY_TRANSLATORS',
+    'UPDATE_VERIFICATION_SETTINGS': 'UPDATE_VERIFICATION_SETTINGS',
 }
 
 
@@ -1970,6 +1974,13 @@ class TranslatorVerification(db.Model):
     verification_metadata = db.Column(db.Text, nullable=True)          # JSON metadata kết quả bóc tách
     is_online_verified = db.Column(db.Boolean, default=False)          # Đã kiểm thực online thành công
     online_verified_at = db.Column(db.DateTime, nullable=True)         # Thời điểm kiểm thực
+    cert_status = db.Column(db.String(30), default='pending')          # 'pending', 'verified', 'manual_review', 'expired', 'revoked', 'unable_to_verify'
+    name_match_score = db.Column(db.Float, nullable=True)              # Điểm đối soát họ tên (0.00 - 1.00)
+
+    # Đánh giá & Phân tích tự động (Hybrid Auto-Verification Engine)
+    auto_status = db.Column(db.String(30), default='none', index=True) # 'none', 'auto_eligible', 'manual_review', 'not_eligible'
+    auto_review_metadata = db.Column(db.Text, nullable=True)           # JSON breakdown đánh giá từng điều kiện
+    auto_evaluated_at = db.Column(db.DateTime, nullable=True)          # Thời điểm máy đánh giá gần nhất
 
     # Bước 5: Kinh nghiệm nghề nghiệp
     current_position = db.Column(db.String(255), nullable=True)
