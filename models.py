@@ -51,6 +51,7 @@ class User(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     is_demo = db.Column(db.Boolean, default=False, index=True)
     email_verified = db.Column(db.Boolean, default=False)
+    email_verification_requested = db.Column(db.Boolean, default=False)
     verified_at = db.Column(db.DateTime, nullable=True) # Thời điểm xác minh thành công (dùng tính mốc 7 ngày đầu)
     avatar = db.Column(db.String(255), nullable=True)
     # Phân hệ Tài khoản Phiên dịch viên (Mục V)
@@ -1848,6 +1849,8 @@ ADMIN_AUDIT_ACTIONS = {
     'ADMIN_PRIVILEGES_REVOKED': 'ADMIN_PRIVILEGES_REVOKED',
     'ADMIN_PASSWORD_RESET': 'ADMIN_PASSWORD_RESET',
     'PROMOTE_TO_ADMIN': 'PROMOTE_TO_ADMIN',
+    'VERIFY_EMAIL': 'VERIFY_EMAIL',
+    'BULK_VERIFY_EMAIL': 'BULK_VERIFY_EMAIL',
 }
 
 

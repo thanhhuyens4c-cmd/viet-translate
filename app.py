@@ -1263,6 +1263,8 @@ def _ensure_cert_verification_schema(force=False):
                     'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS verification_metadata TEXT',
                     'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS is_online_verified BOOLEAN DEFAULT FALSE',
                     'ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS online_verified_at TIMESTAMP',
+                    'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS email_verification_requested BOOLEAN DEFAULT FALSE',
+                    'UPDATE "user" SET email_verification_requested = FALSE WHERE email_verification_requested IS NULL',
                 ]
                 for stmt in pg_statements:
                     try:
@@ -1316,6 +1318,26 @@ def _ensure_cert_verification_schema(force=False):
                                     conn.rollback()
                                 except Exception:
                                     pass
+
+                if 'user' in existing_tables:
+                    user_cols = {c['name'] for c in inspector.get_columns('user')}
+                    if 'email_verification_requested' not in user_cols:
+                        try:
+                            conn.execute(text('ALTER TABLE "user" ADD COLUMN email_verification_requested BOOLEAN DEFAULT 0'))
+                            conn.commit()
+                        except Exception:
+                            try:
+                                conn.rollback()
+                            except Exception:
+                                pass
+                    try:
+                        conn.execute(text('UPDATE "user" SET email_verification_requested = 0 WHERE email_verification_requested IS NULL'))
+                        conn.commit()
+                    except Exception:
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
 
         _cert_verification_schema_ensured = True
         print("[DB Sync] Phân hệ Xác thực chứng chỉ: Đã đồng bộ schema thành công.", file=sys.stderr)
@@ -1530,6 +1552,7 @@ def inject_admin_badges():
         'admin_badge_flagged_jobs': 0,
         'admin_badge_reports': 0,
         'admin_badge_notifications': 0,
+        'admin_badge_pending_email_requests': 0,
     }
     if not session.get(ADMIN_SESSION_KEY):
         return {**default_badges, 'badge_counts': default_badges}
@@ -1547,11 +1570,17 @@ def inject_admin_badges():
         badges['admin_badge_flagged_jobs'] = Job.query.filter_by(is_flagged=True).count()
         badges['admin_badge_reports'] = Report.query.filter_by(status='new').count()
         badges['admin_badge_notifications'] = AdminNotification.query.filter_by(is_read=False).count()
+        badges['admin_badge_pending_email_requests'] = User.query.filter(
+            User.is_admin.is_(False),
+            User.email_verification_requested.is_(True),
+            User.email_verified.is_(False)
+        ).count()
         badges['admin_badge_total_tasks'] = (
             badges['admin_badge_pending_jobs'] +
             badges['admin_badge_pending_verifications'] +
             badges['admin_badge_pending_hirers'] +
-            badges['admin_badge_reports']
+            badges['admin_badge_reports'] +
+            badges['admin_badge_pending_email_requests']
         )
     except Exception:
         db.session.rollback()
@@ -2880,6 +2909,73 @@ def resend_verification_email():
         return jsonify({'success': True, 'message': 'Email xác minh mới đã được gửi.'})
     else:
         return jsonify({'success': False, 'message': 'Gửi email thất bại. Vui lòng thử lại sau.'}), 500
+
+@app.route('/account/request-email-verification', methods=['POST'])
+@app.route('/api/account/request-email-verification', methods=['POST'])
+@login_required
+def request_email_verification():
+    """
+    Người dùng gửi yêu cầu xác thực email cho Ban Quản trị duyệt thủ công,
+    đồng thời tạo token xác minh để sẵn sàng kích hoạt tính năng gửi mail SMTP trong tương lai.
+    """
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Tài khoản không hợp lệ hoặc phiên làm việc đã hết hạn.'}), 401
+
+    if user.email_verified:
+        return jsonify({
+            'success': True,
+            'already_verified': True,
+            'message': 'Địa chỉ email của bạn đã được xác minh thành công trước đó.'
+        })
+
+    # Cập nhật trạng thái người dùng đã gửi yêu cầu
+    user.email_verification_requested = True
+
+    # Tạo sẵn cấu trúc EmailVerificationToken để tương thích hoàn toàn khi bật SMTP sau này
+    try:
+        from models import EmailVerificationToken
+        from werkzeug.security import generate_password_hash
+        import secrets
+        from datetime import datetime, timedelta
+
+        # Vô hiệu hóa token cũ chưa dùng
+        old_tokens = EmailVerificationToken.query.filter_by(user_id=user.id, is_used=False).all()
+        for t in old_tokens:
+            t.is_used = True
+
+        token_str = secrets.token_urlsafe(32)
+        token_hash = generate_password_hash(token_str)
+        expires_at = datetime.utcnow() + timedelta(hours=48)
+
+        new_token = EmailVerificationToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at
+        )
+        db.session.add(new_token)
+
+        # Cố gắng gửi mail nếu SMTP đã cấu hình (nếu chưa cấu hình thì không báo lỗi, vẫn ghi nhận yêu cầu duyệt thủ công)
+        try:
+            from services.email import send_verification_email
+            verify_url = url_for('verify_email', token=token_str, email=user.email, _external=True)
+            send_verification_email(user.email, verify_url)
+        except Exception:
+            pass
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Có lỗi phát sinh khi ghi nhận yêu cầu: {str(e)}'
+        }), 500
+
+    return jsonify({
+        'success': True,
+        'email_verification_requested': True,
+        'message': 'Đã gửi yêu cầu xác thực email tới Ban Quản trị. Quản trị viên sẽ sớm kiểm tra và kích hoạt email cho tài khoản của bạn!'
+    })
 
 @app.route('/logout')
 def logout():
@@ -11625,14 +11721,53 @@ def admin_hirer_review_action(hirer_id):
 @admin_login_required
 @require_permission('view_users')
 def admin_users():
+    _ensure_cert_verification_schema()
     role_filter = request.args.get('role', 'all')
-    query = User.query.filter_by(is_admin=False)
+    email_status = request.args.get('email_status', 'all')
+    q = request.args.get('q', '').strip()
+
+    base_query = User.query.filter_by(is_admin=False)
+
+    total_users_count = base_query.count()
+    pending_email_count = base_query.filter(
+        User.email_verification_requested.is_(True),
+        User.email_verified.is_(False)
+    ).count()
+    unverified_email_count = base_query.filter(User.email_verified.is_(False)).count()
+    verified_email_count = base_query.filter(User.email_verified.is_(True)).count()
+
+    query = base_query
     if role_filter == 'hirer':
         query = query.filter_by(role='hirer')
     elif role_filter == 'translator':
         query = query.filter_by(role='translator')
+
+    if email_status == 'requested':
+        query = query.filter(User.email_verification_requested.is_(True), User.email_verified.is_(False))
+    elif email_status == 'unverified':
+        query = query.filter(User.email_verified.is_(False))
+    elif email_status == 'verified':
+        query = query.filter(User.email_verified.is_(True))
+
+    if q:
+        query = query.filter(db.or_(
+            User.name.ilike(f'%{q}%'),
+            User.email.ilike(f'%{q}%'),
+            User.phone.ilike(f'%{q}%')
+        ))
+
     users = query.order_by(User.created_at.desc()).all()
-    return render_template('admin_users.html', users=users, role_filter=role_filter)
+    return render_template(
+        'admin_users.html',
+        users=users,
+        role_filter=role_filter,
+        email_status=email_status,
+        q=q,
+        total_users_count=total_users_count,
+        pending_email_count=pending_email_count,
+        unverified_email_count=unverified_email_count,
+        verified_email_count=verified_email_count,
+    )
 
 @app.route('/admin/users/<int:user_id>/toggle-active', methods=['POST'])
 @admin_login_required
@@ -11651,7 +11786,99 @@ def admin_toggle_user(user_id):
     )
     db.session.commit()
     flash(f'Đã {action_text} tài khoản {user.name}.', 'success')
-    return redirect(url_for('admin_users'))
+    return redirect(request.referrer or url_for('admin_users'))
+
+@app.route('/admin/users/<int:user_id>/verify-email', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('view_users')
+def admin_verify_user_email(user_id):
+    """Admin duyệt xác thực email thủ công cho một tài khoản người dùng."""
+    user = User.query.get_or_404(user_id)
+    user.email_verified = True
+    user.email_verification_requested = False
+
+    # Đánh dấu các token xác minh email trước đó là đã sử dụng
+    from models import EmailVerificationToken
+    pending_tokens = EmailVerificationToken.query.filter_by(user_id=user.id, is_used=False).all()
+    for t in pending_tokens:
+        t.is_used = True
+
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS.get('VERIFY_EMAIL', 'VERIFY_EMAIL'),
+        target_type='user',
+        target_id=user.id,
+        description=f'Admin xác minh email cho tài khoản {user.name} ({user.email})',
+    )
+    db.session.commit()
+
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': True,
+            'message': f'Đã xác minh email thành công cho tài khoản {user.name} ({user.email}).'
+        })
+
+    flash(f'Đã xác minh email cho tài khoản {user.name} ({user.email}).', 'success')
+    return redirect(request.referrer or url_for('admin_users'))
+
+@app.route('/admin/users/bulk-verify-email', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('view_users')
+def admin_bulk_verify_email():
+    """Admin duyệt xác thực email đồng loạt cho nhiều tài khoản cùng lúc."""
+    raw_ids = []
+    if request.is_json:
+        data = request.get_json() or {}
+        raw_ids = data.get('user_ids', [])
+    else:
+        raw_ids = request.form.getlist('user_ids')
+
+    user_ids = []
+    for uid in raw_ids:
+        try:
+            user_ids.append(int(uid))
+        except (ValueError, TypeError):
+            continue
+
+    if not user_ids:
+        msg = 'Vui lòng chọn ít nhất một tài khoản để duyệt xác thực email.'
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'warning')
+        return redirect(url_for('admin_users'))
+
+    users = User.query.filter(User.id.in_(user_ids), User.is_admin.is_(False)).all()
+    verified_count = 0
+    from models import EmailVerificationToken
+    for u in users:
+        if not u.email_verified:
+            u.email_verified = True
+            u.email_verification_requested = False
+            verified_count += 1
+            tokens = EmailVerificationToken.query.filter_by(user_id=u.id, is_used=False).all()
+            for t in tokens:
+                t.is_used = True
+
+    if verified_count > 0:
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS.get('BULK_VERIFY_EMAIL', 'BULK_VERIFY_EMAIL'),
+            target_type='user',
+            target_id=None,
+            description=f'Admin duyệt xác minh email đồng loạt cho {verified_count} tài khoản (Danh sách IDs: {user_ids[:30]})',
+        )
+        db.session.commit()
+        msg = f'Đã duyệt xác thực email thành công cho {verified_count} tài khoản.'
+        category = 'success'
+    else:
+        msg = 'Tất cả các tài khoản được chọn đều đã có email xác minh từ trước.'
+        category = 'info'
+
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'verified_count': verified_count, 'message': msg})
+
+    flash(msg, category)
+    return redirect(request.referrer or url_for('admin_users'))
 
 @app.route('/admin/translators')
 @admin_login_required

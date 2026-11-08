@@ -6,28 +6,133 @@
 
 {% block content %}
 <div class="admin-card">
-    <!-- Filter Tabs -->
-    <div class="filter-bar">
-        <a href="?role=all" class="filter-tab {% if role_filter == 'all' %}active{% endif %}">{{ t('admin_page.filter_all') }}</a>
-        <a href="?role=hirer" class="filter-tab {% if role_filter == 'hirer' %}active{% endif %}">{{ t('admin_page.filter_hirer') }}</a>
-        <a href="?role=translator" class="filter-tab {% if role_filter == 'translator' %}active{% endif %}">{{ t('admin_page.filter_translator') }}</a>
+    <!-- Top Filter Controls -->
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+        <!-- Row 1: Role Filters & Search -->
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+            <div class="filter-bar" style="margin-bottom: 0;">
+                <a href="{{ url_for('admin_users', role='all', email_status=email_status, q=q) }}"
+                   class="filter-tab {% if role_filter == 'all' %}active{% endif %}">
+                   {{ t('admin_page.filter_all') }}
+                </a>
+                <a href="{{ url_for('admin_users', role='hirer', email_status=email_status, q=q) }}"
+                   class="filter-tab {% if role_filter == 'hirer' %}active{% endif %}">
+                   {{ t('admin_page.filter_hirer') }}
+                </a>
+                <a href="{{ url_for('admin_users', role='translator', email_status=email_status, q=q) }}"
+                   class="filter-tab {% if role_filter == 'translator' %}active{% endif %}">
+                   {{ t('admin_page.filter_translator') }}
+                </a>
+            </div>
+
+            <!-- Search Box -->
+            <form method="GET" action="{{ url_for('admin_users') }}" style="display: flex; gap: 8px; align-items: center; margin: 0;">
+                <input type="hidden" name="role" value="{{ role_filter }}">
+                <input type="hidden" name="email_status" value="{{ email_status }}">
+                <div style="position: relative; width: 260px;">
+                    <input type="text" name="q" value="{{ q or '' }}" placeholder="Tìm tên, email, SĐT..."
+                           style="width: 100%; padding: 7px 12px 7px 32px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 8px; color: #f1f5f9; font-size: 13px; outline: none;">
+                    <svg style="position: absolute; left: 10px; top: 9px; width: 14px; height: 14px; color: var(--muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+                <button type="submit" class="btn btn-sm btn-ghost">Tìm</button>
+                {% if q %}
+                <a href="{{ url_for('admin_users', role=role_filter, email_status=email_status) }}" class="btn btn-sm btn-ghost" title="Xóa tìm kiếm">✕</a>
+                {% endif %}
+            </form>
+        </div>
+
+        <!-- Row 2: Email Verification Status Tabs -->
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
+            <span style="font-size: 12px; color: var(--muted); font-weight: 600; margin-right: 4px;">Email:</span>
+            
+            <a href="{{ url_for('admin_users', role=role_filter, email_status='all', q=q) }}"
+               class="btn btn-sm {% if email_status == 'all' %}btn-primary{% else %}btn-ghost{% endif %}"
+               style="font-size: 12px; padding: 4px 10px;">
+                {{ t('admin_page.filter_email_all') }}
+                <span style="opacity: 0.8; margin-left: 2px;">({{ total_users_count }})</span>
+            </a>
+
+            <a href="{{ url_for('admin_users', role=role_filter, email_status='requested', q=q) }}"
+               class="btn btn-sm {% if email_status == 'requested' %}btn-primary{% else %}btn-ghost{% endif %}"
+               style="font-size: 12px; padding: 4px 10px; {% if pending_email_count > 0 and email_status != 'requested' %}border-color: rgba(245, 158, 11, 0.5); color: #fbbf24;{% endif %}">
+                ⏳ {{ t('admin_page.filter_email_requested') }}
+                {% if pending_email_count > 0 %}
+                <span class="badge badge-yellow" style="margin-left: 4px; padding: 1px 6px; font-size: 10px; font-weight: 700;">{{ pending_email_count }}</span>
+                {% else %}
+                <span style="opacity: 0.7; margin-left: 2px;">(0)</span>
+                {% endif %}
+            </a>
+
+            <a href="{{ url_for('admin_users', role=role_filter, email_status='unverified', q=q) }}"
+               class="btn btn-sm {% if email_status == 'unverified' %}btn-primary{% else %}btn-ghost{% endif %}"
+               style="font-size: 12px; padding: 4px 10px;">
+                ⚠️ {{ t('admin_page.filter_email_unverified') }}
+                <span style="opacity: 0.8; margin-left: 2px;">({{ unverified_email_count }})</span>
+            </a>
+
+            <a href="{{ url_for('admin_users', role=role_filter, email_status='verified', q=q) }}"
+               class="btn btn-sm {% if email_status == 'verified' %}btn-primary{% else %}btn-ghost{% endif %}"
+               style="font-size: 12px; padding: 4px 10px;">
+                ✓ {{ t('admin_page.filter_email_verified') }}
+                <span style="opacity: 0.8; margin-left: 2px;">({{ verified_email_count }})</span>
+            </a>
+        </div>
     </div>
+
+    <!-- Bulk Action Toolbar (appears when at least one user is checked) -->
+    <div id="bulkActionBar" style="display: none; margin-bottom: 16px; padding: 12px 16px; background: rgba(37, 99, 235, 0.12); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 10px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #e2e8f0;">
+            <span>Đã chọn <strong id="bulkSelectedCount" style="color: #60a5fa; font-size: 14px;">0</strong> tài khoản</span>
+            <span id="bulkUnverifiedHint" style="font-size: 12px; color: #94a3b8;">
+                (trong đó có <strong id="bulkUnverifiedCount" style="color: #fbbf24;">0</strong> tài khoản chưa xác minh email)
+            </span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="confirmAndSubmitBulkVerify()" id="btnBulkVerify">
+                ⚡ {{ t('admin_page.action_bulk_verify_email') }}
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="clearAllCheckboxes()">
+                Bỏ chọn
+            </button>
+        </div>
+    </div>
+
+    <!-- Hidden form for bulk verification -->
+    <form id="bulkActionForm" method="POST" action="{{ url_for('admin_bulk_verify_email') }}" style="display: none;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    </form>
 
     <!-- Table -->
     <div style="overflow-x: auto;">
         <table class="admin-table">
             <thead>
                 <tr>
+                    <th style="width: 40px; text-align: center;">
+                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)"
+                               title="Chọn tất cả" style="cursor: pointer; width: 16px; height: 16px; accent-color: #2563eb;">
+                    </th>
                     <th>{{ t('admin_page.th_user') }}</th>
                     <th>{{ t('admin_page.th_role') }}</th>
-                    <th>{{ t('admin_page.th_joined_date') }}</th>
+                    <th>{{ t('admin_page.th_email_status') }}</th>
                     <th>{{ t('admin_page.th_status') }}</th>
+                    <th>{{ t('admin_page.th_joined_date') }}</th>
                     <th style="text-align: right;">{{ t('admin_page.th_actions') }}</th>
                 </tr>
             </thead>
             <tbody>
                 {% for user in users %}
-                <tr {% if not user.is_active %}style="background: rgba(239,68,68,0.05);"{% endif %}>
+                <tr id="user-row-{{ user.id }}" {% if not user.is_active %}style="background: rgba(239,68,68,0.05);"{% elif user.email_verification_requested and not user.email_verified %}style="background: rgba(245,158,11,0.04);"{% endif %}>
+                    <!-- Checkbox -->
+                    <td style="text-align: center;">
+                        <input type="checkbox" name="user_ids" value="{{ user.id }}" class="user-select-cb"
+                               data-email-verified="{{ 'true' if user.email_verified else 'false' }}"
+                               onchange="updateBulkBar()"
+                               style="cursor: pointer; width: 16px; height: 16px; accent-color: #2563eb;">
+                    </td>
+
+                    <!-- User Info -->
                     <td>
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <div style="position: relative; width: 36px; height: 36px; flex-shrink: 0;">
@@ -45,15 +150,46 @@
                                 {% endif %}
                             </div>
                             <div>
-                                <div style="font-weight: 600; color: #f1f5f9;">{{ user.name }}</div>
+                                <div style="font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 6px;">
+                                    {{ user.name }}
+                                    {% if user.email_verification_requested and not user.email_verified %}
+                                    <span style="font-size: 10px; background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 4px; padding: 1px 5px; font-weight: 600;">
+                                        Yêu cầu duyệt
+                                    </span>
+                                    {% endif %}
+                                </div>
                                 <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">{{ user.email }} • {{ user.phone or t('admin_page.no_phone') }}</div>
                             </div>
                         </div>
                     </td>
+
+                    <!-- Role -->
                     <td>
                         <span class="badge badge-gray">{{ user.role }}</span>
                     </td>
-                    <td style="color: var(--muted); font-size: 12px;">{{ user.created_at.strftime('%d/%m/%Y') }}</td>
+
+                    <!-- Email Status -->
+                    <td>
+                        {% if user.email_verified %}
+                        <span class="badge badge-green" style="font-size: 11px;">
+                            <svg style="width: 12px; height: 12px;" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            Đã xác minh
+                        </span>
+                        {% elif user.email_verification_requested %}
+                        <span class="badge badge-yellow" style="font-size: 11px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.35);" title="Người dùng đã gửi yêu cầu xác thực email">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>
+                            Chờ duyệt email
+                        </span>
+                        {% else %}
+                        <span class="badge badge-gray" style="font-size: 11px; opacity: 0.8;">
+                            Chưa xác minh
+                        </span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Account Active Status -->
                     <td>
                         {% if user.is_active %}
                         <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--success);">
@@ -67,24 +203,49 @@
                         </div>
                         {% endif %}
                     </td>
-                    <td style="text-align: right;">
-                        <form method="POST" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" style="display: inline;">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                            {% if user.is_active %}
-                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('{{ t('admin_page.action_lock_confirm') }}');">
-                                {{ t('admin_page.action_lock') }}
-                            </button>
-                            {% else %}
-                            <button type="submit" class="btn btn-success btn-sm">
-                                {{ t('admin_page.action_unlock') }}
-                            </button>
+
+                    <!-- Joined Date -->
+                    <td style="color: var(--muted); font-size: 12px;">{{ user.created_at.strftime('%d/%m/%Y') }}</td>
+
+                    <!-- Actions -->
+                    <td style="text-align: right; white-space: nowrap;">
+                        <div style="display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end;">
+                            <!-- 1-Click Verify Email Button -->
+                            {% if not user.email_verified %}
+                            <form method="POST" action="{{ url_for('admin_verify_user_email', user_id=user.id) }}" style="display: inline; margin: 0;">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm"
+                                        style="background: #2563eb; color: #fff; border: 1px solid #1d4ed8; padding: 4px 10px; font-size: 11px; font-weight: 600;"
+                                        onclick="return confirm('Xác nhận duyệt email cho tài khoản {{ user.name }} ({{ user.email }})?');"
+                                        title="Duyệt xác minh email ngay">
+                                    <svg style="width: 12px; height: 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    {{ t('admin_page.action_verify_email') }}
+                                </button>
+                            </form>
                             {% endif %}
-                        </form>
+
+                            <!-- Lock/Unlock User Form -->
+                            <form method="POST" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" style="display: inline; margin: 0;">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                {% if user.is_active %}
+                                <button type="submit" class="btn btn-danger btn-sm" style="padding: 4px 10px; font-size: 11px;"
+                                        onclick="return confirm('{{ t('admin_page.action_lock_confirm') }}');">
+                                    {{ t('admin_page.action_lock') }}
+                                </button>
+                                {% else %}
+                                <button type="submit" class="btn btn-success btn-sm" style="padding: 4px 10px; font-size: 11px;">
+                                    {{ t('admin_page.action_unlock') }}
+                                </button>
+                                {% endif %}
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="empty-state">
+                    <td colspan="7" class="empty-state">
                         <div class="empty-state-title">{{ t('admin_page.no_users_data') }}</div>
                     </td>
                 </tr>
@@ -93,4 +254,91 @@
         </table>
     </div>
 </div>
+
+<script>
+    function toggleSelectAll(master) {
+        const checkboxes = document.querySelectorAll('.user-select-cb');
+        checkboxes.forEach(cb => {
+            cb.checked = master.checked;
+        });
+        updateBulkBar();
+    }
+
+    function updateBulkBar() {
+        const allCheckboxes = document.querySelectorAll('.user-select-cb');
+        const checkedCheckboxes = document.querySelectorAll('.user-select-cb:checked');
+        const bulkBar = document.getElementById('bulkActionBar');
+        const selectedCountEl = document.getElementById('bulkSelectedCount');
+        const unverifiedCountEl = document.getElementById('bulkUnverifiedCount');
+        const masterCb = document.getElementById('selectAllCheckbox');
+
+        const totalChecked = checkedCheckboxes.length;
+        if (selectedCountEl) selectedCountEl.textContent = totalChecked;
+
+        let unverifiedCount = 0;
+        checkedCheckboxes.forEach(cb => {
+            if (cb.getAttribute('data-email-verified') !== 'true') {
+                unverifiedCount++;
+            }
+        });
+        if (unverifiedCountEl) unverifiedCountEl.textContent = unverifiedCount;
+
+        if (totalChecked > 0) {
+            bulkBar.style.display = 'flex';
+        } else {
+            bulkBar.style.display = 'none';
+        }
+
+        if (masterCb) {
+            masterCb.checked = (allCheckboxes.length > 0 && totalChecked === allCheckboxes.length);
+            masterCb.indeterminate = (totalChecked > 0 && totalChecked < allCheckboxes.length);
+        }
+    }
+
+    function clearAllCheckboxes() {
+        const checkboxes = document.querySelectorAll('.user-select-cb');
+        checkboxes.forEach(cb => { cb.checked = false; });
+        const masterCb = document.getElementById('selectAllCheckbox');
+        if (masterCb) {
+            masterCb.checked = false;
+            masterCb.indeterminate = false;
+        }
+        updateBulkBar();
+    }
+
+    function confirmAndSubmitBulkVerify() {
+        const checked = Array.from(document.querySelectorAll('.user-select-cb:checked')).map(cb => cb.value);
+        if (!checked.length) {
+            alert('Vui lòng chọn ít nhất một tài khoản để duyệt xác thực email!');
+            return;
+        }
+
+        let unverifiedCount = 0;
+        document.querySelectorAll('.user-select-cb:checked').forEach(cb => {
+            if (cb.getAttribute('data-email-verified') !== 'true') {
+                unverifiedCount++;
+            }
+        });
+
+        const confirmMsg = `Bạn có chắc chắn muốn duyệt xác thực email cho ${checked.length} tài khoản đã chọn (${unverifiedCount} tài khoản chưa xác minh)?`;
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+
+        const form = document.getElementById('bulkActionForm');
+        // Clear old inputs
+        form.querySelectorAll('input[name="user_ids"]').forEach(el => el.remove());
+
+        // Append new inputs
+        checked.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'user_ids';
+            input.value = id;
+            form.appendChild(input);
+        });
+
+        form.submit();
+    }
+</script>
 {% endblock %}

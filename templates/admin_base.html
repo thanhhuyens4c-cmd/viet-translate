@@ -899,6 +899,9 @@
                     <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
                 </svg>
                 Users
+                {% if admin_badge_pending_email_requests and admin_badge_pending_email_requests > 0 %}
+                <span class="nav-badge warning" title="{{ admin_badge_pending_email_requests }} yêu cầu xác minh email">{{ admin_badge_pending_email_requests }}</span>
+                {% endif %}
             </a>
             {% endif %}
 

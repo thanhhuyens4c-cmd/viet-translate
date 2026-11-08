@@ -709,6 +709,13 @@ TRANSLATIONS = {
             'action_lock': 'Khoá tài khoản',
             'action_unlock': 'Mở khoá',
             'no_users_data': 'Không có dữ liệu người dùng.',
+            'filter_email_all': 'Tất cả email',
+            'filter_email_requested': 'Chờ duyệt email',
+            'filter_email_unverified': 'Chưa xác minh',
+            'filter_email_verified': 'Đã xác minh',
+            'th_email_status': 'Xác minh Email',
+            'action_verify_email': 'Duyệt email',
+            'action_bulk_verify_email': 'Duyệt email đã chọn',
         },
 
         # ─── Messages Page ───
@@ -1662,6 +1669,13 @@ TRANSLATIONS = {
             'action_lock': 'Lock Account',
             'action_unlock': 'Unlock',
             'no_users_data': 'No user data available.',
+            'filter_email_all': 'All emails',
+            'filter_email_requested': 'Pending verification',
+            'filter_email_unverified': 'Unverified',
+            'filter_email_verified': 'Verified',
+            'th_email_status': 'Email Status',
+            'action_verify_email': 'Verify email',
+            'action_bulk_verify_email': 'Verify selected emails',
         },
 
         # ─── Messages Page ───

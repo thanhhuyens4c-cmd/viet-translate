@@ -669,8 +669,13 @@
                                                 </svg>
                                                 Đã xác thực
                                             </span>
+                                            {% elif user.email_verification_requested %}
+                                            <span id="badge-email-status" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
+                                                <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                                                Đang chờ Admin duyệt
+                                            </span>
                                             {% else %}
-                                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80">
+                                            <span id="badge-email-status" class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80">
                                                 <svg class="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
                                                     <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
                                                 </svg>
@@ -682,6 +687,40 @@
                                             placeholder="name@example.com"
                                             class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white transition">
                                         <p id="err-profile-email" class="text-xs text-rose-600 hidden"></p>
+
+                                        {% if not user.email_verified %}
+                                        <div id="email-verification-action-box" class="mt-2.5 p-3 rounded-xl border {% if user.email_verification_requested %}border-amber-200 bg-amber-50/70 text-amber-900{% else %}border-blue-100 bg-blue-50/60 text-slate-700{% endif %}">
+                                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                                <div class="text-xs leading-relaxed">
+                                                    <span id="email-verify-box-title" class="font-semibold block text-slate-800">
+                                                        {% if user.email_verification_requested %}
+                                                        ⏳ Yêu cầu xác thực email đã được gửi tới Ban Quản trị
+                                                        {% else %}
+                                                        ℹ️ Xác thực email để mở khóa nộp hồ sơ KYC, nhận việc và các tính năng nâng cao
+                                                        {% endif %}
+                                                    </span>
+                                                    <span id="email-verify-box-desc" class="text-[11px] text-slate-500">
+                                                        {% if user.email_verification_requested %}
+                                                        Quản trị viên đang tiếp nhận và sẽ kích hoạt email cho tài khoản của bạn trong thời gian sớm nhất.
+                                                        {% else %}
+                                                        Bấm nút bên cạnh để gửi yêu cầu cho Quản trị viên duyệt và kích hoạt email ngay cho tài khoản của bạn.
+                                                        {% endif %}
+                                                    </span>
+                                                </div>
+                                                <div class="shrink-0">
+                                                    <button type="button" id="btn-request-email-verify" onclick="sendEmailVerificationRequest()"
+                                                        class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm {% if user.email_verification_requested %}bg-amber-600 hover:bg-amber-700 text-white{% else %}bg-brand-600 hover:bg-brand-700 text-white{% endif %}">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                                        </svg>
+                                                        <span id="btn-request-email-text">
+                                                            {% if user.email_verification_requested %}Gửi lại yêu cầu Admin duyệt{% else %}✉️ Gửi yêu cầu xác thực email{% endif %}
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
                                     </div>
 
                                     <!-- Số điện thoại -->
@@ -4682,6 +4721,34 @@
                                 </a>
                             </div>
                         </div>
+
+                        <!-- Cảnh báo nếu chưa xác thực email -->
+                        {% if not user.email_verified %}
+                        <div class="p-4 rounded-2xl bg-amber-50 border border-amber-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 text-amber-900 shadow-sm">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                </div>
+                                <div>
+                                    <div class="text-xs sm:text-sm font-bold text-amber-900">Bạn cần xác minh địa chỉ email để mở khóa biểu mẫu nộp hồ sơ KYC</div>
+                                    <p class="text-xs text-amber-700 mt-0.5">
+                                        {% if user.email_verification_requested %}
+                                        ⏳ Bạn đã gửi yêu cầu duyệt email tới Ban Quản trị. Quản trị viên sẽ sớm kích hoạt cho bạn.
+                                        {% else %}
+                                        Gửi yêu cầu để Ban Quản trị kích hoạt email cho tài khoản của bạn ngay.
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="sendEmailVerificationRequest()"
+                                    class="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                                <span>{% if user.email_verification_requested %}Gửi lại yêu cầu Admin duyệt{% else %}✉️ Gửi yêu cầu xác thực email{% endif %}</span>
+                            </button>
+                        </div>
+                        {% endif %}
 
                         <!-- Card Biểu Mẫu Khai Báo Xác Minh Đa Bước -->
                         <div class="bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-purple-50/80 border border-blue-200/90 rounded-2xl p-5 sm:p-6 shadow-sm">
@@ -9048,6 +9115,65 @@
             }
         })
         .catch(err => alert('Có lỗi xảy ra, vui lòng thử lại sau.'));
+    }
+
+    // 9. Gửi yêu cầu xác thực email cho Admin duyệt thủ công
+    function sendEmailVerificationRequest() {
+        const btn = document.getElementById('btn-request-email-verify');
+        const btnText = document.getElementById('btn-request-email-text');
+        const originalText = btnText ? btnText.textContent : '';
+
+        if (btn) btn.disabled = true;
+        if (btnText) btnText.textContent = 'Đang gửi yêu cầu...';
+
+        fetch("{{ url_for('request_email_verification') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (btn) btn.disabled = false;
+            if (data.success) {
+                if (typeof showToast === 'function') {
+                    showToast(data.message, 'success');
+                } else {
+                    alert(data.message);
+                }
+                const statusBadge = document.getElementById('badge-email-status');
+                if (statusBadge) {
+                    statusBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300';
+                    statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> Đang chờ Admin duyệt';
+                }
+                if (btnText) btnText.textContent = 'Gửi lại yêu cầu Admin duyệt';
+                if (btn) {
+                    btn.className = 'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm bg-amber-600 hover:bg-amber-700 text-white';
+                }
+                const boxTitle = document.getElementById('email-verify-box-title');
+                if (boxTitle) {
+                    boxTitle.textContent = '⏳ Yêu cầu xác thực email đã được gửi tới Ban Quản trị';
+                }
+                const boxDesc = document.getElementById('email-verify-box-desc');
+                if (boxDesc) {
+                    boxDesc.textContent = 'Quản trị viên đang tiếp nhận và sẽ kích hoạt email cho tài khoản của bạn trong thời gian sớm nhất.';
+                }
+            } else {
+                if (btnText) btnText.textContent = originalText || '✉️ Gửi yêu cầu xác thực email';
+                if (typeof showToast === 'function') {
+                    showToast(data.message || 'Có lỗi xảy ra, vui lòng thử lại.', 'error');
+                } else {
+                    alert(data.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+                }
+            }
+        })
+        .catch(err => {
+            if (btn) btn.disabled = false;
+            if (btnText) btnText.textContent = originalText || '✉️ Gửi yêu cầu xác thực email';
+            console.error('Request email verification failed:', err);
+            alert('Không thể kết nối tới máy chủ, vui lòng thử lại sau.');
+        });
     }
 </script>
 {% endblock %}
