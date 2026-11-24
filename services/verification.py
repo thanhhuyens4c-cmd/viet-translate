@@ -978,6 +978,12 @@ def review_verification_request(verification_id, admin_user, action, reason=None
         verification.rejection_reason = None
         if profile:
             profile.is_verified = True
+            # Tự động đồng bộ ngôn ngữ đã xác minh sang profile.languages
+            if getattr(verification, 'primary_language', None):
+                profile.languages = verification.primary_language
+            elif getattr(verification, 'source_language', None) and getattr(verification, 'target_language', None):
+                profile.languages = f"{verification.source_language} ➔ {verification.target_language}"
+
             if getattr(verification, 'is_online_verified', False) or getattr(verification, 'verification_url', None):
                 profile.has_digital_credential = True
                 profile.credential_public_url = verification.verification_url

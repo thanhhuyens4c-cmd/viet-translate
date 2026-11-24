@@ -428,12 +428,14 @@
                                     <span class="truncate font-medium">
                                         {% if user.profile and user.profile.languages %}
                                             {{ user.profile.languages }}
+                                        {% elif user.latest_verification and user.latest_verification.primary_language %}
+                                            {{ user.latest_verification.primary_language }}
                                         {% else %}
                                             <em class="text-slate-400 not-italic">Chưa cài đặt ngôn ngữ</em>
                                         {% endif %}
                                     </span>
                                 </div>
-                                {% if not (user.profile and user.profile.languages) %}
+                                {% if not (user.profile and user.profile.languages) and not (user.latest_verification and user.latest_verification.primary_language) %}
                                 <button type="button" onclick="switchTab('services')" class="text-brand-600 hover:text-brand-700 text-xs font-bold shrink-0 ml-1 cursor-pointer">Cài đặt</button>
                                 {% endif %}
                             </div>

@@ -1853,8 +1853,20 @@ def interpreter_dashboard():
     else:
         profile_missing.append('Tiêu đề chuyên môn')
 
-    # 5. Ngôn ngữ thông thạo
-    if profile and profile.languages and profile.languages.strip():
+    # 5. Ngôn ngữ thông thạo (Hỗ trợ fallback từ hồ sơ KYC đã xác minh)
+    has_lang = bool(profile and profile.languages and profile.languages.strip())
+    if not has_lang and hasattr(user, 'latest_verification') and user.latest_verification and user.latest_verification.primary_language:
+        has_lang = True
+        if profile and not profile.languages:
+            profile.languages = user.latest_verification.primary_language
+            try:
+                db.session.commit()
+            except Exception:
+                pass
+    elif not has_lang and getattr(user, 'interpreter_services', None) and len(user.interpreter_services) > 0:
+        has_lang = True
+
+    if has_lang:
         profile_completeness += 20
     else:
         profile_missing.append('Ngôn ngữ thông thạo')
@@ -10009,7 +10021,23 @@ def job_detail(job_id):
             # Kiểm tra thông tin hồ sơ bắt buộc của phiên dịch viên
             if not user.phone or not str(user.phone).strip():
                 profile_missing_fields.append('Số điện thoại liên hệ')
-            if not user.profile or not user.profile.languages or not str(user.profile.languages).strip():
+
+            # Cải tiến thông minh: Tự động kiểm tra ngôn ngữ từ profile HOẶC từ KYC đã duyệt HOẶC từ dịch vụ
+            has_language = False
+            if user.profile and user.profile.languages and str(user.profile.languages).strip():
+                has_language = True
+            elif hasattr(user, 'latest_verification') and user.latest_verification and user.latest_verification.primary_language:
+                has_language = True
+                if user.profile and not user.profile.languages:
+                    user.profile.languages = user.latest_verification.primary_language
+                    try:
+                        db.session.commit()
+                    except Exception:
+                        pass
+            elif user.interpreter_services and len(user.interpreter_services) > 0:
+                has_language = True
+
+            if not has_language:
                 profile_missing_fields.append('Ngôn ngữ chuyên môn')
             if profile_missing_fields:
                 profile_incomplete = True
