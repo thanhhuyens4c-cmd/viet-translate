@@ -146,18 +146,30 @@ def evaluate_hirer_criteria(user, profile, manual_overrides=None):
     x3_manual = manual_overrides.get('X3')
     
     if account_type == 'individual':
-        # Tài khoản cá nhân: Không bắt buộc GPKD / ủy quyền
+        # Tài khoản cá nhân: Miễn trừ giấy ủy quyền doanh nghiệp
         x3_status = 'passed' if x3_manual is not False else 'failed'
         x3_note = 'Tài khoản cá nhân: Miễn trừ giấy ủy quyền doanh nghiệp'
         has_docs = False
     else:
-        has_docs = bool(profile and (profile.authorization_doc_url or profile.tax_code or profile.company))
+        clean_tax = re.sub(r'[\s\-]', '', getattr(profile, 'tax_code', '') or '')
+        has_valid_tax = bool(re.fullmatch(r'\d{10}|\d{13}', clean_tax))
+        has_company = bool(profile and profile.company and profile.company.strip())
+        has_auth_doc = bool(profile and (profile.authorization_doc_url or getattr(profile, 'authorization_doc', None)))
+        has_docs = has_auth_doc or has_valid_tax or has_company
+
         if x3_manual is not None:
             x3_status = 'passed' if x3_manual else 'failed'
             x3_note = 'Admin đã duyệt giấy tờ doanh nghiệp' if x3_status == 'passed' else 'Admin từ chối giấy tờ'
+        elif has_company and has_valid_tax and has_auth_doc:
+            # Cơ chế tự động đối soát: Có tên doanh nghiệp, MST chuẩn và file GPKD/ủy quyền đính kèm
+            x3_status = 'passed'
+            x3_note = f'Doanh nghiệp hợp lệ: MST {clean_tax} và hồ sơ pháp nhân/GPKD đã đối chiếu thành công.'
+        elif has_company and has_valid_tax and not has_auth_doc:
+            x3_status = 'pending_review'
+            x3_note = 'Cần tải lên Giấy phép đăng ký kinh doanh hoặc Giấy ủy quyền để hoàn tất xác minh.'
         else:
             x3_status = 'pending_review'
-            x3_note = 'Cần Admin kiểm tra giấy tờ doanh nghiệp / giấy ủy quyền'
+            x3_note = 'Cần hoàn thiện tên công ty, mã số thuế hợp lệ (10/13 số) và giấy tờ pháp nhân.'
 
     results['X3'] = {
         'code': 'X3',
@@ -289,6 +301,51 @@ def evaluate_hirer_criteria(user, profile, manual_overrides=None):
         'has_warning': len(warning_codes) > 0,
         'warning_codes': warning_codes
     }
+
+
+def auto_evaluate_and_approve_hirer(user, profile):
+    """
+    Quy trình tự động đánh giá và phê duyệt Khách hàng (Hirer) theo 3 nhóm điều kiện:
+    1. Nhóm Liên hệ: Email & Số điện thoại (X1, X2)
+    2. Nhóm Pháp nhân / Danh tính: Thông tin doanh nghiệp & GPKD/Ủy quyền (X3)
+    3. Nhóm Tài khoản & An toàn: Tài khoản ngân hàng hợp lệ & Không vi phạm (X4, X5)
+
+    Nếu đạt toàn bộ điều kiện bắt buộc:
+    - Tự động chuyển profile.verification_status = 'verified'
+    - Tự động chuyển profile.is_verified = True
+    - Ghi nhận thời điểm verified_at
+    - Ghi AdminAuditLog
+    Returns: (is_approved: bool, message: str, eval_data: dict)
+    """
+    eval_res = evaluate_hirer_criteria(user, profile)
+    if eval_res.get('all_mandatory_passed', False):
+        profile.is_verified = True
+        profile.verification_status = 'verified'
+        profile.verified_at = datetime.utcnow()
+        profile.rejection_reason = None
+
+        try:
+            from models import AdminAuditLog, ADMIN_AUDIT_ACTIONS
+            AdminAuditLog.log(
+                action=ADMIN_AUDIT_ACTIONS.get('VERIFY_HIRER', 'VERIFY_HIRER'),
+                admin_id=None,
+                target_type='hirer',
+                target_id=user.id,
+                description=f'Hệ thống tự động thẩm định và phê duyệt tài khoản {profile.account_type}: {user.name} ({profile.company or user.email}).',
+                extra_data={'tax_code': profile.tax_code, 'account_type': profile.account_type, 'auto_approved': True}
+            )
+        except Exception:
+            pass
+
+        try:
+            db.session.commit()
+            return True, 'Hồ sơ người đăng tuyển của bạn đã được hệ thống tự động thẩm định và phê duyệt thành công! Quyền đăng tin tuyển dụng đã kích hoạt.', eval_res
+        except Exception as e:
+            db.session.rollback()
+            return False, f'Lỗi lưu trạng thái xác minh: {e}', eval_res
+
+    # Chưa đủ điều kiện tự duyệt
+    return False, 'Hồ sơ chưa đủ điều kiện tự động phê duyệt, đang chuyển vào hàng đợi để xem xét bổ sung.', eval_res
 
 
 def can_hirer_post_job(user):

@@ -865,11 +865,25 @@ def submit_verification_for_review(user, form_data=None, confirmed=False, ip_add
             'error_list': ['Lỗi kết nối cơ sở dữ liệu. Dữ liệu của bạn được bảo lưu an toàn, vui lòng thử gửi lại.']
         }
 
-    success_msg = f'Hồ sơ xác minh (Phiên bản #{next_version}) đã được gửi thành công tới Ban quản trị! Thời gian xét duyệt dự kiến 24–48 giờ.'
+    # 7. TỰ ĐỘNG THẨM ĐỊNH VÀ PHÊ DUYỆT TỨC THÌ (AUTO-VERIFICATION OVERHAUL)
+    auto_approved = False
+    try:
+        from services.auto_verification_service import process_translator_submission_auto
+        auto_ok, auto_msg = process_translator_submission_auto(verification.id)
+        if auto_ok:
+            auto_approved = True
+            success_msg = 'Hồ sơ xác minh đã được hệ thống tự động thẩm định và phê duyệt thành công! Huy hiệu xác minh đã được kích hoạt ngay lập tức ✓'
+    except Exception as auto_err:
+        print(f"[AUTO VERIF ON SUBMIT ERROR] {auto_err}", file=sys.stderr)
+
+    if not auto_approved:
+        success_msg = f'Hồ sơ xác minh (Phiên bản #{next_version}) đã được gửi thành công! Hệ thống đang xử lý thẩm định hồ sơ.'
+
     return True, success_msg, {
         'version': next_version,
         'submitted_at': now.strftime('%d/%m/%Y %H:%M'),
-        'status': 'pending',
+        'status': 'approved' if auto_approved else 'pending',
+        'is_auto_approved': auto_approved,
         'snapshot': snapshot_data
     }
 

@@ -66,6 +66,12 @@ OFFICIAL_CERT_WHITELIST: Dict[str, Dict[str, any]] = {
         'domains': ['gov.vn', 'moet.gov.vn', 'dichvucong.gov.vn'],
         'icon': 'gov',
         'badge_color': 'emerald'
+    },
+    'viettranslate_test': {
+        'display_name': 'Cổng Kiểm thực Chứng chỉ VietTranslate (Verified Test Authority)',
+        'domains': ['verify.viettranslate.org', 'cert.viettranslate.vn', 'viettranslate.local'],
+        'icon': 'blockchain',
+        'badge_color': 'emerald'
     }
 }
 

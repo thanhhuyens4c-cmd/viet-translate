@@ -3785,9 +3785,13 @@ def account_profile():
                     flash(msg, 'error')
             else:
                 db.session.commit()
+                # Kích hoạt quy trình tự động thẩm định và phê duyệt Khách hàng (Auto-Verification Overhaul)
+                from services.hirer_verification import auto_evaluate_and_approve_hirer
+                auto_hirer_ok, auto_hirer_msg, hirer_eval = auto_evaluate_and_approve_hirer(user, profile)
+
                 flash(_t('flash.hirer_profile_updated'), 'success')
                 if profile.is_verified and profile.verification_status == 'verified':
-                    flash('Hồ sơ đã được cập nhật thành công ✓', 'success')
+                    flash('Hồ sơ đã được hệ thống tự động thẩm định và phê duyệt thành công! Quyền đăng tin tuyển dụng đã kích hoạt ✓', 'success')
                 elif profile.verification_status == 'pending':
                     flash('Hồ sơ đã được lưu và gửi yêu cầu thẩm định tới Ban quản trị. Chức năng đăng tuyển sẽ được kích hoạt sau khi hồ sơ được duyệt.', 'info')
                     try:

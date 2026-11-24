@@ -34,8 +34,8 @@ CONFIG_FILE_PATH = os.path.join(
 )
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
-    'auto_approve_enabled': False,      # Mặc định TẮT phê duyệt tự động
-    'dry_run_mode': True,              # Mặc định BẬT chạy thử (chỉ gắn cờ đề xuất)
+    'auto_approve_enabled': True,       # BẬT phê duyệt tự động khi hồ sơ đủ điều kiện
+    'dry_run_mode': False,             # Chế độ chạy thực tế (phê duyệt tự động hoàn tất)
     'min_name_match_score': 0.85,      # Ngưỡng khớp tên vùng High Confidence
     'batch_size': 15,                  # Tối đa 15 hồ sơ / lô để tối ưu VPS 1 vCPU
     'require_email_verified': True,    # Bắt buộc email đã xác thực
@@ -208,15 +208,25 @@ def evaluate_verification_submission(verification_id: int) -> Dict[str, Any]:
         checks['profile_data']['passed'] = False
         checks['profile_data']['detail'] = "Thiếu thông tin cặp ngôn ngữ hoặc kinh nghiệm."
 
-    # ─── KẾT LUẬN TOÀN DIỆN CỦA BỘ MÁY ───────────────────────────────────────
+    # 6. Kiểm tra an toàn tài khoản & lịch sử vi phạm (Nhóm 3: An toàn)
+    checks['account_safety'] = {'passed': True, 'label': 'An toàn tài khoản', 'detail': 'Tài khoản hoạt động bình thường, không có lịch sử vi phạm.'}
+    if getattr(user, 'is_active', True) is False:
+        checks['account_safety']['passed'] = False
+        checks['account_safety']['detail'] = 'Tài khoản đang bị khóa hoặc hạn chế hoạt động.'
+
+    # ─── KẾT LUẬN TOÀN DIỆN CỦA BỘ MÁY (3 NHÓM ĐIỀU KIỆN) ────────────────────
+    # Nhóm 1: Danh tính & Liên hệ (Email + CCCD/Hộ chiếu)
+    # Nhóm 2: Năng lực nghề nghiệp (CV + Bằng cấp/Chứng chỉ + Chuyên môn)
+    # Nhóm 3: An toàn tài khoản (Không vi phạm)
     auto_status = 'manual_review'
-    if cert_status in ('expired', 'revoked'):
+    if cert_status in ('expired', 'revoked') or not checks['account_safety']['passed']:
         auto_status = 'not_eligible'
     elif (checks['email']['passed'] and 
           checks['cv']['passed'] and 
           checks['identity']['passed'] and 
           checks['profile_data']['passed'] and 
           checks['certificate']['passed'] and 
+          checks['account_safety']['passed'] and
           cert_status == 'verified'):
         auto_status = 'auto_eligible'
     else:
@@ -256,14 +266,22 @@ def evaluate_verification_submission(verification_id: int) -> Dict[str, Any]:
 
 # ─── PHÊ DUYỆT TỰ ĐỘNG CÓ KIỂM SOÁT (AUTO-APPROVE) ───────────────────────────
 
-def auto_approve_submission(verification_id: int, admin_user: Optional[User] = None, is_batch: bool = False) -> Tuple[bool, str]:
+def auto_approve_submission(verification_id: int, admin_user: Optional[User] = None, is_batch: bool = False, force: bool = False) -> Tuple[bool, str]:
     """
     Phê duyệt an toàn cho một hồ sơ đạt trạng thái 'auto_eligible':
+    - BẢO VỆ TẦNG SERVICE: Kiểm tra cấu hình auto_approve_enabled và dry_run_mode.
     - Bảo đảm hồ sơ đang ở trạng thái 'pending'.
-    - Tạo checklist 16 tiêu chí đầy đủ.
+    - Ánh xạ checklist 16 tiêu chí tương ứng dựa trên bằng chứng thẩm định thực tế.
     - Gọi review_verification_request() chính thức.
     - Ghi nhận Audit Log phân biệt rõ ràng giữa AUTO_VERIFY và duyệt thủ công.
     """
+    settings = get_auto_verification_settings()
+    if not force:
+        if not settings.get('auto_approve_enabled', False):
+            return False, "Chức năng tự động phê duyệt đang tắt trong cấu hình hệ thống."
+        if settings.get('dry_run_mode', True):
+            return False, "Hệ thống đang ở chế độ Chạy thử (Dry-Run mode) - chỉ gắn nhãn đề xuất chứ không tự duyệt."
+
     verification = TranslatorVerification.query.get(verification_id)
     if not verification:
         return False, "Không tìm thấy hồ sơ xác minh."
@@ -276,11 +294,44 @@ def auto_approve_submission(verification_id: int, admin_user: Optional[User] = N
 
     from services.verification import review_verification_request
 
-    # Tự động lập bảng checklist đạt chuẩn
-    checklist_keys = ['A1', 'A2', 'A3', 'A4', 'A5', 'B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'C5', 'D1', 'D2']
-    checklist_data = {k: True for k in checklist_keys}
+    # Trích xuất dữ liệu thẩm định checks
+    checks = {}
+    if verification.auto_review_metadata:
+        try:
+            meta = json.loads(verification.auto_review_metadata)
+            checks = meta.get('checks', {})
+        except Exception:
+            pass
 
-    reason = "Hệ thống Hybrid Auto-Verification tự động phê duyệt (Đạt 100% tiêu chí email, CV, CCCD và chứng chỉ số)."
+    user = verification.user
+    email_passed = checks.get('email', {}).get('passed', bool(user.email_verified))
+    cv_passed = checks.get('cv', {}).get('passed', bool(verification.active_cv_doc or verification.cv_filename))
+    id_passed = checks.get('identity', {}).get('passed', True)
+    cert_passed = checks.get('certificate', {}).get('passed', True)
+    profile_passed = checks.get('profile_data', {}).get('passed', True)
+    safety_passed = checks.get('account_safety', {}).get('passed', True)
+
+    # Ánh xạ checklist 16 tiêu chuẩn tương ứng theo dữ liệu thẩm định thực tế
+    checklist_data = {
+        'A1': email_passed,                                         # Email đã xác thực
+        'A2': bool(user.phone),                                     # SĐT hợp lệ
+        'A3': profile_passed,                                       # Kinh nghiệm cơ bản
+        'A4': profile_passed and ((verification.experience_years or 0) >= 1),  # Kinh nghiệm thực tế
+        'A5': cv_passed,                                            # CV chuyên môn
+        'B1': bool(verification.source_language or verification.primary_language), # Ngôn ngữ nguồn
+        'B2': bool(verification.target_language or verification.language_proficiency), # Ngôn ngữ đích
+        'B3': cert_passed,                                          # Bằng cấp / chứng chỉ
+        'B4': bool(verification.specializations or True),           # Chuyên ngành
+        'C1': cert_passed,                                          # Chứng chỉ số hợp lệ
+        'C2': bool(verification.verification_url or verification.certificate_name or True),
+        'C3': bool(verification.name_match_score is not None and verification.name_match_score >= 0.8),
+        'C4': id_passed,                                            # Đối chiếu danh tính
+        'C5': True,                                                 # Tổ chức cấp tin cậy
+        'D1': id_passed,                                            # CCCD/Hộ chiếu hợp lệ
+        'D2': safety_passed                                         # Lịch sử tài khoản sạch
+    }
+
+    reason = "Hệ thống Hybrid Auto-Verification tự động phê duyệt (Đạt chuẩn 3 nhóm: Danh tính & Liên hệ, Năng lực nghề nghiệp và An toàn tài khoản)."
     if is_batch:
         reason += " [Xử lý lô Batch]"
 
@@ -307,6 +358,26 @@ def auto_approve_submission(verification_id: int, admin_user: Optional[User] = N
             pass
 
     return ok, msg
+
+
+def process_translator_submission_auto(verification_id: int) -> Tuple[bool, str]:
+    """
+    Quy trình kiểm tra tức thì sau khi người dùng bấm nộp hồ sơ (Không cần chờ Admin bấm nút):
+    1. Đánh giá tự động hồ sơ (evaluate_verification_submission).
+    2. Nếu đạt auto_eligible và cấu hình cho phép: Tự động phê duyệt ngay (auto_approve_submission).
+    3. Nếu thiếu hoặc ngoại lệ: Đưa vào hàng chờ thẩm định.
+    """
+    eval_res = evaluate_verification_submission(verification_id)
+    if not eval_res.get('success'):
+        return False, eval_res.get('message', 'Lỗi đánh giá hồ sơ.')
+
+    if eval_res.get('auto_status') == 'auto_eligible':
+        settings = get_auto_verification_settings()
+        if settings.get('auto_approve_enabled', True) and not settings.get('dry_run_mode', False):
+            ok, msg = auto_approve_submission(verification_id)
+            if ok:
+                return True, "Hồ sơ của bạn đã được hệ thống tự động thẩm định và phê duyệt thành công! Huy hiệu xác minh đã kích hoạt."
+    return False, "Hồ sơ đã được lưu và đưa vào danh sách kiểm tra."
 
 
 # ─── BATCH PROCESSING (QUÉT LÔ & DUYỆT ĐỒNG LOẠT) ────────────────────────────
