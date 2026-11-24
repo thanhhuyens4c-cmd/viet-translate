@@ -5461,6 +5461,37 @@
                                 </fieldset>
 
                                 <fieldset class="space-y-4">
+                                    <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Tài khoản ngân hàng &amp; Thanh toán (Escrow)</legend>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div class="space-y-1.5">
+                                            <label class="{{ lbl }}">Ngân hàng thụ hưởng</label>
+                                            <input type="text" name="bank_name" value="{{ (hp.bank_name if hp else '') or '' }}" placeholder="Ví dụ: Vietcombank, Techcombank, MB Bank..." class="{{ inp }}">
+                                        </div>
+                                        <div class="space-y-1.5">
+                                            <label class="{{ lbl }}">Số tài khoản thanh toán</label>
+                                            <input type="text" name="bank_account_number" inputmode="numeric" value="{{ (hp.bank_account_number if hp else '') or '' }}" placeholder="Số tài khoản ngân hàng" class="{{ inp }}">
+                                        </div>
+                                    </div>
+                                    <p class="text-[11px] text-slate-400">Tài khoản dùng để đối soát thanh toán hợp đồng ký quỹ Escrow và nhận hoàn tiền khi có tranh chấp.</p>
+                                </fieldset>
+
+                                <fieldset class="space-y-4">
+                                    <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Hồ sơ pháp nhân &amp; Giấy ủy quyền</legend>
+                                    <div class="space-y-1.5">
+                                        <label class="{{ lbl }}">Tệp Giấy phép đăng ký kinh doanh / Giấy ủy quyền (PDF/JPG/PNG)</label>
+                                        <div class="flex items-center gap-3">
+                                            <input type="file" name="authorization_doc" accept=".pdf,.png,.jpg,.jpeg" class="text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer">
+                                            {% if hp and hp.authorization_doc_url %}
+                                            <a href="{{ hp.authorization_doc_url }}" target="_blank" class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 transition shrink-0">
+                                                <span>✓ Xem tệp đã tải</span>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                        <p class="text-[11px] text-slate-400">Đính kèm bản scan GPKD hoặc văn bản ủy quyền đại diện doanh nghiệp để hệ thống tự động thẩm định tức thì.</p>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="space-y-4">
                                     <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Khác</legend>
                                     <div class="space-y-1.5"><label class="{{ lbl }}">Giới thiệu ngắn về công ty</label>
                                         <textarea name="about" rows="3" maxlength="1000" class="{{ inp }}">{{ (hp.about if hp else '') or '' }}</textarea></div>
