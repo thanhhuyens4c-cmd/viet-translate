@@ -126,6 +126,31 @@ class BankTransferTests(unittest.TestCase):
         self.assertIn(f'des=VT{self.cid}', body)
         self.assertNotIn('4123 4567 8901 2345', body)
 
+    def test_sandbox_shows_prefilled_qr_and_keeps_fake_button(self):
+        os.environ['PAYMENT_MODE'] = 'sandbox'
+        os.environ.pop('SEPAY_API_KEY')
+        with self.client.session_transaction() as s:
+            s['user_id'] = self.h.id
+        body = self.client.get(f'/payment-mockup/{self.cid}').get_data(as_text=True)
+        self.assertIn('amount=2203200', body)
+        self.assertIn(f'des=VT{self.cid}', body)
+        self.assertIn('4123 4567 8901 2345', body)       # nút thanh toán giả vẫn có trong sandbox
+
+    def test_no_bank_configured_shows_no_qr(self):
+        os.environ['PAYMENT_MODE'] = 'sandbox'
+        os.environ.pop('BANK_ACCOUNT')
+        with self.client.session_transaction() as s:
+            s['user_id'] = self.h.id
+        self.assertNotIn('qr.sepay.vn', self.client.get(f'/payment-mockup/{self.cid}').get_data(as_text=True))
+
+    def test_live_without_key_refuses_to_show_qr(self):
+        os.environ.pop('SEPAY_API_KEY')
+        with self.client.session_transaction() as s:
+            s['user_id'] = self.h.id
+        body = self.client.get(f'/payment-mockup/{self.cid}').get_data(as_text=True)
+        self.assertNotIn('qr.sepay.vn', body)
+        self.assertIn('chưa cấu hình', body)
+
     def test_sandbox_mode_still_works_for_hirer_only(self):
         os.environ['PAYMENT_MODE'] = 'sandbox'
         with self.client.session_transaction() as s:

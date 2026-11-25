@@ -10602,13 +10602,15 @@ def payment_mockup(contract_id):
             return redirect(url_for('index'))
     if contract.status != 'escrow_pending':
         return redirect(url_for('transaction_detail', contract_id=contract.id))
+    # QR điền sẵn số tiền và nội dung hiện ngay khi sàn có tài khoản nhận tiền.
+    # Chế độ live còn cần khóa SePay để tự xác nhận, thiếu thì không cho khách chuyển tiền.
     live_info = None
-    if live:
-        if bank_transfer.live_ready():
-            live_info = {**bank_transfer.bank_config(), 'qr': bank_transfer.qr_url(contract),
-                         'code': bank_transfer.transfer_code(contract.id), 'amount': total_payable}
-        else:
-            live_info = {'error': True}
+    cfg = bank_transfer.bank_config()
+    if live and not bank_transfer.live_ready():
+        live_info = {'error': True}
+    elif cfg['bank'] and cfg['account']:
+        live_info = {**cfg, 'qr': bank_transfer.qr_url(contract),
+                     'code': bank_transfer.transfer_code(contract.id), 'amount': total_payable}
     return render_template('payment_mockup.html', contract=contract,
                            platform_fee=platform_fee, translator_receives=translator_receives,
                            total_payable=total_payable, live=live, live_info=live_info)

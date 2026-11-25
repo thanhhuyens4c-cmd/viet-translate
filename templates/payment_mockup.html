@@ -30,7 +30,7 @@
                         </h2>
                     </div>
 
-                    {% if live %}
+                    {% if live_info %}
                     <div class="p-5 sm:p-6 space-y-4">
                         {% if live_info and not live_info.error %}
                         <p class="text-xs text-slate-600 leading-relaxed">Quét mã bằng ứng dụng ngân hàng. Số tiền và nội dung đã điền sẵn. <strong>Giữ nguyên nội dung chuyển khoản</strong> để sàn tự nhận diện.</p>
@@ -42,7 +42,8 @@
                             <div class="flex justify-between"><dt class="text-slate-500">Số tiền</dt><dd class="font-bold">{{ live_info.amount|vnd }} VND</dd></div>
                             <div class="flex justify-between"><dt class="text-slate-500">Nội dung</dt><dd class="font-bold font-mono">{{ live_info.code }}</dd></div>
                         </dl>
-                        <p id="pay-state" class="text-xs text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">Đang chờ tiền về tài khoản sàn...</p>
+                        <p id="pay-state" class="text-xs text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">Đang chờ tiền về tài khoản sàn. Trang sẽ tự chuyển khi sàn nhận đủ tiền.</p>
+                        {% if not live %}<p class="text-[11px] text-center text-slate-500">Chế độ thử nghiệm: bạn cũng có thể dùng nút thanh toán giả bên dưới.</p>{% endif %}
                         <script>
                             (function poll() {
                                 fetch("{{ url_for('payment_status', contract_id=contract.id) }}").then(r => r.json()).then(d => {
@@ -55,7 +56,8 @@
                         <p class="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">Sàn chưa cấu hình tài khoản nhận tiền nên chưa thanh toán được. Vui lòng liên hệ quản trị viên.</p>
                         {% endif %}
                     </div>
-                    {% else %}
+                    {% endif %}
+                    {% if not live %}
                     <form method="POST" action="{{ url_for('payment_mockup', contract_id=contract.id) }}" class="p-5 sm:p-6 space-y-5">
 
                         <!-- Card UI Mockup -->
