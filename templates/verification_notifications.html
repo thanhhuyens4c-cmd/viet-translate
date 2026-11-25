@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+{% block title %}{{ t('verification_notifications_page.title') }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-b from-slate-50 via-slate-50/80 to-slate-100/90 py-8 sm:py-12">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- ─── BREADCRUMB ──────────────────────────────────────────────────────── -->
+        <nav class="flex items-center gap-2 text-xs font-medium text-slate-500 mb-6" aria-label="Breadcrumb">
+            <a href="{{ url_for('index') }}" class="hover:text-brand-600 transition">{{ t('nav.home') }}</a>
+            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <a href="{{ url_for('account_profile') }}" class="hover:text-brand-600 transition">{{ t('account_profile_page.tab_profile') }}</a>
+            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <a href="{{ url_for('verification_status_page') }}" class="hover:text-brand-600 transition">{{ t('verification_notifications_page.btn_view_status') }}</a>
+            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <span class="text-slate-800 font-semibold truncate">{{ t('verification_notifications_page.heading') }}</span>
+        </nav>
+
+        <!-- ─── PAGE HEADER & CONTROLS ────────────────────────────────────────── -->
+        <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200/90 mb-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div class="flex items-start gap-4">
+                    <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-brand-500/20">
+                        <svg class="w-7 h-7 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2 mb-1">
+                            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                                {{ t('verification_notifications_page.heading') }}
+                            </h1>
+                            <span id="header-unread-badge" class="hidden px-2.5 py-0.5 text-xs font-bold rounded-full bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
+                                0 chưa đọc
+                            </span>
+                        </div>
+                        <p class="text-slate-600 text-xs sm:text-sm leading-relaxed max-w-2xl">
+                            {{ t('verification_notifications_page.subtitle') }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2.5 self-start md:self-center shrink-0">
+                    <button id="mark-all-read-btn" type="button" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 hover:text-brand-800 rounded-xl transition duration-150 cursor-pointer border border-brand-200/80 shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span>{{ t('verification_notifications_page.mark_all_read') }}</span>
+                    </button>
+                    <a href="{{ url_for('verification_status_page') }}" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 rounded-xl transition duration-150 border border-slate-200 shadow-2xs">
+                        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        <span>{{ t('verification_notifications_page.btn_view_status') }}</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- ─── FILTER TABS ───────────────────────────────────────────────── -->
+            <div class="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between gap-4 overflow-x-auto hide-scrollbar">
+                <div class="flex items-center gap-1.5 shrink-0" role="tablist">
+                    <button class="filter-btn active px-3.5 py-1.5 text-xs font-bold rounded-lg transition" data-filter="all">
+                        {{ t('verification_notifications_page.filter_all') }}
+                    </button>
+                    <button class="filter-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition" data-filter="unread">
+                        {{ t('verification_notifications_page.filter_unread') }}
+                    </button>
+                    <button class="filter-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition" data-filter="submitted">
+                        {{ t('verification_notifications_page.filter_submitted') }}
+                    </button>
+                    <button class="filter-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition" data-filter="revision">
+                        {{ t('verification_notifications_page.filter_revision') }}
+                    </button>
+                    <button class="filter-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition" data-filter="approved">
+                        {{ t('verification_notifications_page.filter_approved') }}
+                    </button>
+                    <button class="filter-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition" data-filter="rejected">
+                        {{ t('verification_notifications_page.filter_rejected') }}
+                    </button>
+                    <button class="filter-btn px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100 transition" data-filter="policy">
+                        {{ t('verification_notifications_page.filter_policy') }}
+                    </button>
+                </div>
+
+                <div class="text-[11px] text-slate-400 font-medium shrink-0 hidden sm:block">
+                    Tự động đồng bộ với sự kiện hồ sơ thật
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── NOTIFICATION CONTAINER STATES ─────────────────────────────────── -->
+
+        <!-- 1. LOADING STATE -->
+        <div id="notif-loading" class="bg-white rounded-3xl p-10 border border-slate-200/80 shadow-xs flex flex-col items-center justify-center text-center">
+            <div class="relative w-12 h-12 mb-4">
+                <div class="w-12 h-12 rounded-full border-3 border-brand-100 border-t-brand-600 animate-spin"></div>
+            </div>
+            <h3 class="text-sm font-bold text-slate-800">{{ t('verification_notifications_page.loading') }}</h3>
+            <p class="text-xs text-slate-500 mt-1">{{ t('verification_notifications_page.loading_sub') }}</p>
+        </div>
+
+        <!-- 2. ERROR STATE -->
+        <div id="notif-error" class="hidden bg-white rounded-3xl p-8 border border-rose-200 shadow-xs text-center">
+            <div class="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-200">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+            <h3 class="text-base font-bold text-slate-900">{{ t('verification_notifications_page.error_title') }}</h3>
+            <p class="text-xs text-slate-600 max-w-md mx-auto mt-1 mb-5 leading-relaxed">{{ t('verification_notifications_page.error_desc') }}</p>
+            <button id="retry-btn" type="button" class="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition shadow-xs cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                <span>{{ t('verification_notifications_page.btn_retry') }}</span>
+            </button>
+        </div>
+
+        <!-- 3. EMPTY STATE -->
+        <div id="notif-empty" class="hidden bg-white rounded-3xl p-12 border border-dashed border-slate-300/80 shadow-xs text-center">
+            <div class="w-20 h-20 rounded-3xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-4 border border-slate-200">
+                <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </div>
+            <h3 class="text-base font-bold text-slate-800">{{ t('verification_notifications_page.empty_title') }}</h3>
+            <p class="text-xs text-slate-500 max-w-md mx-auto mt-1 mb-6 leading-relaxed">
+                {{ t('verification_notifications_page.empty_desc') }}
+            </p>
+            <div class="flex flex-wrap items-center justify-center gap-3">
+                <a href="{{ url_for('verification_status_page') }}" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-xl transition border border-brand-200">
+                    <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    <span>{{ t('verification_notifications_page.btn_view_status') }}</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 4. NOTIFICATION LIST -->
+        <div id="notif-list" class="hidden space-y-3.5">
+            <!-- Populated dynamically via JS -->
+        </div>
+
+    </div>
+</div>
+
+<script>
+(function() {
+    const loadingEl = document.getElementById('notif-loading');
+    const errorEl = document.getElementById('notif-error');
+    const emptyEl = document.getElementById('notif-empty');
+    const listEl = document.getElementById('notif-list');
+    const unreadBadgeEl = document.getElementById('header-unread-badge');
+    const markAllBtn = document.getElementById('mark-all-read-btn');
+    const retryBtn = document.getElementById('retry-btn');
+
+    let notifications = [];
+    let currentFilter = 'all';
+
+    // Helper: SVG Icons per event kind
+    function getEventIcon(kind) {
+        switch(kind) {
+            case 'approved':
+                return `<svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+            case 'revision':
+                return `<svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>`;
+            case 'rejected':
+                return `<svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+            case 'policy':
+                return `<svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>`;
+            case 'submitted':
+            case 'resubmitted':
+            default:
+                return `<svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>`;
+        }
+    }
+
+    function getEventBg(kind) {
+        switch(kind) {
+            case 'approved': return 'bg-emerald-100/90 border-emerald-200';
+            case 'revision': return 'bg-orange-100/90 border-orange-200';
+            case 'rejected': return 'bg-rose-100/90 border-rose-200';
+            case 'policy': return 'bg-purple-100/90 border-purple-200';
+            case 'submitted':
+            case 'resubmitted':
+            default: return 'bg-blue-100/90 border-blue-200';
+        }
+    }
+
+    function getBtnClass(kind) {
+        switch(kind) {
+            case 'approved': return 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200';
+            case 'revision': return 'text-orange-700 bg-orange-50 hover:bg-orange-100 border-orange-200';
+            case 'rejected': return 'text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-200';
+            case 'policy': return 'text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200';
+            default: return 'text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200';
+        }
+    }
+
+    function updateUnreadBadge(count) {
+        if (count > 0) {
+            unreadBadgeEl.textContent = `${count} chưa đọc`;
+            unreadBadgeEl.classList.remove('hidden');
+            markAllBtn.disabled = false;
+        } else {
+            unreadBadgeEl.classList.add('hidden');
+            markAllBtn.disabled = true;
+        }
+
+        // Đồng bộ lên header chính nếu có badge chuông
+        const navBadge = document.getElementById('nav-notif-badge') || document.getElementById('notif-badge');
+        if (navBadge) {
+            fetch('/api/notifications/unread-count')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.count > 0) {
+                        navBadge.textContent = d.count;
+                        navBadge.classList.remove('hidden');
+                        navBadge.style.display = 'inline-flex';
+                    } else {
+                        navBadge.classList.add('hidden');
+                        navBadge.style.display = 'none';
+                    }
+                })
+                .catch(() => {});
+        }
+    }
+
+    function render() {
+        const filtered = notifications.filter(n => {
+            if (currentFilter === 'all') return true;
+            if (currentFilter === 'unread') return !n.is_read;
+            return n.category === currentFilter;
+        });
+
+        if (filtered.length === 0) {
+            listEl.classList.add('hidden');
+            emptyEl.classList.remove('hidden');
+            return;
+        }
+
+        emptyEl.classList.add('hidden');
+        listEl.classList.remove('hidden');
+
+        listEl.innerHTML = filtered.map(n => `
+            <div data-id="${n.id}" data-url="${n.url || '#'}" data-is-read="${n.is_read}"
+                class="notif-card group bg-white rounded-2xl p-5 border transition duration-150 cursor-pointer shadow-2xs hover:shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4
+                ${!n.is_read ? 'border-brand-300 bg-brand-50/20 ring-1 ring-brand-100/80' : 'border-slate-200/90 hover:border-slate-300'}">
+                
+                <div class="flex items-start gap-3.5 min-w-0 flex-1">
+                    <!-- Icon container -->
+                    <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${getEventBg(n.icon_kind)} shadow-2xs">
+                        ${getEventIcon(n.icon_kind)}
+                    </div>
+
+                    <!-- Nội dung -->
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2 mb-1">
+                            <span class="px-2.5 py-0.5 text-[11px] font-bold rounded-md border ${n.badge_class}">
+                                ${n.type_label}
+                            </span>
+                            ${!n.is_read ? `
+                            <span class="unread-pill inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-md bg-rose-50 text-rose-700 border border-rose-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                                Mới
+                            </span>` : ''}
+                            <span class="text-[11px] text-slate-400 font-medium" title="${n.created_at_display || ''}">
+                                ${n.time_ago}
+                            </span>
+                        </div>
+
+                        <h3 class="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition notif-title leading-snug">
+                            ${n.title}
+                        </h3>
+
+                        <p class="text-xs text-slate-600 mt-1 leading-relaxed notif-message">
+                            ${n.message}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Thao tác liên kết & Đánh dấu đã đọc -->
+                <div class="flex items-center gap-2 shrink-0 self-end md:self-center pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+                    ${!n.is_read ? `
+                    <button type="button" class="quick-read-btn p-2 rounded-xl text-slate-400 hover:text-brand-600 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition cursor-pointer" title="{{ t('verification_notifications_page.btn_mark_read') }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    </button>` : ''}
+                    <a href="${n.url || '#'}" class="action-link inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition ${getBtnClass(n.icon_kind)}">
+                        <span>${n.action_label || '{{ t('verification_notifications_page.btn_process') }}'}</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </a>
+                </div>
+
+            </div>
+        `).join('');
+    }
+
+    function loadNotifications() {
+        loadingEl.classList.remove('hidden');
+        errorEl.classList.add('hidden');
+        emptyEl.classList.add('hidden');
+        listEl.classList.add('hidden');
+
+        fetch('/api/account/verification/notifications?page=1&per_page=50')
+            .then(res => {
+                if (!res.ok) throw new Error('Network response was not ok');
+                return res.json();
+            })
+            .then(data => {
+                loadingEl.classList.add('hidden');
+                if (data.success && data.data) {
+                    notifications = data.data.notifications || [];
+                    updateUnreadBadge(data.data.unread_count || 0);
+                    render();
+                } else {
+                    errorEl.classList.remove('hidden');
+                }
+            })
+            .catch(err => {
+                console.error('[NOTIF ERROR]', err);
+                loadingEl.classList.add('hidden');
+                errorEl.classList.remove('hidden');
+            });
+    }
+
+    // Filter Buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.classList.remove('active', 'bg-brand-600', 'text-white');
+                b.classList.add('text-slate-600', 'hover:bg-slate-100');
+            });
+            const t = e.currentTarget;
+            t.classList.remove('text-slate-600', 'hover:bg-slate-100');
+            t.classList.add('active', 'bg-brand-600', 'text-white');
+
+            currentFilter = t.dataset.filter;
+            render();
+        });
+    });
+
+    // Style active tab initially
+    const activeTab = document.querySelector('.filter-btn.active');
+    if (activeTab) {
+        activeTab.classList.add('bg-brand-600', 'text-white');
+        activeTab.classList.remove('text-slate-600');
+    }
+
+    // Card interactions
+    listEl.addEventListener('click', (e) => {
+        const card = e.target.closest('.notif-card');
+        if (!card) return;
+
+        const notifId = card.dataset.id;
+        const targetUrl = card.dataset.url;
+        const isRead = card.dataset.isRead === 'true';
+
+        // Nút đánh dấu đã đọc nhanh
+        const quickReadBtn = e.target.closest('.quick-read-btn');
+        if (quickReadBtn) {
+            e.stopPropagation();
+            fetch(`/api/account/verification/notifications/${notifId}/read`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    const item = notifications.find(n => n.id == notifId);
+                    if (item) item.is_read = true;
+                    if (data.unread_count !== undefined) updateUnreadBadge(data.unread_count);
+                    render();
+                });
+            return;
+        }
+
+        // Link điều hướng trực tiếp
+        const actionLink = e.target.closest('.action-link');
+        if (actionLink) {
+            if (!isRead) {
+                fetch(`/api/account/verification/notifications/${notifId}/read`, { method: 'POST' });
+            }
+            return; // Let standard link navigation happen
+        }
+
+        // Bấm trên toàn thẻ
+        if (!isRead) {
+            fetch(`/api/account/verification/notifications/${notifId}/read`, { method: 'POST' })
+                .then(() => {
+                    if (targetUrl && targetUrl !== '#') window.location.href = targetUrl;
+                });
+        } else {
+            if (targetUrl && targetUrl !== '#') window.location.href = targetUrl;
+        }
+    });
+
+    // Mark all as read
+    markAllBtn.addEventListener('click', () => {
+        markAllBtn.disabled = true;
+        fetch('/api/account/verification/notifications/read-all', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    notifications.forEach(n => n.is_read = true);
+                    updateUnreadBadge(0);
+                    render();
+                }
+            })
+            .catch(() => {
+                markAllBtn.disabled = false;
+            });
+    });
+
+    if (retryBtn) {
+        retryBtn.addEventListener('click', loadNotifications);
+    }
+
+    // Initial load
+    loadNotifications();
+})();
+</script>
+
+<style>
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
+{% endblock %}

@@ -96,15 +96,11 @@
                                     {{ t('auto.gói') }} {{ tier | upper }}
                                 </span>
                                 <h1 class="text-xl sm:text-2xl font-extrabold mt-2.5">{{ service.name }}</h1>
-                                <p class="text-blue-100 text-xs sm:text-sm mt-1 leading-relaxed">{{ service.description
-                                    }}</p>
+                                <p class="text-blue-100 text-xs sm:text-sm mt-1 leading-relaxed">{{ service.description }}</p>
                             </div>
                             <div class="text-left sm:text-right shrink-0">
-                                <p class="text-2xl sm:text-3xl font-black">{{ "{:,.0f}".format(price) }}đ</p>
-                                <p class="text-blue-100 text-[11px] mt-0.5">{{ t('auto.bảo_vệ_qua_quỹ_escro') }}</p>
                                 <p class="text-2xl sm:text-3xl font-black">{{ price|vnd }} VND</p>
-                                <p class="text-blue-100 text-[11px] mt-0.5">{{ 'Bảo vệ qua quỹ Escrow' if current_lang
-                                    == 'vi' else 'Protected by Escrow Fund' }}</p>
+                                <p class="text-blue-100 text-[11px] mt-0.5">{{ 'Bảo vệ qua quỹ Escrow' if current_lang == 'vi' else 'Protected by Escrow Fund' }}</p>
                             </div>
                         </div>
                     </div>
@@ -139,7 +135,7 @@
                             <h2 class="text-sm sm:text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
                                 <span
                                     class="w-6 h-6 rounded-lg bg-brand-600 text-white flex items-center justify-center text-xs font-bold">02</span>
-                                {{ t('auto.thời_gian_bắt_đầu__k') }}
+                                {{ t('auto.thời_gian_bắt_đầu__k') }} <span class="text-red-500">*</span>
                             </h2>
 
                             <div class="grid grid-cols-2 gap-3 sm:gap-4">
@@ -148,14 +144,14 @@
                                         class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{{
                                         t('auto.giờ_bắt_đầu') }}</label>
                                     <div class="relative">
-                                        <input type="text" id="time-start-display" placeholder="--:--" readonly
+                                        <input type="text" id="time-start-display" placeholder="08:00" readonly
                                             class="cal-display w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500 text-center bg-slate-50/50">
                                         <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
                                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
-                                        <input type="hidden" name="time_start" id="time-start-hidden">
+                                        <input type="hidden" name="time_start" id="time-start-hidden" value="08:00">
                                     </div>
                                 </div>
                                 <div>
@@ -163,17 +159,20 @@
                                         class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{{
                                         t('auto.giờ_kết_thúc') }}</label>
                                     <div class="relative">
-                                        <input type="text" id="time-end-display" placeholder="--:--" readonly
+                                        <input type="text" id="time-end-display" placeholder="17:00" readonly
                                             class="cal-display w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500 text-center bg-slate-50/50">
                                         <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
                                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
-                                        <input type="hidden" name="time_end" id="time-end-hidden">
+                                        <input type="hidden" name="time_end" id="time-end-hidden" value="17:00">
                                     </div>
                                 </div>
                             </div>
+                            <p class="text-[11px] text-slate-400 mt-1.5 ml-1">
+                                {{ '💡 Khung giờ này sẽ áp dụng cho tất cả các ngày làm việc đã chọn.' if current_lang == 'vi' else '💡 This time slot applies to all scheduled work days.' }}
+                            </p>
                         </div>
 
                         <!-- Section 3: Địa điểm -->
@@ -204,29 +203,22 @@
                                 <span>📋</span> {{ t('auto.tóm_tắt_lịch_hẹn') }}
                             </h4>
                             <div class="space-y-1.5 text-xs text-slate-700">
-                                <div class="flex gap-2"><span class="font-medium text-slate-500 w-20">{{ t('auto.ngày')
-                                        }}</span><span id="summary-date" class="font-bold text-slate-900"></span></div>
-                                <div class="flex gap-2"><span class="font-medium text-slate-500 w-20">{{ t('auto.giờ')
-                                        }}</span><span id="summary-time" class="font-bold text-slate-900"></span></div>
-                                <div class="flex gap-2"><span class="font-medium text-slate-500 w-20">{{
-                                        t('auto.dịch_vụ') }}</span><span class="font-bold text-slate-900">{{
-                                        service.name }} – {{ t('auto.gói_1') }} {{ tier }}</span></div>
-                                <div class="flex gap-2"><span class="font-medium text-slate-500 w-20">{{
-                                        t('auto.chi_phí') }}</span><span class="font-black text-brand-700">{{
-                                        "{:,.0f}".format(price) }}đ</span></div>
-                                <div class="flex gap-2"><span class="font-medium text-slate-500 w-20">{{ 'Ngày:' if
-                                        current_lang == 'vi' else 'Date:' }}</span><span id="summary-date"
-                                        class="font-bold text-slate-900"></span></div>
-                                <div class="flex gap-2"><span class="font-medium text-slate-500 w-20">{{ 'Giờ:' if
-                                        current_lang == 'vi' else 'Time:' }}</span><span id="summary-time"
-                                        class="font-bold text-slate-900"></span></div>
-                                <div class="flex gap-2"><span class="font-medium text-slate-500 w-20">{{ 'Dịch vụ:' if
-                                        current_lang == 'vi' else 'Service:' }}</span><span
-                                        class="font-bold text-slate-900">{{ service.name }} – {{ 'Gói' if current_lang
-                                        == 'vi' else 'Tier' }} {{ tier }}</span></div>
-                                <div class="flex gap-2"><span class="font-medium text-slate-500 w-20">{{ 'Chi phí:' if
-                                        current_lang == 'vi' else 'Total:' }}</span><span
-                                        class="font-black text-brand-700">{{ price|vnd }} VND</span></div>
+                                <div class="flex gap-2">
+                                    <span class="font-medium text-slate-500 w-20">{{ 'Ngày:' if current_lang == 'vi' else 'Date:' }}</span>
+                                    <span id="summary-date" class="font-bold text-slate-900"></span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="font-medium text-slate-500 w-20">{{ 'Giờ:' if current_lang == 'vi' else 'Time:' }}</span>
+                                    <span id="summary-time" class="font-bold text-slate-900"></span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="font-medium text-slate-500 w-20">{{ 'Dịch vụ:' if current_lang == 'vi' else 'Service:' }}</span>
+                                    <span class="font-bold text-slate-900">{{ service.name }} – {{ 'Gói' if current_lang == 'vi' else 'Tier' }} {{ tier|upper }}</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="font-medium text-slate-500 w-20">{{ 'Chi phí:' if current_lang == 'vi' else 'Total:' }}</span>
+                                    <span class="font-black text-brand-700">{{ price|vnd }} VND</span>
+                                </div>
                             </div>
                         </div>
 
@@ -251,11 +243,9 @@
             <!-- RIGHT: Translator info -->
             <div class="w-full lg:w-72 shrink-0">
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6 sticky top-24">
-                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-3">{{
-                        t('auto.chuyên_gia_phụ_trách') }}</span>
-
-                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-3">{{ 'Chuyên
-                        gia phụ trách' if current_lang == 'vi' else 'Assigned Specialist' }}</span>
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
+                        {{ 'Chuyên gia phụ trách' if current_lang == 'vi' else 'Assigned Specialist' }}
+                    </span>
                     <div class="flex items-center gap-3 mb-4">
                         <div
                             class="relative w-12 h-12 rounded-xl overflow-hidden shadow-sm border border-slate-200/90 bg-slate-100 shrink-0">
@@ -404,7 +394,9 @@
         dateFormat: 'H:i',
         time_24hr: true,
         minuteIncrement: 15,
+        defaultDate: '08:00',
         defaultHour: 8,
+        defaultMinute: 0,
         onChange: function (sel, str) {
             document.getElementById('time-start-hidden').value = str;
             updateSummary();
@@ -417,7 +409,9 @@
         dateFormat: 'H:i',
         time_24hr: true,
         minuteIncrement: 15,
+        defaultDate: '17:00',
         defaultHour: 17,
+        defaultMinute: 0,
         onChange: function (sel, str) {
             document.getElementById('time-end-hidden').value = str;
             updateSummary();
@@ -426,26 +420,44 @@
 
     function updateSummary() {
         const d = document.getElementById('cal-display').value;
-        const ts = document.getElementById('time-start-display').value;
-        const te = document.getElementById('time-end-display').value;
+        const ts = document.getElementById('time-start-display').value || document.getElementById('time-start-hidden').value;
+        const te = document.getElementById('time-end-display').value || document.getElementById('time-end-hidden').value;
 
         if (d) {
             document.getElementById('booking-summary').classList.remove('hidden');
             document.getElementById('summary-date').textContent = d.replace('📅 ', '');
-            if (ts || te) {
-                document.getElementById('summary-time').textContent =
-                    (ts || '--:--') + ' → ' + (te || '--:--');
+            if (ts && te) {
+                const perDayText = (fixedDays !== null && fixedDays > 1) ? (isEn ? ' (daily)' : ' (mỗi ngày)') : '';
+                document.getElementById('summary-time').textContent = ts + ' → ' + te + perDayText;
             } else {
                 document.getElementById('summary-time').textContent = isEn ? 'Not set' : 'Chưa chọn giờ';
             }
         }
     }
 
+    // Initial trigger
+    updateSummary();
+
     document.getElementById('booking-form').addEventListener('submit', function (e) {
         if (!hiddenDate.value) {
             e.preventDefault();
             alert(isEn ? 'Please choose a service date on the calendar!' : 'Vui lòng chọn ngày làm việc trên lịch!');
             datePickerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        const startVal = document.getElementById('time-start-hidden').value;
+        const endVal = document.getElementById('time-end-hidden').value;
+        if (!startVal || !endVal) {
+            e.preventDefault();
+            alert(isEn ? 'Please select both start time and end time!' : 'Vui lòng chọn đầy đủ giờ bắt đầu và giờ kết thúc!');
+            return;
+        }
+
+        if (startVal >= endVal) {
+            e.preventDefault();
+            alert(isEn ? 'End time must be after start time!' : 'Giờ kết thúc phải sau giờ bắt đầu!');
+            return;
         }
     });
 </script>

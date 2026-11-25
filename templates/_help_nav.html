@@ -1,0 +1,14 @@
+{# Thanh điều hướng chung cho các trang Trợ giúp. Biến: help_active = 'center' | 'faq' | 'guide' | 'contact' #}
+{% set _items = [
+    ('center', url_for('help_center'), 'Trung tâm trợ giúp'),
+    ('faq', url_for('help_faq'), 'Câu hỏi thường gặp'),
+    ('guide', url_for('help_guide'), 'Hướng dẫn sử dụng'),
+    ('contact', url_for('help_contact'), 'Liên hệ hỗ trợ'),
+] %}
+<nav aria-label="Trợ giúp" class="flex gap-2 overflow-x-auto pb-1 mb-8">
+    {% for key, href, label in _items %}
+    <a href="{{ href }}"
+        class="shrink-0 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border transition {% if help_active == key %}bg-brand-50 text-brand-600 border-brand-200{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-brand-600{% endif %}"
+        {% if help_active == key %}aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+</nav>

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Hướng dẫn sử dụng{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+    {% set help_active = 'guide' %}
+    {% include '_help_nav.html' %}
+
+    <h1 class="text-3xl font-black text-slate-900 tracking-tight">Hướng dẫn sử dụng</h1>
+    <p class="mt-2 mb-8 text-sm text-slate-500">Các bước cơ bản để bắt đầu với VietTranslate.</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-12">
+        <section class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6" id="guide-hirer">
+            <h2 class="font-bold text-slate-900 mb-3">Dành cho khách hàng</h2>
+            <ol class="space-y-2.5 text-sm text-slate-600 list-decimal list-inside leading-relaxed">
+                <li><a class="text-brand-600 font-semibold hover:underline" href="{{ url_for('register') }}">Đăng ký</a> tài khoản và hoàn tất hồ sơ.</li>
+                <li>Đăng tin tuyển phiên dịch hoặc <a class="text-brand-600 font-semibold hover:underline" href="{{ url_for('translator_list') }}">tìm phiên dịch viên</a> phù hợp.</li>
+                <li>Thương lượng, chọn báo giá và ký hợp đồng điện tử.</li>
+                <li>Nạp tiền vào ví ký quỹ (Escrow) để bắt đầu ca dịch.</li>
+                <li>Nghiệm thu trong 48 giờ để giải ngân và đánh giá phiên dịch viên.</li>
+            </ol>
+        </section>
+        <section class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6" id="guide-translator">
+            <h2 class="font-bold text-slate-900 mb-3">Dành cho phiên dịch viên</h2>
+            <ol class="space-y-2.5 text-sm text-slate-600 list-decimal list-inside leading-relaxed">
+                <li>Đăng ký và hoàn thiện hồ sơ: ngôn ngữ, chuyên ngành, bảng giá.</li>
+                <li>Xác minh danh tính (CCCD) và tải chứng chỉ để nhận huy hiệu xác thực.</li>
+                <li>Cập nhật lịch làm việc để khách hàng đặt lịch chính xác.</li>
+                <li>Ứng tuyển vào <a class="text-brand-600 font-semibold hover:underline" href="{{ url_for('job_list') }}">việc làm</a> phù hợp và gửi báo giá.</li>
+                <li>Thực hiện ca dịch, nhận thù lao và rút về ngân hàng.</li>
+            </ol>
+        </section>
+    </div>
+
+    <h2 class="text-xl font-black text-slate-900 mb-1" id="policies">Điều khoản &amp; Chính sách</h2>
+    <p class="text-sm text-slate-500 mb-5">Tài liệu chính thức của nền tảng (chỉ xem).</p>
+    <div class="space-y-3">
+        {% for doc in policies %}
+        <details class="group bg-white rounded-xl border border-slate-200/90 shadow-soft" id="policy-{{ doc.key }}">
+            <summary class="flex items-start justify-between gap-3 p-4 cursor-pointer list-none">
+                <div>
+                    <span class="text-[10px] font-bold uppercase tracking-wide text-brand-600">{{ doc.tag }} · {{ doc.code }}</span>
+                    <div class="font-bold text-slate-900 text-sm mt-0.5">{{ doc.title }}</div>
+                    <p class="text-xs text-slate-500 mt-1">{{ doc.summary }}</p>
+                </div>
+                <span class="text-slate-400 group-open:rotate-180 transition-transform shrink-0 mt-1">▾</span>
+            </summary>
+            <div class="px-4 pb-4 space-y-3 text-sm text-slate-600 leading-relaxed">
+                <div class="text-[11px] text-slate-400">Phiên bản {{ doc.version }}</div>
+                {% for art in doc.articles %}
+                <div><div class="font-bold text-slate-800">{{ art.title }}</div><p>{{ art.content }}</p></div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    if (location.hash) {
+        var el = document.querySelector(location.hash);
+        if (el && el.tagName === 'DETAILS') el.open = true;
+    }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Dự án của tôi | VietTranslate{% endblock %}
+
+{% block content %}
+{% set sel_cls = 'w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500' %}
+{% set badge = {'awaiting_translator': 'bg-amber-50 text-amber-800 border-amber-200/70', 'pending_payment': 'bg-amber-50 text-amber-800 border-amber-200/70', 'in_progress': 'bg-brand-50 text-brand-800 border-brand-200/70', 'awaiting_acceptance': 'bg-indigo-50 text-indigo-800 border-indigo-200/70', 'revision_requested': 'bg-rose-50 text-rose-700 border-rose-200/70', 'completed': 'bg-emerald-50 text-emerald-800 border-emerald-200/70', 'cancelled': 'bg-slate-100 text-slate-600 border-slate-200'} %}
+<div class="bg-slate-50/60 min-h-screen py-8 sm:py-12">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 overflow-x-hidden">
+
+    <div>
+        <h1 class="text-2xl font-extrabold text-slate-900">Dự án của tôi</h1>
+        <p class="text-sm text-slate-500 mt-1">Theo dõi các dự án đã chọn phiên dịch viên: tiến độ, bàn giao và nghiệm thu.</p>
+    </div>
+
+    <form method="get" class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+        <div class="sm:col-span-1">
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1" for="q">Tìm theo tên dự án</label>
+            <input id="q" name="q" type="search" value="{{ q }}" maxlength="100" placeholder="Nhập tên dự án..." class="{{ sel_cls }}">
+        </div>
+        <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1" for="status">Trạng thái</label>
+            <select id="status" name="status" class="{{ sel_cls }}">
+                <option value="">Tất cả</option>
+                {% for k, lab in status_labels.items() %}<option value="{{ k }}" {{ 'selected' if status == k }}>{{ lab }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="flex gap-2 justify-end">
+            {% if q or status %}<a href="{{ url_for('my_projects') }}" class="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition">Xóa bộ lọc</a>{% endif %}
+            <button class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold transition">Lọc</button>
+        </div>
+    </form>
+
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
+        {% if rows %}
+        <ul class="divide-y divide-slate-100">
+            {% for r in rows %}{% set c = r.c %}
+            <li class="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
+                <div class="min-w-0">
+                    <a href="{{ url_for('project_detail', contract_id=c.id) }}" class="font-bold text-slate-900 hover:text-brand-600 break-words">{{ r.title }}</a>
+                    <p class="text-xs text-slate-500 mt-1">Phiên dịch viên: <span class="font-semibold text-slate-700">{{ r.translator }}</span>{% if r.pair %} · {{ r.pair }}{% endif %}</p>
+                    <p class="text-xs text-slate-400 mt-1">Bắt đầu {{ c.created_at.strftime('%d/%m/%Y') }} · Deadline: {{ r.deadline.strftime('%d/%m/%Y') if r.deadline else '—' }} · Giá thỏa thuận: <span class="font-bold text-brand-700">{{ c.agreed_price|vnd }} VND</span></p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full border whitespace-nowrap {{ badge.get(r.status, 'bg-slate-100 text-slate-600 border-slate-200') }}">{{ r.label }}</span>
+                    <a href="{{ url_for('project_detail', contract_id=c.id) }}" class="text-xs font-bold text-brand-600 bg-brand-50/60 hover:bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-200/50 transition">Xem chi tiết</a>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center py-14 px-4">
+            {% if total_all == 0 %}
+            <p class="text-sm text-slate-500 mb-4">Bạn chưa có dự án nào. Dự án được tạo khi bạn chấp nhận một báo giá hoặc đặt dịch vụ.</p>
+            <a href="{{ url_for('my_jobs') }}" class="inline-block bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition">Xem yêu cầu của tôi</a>
+            {% else %}
+            <p class="text-sm text-slate-500 mb-4">Không có dự án nào khớp với bộ lọc.</p>
+            <a href="{{ url_for('my_projects') }}" class="text-sm font-bold text-brand-600">Xóa bộ lọc</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if pagination.pages > 1 %}
+    <nav class="flex items-center justify-center gap-3 text-sm font-bold" aria-label="Phân trang">
+        {% if pagination.has_prev %}<a class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50" href="{{ url_for('my_projects', page=pagination.prev_num, q=q, status=status) }}">← Trước</a>{% endif %}
+        <span class="text-slate-500 font-semibold">Trang {{ pagination.page }} / {{ pagination.pages }}</span>
+        {% if pagination.has_next %}<a class="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50" href="{{ url_for('my_projects', page=pagination.next_num, q=q, status=status) }}">Sau →</a>{% endif %}
+    </nav>
+    {% endif %}
+</div>
+</div>
+{% endblock %}

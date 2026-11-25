@@ -42,22 +42,40 @@
                     </td>
                     <td>
                         <div class="flex items-center gap-2">
-                            {% if r.reviewer.avatar_url %}
-                                <img src="{{ r.reviewer.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar">
-                            {% else %}
-                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
-                                    {{ r.reviewer.name[:1] | upper }}
+                            {% if r.reviewer and r.reviewer.avatar_url %}
+                                <img src="{{ r.reviewer.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="w-6 h-6 rounded-full bg-slate-700 items-center justify-center text-[10px] text-white" style="display: none;">
+                                    {{ (r.reviewer.name or 'U')[:1] | upper }}
                                 </div>
+                            {% elif r.reviewer %}
+                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
+                                    {{ (r.reviewer.name or 'U')[:1] | upper }}
+                                </div>
+                            {% else %}
+                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-slate-400 font-bold" title="Người dùng không còn tồn tại">?</div>
                             {% endif %}
+                            {% if r.reviewer %}
                             <a href="{{ url_for('admin_users') }}?search={{ r.reviewer.email }}" class="text-slate-300 hover:text-white hover:underline truncate max-w-[120px]">
                                 {{ r.reviewer.name }}
                             </a>
+                            {% else %}
+                            <span class="text-xs text-slate-500 italic" title="Người dùng lịch sử (#{{ r.reviewer_id }})">
+                                Người dùng cũ (#{{ r.reviewer_id }})
+                            </span>
+                            {% endif %}
                         </div>
                     </td>
                     <td>
+                        {% if r.reviewee %}
                         <a href="{{ url_for('admin_users') }}?search={{ r.reviewee.email }}" class="text-slate-300 hover:text-white hover:underline truncate max-w-[120px]">
                             {{ r.reviewee.name }}
                         </a>
+                        {% else %}
+                        <span class="text-xs text-slate-500 italic" title="Người dùng lịch sử (#{{ r.reviewee_id }})">
+                            Người dùng cũ (#{{ r.reviewee_id }})
+                        </span>
+                        {% endif %}
                     </td>
                     <td>
                         <div class="flex items-center gap-1 text-yellow-400">
@@ -76,6 +94,7 @@
                     <td>
                         <div class="flex items-center justify-end gap-2">
                             <form action="{{ url_for('admin_toggle_review', review_id=r.id) }}" method="POST">
+                                <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
                                 {% if r.is_hidden %}
                                     <button type="submit" class="btn btn-sm btn-success" title="Khôi phục hiển thị">Khôi phục</button>
                                 {% else %}

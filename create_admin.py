@@ -113,6 +113,15 @@ def main():
         sys.exit(1)
 
     with app.app_context():
+        # Kiểm tra số lượng Super Admin
+        super_admins = User.query.filter_by(is_admin=True, admin_role='super_admin').all()
+        if len(super_admins) >= 1:
+            print('❌ Hệ thống đã có Super Admin. Không thể tạo thêm Super Admin thứ 2 qua script này.')
+            print('   Để tạo các Admin cấp dưới (Moderator, Support, Finance...), hãy đăng nhập bằng Super Admin và dùng giao diện Web.')
+            sys.exit(1)
+            
+        print('⚠️  Đang thiết lập tài khoản Super Admin đầu tiên của hệ thống...')
+
         # Kiểm tra email đã tồn tại chưa
         existing = User.query.filter_by(email=email).first()
         if existing:
@@ -128,6 +137,8 @@ def main():
                     sys.exit(0)
                 existing.is_admin = True
                 existing.role = 'admin'
+                existing.admin_role = 'super_admin'
+                existing.is_active = True
                 existing.password_hash = generate_password_hash(password)
                 db.session.commit()
                 print()
@@ -144,6 +155,7 @@ def main():
             password_hash=hashed_pw,
             role='admin',
             is_admin=True,
+            admin_role='super_admin',
             is_active=True,
         )
         db.session.add(admin_user)

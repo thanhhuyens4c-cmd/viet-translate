@@ -19,14 +19,15 @@
 
     <!-- Filters -->
     <div class="flex overflow-x-auto hide-scrollbar gap-2 mb-6 pb-2 border-b border-slate-200">
-        <button class="filter-btn active px-4 py-2 text-sm font-bold border-b-2 border-brand-600 text-brand-600 whitespace-nowrap" data-filter="all">{{ t('notifications_page.filter_all') }}</button>
-        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="job">{{ t('notifications_page.filter_job') }}</button>
-        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="message">{{ t('notifications_page.filter_message') }}</button>
-        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="contract">{{ t('notifications_page.filter_contract') }}</button>
-        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="review">{{ t('notifications_page.filter_review') }}</button>
+        <button class="filter-btn active px-4 py-2 text-sm font-bold border-b-2 border-brand-600 text-brand-600 whitespace-nowrap cursor-pointer transition" data-filter="all">{{ t('notifications_page.filter_all') }}</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap cursor-pointer transition" data-filter="verification">{{ t('notifications_page.filter_verification') }}</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap cursor-pointer transition" data-filter="job">{{ t('notifications_page.filter_job') }}</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap cursor-pointer transition" data-filter="message">{{ t('notifications_page.filter_message') }}</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap cursor-pointer transition" data-filter="contract">{{ t('notifications_page.filter_contract') }}</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap cursor-pointer transition" data-filter="review">{{ t('notifications_page.filter_review') }}</button>
     </div>
 
-    <!-- Notifications List -->
+    <!-- Loading State -->
     <div id="notif-loading" class="flex flex-col items-center justify-center py-20 text-slate-400">
         <svg class="animate-spin w-7 h-7 mb-3 text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -35,17 +36,31 @@
         <span class="text-sm font-medium">{{ t('notifications_page.loading') }}</span>
     </div>
 
+    <!-- Empty State -->
     <div id="notif-empty" class="hidden flex-col items-center justify-center py-20 text-slate-400">
         <div class="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-5">
             <svg class="w-9 h-9 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
             </svg>
         </div>
-        <p class="font-semibold text-slate-500 text-base">{{ t('notifications_page.empty') }}</p>
+        <p id="notif-empty-title" class="font-bold text-slate-700 text-base">{{ t('notifications_page.empty') }}</p>
+        <p id="notif-empty-sub" class="text-xs text-slate-400 mt-1 max-w-sm text-center">Bạn sẽ nhận được thông báo khi có hoạt động mới trên tài khoản.</p>
     </div>
 
-    <div id="notif-list" class="hidden bg-white rounded-2xl shadow-soft border border-slate-200/80 divide-y divide-slate-100 overflow-hidden">
+    <!-- Error State -->
+    <div id="notif-error" role="alert" class="hidden text-center py-10 px-4 bg-rose-50 rounded-2xl border border-rose-200 mb-4">
+        <p class="text-sm font-semibold text-rose-800 mb-3">Không tải được thông báo. Vui lòng thử lại.</p>
+        <button id="notif-retry" type="button" class="text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-4 py-2 rounded-lg cursor-pointer">Thử lại</button>
+    </div>
+
+    <!-- Notifications List -->
+    <div id="notif-list" class="hidden space-y-3">
         <!-- Populated by JS -->
+    </div>
+
+    <!-- Load More -->
+    <div id="notif-more-wrap" class="hidden text-center mt-6">
+        <button id="notif-more" type="button" class="text-xs font-bold text-brand-700 bg-white border border-slate-200 hover:border-brand-300 hover:bg-brand-50 px-6 py-2.5 rounded-xl transition cursor-pointer shadow-2xs">Tải thêm</button>
     </div>
 
 </div>
@@ -56,30 +71,134 @@
     const isEn = "{{ current_lang }}" === "en";
     const loading = document.getElementById("notif-loading");
     const empty   = document.getElementById("notif-empty");
+    const emptyTitleEl = document.getElementById("notif-empty-title");
+    const emptySubEl   = document.getElementById("notif-empty-sub");
     const list    = document.getElementById("notif-list");
     const markAllBtn = document.getElementById("mark-all-read");
+    const errBox = document.getElementById("notif-error");
+    const moreWrap = document.getElementById("notif-more-wrap");
     
     let notifications = [];
-    let currentFilter = 'all';
+    let page = 1, pages = 1;
 
-    const getIcon = (type) => {
-        if (type.includes('JOB')) return '🔵';
-        if (type.includes('MESSAGE')) return '💬';
-        if (type.includes('REVIEW')) return '⭐';
-        if (type.includes('CONTRACT') || type === 'PAYMENT') return '📄';
-        return '🔔';
-    };
+    // Detect initial filter from URL query param (?filter=verification or ?tab=verification)
+    const urlParams = new URLSearchParams(window.location.search);
+    const initParam = (urlParams.get('filter') || urlParams.get('tab') || 'all').toLowerCase();
+    const validFilters = ['all', 'verification', 'job', 'message', 'contract', 'review'];
+    let currentFilter = validFilters.includes(initParam) ? initParam : 'all';
+
+    // Synchronize initial filter tabs UI
+    document.querySelectorAll('.filter-btn').forEach(b => {
+        const isTarget = b.dataset.filter === currentFilter;
+        b.classList.toggle('active', isTarget);
+        b.classList.toggle('font-bold', isTarget);
+        b.classList.toggle('border-brand-600', isTarget);
+        b.classList.toggle('text-brand-600', isTarget);
+        b.classList.toggle('font-medium', !isTarget);
+        b.classList.toggle('border-transparent', !isTarget);
+        b.classList.toggle('text-slate-500', !isTarget);
+    });
+
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const safeUrl = (u) => (typeof u === 'string' && u.startsWith('/') && !u.startsWith('//')) ? u : '#';
+    const syncBadges = () => { if (window.vtRefreshBadges) window.vtRefreshBadges(true); };
 
     const getTypeCategory = (type) => {
-        if (type.includes('JOB')) return 'job';
+        if (!type) return 'other';
+        if (type.startsWith('VERIFICATION_')) return 'verification';
         if (type.includes('MESSAGE')) return 'message';
         if (type.includes('REVIEW')) return 'review';
-        if (type.includes('CONTRACT') || type === 'PAYMENT') return 'contract';
+        if (type.includes('JOB') || type.startsWith('PROPOSAL')) return 'job';
+        if (type.includes('CONTRACT') || type.startsWith('PAYMENT') || type.startsWith('PROJECT') || type.startsWith('DELIVERABLE') || type.startsWith('REVISION')) return 'contract';
         return 'other';
     };
 
+    function getNotificationIcon(type, iconKind) {
+        if (type && type.startsWith('VERIFICATION_')) {
+            if (type === 'VERIFICATION_APPROVED' || iconKind === 'approved') {
+                return `<div class="w-10 h-10 rounded-xl bg-emerald-100/90 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0 shadow-2xs">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>`;
+            }
+            if (type === 'VERIFICATION_NEEDS_REVISION' || iconKind === 'revision') {
+                return `<div class="w-10 h-10 rounded-xl bg-orange-100/90 text-orange-600 border border-orange-200 flex items-center justify-center shrink-0 shadow-2xs">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                </div>`;
+            }
+            if (type === 'VERIFICATION_REJECTED' || iconKind === 'rejected') {
+                return `<div class="w-10 h-10 rounded-xl bg-rose-100/90 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0 shadow-2xs">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>`;
+            }
+            if (type === 'VERIFICATION_POLICY_UPDATE_REQUIRED' || iconKind === 'policy') {
+                return `<div class="w-10 h-10 rounded-xl bg-purple-100/90 text-purple-600 border border-purple-200 flex items-center justify-center shrink-0 shadow-2xs">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                </div>`;
+            }
+            return `<div class="w-10 h-10 rounded-xl bg-blue-100/90 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0 shadow-2xs">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
+            </div>`;
+        }
+
+        const cat = getTypeCategory(type);
+        if (cat === 'job') {
+            return `<div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 border border-sky-200 flex items-center justify-center shrink-0 shadow-2xs">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </div>`;
+        }
+        if (cat === 'message') {
+            return `<div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 border border-indigo-200 flex items-center justify-center shrink-0 shadow-2xs">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            </div>`;
+        }
+        if (cat === 'contract') {
+            return `<div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0 shadow-2xs">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>`;
+        }
+        if (cat === 'review') {
+            return `<div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0 shadow-2xs">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+            </div>`;
+        }
+        return `<div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        </div>`;
+    }
+
+    function getBadge(n) {
+        if (n.type && n.type.startsWith('VERIFICATION_')) {
+            if (n.type === 'VERIFICATION_APPROVED') return { label: 'Đã xác minh', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+            if (n.type === 'VERIFICATION_NEEDS_REVISION') return { label: 'Yêu cầu bổ sung', cls: 'bg-orange-50 text-orange-700 border-orange-200' };
+            if (n.type === 'VERIFICATION_REJECTED') return { label: 'Từ chối hồ sơ', cls: 'bg-rose-50 text-rose-700 border-rose-200' };
+            if (n.type === 'VERIFICATION_POLICY_UPDATE_REQUIRED') return { label: 'Cập nhật chính sách', cls: 'bg-purple-50 text-purple-700 border-purple-200' };
+            if (n.type === 'VERIFICATION_RESUBMITTED') return { label: 'Đã nộp bổ sung', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+            return { label: n.type_label || 'Xác minh hồ sơ', cls: n.badge_class || 'bg-blue-50 text-blue-700 border-blue-200' };
+        }
+        const cat = getTypeCategory(n.type);
+        if (cat === 'job') return { label: 'Việc làm', cls: 'bg-sky-50 text-sky-700 border-sky-200' };
+        if (cat === 'message') return { label: 'Tin nhắn', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+        if (cat === 'contract') return { label: 'Hợp đồng', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+        if (cat === 'review') return { label: 'Đánh giá', cls: 'bg-amber-50 text-amber-700 border-amber-200' };
+        return { label: 'Thông báo', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+    }
+
+    function getActionLabel(n) {
+        if (n.action_label) return n.action_label;
+        if (n.type === 'VERIFICATION_NEEDS_REVISION' || n.type === 'VERIFICATION_POLICY_UPDATE_REQUIRED') return 'Bổ sung ngay';
+        if (n.type === 'VERIFICATION_APPROVED') return 'Xem trạng thái';
+        if (n.type === 'VERIFICATION_REJECTED') return 'Xem chi tiết & nộp lại';
+        if (n.type && n.type.startsWith('VERIFICATION_')) return 'Xem tiến độ';
+        const cat = getTypeCategory(n.type);
+        if (cat === 'message') return 'Xem tin nhắn';
+        if (cat === 'job') return 'Xem công việc';
+        if (cat === 'contract') return 'Xem hợp đồng';
+        return 'Xem chi tiết';
+    }
+
     function timeAgo(dateStr) {
-        const date = new Date(dateStr + "Z"); // assumes UTC from backend
+        if (!dateStr) return '';
+        const date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
         const seconds = Math.floor((new Date() - date) / 1000);
         if (seconds < 60) return "{{ t('notifications_page.time_just_now') }}";
         const minutes = Math.floor(seconds / 60);
@@ -91,11 +210,35 @@
         return date.toLocaleDateString(isEn ? 'en-US' : 'vi-VN');
     }
 
+    function updateEmptyMessage() {
+        if (!emptyTitleEl) return;
+        if (currentFilter === 'verification') {
+            emptyTitleEl.textContent = 'Chưa có thông báo xác minh nào';
+            if (emptySubEl) emptySubEl.textContent = 'Mọi cập nhật về tiếp nhận hồ sơ, yêu cầu bổ sung hoặc kết quả phê duyệt sẽ xuất hiện tại đây.';
+        } else if (currentFilter === 'job') {
+            emptyTitleEl.textContent = 'Chưa có thông báo việc làm nào';
+            if (emptySubEl) emptySubEl.textContent = 'Các cập nhật về ứng tuyển, lời mời làm việc sẽ xuất hiện tại đây.';
+        } else if (currentFilter === 'message') {
+            emptyTitleEl.textContent = 'Chưa có thông báo tin nhắn nào';
+            if (emptySubEl) emptySubEl.textContent = 'Tin nhắn mới từ hệ thống hoặc đối tác sẽ hiển thị tại đây.';
+        } else if (currentFilter === 'contract') {
+            emptyTitleEl.textContent = 'Chưa có thông báo hợp đồng nào';
+            if (emptySubEl) emptySubEl.textContent = 'Tiến độ hợp đồng và thanh toán sẽ hiển thị tại đây.';
+        } else if (currentFilter === 'review') {
+            emptyTitleEl.textContent = 'Chưa có thông báo đánh giá nào';
+            if (emptySubEl) emptySubEl.textContent = 'Đánh giá nhận được từ khách hàng sẽ hiển thị tại đây.';
+        } else {
+            emptyTitleEl.textContent = "{{ t('notifications_page.empty') }}";
+            if (emptySubEl) emptySubEl.textContent = 'Bạn sẽ nhận được thông báo khi có hoạt động mới trên tài khoản.';
+        }
+    }
+
     const render = () => {
         const filtered = notifications.filter(n => currentFilter === 'all' || getTypeCategory(n.type) === currentFilter);
         
         if (filtered.length === 0) {
             list.classList.add("hidden");
+            updateEmptyMessage();
             empty.classList.remove("hidden");
             empty.style.display = "flex";
             return;
@@ -105,54 +248,138 @@
         empty.style.display = "none";
         list.classList.remove("hidden");
 
-        list.innerHTML = filtered.map(n => `
-            <div data-id="${n.id}" data-url="${n.url || '#'}" data-is-read="${n.is_read}" class="notif-item block px-5 py-4 transition cursor-pointer ${n.is_read ? 'bg-white hover:bg-slate-50' : 'bg-brand-50/40 hover:bg-brand-50/70'}">
-                <div class="flex gap-4">
-                    <div class="text-2xl mt-0.5 shrink-0">${getIcon(n.type)}</div>
+        list.innerHTML = filtered.map(n => {
+            const badge = getBadge(n);
+            const iconHtml = getNotificationIcon(n.type, n.icon_kind);
+            const actionLabel = getActionLabel(n);
+            const hasUrl = n.url && n.url !== '#' && safeUrl(n.url) !== '#';
+
+            return `
+            <div data-id="${n.id}" data-url="${esc(safeUrl(n.url))}" data-is-read="${n.is_read}"
+                class="notif-item group relative bg-white rounded-2xl p-4 sm:p-5 border transition-all duration-150 cursor-pointer shadow-2xs hover:shadow-sm ${n.is_read ? 'border-slate-200/90 hover:border-slate-300' : 'bg-brand-50/30 hover:bg-brand-50/60 border-brand-200/90 ring-1 ring-brand-100/70'}">
+                <div class="flex items-start gap-3.5 sm:gap-4">
+                    ${iconHtml}
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-1">
-                            <h3 class="text-sm font-bold truncate ${n.is_read ? 'text-slate-700' : 'text-slate-900'}">${n.title}</h3>
-                            ${!n.is_read ? '<span class="w-2 h-2 rounded-full bg-brand-500 shrink-0"></span>' : ''}
+                        <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                            <span class="px-2.5 py-0.5 text-[11px] font-bold rounded-md border ${badge.cls}">
+                                ${esc(badge.label)}
+                            </span>
+                            ${!n.is_read ? `
+                            <span class="unread-pill inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-md bg-rose-50 text-rose-700 border border-rose-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                                Mới
+                            </span>` : ''}
+                            <span class="text-[11px] font-semibold text-slate-400 ml-auto" title="${esc(n.created_at || '')}">
+                                ${timeAgo(n.created_at)}
+                            </span>
                         </div>
-                        <p class="text-sm break-words ${n.is_read ? 'text-slate-500' : 'text-slate-700 font-medium'} leading-snug mb-1.5">${n.message}</p>
-                        <span class="text-[11px] font-semibold text-slate-400">${timeAgo(n.created_at)}</span>
+                        <h3 class="text-sm font-bold truncate leading-snug mb-1 ${n.is_read ? 'text-slate-700 group-hover:text-brand-600' : 'text-slate-900 font-extrabold group-hover:text-brand-700'} notif-title transition">
+                            ${esc(n.title)}
+                        </h3>
+                        <p class="text-xs sm:text-sm text-slate-600 leading-relaxed break-words mb-2.5">
+                            ${esc(n.message)}
+                        </p>
+                        <div class="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                            ${hasUrl ? `
+                            <a href="${esc(safeUrl(n.url))}" class="action-btn inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 group/link">
+                                <span>${esc(actionLabel)}</span>
+                                <svg class="w-3.5 h-3.5 transition-transform group-hover/link:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </a>` : `<span class="text-xs text-slate-400">Thông báo hệ thống</span>`}
+                            ${!n.is_read ? `
+                            <button type="button" class="quick-read-btn inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-brand-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer ml-auto" title="Đánh dấu đã đọc">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                <span>Đánh dấu đã đọc</span>
+                            </button>` : ''}
+                        </div>
                     </div>
                 </div>
-            </div>
-        `).join("");
+            </div>`;
+        }).join("");
     };
 
-    const loadNotifications = () => {
-        fetch("/api/notifications?page=1")
-            .then(r => r.json())
+    const loadNotifications = (append) => {
+        errBox.classList.add("hidden");
+        if (!append) {
+            loading.classList.remove("hidden");
+            list.classList.add("hidden");
+            empty.classList.add("hidden");
+            empty.style.display = "none";
+        }
+        let url = `/api/notifications?page=${page}`;
+        if (currentFilter && currentFilter !== 'all') {
+            url += `&filter=${encodeURIComponent(currentFilter)}`;
+        }
+        fetch(url, { credentials: 'same-origin' })
+            .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
             .then(data => {
                 loading.classList.add("hidden");
-                if (data.notifications) {
-                    notifications = data.notifications;
-                }
+                const items = data.notifications || [];
+                notifications = append ? notifications.concat(items) : items;
+                pages = data.pages || 1;
+                moreWrap.classList.toggle("hidden", page >= pages);
                 render();
             })
             .catch(err => {
                 console.error("Failed to load notifications", err);
                 loading.classList.add("hidden");
+                if (append) page = Math.max(1, page - 1);
+                errBox.classList.remove("hidden");
             });
     };
 
-    // Filters
+    document.getElementById("notif-retry").addEventListener("click", () => loadNotifications(page > 1));
+    document.getElementById("notif-more").addEventListener("click", () => { page += 1; loadNotifications(true); });
+
+    // Filter Buttons
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.filter-btn').forEach(b => {
-                b.classList.remove('active', 'font-bold', 'border-brand-600', 'text-brand-600');
-                b.classList.add('font-medium', 'border-transparent', 'text-slate-500');
-            });
             const t = e.currentTarget;
-            t.classList.remove('font-medium', 'border-transparent', 'text-slate-500');
-            t.classList.add('active', 'font-bold', 'border-brand-600', 'text-brand-600');
-            
+            if (currentFilter === t.dataset.filter) return;
             currentFilter = t.dataset.filter;
-            render();
+
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                const isTarget = b === t;
+                b.classList.toggle('active', isTarget);
+                b.classList.toggle('font-bold', isTarget);
+                b.classList.toggle('border-brand-600', isTarget);
+                b.classList.toggle('text-brand-600', isTarget);
+                b.classList.toggle('font-medium', !isTarget);
+                b.classList.toggle('border-transparent', !isTarget);
+                b.classList.toggle('text-slate-500', !isTarget);
+            });
+
+            try {
+                const newUrl = currentFilter === 'all' ? window.location.pathname : `${window.location.pathname}?filter=${currentFilter}`;
+                window.history.replaceState(null, '', newUrl);
+            } catch(e) {}
+
+            page = 1;
+            notifications = [];
+            loadNotifications(false);
         });
     });
+
+    function markItemAsReadInUI(item) {
+        item.dataset.isRead = 'true';
+        item.classList.remove('bg-brand-50/30', 'hover:bg-brand-50/60', 'border-brand-200/90', 'ring-1', 'ring-brand-100/70');
+        item.classList.add('border-slate-200/90', 'hover:border-slate-300');
+        
+        const title = item.querySelector('.notif-title');
+        if (title) {
+            title.classList.remove('text-slate-900', 'font-extrabold', 'group-hover:text-brand-700');
+            title.classList.add('text-slate-700', 'group-hover:text-brand-600');
+        }
+        
+        const unreadPill = item.querySelector('.unread-pill');
+        if (unreadPill) unreadPill.remove();
+
+        const quickBtn = item.querySelector('.quick-read-btn');
+        if (quickBtn) quickBtn.remove();
+
+        const id = item.dataset.id;
+        const obj = notifications.find(n => String(n.id) === String(id));
+        if (obj) obj.is_read = true;
+    }
 
     // Handle Clicks
     list.addEventListener('click', (e) => {
@@ -163,59 +390,52 @@
         const url = item.dataset.url;
         const isRead = item.dataset.isRead === 'true';
 
-        if (!isRead) {
-            // Update UI instantly
-            item.dataset.isRead = 'true';
-            item.classList.remove('bg-brand-50/40', 'hover:bg-brand-50/70');
-            item.classList.add('bg-white', 'hover:bg-slate-50');
-            
-            const title = item.querySelector('h3');
-            if (title) title.classList.replace('text-slate-900', 'text-slate-700');
-            
-            const p = item.querySelector('p');
-            if (p) p.classList.replace('text-slate-700', 'text-slate-500');
-            if (p) p.classList.remove('font-medium');
-            
-            const dot = item.querySelector('.bg-brand-500');
-            if (dot) dot.remove();
-
-            const badge = document.getElementById('notif-badge');
-            if (badge) {
-                let current = parseInt(badge.textContent);
-                if (!isNaN(current) && current > 0) {
-                    current--;
-                    if (current === 0) {
-                        badge.classList.add('hidden');
-                        badge.style.display = 'none';
-                    } else {
-                        badge.textContent = current;
-                    }
-                }
+        // 1. Quick Read Checkmark Clicked
+        const quickBtn = e.target.closest('.quick-read-btn');
+        if (quickBtn) {
+            e.stopPropagation();
+            e.preventDefault();
+            if (!isRead) {
+                markItemAsReadInUI(item);
+                fetch(`/api/notifications/${id}/read`, { method: 'POST', credentials: 'same-origin' })
+                    .then(() => { syncBadges(); })
+                    .catch(() => {});
             }
+            return;
+        }
 
-            fetch(`/api/notifications/${id}/read`, { method: 'POST' })
-                .then(() => {
-                    if (url && url !== '#') window.location.href = url;
+        // 2. Card or Action Link Clicked
+        if (!isRead) {
+            markItemAsReadInUI(item);
+            fetch(`/api/notifications/${id}/read`, { method: 'POST', credentials: 'same-origin' })
+                .then(() => { syncBadges(); })
+                .catch(() => {})
+                .finally(() => {
+                    if (url && url !== '#') {
+                        window.location.href = url;
+                    }
                 });
         } else {
-            if (url && url !== '#') window.location.href = url;
+            if (url && url !== '#') {
+                window.location.href = url;
+            }
         }
     });
 
+    // Mark All Read
     markAllBtn.addEventListener('click', () => {
-        fetch('/api/notifications/read-all', { method: 'POST' })
-            .then(() => {
+        fetch('/api/notifications/read-all', { method: 'POST', credentials: 'same-origin' })
+            .then(r => {
+                if (!r.ok) throw new Error(r.status);
                 notifications.forEach(n => n.is_read = true);
                 render();
-                const badge = document.getElementById('notif-badge');
-                if (badge) {
-                    badge.classList.add('hidden');
-                    badge.style.display = 'none';
-                }
-            });
+                syncBadges();
+            })
+            .catch(() => { errBox.classList.remove("hidden"); });
     });
 
-    loadNotifications();
+    // Initial Load
+    loadNotifications(false);
 
 })();
 </script>

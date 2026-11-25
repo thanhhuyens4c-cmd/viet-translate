@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Cài đặt tài khoản{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+    {% set settings_active = 'account' %}
+    {% include '_settings_nav.html' %}
+
+    <h1 class="text-3xl font-black text-slate-900 tracking-tight">Cài đặt tài khoản</h1>
+    <p class="mt-2 mb-8 text-sm text-slate-500">Thông tin và tùy chọn của tài khoản.</p>
+
+    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-soft divide-y divide-slate-100">
+        {% set _role_label = {'hirer': 'Khách hàng', 'translator': 'Phiên dịch viên', 'admin': 'Quản trị viên'} %}
+        {% for label, value in [
+            ('Họ và tên', user.name),
+            ('Email', user.email),
+            ('Số điện thoại', user.phone or 'Chưa cập nhật'),
+            ('Vai trò', _role_label.get(user.role, user.role)),
+        ] %}
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 px-6 py-4">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">{{ label }}</span>
+            <span class="text-sm font-semibold text-slate-900 break-all">{{ value }}</span>
+        </div>
+        {% endfor %}
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 px-6 py-4">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Xác minh email</span>
+            {% if user.email_verified %}
+            <span class="text-sm font-bold text-emerald-600">Đã xác minh</span>
+            {% else %}
+            <span class="text-sm font-bold text-amber-600">Chưa xác minh</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mt-6 flex flex-wrap gap-3">
+        <a href="{{ url_for('account_profile', tab=('profile' if user.role == 'translator' else 'basic')) }}" class="px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-bold hover:bg-brand-700 transition">Chỉnh sửa hồ sơ cá nhân</a>
+        <a href="{{ url_for('settings_security') }}" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition">Đổi mật khẩu</a>
+    </div>
+</div>
+{% endblock %}

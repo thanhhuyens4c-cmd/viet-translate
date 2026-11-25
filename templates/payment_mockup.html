@@ -30,6 +30,32 @@
                         </h2>
                     </div>
 
+                    {% if live %}
+                    <div class="p-5 sm:p-6 space-y-4">
+                        {% if live_info and not live_info.error %}
+                        <p class="text-xs text-slate-600 leading-relaxed">Quét mã bằng ứng dụng ngân hàng. Số tiền và nội dung đã điền sẵn. <strong>Giữ nguyên nội dung chuyển khoản</strong> để sàn tự nhận diện.</p>
+                        <img src="{{ live_info.qr }}" alt="Mã VietQR" class="w-56 h-56 mx-auto rounded-xl border border-slate-200">
+                        <dl class="text-xs space-y-1.5">
+                            <div class="flex justify-between"><dt class="text-slate-500">Ngân hàng</dt><dd class="font-bold">{{ live_info.bank }}</dd></div>
+                            <div class="flex justify-between"><dt class="text-slate-500">Số tài khoản</dt><dd class="font-bold font-mono">{{ live_info.account }}</dd></div>
+                            {% if live_info.name %}<div class="flex justify-between"><dt class="text-slate-500">Chủ tài khoản</dt><dd class="font-bold">{{ live_info.name }}</dd></div>{% endif %}
+                            <div class="flex justify-between"><dt class="text-slate-500">Số tiền</dt><dd class="font-bold">{{ live_info.amount|vnd }} VND</dd></div>
+                            <div class="flex justify-between"><dt class="text-slate-500">Nội dung</dt><dd class="font-bold font-mono">{{ live_info.code }}</dd></div>
+                        </dl>
+                        <p id="pay-state" class="text-xs text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">Đang chờ tiền về tài khoản sàn...</p>
+                        <script>
+                            (function poll() {
+                                fetch("{{ url_for('payment_status', contract_id=contract.id) }}").then(r => r.json()).then(d => {
+                                    if (d.paid) { location.href = "{{ url_for('transaction_detail', contract_id=contract.id) }}"; }
+                                    else { setTimeout(poll, 4000); }
+                                }).catch(() => setTimeout(poll, 8000));
+                            })();
+                        </script>
+                        {% else %}
+                        <p class="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">Sàn chưa cấu hình tài khoản nhận tiền nên chưa thanh toán được. Vui lòng liên hệ quản trị viên.</p>
+                        {% endif %}
+                    </div>
+                    {% else %}
                     <form method="POST" action="{{ url_for('payment_mockup', contract_id=contract.id) }}" class="p-5 sm:p-6 space-y-5">
 
                         <!-- Card UI Mockup -->
@@ -66,9 +92,10 @@
 
                         <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex justify-center items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                            <span>{{ t('payment_mockup_page.pay_btn') }} {{ contract.agreed_price|vnd }} VND</span>
+                            <span>{{ t('payment_mockup_page.pay_btn') }} {{ total_payable|vnd }} VND</span>
                         </button>
                     </form>
+                    {% endif %}
                 </div>
             </div>
 
@@ -102,19 +129,25 @@
                         </div>
                         {% endif %}
 
+                        {% if contract.quantity and contract.pricing_unit != 'flat' %}
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">{{ 'Đơn giá × số lượng' if current_lang == 'vi' else 'Unit price × quantity' }}</span>
+                            <span class="font-bold text-slate-800">{{ contract.unit_price|vnd }} × {{ contract.quantity }} {{ UNIT_LABELS.get(contract.pricing_unit, '') }}</span>
+                        </div>
+                        {% endif %}
                         <div class="flex justify-between">
                             <span class="text-slate-500">{{ t('payment_mockup_page.agreed_price_label') }}</span>
                             <span class="font-bold text-slate-800">{{ contract.agreed_price|vnd }} VND</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-slate-500">{{ t('payment_mockup_page.platform_fee_label') }}</span>
-                            <span class="font-bold text-emerald-600">{{ t('payment_mockup_page.free_label') }}</span>
+                            <span class="text-slate-500">{{ 'Phí dịch vụ (2%)' if current_lang == 'vi' else 'Service fee (2%)' }}</span>
+                            <span class="font-bold text-slate-800">{{ platform_fee|vnd }} VND</span>
                         </div>
                     </div>
 
                     <div class="border-t border-slate-100 pt-3.5 flex justify-between items-center mb-4">
                         <span class="font-bold text-slate-900 text-sm">{{ t('payment_mockup_page.total_payment_label') }}</span>
-                        <span class="text-xl font-black text-brand-700">{{ contract.agreed_price|vnd }} VND</span>
+                        <span class="text-xl font-black text-brand-700">{{ total_payable|vnd }} VND</span>
                     </div>
 
                     <div class="text-[11px] text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed">

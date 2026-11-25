@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Bảo mật tài khoản{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+    {% set settings_active = 'security' %}
+    {% include '_settings_nav.html' %}
+
+    <h1 class="text-3xl font-black text-slate-900 tracking-tight">Bảo mật tài khoản</h1>
+    <p class="mt-2 mb-8 text-sm text-slate-500">Đổi mật khẩu và quản lý các thiết bị đang đăng nhập.</p>
+
+    <section id="section-password-management" class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6 mb-8">
+        <h2 class="font-bold text-slate-900">Đổi mật khẩu</h2>
+        <p class="text-xs text-slate-500 mt-1 mb-4">Tối thiểu 8 ký tự, có ít nhất một chữ hoa (A-Z) và một chữ số (0-9).</p>
+        <form id="pw-form" class="max-w-md space-y-4">
+            <div id="pw-alert" class="hidden p-3 rounded-xl text-xs font-bold"></div>
+            <div>
+                <label for="old_password" class="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu hiện tại</label>
+                <input type="password" id="old_password" name="old_password" required autocomplete="current-password" class="w-full text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-brand-500 outline-none">
+                <a href="{{ url_for('forgot_password') }}" class="text-[11px] font-semibold text-brand-600 hover:underline">Quên mật khẩu?</a>
+            </div>
+            <div>
+                <label for="new_password" class="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu mới</label>
+                <input type="password" id="new_password" name="new_password" required minlength="8" autocomplete="new-password" class="w-full text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-brand-500 outline-none">
+            </div>
+            <div>
+                <label for="confirm_password" class="block text-xs font-bold text-slate-700 mb-1.5">Nhập lại mật khẩu mới</label>
+                <input type="password" id="confirm_password" name="confirm_password" required minlength="8" autocomplete="new-password" class="w-full text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-brand-500 outline-none">
+            </div>
+            <button type="submit" id="pw-submit" class="px-5 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 disabled:opacity-60 transition">Cập nhật mật khẩu</button>
+        </form>
+    </section>
+
+    <section id="section-session-management" class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+                <h2 class="font-bold text-slate-900">Phiên đăng nhập</h2>
+                <p class="text-xs text-slate-500 mt-1">Thu hồi quyền truy cập của thiết bị bạn không nhận ra.</p>
+            </div>
+            {% if sessions|length > 1 %}
+            <button type="button" id="revoke-others" class="shrink-0 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 rounded-xl text-xs font-bold transition">Đăng xuất thiết bị khác</button>
+            {% endif %}
+        </div>
+        <div id="sess-alert" class="hidden mb-3 p-3 rounded-xl text-xs font-bold"></div>
+        {% if sessions %}
+        <ul class="divide-y divide-slate-100">
+            {% for sess in sessions %}
+            <li class="flex items-center justify-between gap-3 py-3">
+                <div class="min-w-0">
+                    <div class="text-sm font-bold text-slate-900 truncate">{{ sess.device_name }}
+                        {% if sess.is_current %}<span class="ml-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60">Thiết bị này</span>{% endif %}
+                    </div>
+                    <div class="text-[11px] text-slate-500">{{ sess.ip_address }} · {{ sess.last_active_formatted }}</div>
+                </div>
+                <button type="button" data-session-id="{{ sess.id }}" data-current="{{ 'true' if sess.is_current else 'false' }}"
+                    class="revoke-btn shrink-0 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">{{ 'Đăng xuất' if sess.is_current else 'Thu hồi' }}</button>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-slate-500">Chưa có phiên đăng nhập nào được ghi nhận.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    function post(url, body) {
+        return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(body || {}) })
+            .then(function (r) { return r.json(); });
+    }
+    function show(box, ok, msg) {
+        box.className = 'p-3 rounded-xl text-xs font-bold ' + (ok ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200');
+        box.textContent = msg;
+    }
+
+    var form = document.getElementById('pw-form');
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var btn = document.getElementById('pw-submit'), box = document.getElementById('pw-alert');
+        btn.disabled = true;
+        post('/api/account/change-password', {
+            old_password: form.old_password.value,
+            new_password: form.new_password.value,
+            confirm_password: form.confirm_password.value
+        }).then(function (d) {
+            show(box, d.success, d.message || (d.success ? 'Đã đổi mật khẩu.' : 'Không thể đổi mật khẩu.'));
+            if (d.success) form.reset();
+        }).catch(function () { show(box, false, 'Lỗi kết nối. Vui lòng thử lại.'); })
+          .then(function () { btn.disabled = false; });
+    });
+
+    var sbox = document.getElementById('sess-alert');
+    document.querySelectorAll('.revoke-btn').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var cur = b.dataset.current === 'true';
+            if (!confirm(cur ? 'Bạn sẽ đăng xuất khỏi thiết bị này. Tiếp tục?' : 'Thu hồi quyền truy cập của thiết bị này?')) return;
+            post('/api/account/sessions/revoke', { session_id: b.dataset.sessionId }).then(function (d) {
+                if (d.success && d.redirect_url) { location.href = d.redirect_url; return; }
+                if (d.success) { b.closest('li').remove(); }
+                show(sbox, d.success, d.message || 'Không thể thu hồi phiên.');
+            }).catch(function () { show(sbox, false, 'Lỗi kết nối. Vui lòng thử lại.'); });
+        });
+    });
+    var others = document.getElementById('revoke-others');
+    if (others) others.addEventListener('click', function () {
+        if (!confirm('Đăng xuất tất cả thiết bị khác? Thiết bị hiện tại được giữ nguyên.')) return;
+        post('/api/account/sessions/revoke-others').then(function (d) {
+            show(sbox, d.success, d.message || 'Không thể thực hiện.');
+            if (d.success) setTimeout(function () { location.reload(); }, 1000);
+        }).catch(function () { show(sbox, false, 'Lỗi kết nối. Vui lòng thử lại.'); });
+    });
+})();
+</script>
+{% endblock %}

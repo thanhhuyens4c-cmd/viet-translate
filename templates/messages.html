@@ -1,105 +1,226 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}{{ t('messages_page.title') }}{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-slate-50/60">
-<div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-
-    <!-- Page Header -->
-    <div class="mb-8">
+<div class="bg-slate-50/60 min-h-screen py-6 sm:py-10">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="mb-5">
         <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('messages_page.heading') }}</h1>
         <p class="text-slate-500 text-sm mt-1">{{ t('messages_page.subtitle') }}</p>
     </div>
 
-    <!-- Conversation List -->
-    <div id="conv-loading" class="flex flex-col items-center justify-center py-20 text-slate-400">
-        <svg class="animate-spin w-7 h-7 mb-3 text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-        </svg>
-        <span class="text-sm font-medium">{{ t('messages_page.loading') }}</span>
-    </div>
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden grid grid-cols-1 md:grid-cols-[320px_1fr] min-h-[70vh]">
+        <!-- Danh sách hội thoại -->
+        <aside id="mc-side" class="border-b md:border-b-0 md:border-r border-slate-100 flex flex-col min-w-0 max-h-[75vh] md:max-h-none">
+            <div class="p-3 border-b border-slate-100">
+                <label class="sr-only" for="mc-search">Tìm hội thoại</label>
+                <input id="mc-search" type="search" placeholder="Tìm theo tên, dự án, nội dung..." maxlength="100"
+                       class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+            <div id="mc-loading" class="p-4 space-y-3" aria-hidden="true">
+                <div class="animate-pulse h-14 bg-slate-100 rounded-xl"></div><div class="animate-pulse h-14 bg-slate-100 rounded-xl"></div><div class="animate-pulse h-14 bg-slate-100 rounded-xl"></div>
+            </div>
+            <div id="mc-error" class="hidden p-4 text-center" role="alert">
+                <p class="text-sm font-semibold text-rose-700 mb-3">Không tải được danh sách hội thoại.</p>
+                <button id="mc-retry" type="button" class="text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-4 py-2 rounded-lg">Thử lại</button>
+            </div>
+            <div id="mc-empty" class="hidden p-8 text-center text-slate-400">
+                <p class="font-semibold text-slate-500 text-sm">{{ t('messages_page.empty_title') }}</p>
+                <p class="text-xs mt-1">{{ t('messages_page.empty_desc') }}</p>
+            </div>
+            <ul id="mc-list" class="hidden overflow-y-auto divide-y divide-slate-100 flex-1"></ul>
+        </aside>
 
-    <div id="conv-empty" class="hidden flex-col items-center justify-center py-20 text-slate-400">
-        <div class="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-5">
-            <svg class="w-9 h-9 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-            </svg>
-        </div>
-        <p class="font-semibold text-slate-500 text-base">{{ t('messages_page.empty_title') }}</p>
-        <p class="text-sm text-slate-400 mt-1">{{ t('messages_page.empty_desc') }}</p>
+        <!-- Khung hội thoại -->
+        <section id="mc-main" class="hidden md:flex flex-col min-w-0">
+            <div id="mc-placeholder" class="flex-1 flex items-center justify-center text-sm text-slate-400 p-8 text-center">Chọn một hội thoại để bắt đầu.</div>
+            <div id="mc-chat" class="hidden flex-1 flex flex-col min-h-0">
+                <header class="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                    <button id="mc-back" type="button" class="md:hidden text-slate-500 hover:text-slate-800 text-lg leading-none" aria-label="Quay lại danh sách">←</button>
+                    <div class="min-w-0 flex-1">
+                        <p id="mc-title" class="font-bold text-slate-900 text-sm truncate"></p>
+                        <p id="mc-sub" class="text-[11px] text-slate-400 truncate"></p>
+                    </div>
+                    <a id="mc-open" href="#" class="text-xs font-bold text-brand-600 hover:underline shrink-0">Mở</a>
+                </header>
+                <div id="mc-msgs" class="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-50/50 min-h-[40vh] max-h-[60vh]" aria-live="polite"></div>
+                <p id="mc-msg-error" class="hidden px-4 py-2 text-xs font-semibold text-rose-600 bg-rose-50 border-t border-rose-100" role="alert"></p>
+                <p id="mc-warning" class="hidden px-4 py-2 text-xs font-semibold text-amber-800 bg-amber-50 border-t border-amber-100"></p>
+                <form id="mc-form" class="p-3 border-t border-slate-100 flex items-end gap-2">
+                    <label class="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 cursor-pointer" title="Gửi ảnh" aria-label="Gửi ảnh">
+                        🖼<input id="mc-file" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden">
+                    </label>
+                    <textarea id="mc-input" rows="1" maxlength="2000" placeholder="Nhập tin nhắn..." class="flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-500"></textarea>
+                    <button id="mc-send" class="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition">Gửi</button>
+                </form>
+            </div>
+        </section>
     </div>
-
-    <div id="conv-list" class="hidden bg-white rounded-2xl shadow-soft border border-slate-200/80 divide-y divide-slate-100 overflow-hidden">
-        <!-- Populated by JS -->
-    </div>
-
 </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-(function() {
-    const loading  = document.getElementById("conv-loading");
-    const empty    = document.getElementById("conv-empty");
-    const list     = document.getElementById("conv-list");
+(function () {
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const safeImg = (u) => typeof u === 'string' && (/^\/chat-image\/[\w.\-]+$/.test(u) || /^\/static\/uploads\/chat_images\/[\w.\-]+$/.test(u) || /^data:image\/(png|jpeg|gif|webp);base64,/.test(u));
+    const ME = {{ (session.get('user_id') if session.get('user_id') is number else 0)|tojson }};
+    let convs = [], active = null, msgs = [], sending = new Map(), seq = 0, pollTimer = null, listTimer = null;
+    const POLL_MS = 15000, LIST_MS = 45000;   // thưa; chỉ chạy khi tab đang hiển thị
 
-    function truncate(str, len) {
-        if (!str) return "";
-        return str.length > len ? str.slice(0, len) + "…" : str;
+    // ── API helpers ──
+    const msgUrl = (c) => c.type === 'contract' ? '/api/messages/' + c.contract_id : '/api/direct-messages/' + c.other_user_id;
+    const refreshBadges = () => { if (window.vtRefreshBadges) window.vtRefreshBadges(true); };
+
+    // ── Danh sách ──
+    function showList(state) {
+        $('mc-loading').classList.toggle('hidden', state !== 'loading');
+        $('mc-error').classList.toggle('hidden', state !== 'error');
+        $('mc-empty').classList.toggle('hidden', state !== 'empty');
+        $('mc-list').classList.toggle('hidden', state !== 'list');
+    }
+    function renderList() {
+        const ul = $('mc-list');
+        if (!convs.length) { showList('empty'); return; }
+        showList('list');
+        ul.innerHTML = convs.map(c => `
+          <li><button type="button" data-key="${esc(c.key)}" class="w-full text-left flex gap-3 px-4 py-3 hover:bg-brand-50/50 transition ${active && active.key === c.key ? 'bg-brand-50' : ''}">
+            <div class="relative shrink-0"><div class="w-11 h-11 rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 text-white font-extrabold flex items-center justify-center">${esc(c.other_initial)}</div>
+              ${c.unread_count > 0 ? `<span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center">${c.unread_count > 99 ? '99+' : c.unread_count}</span>` : ''}</div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-baseline justify-between gap-2"><span class="font-bold text-sm truncate ${c.unread_count ? 'text-slate-900' : 'text-slate-700'}">${esc(c.other_name)}</span><span class="text-[10px] text-slate-400 shrink-0">${esc(c.last_time_str)}</span></div>
+              ${c.project ? `<p class="text-[11px] font-semibold text-indigo-600 truncate">📁 ${esc(c.project)}</p>` : '<p class="text-[11px] text-slate-400">Tin nhắn riêng</p>'}
+              <p class="text-xs truncate ${c.unread_count ? 'text-slate-800 font-semibold' : 'text-slate-500'}">${esc(c.last_message)}</p>
+            </div></button></li>`).join('');
+    }
+    async function loadList(silent) {
+        if (!silent) showList('loading');
+        try {
+            const q = $('mc-search').value.trim();
+            const res = await fetch('/api/messages/conversations' + (q ? '?q=' + encodeURIComponent(q) : ''), {credentials: 'same-origin', headers: {'Accept': 'application/json'}});
+            if (!res.ok) throw new Error(res.status);
+            convs = await res.json();
+            if (!convs.length && q) { $('mc-list').innerHTML = ''; showList('list'); $('mc-list').innerHTML = '<li class="p-6 text-center text-sm text-slate-400">Không có hội thoại nào khớp.</li>'; }
+            else renderList();
+        } catch (e) { if (!silent) showList('error'); }
     }
 
-    function typeLabel(type) {
-        return type === "contract"
-            ? '<span class="text-[10px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5 mr-2">{{ t("messages_page.contract_badge") }}</span>'
-            : "";
+    // ── Khung hội thoại ──
+    function bubble(m) {
+        const mine = m.sender_id === ME;
+        const img = m.image_url && safeImg(m.image_url) ? `<img src="${esc(m.image_url)}" alt="Ảnh" class="max-w-full rounded-lg mb-1 max-h-60" loading="lazy">` : '';
+        return `<div class="flex ${mine ? 'justify-end' : ''}"><div class="max-w-[85%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-brand-600 text-white' : 'bg-white border border-slate-200 text-slate-800'}">${img}<p class="whitespace-pre-line break-words">${esc(m.content)}</p><p class="text-[10px] mt-0.5 ${mine ? 'text-white/70' : 'text-slate-400'}">${esc(m.time)}</p></div></div>`;
     }
-
-    fetch("/api/messages/conversations")
-        .then(r => r.json())
-        .then(data => {
-            loading.classList.add("hidden");
-
-            if (!data || data.length === 0) {
-                empty.classList.remove("hidden");
-                empty.style.display = "flex";
-                return;
-            }
-
-            list.classList.remove("hidden");
-            list.innerHTML = data.map(conv => `
-                <a href="${conv.url}" class="flex items-center gap-4 px-5 py-4 hover:bg-brand-50/50 transition group cursor-pointer">
-                    <div class="relative shrink-0">
-                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 flex items-center justify-center text-white font-extrabold text-lg shadow-sm group-hover:scale-105 transition-transform">
-                            ${conv.other_initial}
-                        </div>
-                        ${conv.unread_count > 0
-                            ? `<span class="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center shadow">${conv.unread_count > 9 ? "9+" : conv.unread_count}</span>`
-                            : ""}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between gap-2">
-                            <div class="flex items-center gap-1.5 min-w-0">
-                                ${typeLabel(conv.type)}
-                                <span class="font-bold text-sm truncate ${conv.unread_count > 0 ? "text-slate-900" : "text-slate-700"}">${conv.other_name}</span>
-                            </div>
-                            <span class="text-[11px] text-slate-400 font-medium shrink-0">${conv.last_time_str}</span>
-                        </div>
-                        <p class="text-xs mt-0.5 truncate ${conv.unread_count > 0 ? "text-slate-700 font-semibold" : "text-slate-500 font-normal"}">
-                            ${truncate(conv.last_message, 80)}
-                        </p>
-                    </div>
-                    <svg class="w-4 h-4 text-slate-300 group-hover:text-brand-400 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                </a>
-            `).join("");
-        })
-        .catch(err => {
-            loading.classList.add("hidden");
-            empty.classList.remove("hidden");
-            empty.style.display = "flex";
-            console.error("Could not load conversations:", err);
+    function renderMsgs() {
+        const box = $('mc-msgs'), near = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+        let html = msgs.length ? msgs.map(bubble).join('') : '<p class="text-sm text-slate-400 text-center py-8">Chưa có tin nhắn. Hãy gửi lời chào!</p>';
+        sending.forEach((p, id) => {
+            html += `<div class="flex justify-end"><div class="max-w-[85%] rounded-2xl px-3 py-2 text-sm bg-brand-600/70 text-white"><p class="whitespace-pre-line break-words">${esc(p.content || '[Hình ảnh]')}</p>
+              <p class="text-[10px] mt-0.5 text-white/80">${p.failed ? `<span class="font-bold">Gửi thất bại</span> · <button type="button" data-retry="${id}" class="underline font-bold">Thử lại</button> · <button type="button" data-discard="${id}" class="underline">Bỏ</button>` : 'Đang gửi…'}</p></div></div>`;
         });
+        box.innerHTML = html;
+        if (near || sending.size) box.scrollTop = box.scrollHeight;
+    }
+    async function loadMsgs(first) {
+        if (!active) return;
+        const key = active.key;
+        if (first) $('mc-msgs').innerHTML = '<div class="animate-pulse space-y-2"><div class="h-9 w-2/3 bg-slate-200 rounded-2xl"></div><div class="h-9 w-1/2 bg-slate-200 rounded-2xl ml-auto"></div></div>';
+        try {
+            const res = await fetch(msgUrl(active), {credentials: 'same-origin', headers: {'Accept': 'application/json'}});
+            if (!res.ok) throw new Error(res.status);
+            const data = await res.json();
+            if (!active || active.key !== key) return;
+            const changed = data.length !== msgs.length || (data.length && data[data.length - 1].id !== (msgs[msgs.length - 1] || {}).id);
+            msgs = data; $('mc-msg-error').classList.add('hidden');
+            if (changed || first) renderMsgs();
+            // GET đã đánh dấu đã đọc trong database → đồng bộ giao diện
+            if (active.unread_count) { active.unread_count = 0; renderList(); refreshBadges(); }
+        } catch (e) {
+            if (first) $('mc-msgs').innerHTML = '';
+            $('mc-msg-error').innerHTML = 'Không tải được tin nhắn. <button type="button" id="mc-reload" class="underline font-bold">Thử lại</button>';
+            $('mc-msg-error').classList.remove('hidden');
+        }
+    }
+    function open(key) {
+        const c = convs.find(x => x.key === key); if (!c) return;
+        active = c; msgs = []; sending = new Map();
+        $('mc-placeholder').classList.add('hidden'); $('mc-chat').classList.remove('hidden');
+        $('mc-title').textContent = c.other_name; $('mc-sub').textContent = c.project ? 'Dự án: ' + c.project : 'Tin nhắn riêng';
+        $('mc-open').href = c.url; $('mc-open').textContent = c.type === 'contract' ? 'Mở dự án' : 'Mở trang chat';
+        $('mc-warning').classList.add('hidden'); $('mc-msg-error').classList.add('hidden');
+        // mobile: ẩn danh sách, hiện khung chat
+        $('mc-main').classList.remove('hidden'); $('mc-main').classList.add('flex'); $('mc-side').classList.add('hidden', 'md:flex');
+        history.replaceState(null, '', '?c=' + encodeURIComponent(key));
+        renderList(); loadMsgs(true); $('mc-input').focus();
+    }
+    $('mc-list').addEventListener('click', (e) => { const b = e.target.closest('[data-key]'); if (b) open(b.dataset.key); });
+    $('mc-back').addEventListener('click', () => {
+        active = null; $('mc-chat').classList.add('hidden'); $('mc-placeholder').classList.remove('hidden');
+        $('mc-main').classList.add('hidden'); $('mc-main').classList.remove('flex'); $('mc-side').classList.remove('hidden');
+        history.replaceState(null, '', location.pathname); renderList();
+    });
+
+    // ── Gửi (có thất bại / thử lại) ──
+    async function doSend(id) {
+        const p = sending.get(id); if (!p || !active) return;
+        p.failed = false; renderMsgs();
+        try {
+            const res = await fetch(msgUrl(active), {method: 'POST', credentials: 'same-origin',
+                headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+                body: JSON.stringify({content: p.content, image_url: p.image_url || ''})});
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok || d.status === 'error') { p.failed = true; p.error = d.message || ''; if (res.status === 400 || res.status === 403 || res.status === 404) p.fatal = true; throw new Error(p.error); }
+            sending.delete(id);
+            if (d.has_warning && d.warning_message) { $('mc-warning').textContent = d.warning_message; $('mc-warning').classList.remove('hidden'); }
+            await loadMsgs(false); renderMsgs(); loadList(true);
+        } catch (e) {
+            p.failed = true; renderMsgs();
+            if (p.error) { $('mc-msg-error').textContent = p.error; $('mc-msg-error').classList.remove('hidden'); }
+        }
+    }
+    function queue(content, imageUrl) { const id = ++seq; sending.set(id, {content, image_url: imageUrl}); doSend(id); }
+    $('mc-form').addEventListener('submit', (e) => {
+        e.preventDefault(); const text = $('mc-input').value.trim(); if (!text || !active) return;
+        $('mc-input').value = ''; $('mc-msg-error').classList.add('hidden'); queue(text, '');
+    });
+    $('mc-input').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('mc-form').requestSubmit(); } });
+    $('mc-msgs').addEventListener('click', (e) => {
+        const r = e.target.closest('[data-retry]'); if (r) return doSend(+r.dataset.retry);
+        const d = e.target.closest('[data-discard]'); if (d) { sending.delete(+d.dataset.discard); renderMsgs(); }
+    });
+    $('mc-msg-error').addEventListener('click', (e) => { if (e.target.id === 'mc-reload') loadMsgs(true); });
+    $('mc-file').addEventListener('change', async (e) => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f || !active) return;
+        if (!/^image\/(png|jpeg|gif|webp)$/.test(f.type)) { $('mc-msg-error').textContent = 'Chỉ hỗ trợ ảnh PNG, JPG, GIF, WEBP.'; $('mc-msg-error').classList.remove('hidden'); return; }
+        if (f.size > 5 * 1024 * 1024) { $('mc-msg-error').textContent = 'Ảnh vượt quá 5MB.'; $('mc-msg-error').classList.remove('hidden'); return; }
+        const fd = new FormData(); fd.append('image', f); $('mc-send').disabled = true;
+        try {
+            const res = await fetch('/api/chat/upload-image', {method: 'POST', body: fd, credentials: 'same-origin'});
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok || d.status !== 'ok') throw new Error(d.message || 'Tải ảnh thất bại.');
+            queue('', d.image_url);
+        } catch (ex) { $('mc-msg-error').textContent = ex.message || 'Tải ảnh thất bại.'; $('mc-msg-error').classList.remove('hidden'); }
+        $('mc-send').disabled = false;
+    });
+
+    // ── Tìm kiếm, thử lại, làm mới thưa ──
+    let st; $('mc-search').addEventListener('input', () => { clearTimeout(st); st = setTimeout(() => loadList(true), 250); });
+    $('mc-retry').addEventListener('click', () => loadList(false));
+    function tick() {
+        if (document.visibilityState !== 'visible') return;
+        if (active) loadMsgs(false);
+    }
+    pollTimer = setInterval(tick, POLL_MS);
+    listTimer = setInterval(() => { if (document.visibilityState === 'visible') loadList(true); }, LIST_MS);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { loadList(true); tick(); } });
+
+    // ── Khởi động (hỗ trợ /messages?c=d:5 hoặc c:12) ──
+    loadList(false).then(() => {
+        const want = new URLSearchParams(location.search).get('c');
+        if (want && convs.some(c => c.key === want)) open(want);
+    });
 })();
 </script>
 {% endblock %}

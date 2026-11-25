@@ -1,0 +1,372 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Chi tiết đánh giá hồ sơ | Admin VietTranslate{% endblock %}
+
+{% block content %}
+<div class="px-6 py-8">
+    <div class="mb-6 flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-slate-800">Đánh giá hồ sơ: {{ verification.user.name if verification.user else 'PDV #' ~ verification.user_id }}</h2>
+        <a href="{{ url_for('admin_translators', show='pending') }}" class="btn btn-ghost">← Quay lại</a>
+    </div>
+
+    <form method="POST" action="{{ url_for('admin_review_verification', verification_id=verification.id, action='approve') }}" id="review-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" id="form-action" value="approve">
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Cột trái: Thông tin & Tài liệu -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">Thông tin tài khoản</h3>
+                    <div class="space-y-2 text-sm">
+                        <p><span class="text-slate-500">Họ tên:</span> {{ verification.user.name if verification.user else 'PDV #' ~ verification.user_id }}</p>
+                        <p><span class="text-slate-500">Email:</span> {{ verification.user.email if verification.user else '--' }}</p>
+                        <p><span class="text-slate-500">Ngày nộp:</span> {{ verification.submitted_at.strftime('%d/%m/%Y %H:%M') if verification.submitted_at else 'N/A' }}</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">Tài liệu đã tải lên</h3>
+                    {% if verification.documents %}
+                    <ul class="space-y-3">
+                        {% for doc in verification.documents if doc.is_active %}
+                        <li class="flex items-center justify-between text-sm">
+                            <span class="truncate font-medium text-slate-700">{{ doc.original_filename }}</span>
+                            <a href="{{ url_for('view_verification_document', doc_id=doc.id) }}" target="_blank" class="text-brand-600 hover:underline shrink-0 ml-2">Xem</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-sm text-slate-500">Không có tài liệu nào.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Cột phải: Trợ lý Thẩm định & Checklist 16 tiêu chí -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Khối Phân Tích Của Bộ Máy Tự Động (Hybrid Verification Engine) -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 text-base">🤖</span>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm sm:text-base">Kết Quả Phân Tích Tự Động (Hybrid Engine)</h3>
+                                <p class="text-xs text-slate-500">Đối chiếu 4 tiêu chí độc lập: Email, Định danh, CV và Chứng chỉ số.</p>
+                            </div>
+                        </div>
+                        <div>
+                            {% if auto_eval and auto_eval.decision == 'auto_eligible' %}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    Đủ điều kiện tự động duyệt
+                                </span>
+                            {% elif auto_eval and auto_eval.decision == 'needs_revision' %}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                    ⚠️ Cần yêu cầu bổ sung
+                                </span>
+                            {% elif auto_eval and auto_eval.decision == 'rejected' %}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                                    🚫 Rủi ro / Không hợp lệ
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300">
+                                    🔍 Cần Admin thẩm định
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Lưới 4 tiêu chí độc lập -->
+                    {% if auto_eval and auto_eval.checks %}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 my-4">
+                        <!-- 1. Email -->
+                        <div class="p-3 rounded-xl border {% if auto_eval.checks.email.passed %}bg-emerald-50/50 border-emerald-200{% else %}bg-amber-50/50 border-amber-200{% endif %}">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold text-slate-700">1. Email xác thực</span>
+                                <span class="text-xs">{% if auto_eval.checks.email.passed %}✅{% else %}⚠️{% endif %}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.email.reason }}</p>
+                        </div>
+
+                        <!-- 2. Định danh CCCD -->
+                        <div class="p-3 rounded-xl border {% if auto_eval.checks.identity.passed %}bg-emerald-50/50 border-emerald-200{% else %}bg-amber-50/50 border-amber-200{% endif %}">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold text-slate-700">2. Hồ sơ CCCD</span>
+                                <span class="text-xs">{% if auto_eval.checks.identity.passed %}✅{% else %}⚠️{% endif %}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.identity.reason }}</p>
+                        </div>
+
+                        <!-- 3. CV nghề nghiệp -->
+                        <div class="p-3 rounded-xl border {% if auto_eval.checks.cv.passed %}bg-emerald-50/50 border-emerald-200{% else %}bg-amber-50/50 border-amber-200{% endif %}">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold text-slate-700">3. CV nghề nghiệp</span>
+                                <span class="text-xs">{% if auto_eval.checks.cv.passed %}✅{% else %}⚠️{% endif %}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.cv.reason }}</p>
+                        </div>
+
+                        <!-- 4. Chứng chỉ số -->
+                        <div class="p-3 rounded-xl border {% if auto_eval.checks.certificate.passed %}bg-emerald-50/50 border-emerald-200{% else %}bg-amber-50/50 border-amber-200{% endif %}">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold text-slate-700">4. Chứng thực số</span>
+                                <span class="text-xs">{% if auto_eval.checks.certificate.passed %}✅{% else %}⚠️{% endif %}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-600 truncate" title="{{ auto_eval.checks.certificate.reason }}">{{ auto_eval.checks.certificate.reason }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if verification.verification_url %}
+                    <div class="mt-4 space-y-4">
+                        <!-- Trạng thái tên miền Whitelist -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl {% if is_whitelisted %}bg-emerald-50/70 border border-emerald-200 text-emerald-900{% else %}bg-amber-50 border border-amber-200 text-amber-900{% endif %}">
+                            <div class="flex items-center gap-2 text-xs">
+                                <span class="font-bold">Nguồn cấp:</span>
+                                <span class="px-2 py-0.5 rounded bg-white font-semibold shadow-xs">{{ issuer_name }}</span>
+                                {% if is_whitelisted %}
+                                    <span class="text-emerald-700 font-medium">✓ Tên miền chính thức được bảo đảm (Whitelist)</span>
+                                {% else %}
+                                    <span class="text-amber-700 font-medium">⚠️ Tên miền chưa nằm trong danh mục ưu tiên</span>
+                                {% endif %}
+                            </div>
+                            <a href="{{ verification.verification_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-800 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-xs hover:border-brand-300 transition">
+                                <span>🔗 Xem chứng chỉ gốc</span>
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                            </a>
+                        </div>
+
+                        <!-- Bảng đối soát 3 trường thông tin -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs border border-slate-200 rounded-xl overflow-hidden">
+                                <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
+                                    <tr>
+                                        <th class="py-2.5 px-3">Trường thông tin</th>
+                                        <th class="py-2.5 px-3">Dữ liệu tài khoản / khai báo</th>
+                                        <th class="py-2.5 px-3">Dữ liệu trích xuất từ nguồn</th>
+                                        <th class="py-2.5 px-3 text-center">Đánh giá</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <tr>
+                                        <td class="py-2 px-3 font-semibold text-slate-600">Họ và tên ứng viên</td>
+                                        <td class="py-2 px-3 font-bold text-slate-800">{{ verification.user.name if verification.user else 'PDV #' ~ verification.user_id }}</td>
+                                        <td class="py-2 px-3 text-slate-700">{{ cert_meta.get('recipient_name') or 'Trích xuất từ web' }}</td>
+                                        <td class="py-2 px-3 text-center">
+                                            {% if cert_meta.get('name_match') or verification.is_online_verified %}
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">✓ Khớp (Score: {{ ((verification.name_match_score or 1.0) * 100)|round|int }}%)</span>
+                                            {% elif cert_meta.get('recipient_name') %}
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">⚠️ Khác biệt (Score: {{ ((verification.name_match_score or 0) * 100)|round|int }}%)</span>
+                                            {% else %}
+                                                <span class="text-slate-400">Đối chiếu trực tiếp</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-2 px-3 font-semibold text-slate-600">Tên chứng chỉ / Cấp độ</td>
+                                        <td class="py-2 px-3 font-bold text-slate-800">{{ verification.certificate_name or verification.certificate_type or '-' }}</td>
+                                        <td class="py-2 px-3 text-slate-700">{{ cert_meta.get('cert_name') or '-' }}</td>
+                                        <td class="py-2 px-3 text-center">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">✓ Hợp lệ</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-2 px-3 font-semibold text-slate-600">Mã ID / Ngày cấp</td>
+                                        <td class="py-2 px-3 text-slate-800">ID: {{ verification.certificate_id or 'Chưa nhập' }}</td>
+                                        <td class="py-2 px-3 text-slate-700">Ngày cấp: {{ cert_meta.get('issued_date') or verification.cert_year or '-' }}</td>
+                                        <td class="py-2 px-3 text-center">
+                                            {% if cert_meta.get('is_expired') %}
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-800">Hết hạn</span>
+                                            {% else %}
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">Còn hiệu lực</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Nút trợ giúp thao tác nhanh cho Admin dựa trên kết quả Engine -->
+                        <div class="flex items-center justify-between pt-2">
+                            <span class="text-xs text-slate-500">Mẹo: Nhấn nút bên dưới để áp dụng kết quả phân tích tự động vào Checklist (chỉ tick các mục thực sự đạt).</span>
+                            <button type="button" onclick="applyEngineReviewToForm()" class="btn btn-sm bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 font-bold text-xs flex items-center gap-1.5">
+                                <span>⚡ Áp dụng phân tích tự động vào Checklist</span>
+                            </button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="mt-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span>📄</span>
+                            <span>Ứng viên không đính kèm đường link kiểm thực số. Vui lòng thẩm định bằng mắt thông qua các file tài liệu scan được tải lên ở cột bên trái.</span>
+                        </div>
+                        <button type="button" onclick="applyEngineReviewToForm()" class="btn btn-sm bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs shrink-0">
+                            ⚡ Điền các mục đã xác thực
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">Checklist Đánh Giá (16 Tiêu Chí)</h3>
+                    
+                    <div class="space-y-6">
+                        <!-- Nhóm A -->
+                        <div>
+                            <h4 class="font-semibold text-brand-700 mb-2">Nhóm A: Xác minh danh tính (Bắt buộc)</h4>
+                            <div class="space-y-2 pl-2">
+                                {% for i in range(1, 6) %}
+                                <label class="flex items-start gap-2 cursor-pointer">
+                                    <input type="checkbox" name="chk_A{{i}}" class="mt-1 rounded text-brand-600 focus:ring-brand-500 criteria-bb" {% if checklist_data.get('A' ~ i) %}checked{% endif %}>
+                                    <span class="text-sm text-slate-700">A{{i}}. Tiêu chí danh tính {{i}}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Nhóm B -->
+                        <div>
+                            <h4 class="font-semibold text-brand-700 mb-2">Nhóm B: Hồ sơ năng lực</h4>
+                            <div class="space-y-2 pl-2">
+                                {% for i in range(1, 5) %}
+                                <label class="flex items-start gap-2 cursor-pointer">
+                                    <input type="checkbox" name="chk_B{{i}}" class="mt-1 rounded text-brand-600 focus:ring-brand-500" {% if checklist_data.get('B' ~ i) %}checked{% endif %}>
+                                    <span class="text-sm text-slate-700">B{{i}}. Tiêu chí năng lực {{i}}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Nhóm C -->
+                        <div>
+                            <h4 class="font-semibold text-brand-700 mb-2">Nhóm C: Kinh nghiệm chuyên môn</h4>
+                            <div class="space-y-2 pl-2">
+                                {% for i in range(1, 6) %}
+                                <label class="flex items-start gap-2 cursor-pointer">
+                                    <input type="checkbox" name="chk_C{{i}}" class="mt-1 rounded text-brand-600 focus:ring-brand-500" {% if checklist_data.get('C' ~ i) %}checked{% endif %}>
+                                    <span class="text-sm text-slate-700">C{{i}}. Tiêu chí kinh nghiệm {{i}}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Nhóm D -->
+                        <div>
+                            <h4 class="font-semibold text-brand-700 mb-2">Nhóm D: Bảo mật và Cam kết (Bắt buộc)</h4>
+                            <div class="space-y-2 pl-2">
+                                {% for i in range(1, 3) %}
+                                <label class="flex items-start gap-2 cursor-pointer">
+                                    <input type="checkbox" name="chk_D{{i}}" class="mt-1 rounded text-brand-600 focus:ring-brand-500 criteria-bb" {% if checklist_data.get('D' ~ i) %}checked{% endif %}>
+                                    <span class="text-sm text-slate-700">D{{i}}. Tiêu chí bảo mật {{i}}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t border-slate-200">
+                        <label class="block text-sm font-bold text-slate-700 mb-2">Lý do (Bắt buộc nếu Yêu cầu bổ sung hoặc Từ chối)</label>
+                        <textarea name="reason" id="reason-text" rows="3" class="w-full border-slate-300 rounded-lg shadow-sm focus:ring-brand-500 focus:border-brand-500" placeholder="Nhập lý do chi tiết..."></textarea>
+                    </div>
+
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <button type="button" onclick="submitReview('approve')" class="btn btn-success" id="btn-approve">
+                            <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Phê duyệt (Đạt tiêu chí BB)
+                        </button>
+                        <button type="button" onclick="submitReview('needs_revision')" class="btn btn-warning">
+                            <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            Yêu cầu bổ sung
+                        </button>
+                        <button type="button" onclick="submitReview('reject')" class="btn btn-danger">
+                            <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            Từ chối hồ sơ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function applyEngineReviewToForm() {
+    const checks = {{ (auto_eval.checks if auto_eval and auto_eval.checks else {}) | tojson }};
+    let count = 0;
+
+    // 1. Nếu Email xác thực đạt
+    if (checks.email && checks.email.passed) {
+        const chkA4 = document.querySelector('input[name="chk_A4"]');
+        if (chkA4 && !chkA4.checked) { chkA4.checked = true; count++; }
+    }
+
+    // 2. Nếu Hồ sơ định danh CCCD đạt
+    if (checks.identity && checks.identity.passed) {
+        ['chk_A1', 'chk_A2', 'chk_A3', 'chk_A5'].forEach(name => {
+            const chk = document.querySelector(`input[name="${name}"]`);
+            if (chk && !chk.checked) { chk.checked = true; count++; }
+        });
+    }
+
+    // 3. Nếu Chứng chỉ số hợp lệ & xác thực nguồn
+    if (checks.certificate && checks.certificate.passed) {
+        for (let i = 1; i <= 4; i++) {
+            const chk = document.querySelector(`input[name="chk_B${i}"]`);
+            if (chk && !chk.checked) { chk.checked = true; count++; }
+        }
+    }
+
+    // 4. Nếu CV nghề nghiệp đạt
+    if (checks.cv && checks.cv.passed) {
+        for (let i = 1; i <= 5; i++) {
+            const chk = document.querySelector(`input[name="chk_C${i}"]`);
+            if (chk && !chk.checked) { chk.checked = true; count++; }
+        }
+    }
+
+    // 5. Cam kết bảo mật chuẩn (D1, D2)
+    ['chk_D1', 'chk_D2'].forEach(name => {
+        const chk = document.querySelector(`input[name="${name}"]`);
+        if (chk && !chk.checked) { chk.checked = true; count++; }
+    });
+
+    alert(`✓ Đã đối chiếu và tự động đánh dấu ${count} tiêu chí hợp lệ từ kết quả phân tích Hybrid Engine! Vui lòng rà soát trước khi Phê duyệt.`);
+}
+
+function submitReview(action) {
+    const form = document.getElementById('review-form');
+    const reason = document.getElementById('reason-text').value.trim();
+    
+    // Auto-check mandatory criteria (BB) if approve
+    if (action === 'approve') {
+        let allBbChecked = true;
+        document.querySelectorAll('.criteria-bb').forEach(el => {
+            if (!el.checked) allBbChecked = false;
+        });
+        
+        if (!allBbChecked) {
+            {% if admin_role == 'super_admin' %}
+            if (!confirm('⚡ THẨM QUYỀN SUPER ADMIN:\nHồ sơ này chưa tick đủ các tiêu chí Bắt buộc (Nhóm A & D). Với thẩm quyền tối cao của Super Admin, bạn có chắc chắn muốn DUYỆT ĐẶC CÁCH cho hồ sơ này dù trong bất kỳ hoàn cảnh nào?')) {
+                return;
+            }
+            {% else %}
+            alert('Không thể Phê duyệt: Bạn phải tick đầy đủ các tiêu chí Bắt buộc (Nhóm A và D). Đối với các hồ sơ không đủ điều kiện, chỉ Super Admin mới có quyền duyệt qua. Bạn cần phải hỏi ý kiến riêng của Super Admin.');
+            return;
+            {% endif %}
+        }
+    } else {
+        if (!reason) {
+            alert('Vui lòng nhập lý do để Phiên dịch viên biết cần sửa/bổ sung gì.');
+            return;
+        }
+    }
+    
+    document.getElementById('form-action').value = action;
+    form.action = "{{ url_for('admin_review_verification', verification_id=verification.id, action='') }}" + action;
+    
+    if (confirm('Bạn chắc chắn muốn thực hiện hành động này?')) {
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

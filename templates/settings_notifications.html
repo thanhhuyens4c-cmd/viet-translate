@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Cài đặt thông báo{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+    {% set settings_active = 'notifications' %}
+    {% include '_settings_nav.html' %}
+
+    <div class="flex items-start justify-between gap-3 mb-8">
+        <div>
+            <h1 class="text-3xl font-black text-slate-900 tracking-tight">Cài đặt thông báo</h1>
+            <p class="mt-2 text-sm text-slate-500">Bật/tắt các nhóm thông báo. Thay đổi được lưu tự động.</p>
+        </div>
+        <span id="notif-status" class="shrink-0 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70">Tự động đồng bộ</span>
+    </div>
+
+    {% set groups = [
+        ('Công việc', [
+            ('notify_job_match', 'Job mới phù hợp tiêu chí', 'Thông báo khi có công việc mới phù hợp ngôn ngữ và lĩnh vực của bạn.'),
+            ('notify_application_update', 'Trạng thái đơn ứng tuyển / hợp đồng', 'Cập nhật khi đơn ứng tuyển hoặc hợp đồng thay đổi.'),
+            ('notify_profile_view', 'Khách đã xem hồ sơ', 'Thông báo khi khách hàng xem hồ sơ của bạn.'),
+        ]),
+        ('Lịch trình', [
+            ('notify_schedule_reminder', 'Nhắc lịch ca dịch sắp tới', 'Nhắc trước các ca dịch đã nhận.'),
+            ('reminder_time_60m', 'Nhắc trước 60 phút', ''),
+            ('reminder_time_30m', 'Nhắc trước 30 phút', ''),
+            ('reminder_time_15m', 'Nhắc trước 15 phút', ''),
+        ]),
+        ('Thu nhập', [
+            ('notify_income_update', 'Cập nhật thù lao và giải ngân', 'Thông báo khi thù lao được giải ngân hoặc thay đổi.'),
+        ]),
+        ('Nền tảng', [
+            ('notify_marketing', 'Tin khuyến mại và sự kiện', 'Ưu đãi, sự kiện của VietTranslate.'),
+        ]),
+    ] %}
+
+    <div class="space-y-5">
+        {% for group_title, fields in groups %}
+        <section class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-5">
+            <h2 class="text-sm font-bold text-slate-900 mb-3 pb-3 border-b border-slate-100">{{ group_title }}</h2>
+            <div class="divide-y divide-slate-100">
+                {% for field, label, desc in fields %}
+                <label class="flex items-center justify-between gap-4 py-3 cursor-pointer" for="t-{{ field }}">
+                    <span>
+                        <span class="block text-xs font-bold text-slate-800">{{ label }}</span>
+                        {% if desc %}<span class="block text-[11px] text-slate-500 mt-0.5">{{ desc }}</span>{% endif %}
+                    </span>
+                    <input type="checkbox" id="t-{{ field }}" data-field="{{ field }}" class="notif-toggle w-5 h-5 accent-blue-600 shrink-0" {% if setting[field] %}checked{% endif %}>
+                </label>
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+
+        <section class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-5">
+            <label class="flex items-center justify-between gap-4 opacity-80">
+                <span>
+                    <span class="block text-xs font-bold text-slate-800">Cảnh báo đăng nhập lạ và bảo mật</span>
+                    <span class="block text-[11px] text-slate-500 mt-0.5">Luôn bật để bảo vệ tài khoản của bạn.</span>
+                </span>
+                <input type="checkbox" checked disabled class="w-5 h-5 shrink-0">
+            </label>
+        </section>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.notif-toggle').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+        var status = document.getElementById('notif-status');
+        var field = cb.dataset.field, value = cb.checked;
+        status.textContent = 'Đang lưu...';
+        fetch('/api/account/notification-settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ field: field, value: value })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (!d.success) throw new Error(d.message);
+            status.textContent = 'Đã lưu';
+        })
+        .catch(function () {
+            cb.checked = !value;
+            status.textContent = 'Lưu thất bại, thử lại';
+        });
+    });
+});
+</script>
+{% endblock %}

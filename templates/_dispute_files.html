@@ -1,0 +1,9 @@
+{# Danh sách tệp bằng chứng của một bên. Biến: files #}
+{% if files %}
+<ul class="mt-2 space-y-1">
+    {% for e in files %}
+    <li class="text-xs"><a class="text-brand-600 hover:underline font-semibold" href="{{ url_for('dispute_evidence_file', evidence_id=e.id) }}" target="_blank">📎 {{ e.filename }}</a>
+        <span class="text-slate-400">{{ e.created_at.strftime('%d/%m/%Y %H:%M') }}</span></li>
+    {% endfor %}
+</ul>
+{% else %}<p class="text-xs text-slate-400 mt-2">Không có tệp đính kèm.</p>{% endif %}

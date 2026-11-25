@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Ví phiên dịch viên | VietTranslate{% endblock %}
+
+{% block content %}
+<div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Số dư có thể rút</p>
+                <p class="text-3xl font-black text-brand-700">{{ balance|vnd }} VND</p>
+                <p class="text-xs text-slate-500 mt-2">Gồm tiền đã giải ngân sau khi khách nghiệm thu (đã trừ hoa hồng) và tiền hoàn vào ví. Không hết hạn.</p>
+                {% if voucher %}
+                <p class="text-xs text-amber-700 mt-1">Voucher bồi thường: {{ voucher|vnd }} VND (dùng để trả đơn sau, không rút được).</p>
+                {% endif %}
+            </div>
+            <form method="POST" class="flex items-end gap-2">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số tiền muốn rút</label>
+                    <input type="number" name="amount" min="{{ withdraw_min }}" max="{{ balance }}" step="1000" required
+                        class="w-44 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50"
+                        placeholder="Tối thiểu {{ withdraw_min|vnd }}">
+                </div>
+                <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition disabled:opacity-40" {% if balance < withdraw_min %}disabled{% endif %}>Rút tiền</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+        <h1 class="text-lg font-bold mb-5 text-slate-900">Lịch sử nhận tiền và rút tiền</h1>
+        {% if transactions %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        <th class="pb-3.5">Loại</th>
+                        <th class="pb-3.5">Hợp đồng</th>
+                        <th class="pb-3.5">Số tiền</th>
+                        <th class="pb-3.5">Trạng thái</th>
+                        <th class="pb-3.5">Thời gian</th>
+                    </tr>
+                </thead>
+                <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
+                    {% for tx in transactions %}
+                    <tr>
+                        {% set incoming = tx.kind in ['release', 'refund', 'voucher'] %}
+                        <td class="py-3.5 font-semibold text-slate-800">{{ {'release': 'Nhận tiền hợp đồng', 'refund': 'Hoàn tiền hợp đồng', 'voucher': 'Voucher bồi thường', 'withdraw': 'Rút về ngân hàng'}.get(tx.kind, tx.kind) }}</td>
+                        <td class="py-3.5">
+                            <a href="{{ url_for('transaction_detail', contract_id=tx.contract_id) }}" class="text-brand-700 hover:underline">#{{ tx.contract_id }}</a>
+                        </td>
+                        <td class="py-3.5 font-bold {{ 'text-emerald-600' if incoming else 'text-slate-800' }}">
+                            {{ '+' if incoming else '-' }}{{ tx.amount|vnd }} VND
+                        </td>
+                        <td class="py-3.5">
+                            {% if tx.status == 'completed' %}{{ 'Đã nhận' if incoming else 'Đã chuyển khoản' }}{% if tx.kind == 'refund' and tx.payment_method == 'original' %} (về phương thức gốc){% endif %}
+                            {% elif tx.status == 'pending' %}{{ 'Chờ sàn hoàn về phương thức gốc (5 đến 7 ngày làm việc)' if tx.kind == 'refund' else 'Chờ sàn chuyển khoản' }}
+                            {% else %}{{ tx.status }}{% endif %}
+                        </td>
+                        <td class="py-3.5 text-slate-500">{{ tx.created_at.strftime('%d/%m/%Y %H:%M') if tx.created_at else '' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-500">Chưa có giao dịch nào. Tiền về ví sau khi khách nghiệm thu hợp đồng.</p>
+        {% endif %}
+    </div>
+</div>
+</div>
+{% endblock %}

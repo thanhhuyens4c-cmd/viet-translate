@@ -1,4 +1,0 @@
-(8, 9, 'NEW_REVIEW', 'Bạn nhận được đánh giá mới', 'Test Hirer vừa đánh giá bạn 5/5.', '/transaction/4', 1, None, 4, 2, '2026-09-20 06:14:36.113702', None)
-(9, 8, 'NEW_REVIEW', 'Bạn nhận được đánh giá mới', 'Test PDV vừa đánh giá bạn 5/5.', '/transaction/4', 0, None, 4, 3, '2026-09-20 06:14:36.347532', None)
-(14, 2, 'NEW_REVIEW', 'Bạn nhận được đánh giá mới', 'Admin VietTranslate vừa đánh giá bạn 5/5.', '/transaction/6', 0, None, 6, 4, '2026-09-20 11:51:12.206053', None)
-(15, 2, 'NEW_REVIEW', 'Bạn nhận được đánh giá mới', 'Admin VietTranslate vừa đánh giá bạn 5/5.', '/transaction/7', 0, None, 7, 5, '2026-09-20 11:52:39.943314', None)
