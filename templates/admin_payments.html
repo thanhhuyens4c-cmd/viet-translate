@@ -47,10 +47,10 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{{ url_for('admin_contracts') }}?search={{ p.contract_id }}" class="text-brand hover:underline">#CTR-{{ p.contract_id }}</a>
+                        {% if p.contract_id %}<a href="{{ url_for('admin_contracts') }}?search={{ p.contract_id }}" class="text-brand hover:underline">#CTR-{{ p.contract_id }}</a>{% else %}<span class="text-slate-500">Ví</span>{% endif %}
                     </td>
                     <td class="text-slate-300 text-xs">
-                        {{ {'deposit': 'Khách nạp', 'release': 'Giải ngân', 'platform_fee': 'Phí sàn', 'withdraw': 'Rút tiền', 'refund': 'Hoàn tiền', 'voucher': 'Voucher bồi thường', 'unmatched': 'Chuyển khoản chưa khớp'}.get(p.kind, p.kind) }}
+                        {{ {'deposit': 'Khách nạp', 'release': 'Giải ngân', 'platform_fee': 'Phí sàn', 'withdraw': 'Rút tiền', 'refund': 'Hoàn tiền', 'voucher': 'Voucher bồi thường', 'unmatched': 'Chuyển khoản chưa khớp', 'topup': 'Nạp ví', 'wallet_payment': 'Trả bằng ví'}.get(p.kind, p.kind) }}
                     </td>
                     <td>
                         <div class="flex items-center gap-2">
@@ -95,6 +95,9 @@
                             <span class="badge badge-red">Thất bại</span>
                         {% elif p.status == 'refunded' %}
                             <span class="badge badge-gray">Đã hoàn tiền</span>
+                        {% elif p.status == 'rejected' %}
+                            <span class="badge badge-red">Từ chối</span>
+                            {% if p.note %}<div class="text-[10px] text-slate-400 mt-1">{{ p.note }}</div>{% endif %}
                         {% else %}
                             <span class="badge badge-gray">{{ p.status }}</span>
                         {% endif %}
@@ -106,10 +109,18 @@
                         <div class="flex items-center justify-end gap-2">
                             <button class="btn btn-sm btn-ghost" onclick="viewPaymentDetail({{ p.id }})">Chi tiết</button>
                             {% if p.kind in ['withdraw', 'refund'] and p.status == 'pending' %}
-                            <form action="{{ url_for('admin_complete_withdrawal', payment_id=p.id) }}" method="POST" onsubmit="return confirm('Xác nhận bạn đã chuyển khoản số tiền này cho phiên dịch viên?');">
+                            <form action="{{ url_for('admin_complete_withdrawal', payment_id=p.id) }}" method="POST" onsubmit="return confirm('Xác nhận bạn đã chuyển khoản số tiền này cho người dùng?');">
                                 <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
                                 <button type="submit" class="btn btn-sm btn-primary">Đã chuyển khoản</button>
                             </form>
+                            {% if p.kind == 'withdraw' %}
+                            <form action="{{ url_for('admin_reject_withdrawal', payment_id=p.id) }}" method="POST"
+                                  onsubmit="var n = prompt('Lý do từ chối (gửi cho người dùng):'); if (n === null) return false; this.note.value = n; return true;">
+                                <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
+                                <input type="hidden" name="note" value="">
+                                <button type="submit" class="btn btn-sm btn-danger">Từ chối</button>
+                            </form>
+                            {% endif %}
                             {% endif %}
                             {% if p.kind == 'deposit' and p.status == 'escrow_pending' %}
                             <form action="{{ url_for('admin_refund_payment', payment_id=p.id) }}" method="POST" onsubmit="return confirm('Bạn có chắc chắn muốn hoàn tiền giao dịch này? Hành động này sẽ yêu cầu xác thực Admin cấp cao trong tương lai.');">
