@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Hồ sơ không khả dụng | VietTranslate{% endblock %}
+
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full text-center">
+        <!-- Card -->
+        <div class="bg-white rounded-3xl border border-slate-200/90 p-8 sm:p-10 shadow-soft relative overflow-hidden">
+            <!-- Decorative corner accent -->
+            <div class="absolute -top-12 -right-12 w-28 h-28 bg-brand-50 rounded-full blur-xl pointer-events-none"></div>
+            
+            <!-- Icon -->
+            <div class="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-sm {% if is_restricted %}bg-rose-50 text-rose-600 border border-rose-100{% else %}bg-amber-50 text-amber-600 border border-amber-100{% endif %}">
+                {% if is_restricted %}
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0 0v2m0-2h2m-2 0H10m4-11a4 4 0 00-8 0v4h8V6zM5 10h14a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2z"/>
+                </svg>
+                {% else %}
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>
+                </svg>
+                {% endif %}
+            </div>
+
+            <!-- Title & Badge -->
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3 {% if is_restricted %}bg-rose-100 text-rose-800{% else %}bg-amber-100 text-amber-800{% endif %}">
+                {% if is_restricted %}
+                Tài khoản bị giới hạn
+                {% elif is_private %}
+                Hồ sơ ở chế độ riêng tư
+                {% else %}
+                Hồ sơ chưa công khai
+                {% endif %}
+            </span>
+
+            <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mb-3">
+                {% if is_restricted %}
+                Hồ sơ hiện đang bị tạm khóa
+                {% else %}
+                Hồ sơ chưa sẵn sàng công khai
+                {% endif %}
+            </h1>
+
+            <p class="text-xs sm:text-sm text-slate-600 leading-relaxed mb-8">
+                {% if access_reason %}
+                    {{ access_reason }}
+                {% elif is_restricted %}
+                    Tài khoản của phiên dịch viên này hiện đang bị tạm khóa hoặc giới hạn quyền bởi hệ thống quản trị VietTranslate.
+                {% else %}
+                    Phiên dịch viên hiện chưa kích hoạt chế độ công khai hoặc đang trong quá trình cập nhật thông tin nghề nghiệp. Vui lòng quay lại sau.
+                {% endif %}
+            </p>
+
+            <!-- Actions -->
+            <div class="space-y-3">
+                <a href="{{ url_for('translator_list') }}" class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm transition shadow-sm shadow-brand-500/20">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <span>Khám phá các phiên dịch viên khác</span>
+                </a>
+
+                <a href="{{ url_for('index') }}" class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs sm:text-sm transition">
+                    <span>Về trang chủ</span>
+                </a>
+            </div>
+
+            <!-- Hint for owner if logged out -->
+            <p class="text-[11px] text-slate-400 mt-6">
+                Bạn là chủ sở hữu của hồ sơ này? <a href="{{ url_for('login') }}" class="text-brand-600 hover:underline font-bold">Đăng nhập</a> để xem trước và kích hoạt công khai.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

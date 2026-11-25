@@ -19,6 +19,7 @@
         </div>
         
         <form action="{{ url_for('admin_notifications_mark_all') }}" method="POST">
+            <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
             <button type="submit" class="btn btn-sm btn-ghost text-xs">Đánh dấu tất cả đã đọc</button>
         </form>
     </div>
@@ -73,6 +74,7 @@
                         
                         {% if not notif.is_read %}
                         <form action="{{ url_for('admin_notifications_read', notif_id=notif.id) }}" method="POST" class="inline">
+                            <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
                             <button type="submit" class="text-xs text-slate-400 hover:text-white">Đánh dấu đã đọc</button>
                         </form>
                         {% endif %}

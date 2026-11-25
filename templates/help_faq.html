@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Câu hỏi thường gặp{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+    {% set help_active = 'faq' %}
+    {% include '_help_nav.html' %}
+
+    <h1 class="text-3xl font-black text-slate-900 tracking-tight">Câu hỏi thường gặp</h1>
+    <p class="mt-2 mb-6 text-sm text-slate-500">Tìm câu trả lời nhanh cho các thắc mắc phổ biến.</p>
+
+    <div class="flex flex-wrap gap-2 mb-6">
+        <a href="{{ url_for('help_faq') }}" class="px-3.5 py-1.5 rounded-full text-xs font-bold border transition {% if not active_topic %}bg-brand-50 text-brand-600 border-brand-200{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}">Tất cả</a>
+        {% for topic in faq_topics %}
+        <a href="{{ url_for('help_faq', topic=topic.id) }}" class="px-3.5 py-1.5 rounded-full text-xs font-bold border transition {% if active_topic == topic.id %}bg-brand-50 text-brand-600 border-brand-200{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}">{{ topic.title }}</a>
+        {% endfor %}
+    </div>
+
+    <input type="search" id="faq-search" placeholder="Tìm câu hỏi..." aria-label="Tìm câu hỏi"
+        class="w-full mb-5 text-sm px-4 py-2.5 rounded-xl bg-white border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none">
+
+    <div class="space-y-3" id="faq-list">
+        {% for item in faq_items if not active_topic or item.topic == active_topic %}
+        <details class="faq-item group bg-white rounded-xl border border-slate-200/90 shadow-soft" id="{{ item.id }}">
+            <summary class="flex items-start justify-between gap-3 p-4 cursor-pointer list-none">
+                <div>
+                    <span class="text-[10px] font-bold uppercase tracking-wide text-brand-600">{{ item.topic_title }}</span>
+                    <div class="font-bold text-slate-900 text-sm mt-0.5">{{ item.question }}</div>
+                </div>
+                <span class="text-slate-400 group-open:rotate-180 transition-transform shrink-0 mt-1">▾</span>
+            </summary>
+            <div class="px-4 pb-4 text-sm text-slate-600 leading-relaxed">{{ item.answer }}</div>
+        </details>
+        {% endfor %}
+    </div>
+    <p id="faq-empty" class="hidden text-sm text-slate-500 text-center py-8">Không tìm thấy câu hỏi phù hợp.</p>
+
+    <div class="mt-10 p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+            <div class="font-bold text-slate-900 text-sm">Chưa tìm thấy câu trả lời?</div>
+            <p class="text-xs text-slate-500">Gửi yêu cầu để đội ngũ hỗ trợ giúp bạn.</p>
+        </div>
+        <a href="{{ url_for('help_contact') }}" class="px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-bold text-center hover:bg-brand-700 transition">Liên hệ hỗ trợ</a>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var input = document.getElementById('faq-search');
+    var items = document.querySelectorAll('.faq-item');
+    var empty = document.getElementById('faq-empty');
+    if (input) input.addEventListener('input', function () {
+        var q = input.value.trim().toLowerCase(), shown = 0;
+        items.forEach(function (el) {
+            var match = !q || el.textContent.toLowerCase().indexOf(q) !== -1;
+            el.classList.toggle('hidden', !match);
+            if (match) shown++;
+        });
+        empty.classList.toggle('hidden', shown > 0);
+    });
+    if (location.hash) {
+        var target = document.querySelector(location.hash);
+        if (target && target.tagName === 'DETAILS') target.open = true;
+    }
+})();
+</script>
+{% endblock %}

@@ -34,7 +34,7 @@
         <dt class="text-slate-500">Tự giải ngân lúc</dt>
         <dd class="font-bold text-slate-800">{{ (contract.auto_release_at + timedelta(hours=7)).strftime('%d/%m/%Y %H:%M') }}</dd>
         {% endif %}
-        {% if contract.revisions_used is not none and money.is_document %}
+        {% if money.is_document %}
         <dt class="text-slate-500">Sửa bài miễn phí còn</dt>
         <dd class="font-bold text-slate-800">{{ money.revisions_left }}/2 lần</dd>
         {% endif %}
@@ -46,35 +46,14 @@
     </div>
     {% endif %}
 
-    {% if contract.status == 'disputed' %}
+    {% if money.frozen %}
     <div class="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 leading-relaxed">
-        Hợp đồng đang tranh chấp. Tiền bị đóng băng và không tự giải ngân cho tới khi sàn quyết định.
+        Hợp đồng đang có khiếu nại. Tiền bị đóng băng và không tự giải ngân cho tới khi sàn kết luận.
+        <a class="underline font-bold" href="{{ url_for('dispute_detail', dispute_id=money.frozen.id) }}">Xem khiếu nại</a>
     </div>
     {% endif %}
 
-    {% if money.dispute %}
-    <div class="mt-4 p-4 rounded-xl border border-slate-200 bg-slate-50/70 text-xs space-y-2">
-        <p class="font-bold text-slate-800">Tranh chấp #{{ money.dispute.id }}
-            ({{ 'chất lượng' if money.dispute.kind == 'quality' else 'hủy khi đang làm' }})</p>
-        <p class="text-slate-600">Lý do của khách: {{ money.dispute.reason }}</p>
-        {% if money.dispute.translator_evidence %}
-        <p class="text-slate-600">Bằng chứng phiên dịch viên: {{ money.dispute.translator_evidence }}</p>
-        {% endif %}
-        {% if money.dispute.evidence_deadline %}
-        <p class="text-slate-500">Hạn nộp bằng chứng: {{ (money.dispute.evidence_deadline + timedelta(hours=7)).strftime('%d/%m/%Y %H:%M') }}</p>
-        {% endif %}
-        {% if money.evidence_open and (is_hirer or is_translator) %}
-        <form method="POST" action="{{ url_for('contract_dispute_evidence', contract_id=contract.id) }}" class="space-y-2">
-            <textarea name="evidence" rows="3" required
-                class="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white"
-                placeholder="Tin nhắn trên sàn, tệp đã nộp, ảnh hoặc ghi âm. Thỏa thuận ngoài sàn không được xét."></textarea>
-            <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2 rounded-lg text-xs">Gửi bằng chứng</button>
-        </form>
-        {% endif %}
-    </div>
-    {% endif %}
-
-    {% if contract.status == 'in_progress' %}
+    {% if money.funded and not money.frozen %}
     <div class="mt-5 space-y-3">
         {% if is_translator %}
             {% if money.can_start %}
@@ -90,13 +69,6 @@
         {% endif %}
 
         {% if is_hirer %}
-            {% if money.can_revise %}
-            <form method="POST" action="{{ url_for('contract_revision', contract_id=contract.id) }}"
-                onsubmit="return confirm('Yêu cầu phiên dịch viên sửa bài? Còn {{ money.revisions_left }} lần sửa miễn phí.');">
-                <button type="submit" class="border border-slate-300 hover:bg-slate-50 text-slate-800 font-bold px-5 py-2.5 rounded-xl text-xs">Yêu cầu sửa bài ({{ money.revisions_left }} lần còn lại)</button>
-            </form>
-            {% endif %}
-
             {% if money.can_late_cancel %}
             <form method="POST" action="{{ url_for('contract_cancel_late', contract_id=contract.id) }}"
                 onsubmit="return confirm('Phiên dịch viên đã trễ hạn quá 24 giờ. Hủy và nhận hoàn 100% về phương thức thanh toán gốc?');">
@@ -111,7 +83,7 @@
                     ({{ money.cancel_refund_amount|vnd }}đ){% if money.cancel_percent > 0 %} và hoàn phí dịch vụ 2%{% endif %}.
                     <span class="text-slate-400">{{ money.cancel_reason }}.</span></p>
                 {% else %}
-                <p class="text-xs text-slate-600">Phiên dịch viên đang làm việc: sàn sẽ phân xử phần hoàn. Nếu hai bên không nộp bằng chứng, mức hoàn là 50%.</p>
+                <p class="text-xs text-slate-600">Phiên dịch viên đang làm việc: sàn sẽ phân xử phần hoàn. Bấm "Hủy hợp đồng" để gửi khiếu nại. Nếu hai bên không nộp bằng chứng, mức hoàn là 50%.</p>
                 {% endif %}
                 {% if money.cancel_percent is none or money.cancel_percent > 0 %}
                 <label class="text-xs text-slate-600 flex items-center gap-2">Nhận tiền hoàn:
@@ -124,18 +96,7 @@
                 <button type="submit" class="text-red-700 border border-red-200 hover:bg-red-50 font-bold px-5 py-2.5 rounded-xl text-xs">Hủy hợp đồng</button>
             </form>
 
-            <details class="rounded-xl border border-slate-200 p-3">
-                <summary class="text-xs font-bold text-slate-700 cursor-pointer">Mở tranh chấp</summary>
-                <form method="POST" action="{{ url_for('contract_open_dispute', contract_id=contract.id) }}" class="mt-3 space-y-2">
-                    <textarea name="reason" rows="3" required minlength="10"
-                        class="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white"
-                        placeholder="Nêu lý do. Tiền sẽ bị đóng băng và hai bên có 48 giờ nộp bằng chứng."></textarea>
-                    {% if money.is_document %}
-                    <p class="text-[11px] text-slate-500">Với dịch tài liệu, bạn cần yêu cầu sửa bài ít nhất một lần trước khi mở tranh chấp về chất lượng.</p>
-                    {% endif %}
-                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-lg text-xs">Mở tranh chấp</button>
-                </form>
-            </details>
+            <a href="{{ url_for('dispute_new', contract_id=contract.id) }}" class="inline-block text-xs font-bold text-red-700 underline">Gửi khiếu nại (tiền bị đóng băng cho tới khi sàn kết luận)</a>
         {% endif %}
     </div>
     {% endif %}

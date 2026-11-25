@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}{{ article.seoTitle or article.title }}{% endblock %}
+
+{% block head %}
+<!-- SEO Meta -->
+<meta name="description" content="{{ article.metaDescription or article.excerpt }}">
+<meta name="keywords" content="{{ article.tags | join(', ') }}">
+<link rel="canonical" href="{{ request.url_root }}tin-tuc/{{ article.slug }}">
+
+<!-- Open Graph -->
+<meta property="og:title" content="{{ article.seoTitle or article.title }}">
+<meta property="og:description" content="{{ article.metaDescription or article.excerpt }}">
+<meta property="og:type" content="article">
+<meta property="og:url" content="{{ request.url_root }}tin-tuc/{{ article.slug }}">
+<meta property="og:image" content="{{ article.thumbnail }}">
+<meta property="og:site_name" content="VietTranslate">
+<meta property="article:published_time" content="{{ article.publishedAt.isoformat() }}">
+<meta property="article:modified_time" content="{{ article.updatedAt.isoformat() }}">
+<meta property="article:section" content="{{ get_category_name(article.category) }}">
+{% for tag in article.tags %}
+<meta property="article:tag" content="{{ tag }}">
+{% endfor %}
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ article.seoTitle or article.title }}">
+<meta name="twitter:description" content="{{ article.metaDescription or article.excerpt }}">
+<meta name="twitter:image" content="{{ article.thumbnail }}">
+
+<!-- Schema.org: Article -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "NewsArticle",
+  "headline": "{{ article.title }}",
+  "description": "{{ article.metaDescription or article.excerpt }}",
+  "image": "{{ article.thumbnail }}",
+  "datePublished": "{{ article.publishedAt.isoformat() }}",
+  "dateModified": "{{ article.updatedAt.isoformat() }}",
+  "author": {
+    "@type": "Organization",
+    "name": "{{ article.author }}"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "VietTranslate",
+    "url": "{{ request.url_root }}"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "{{ request.url_root }}tin-tuc/{{ article.slug }}"
+  },
+  "articleSection": "{{ get_category_name(article.category) }}",
+  "keywords": "{{ article.tags | join(', ') }}",
+  "wordCount": {{ article.content | striptags | length // 5 }}
+}
+</script>
+
+<!-- BreadcrumbList Schema -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Trang chủ", "item": "{{ request.url_root }}"},
+    {"@type": "ListItem", "position": 2, "name": "Tin tức", "item": "{{ request.url_root }}tin-tuc"},
+    {"@type": "ListItem", "position": 3, "name": "{{ article.title }}", "item": "{{ request.url_root }}tin-tuc/{{ article.slug }}"}
+  ]
+}
+</script>
+
+<style>
+    /* Article content typography */
+    .article-content h2 {
+        font-size: 1.375rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+        letter-spacing: -0.01em;
+        line-height: 1.35;
+    }
+    .article-content h3 {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+        line-height: 1.4;
+    }
+    .article-content p {
+        color: #334155;
+        font-size: 0.9375rem;
+        line-height: 1.8;
+        margin-bottom: 1.125rem;
+    }
+    .article-content ul, .article-content ol {
+        margin-bottom: 1.125rem;
+        padding-left: 1.5rem;
+    }
+    .article-content ul {
+        list-style-type: disc;
+    }
+    .article-content ol {
+        list-style-type: decimal;
+    }
+    .article-content li {
+        color: #334155;
+        font-size: 0.9375rem;
+        line-height: 1.8;
+        margin-bottom: 0.375rem;
+    }
+    .article-content li strong {
+        color: #0f172a;
+    }
+    .article-content blockquote {
+        border-left: 3px solid #2563eb;
+        padding: 1rem 1.25rem;
+        margin: 1.5rem 0;
+        background: #eff6ff;
+        border-radius: 0 12px 12px 0;
+    }
+    .article-content blockquote p {
+        color: #1e40af;
+        font-style: italic;
+        font-weight: 500;
+        margin-bottom: 0;
+    }
+    .article-content img {
+        border-radius: 14px;
+        margin: 1.5rem 0;
+        width: 100%;
+    }
+    .article-content a {
+        color: #2563eb;
+        text-decoration: underline;
+        text-decoration-color: rgba(37, 99, 235, 0.3);
+        text-underline-offset: 2px;
+        transition: text-decoration-color 0.15s ease;
+    }
+    .article-content a:hover {
+        text-decoration-color: #2563eb;
+    }
+    .article-content strong {
+        font-weight: 700;
+    }
+
+    /* Table of Contents */
+    .toc-link {
+        transition: all 0.15s ease;
+    }
+    .toc-link:hover {
+        color: #2563eb;
+        padding-left: 4px;
+    }
+
+    /* Smooth scroll for anchor links */
+    html {
+        scroll-padding-top: 100px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════════════════════════════════════════════════════════
+     BREADCRUMB
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-0">
+    <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-slate-400 font-medium flex-wrap">
+        <a href="{{ url_for('index') }}" class="hover:text-brand-600 transition">Trang chủ</a>
+        <svg class="w-3 h-3 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+        </svg>
+        <a href="{{ url_for('news_list') }}" class="hover:text-brand-600 transition">Tin tức</a>
+        <svg class="w-3 h-3 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+        </svg>
+        <span class="text-slate-500 truncate max-w-xs">{{ article.title }}</span>
+    </nav>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     ARTICLE HEADER
+     ═══════════════════════════════════════════════════════════════ -->
+<article class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-16 md:pb-20" itemscope itemtype="https://schema.org/NewsArticle">
+    <div class="flex flex-col lg:flex-row gap-8">
+
+        <!-- Main Article (70%) -->
+        <div class="flex-1 lg:w-[70%]">
+
+            <!-- Category -->
+            <a href="{{ url_for('news_list', category=article.category) }}"
+               class="inline-block text-[10px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/50 px-2.5 py-0.5 rounded-full mb-3 hover:bg-brand-100 transition">
+                {{ get_category_name(article.category) }}
+            </a>
+
+            <!-- Title -->
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight mb-4" itemprop="headline">
+                {{ article.title }}
+            </h1>
+
+            <!-- Meta Info -->
+            <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400 mb-6 pb-6 border-b border-slate-200/80">
+                <div class="flex items-center gap-1.5">
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
+                        V
+                    </div>
+                    <span class="font-semibold text-slate-600" itemprop="author">{{ article.author }}</span>
+                </div>
+                <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+                <time datetime="{{ article.publishedAt.isoformat() }}" itemprop="datePublished">
+                    {{ format_date(article.publishedAt) }}
+                </time>
+                {% if article.updatedAt != article.publishedAt %}
+                <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+                <span>Cập nhật: <time datetime="{{ article.updatedAt.isoformat() }}" itemprop="dateModified">{{ format_date(article.updatedAt) }}</time></span>
+                {% endif %}
+                <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+                <span>{{ article.readingTime }} phút đọc</span>
+            </div>
+
+            <!-- Featured Image -->
+            <div class="rounded-2xl overflow-hidden mb-8 border border-slate-200/80">
+                <img src="{{ article.thumbnail }}" alt="{{ article.title }}"
+                     class="w-full aspect-[16/9] object-cover" itemprop="image" loading="eager">
+            </div>
+
+            <!-- Table of Contents -->
+            {% if toc_items %}
+            <div class="bg-slate-50 rounded-2xl border border-slate-200/80 p-5 mb-8">
+                <h2 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                    </svg>
+                    Mục lục
+                </h2>
+                <nav class="space-y-1.5">
+                    {% for item in toc_items %}
+                    <a href="#{{ item.id }}"
+                       class="toc-link block text-xs sm:text-sm text-slate-500 hover:text-brand-600 transition {% if item.level == 3 %}pl-4{% endif %}">
+                        {{ item.text }}
+                    </a>
+                    {% endfor %}
+                </nav>
+            </div>
+            {% endif %}
+
+            <!-- Article Content -->
+            <div class="article-content" itemprop="articleBody">
+                {{ article.content | safe }}
+            </div>
+
+            <!-- Internal Links -->
+            <div class="mt-8 p-5 bg-brand-50/50 rounded-2xl border border-brand-100/60">
+                <p class="text-sm text-slate-700 leading-relaxed">
+                    💡 <strong>Bạn cần tìm phiên dịch viên?</strong>
+                    <a href="{{ url_for('translator_list') }}" class="text-brand-600 font-semibold hover:underline">Xem danh sách phiên dịch viên</a> đã được xác minh trên VietTranslate,
+                    hoặc <a href="{{ url_for('post_job') }}" class="text-brand-600 font-semibold hover:underline">đăng công việc phiên dịch</a> để nhận báo giá từ các chuyên gia.
+                </p>
+            </div>
+
+            <!-- Sources -->
+            {% if article.sources %}
+            <div class="mt-6 pt-5 border-t border-slate-200/80">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Nguồn tham khảo</h3>
+                <ul class="space-y-1.5">
+                    {% for source in article.sources %}
+                    <li class="text-xs text-slate-500">
+                        <a href="{{ source.url }}" target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline">
+                            {{ source.name }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- Tags -->
+            <div class="mt-6 pt-5 border-t border-slate-200/80">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">Tags:</span>
+                    {% for tag in article.tags %}
+                    <span class="inline-block text-[11px] font-medium text-slate-500 bg-slate-100 border border-slate-200/80 px-2.5 py-1 rounded-lg">
+                        {{ tag }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Related Articles -->
+            {% if related_articles %}
+            <div class="mt-10 pt-8 border-t border-slate-200/80">
+                <div class="flex items-center gap-3 mb-5">
+                    <div class="w-1 h-5 bg-brand-600 rounded-full"></div>
+                    <h2 class="text-base sm:text-lg font-bold text-slate-900">Bài viết liên quan</h2>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {% for related in related_articles %}
+                    <a href="{{ url_for('news_detail', slug=related.slug) }}"
+                       class="news-card group bg-white rounded-xl border border-slate-200/90 shadow-soft overflow-hidden card-interactive block">
+                        <div class="overflow-hidden aspect-[16/9]">
+                            <img src="{{ related.thumbnail }}" alt="{{ related.title }}"
+                                 class="w-full h-full object-cover news-card-img" loading="lazy">
+                        </div>
+                        <div class="p-3.5">
+                            <span class="inline-block text-[9px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/50 px-2 py-0.5 rounded-full mb-1.5">
+                                {{ get_category_name(related.category) }}
+                            </span>
+                            <h3 class="text-xs sm:text-sm font-bold text-slate-900 leading-snug group-hover:text-brand-600 transition-colors line-clamp-2">
+                                {{ related.title }}
+                            </h3>
+                            <div class="flex items-center gap-2 text-[10px] text-slate-400 mt-1.5">
+                                <span>{{ related.readingTime }} phút đọc</span>
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <!-- Sidebar (30%) -->
+        <aside class="lg:w-[30%] flex flex-col gap-6">
+
+            <!-- Sticky sidebar wrapper -->
+            <div class="lg:sticky lg:top-24 flex flex-col gap-6">
+
+                <!-- Chủ đề được quan tâm -->
+                <div class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-5">
+                    <h3 class="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                        </svg>
+                        Chủ đề được quan tâm
+                    </h3>
+                    <div class="flex flex-wrap gap-2">
+                        {% for topic in popular_topics %}
+                        <a href="{{ url_for('news_list', category=topic.slug) }}"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200/80 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition">
+                            <span>{{ topic.icon }}</span>
+                            {{ topic.name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Bài viết phổ biến -->
+                <div class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-5">
+                    <h3 class="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                        Bài viết phổ biến
+                    </h3>
+                    <div class="space-y-3.5">
+                        {% for pop in popular_articles %}
+                        <a href="{{ url_for('news_detail', slug=pop.slug) }}"
+                           class="group flex gap-3 items-start">
+                            <span class="flex-shrink-0 w-7 h-7 bg-brand-50 text-brand-600 rounded-lg flex items-center justify-center text-xs font-bold border border-brand-100">
+                                {{ loop.index }}
+                            </span>
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold text-slate-800 leading-snug group-hover:text-brand-600 transition-colors line-clamp-2">
+                                    {{ pop.title }}
+                                </p>
+                                <span class="text-[10px] text-slate-400 mt-0.5 block">{{ pop.readingTime }} phút đọc</span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- CTA -->
+                <div class="mesh-cta-bg rounded-2xl p-5 sm:p-6 text-center">
+                    <p class="text-white font-bold text-sm mb-1.5">Bạn đang cần phiên dịch?</p>
+                    <p class="text-blue-100 text-xs mb-4">Tìm phiên dịch viên phù hợp với nhu cầu của bạn.</p>
+                    <a href="{{ url_for('translator_list') }}"
+                       class="inline-flex items-center gap-2 bg-white text-brand-700 hover:bg-blue-50 font-bold text-xs px-5 py-2.5 rounded-xl transition shadow-md">
+                        Tìm phiên dịch viên
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                    </a>
+                </div>
+
+            </div>
+
+        </aside>
+
+    </div>
+</article>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Smooth scroll for TOC anchor links
+    document.querySelectorAll('.toc-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href').substring(1);
+            const target = document.getElementById(targetId);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                history.pushState(null, null, '#' + targetId);
+            }
+        });
+    });
+</script>
+{% endblock %}

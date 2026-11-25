@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} | Dự án | VietTranslate{% endblock %}
+
+{% block content %}
+{% set badge = {'awaiting_translator': 'bg-amber-50 text-amber-800 border-amber-200/70', 'pending_payment': 'bg-amber-50 text-amber-800 border-amber-200/70', 'in_progress': 'bg-brand-50 text-brand-800 border-brand-200/70', 'awaiting_acceptance': 'bg-indigo-50 text-indigo-800 border-indigo-200/70', 'revision_requested': 'bg-rose-50 text-rose-700 border-rose-200/70', 'completed': 'bg-emerald-50 text-emerald-800 border-emerald-200/70', 'cancelled': 'bg-slate-100 text-slate-600 border-slate-200'} %}
+{% set card = 'bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6 min-w-0' %}
+{% set h2 = 'font-bold text-slate-900 mb-4 text-base' %}
+{% set dt = 'text-slate-400 font-bold uppercase tracking-wider text-[11px]' %}
+{% macro or_dash(v) %}{% if v %}<span class="whitespace-pre-line break-words">{{ v }}</span>{% else %}<span class="text-slate-300">Không nêu</span>{% endif %}{% endmacro %}
+
+<div class="bg-slate-50/60 min-h-screen py-8 sm:py-12">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+
+    <a href="{{ url_for('my_projects') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700">← Dự án của tôi</a>
+
+    <!-- Tổng quan -->
+    <section class="{{ card }}">
+        <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+            <div class="min-w-0">
+                <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 break-words">{{ title }}</h1>
+                <p class="text-sm text-slate-500 mt-1">{{ pair or 'Dự án dịch vụ' }}</p>
+            </div>
+            <span class="self-start px-3 py-1.5 text-xs font-bold rounded-full border whitespace-nowrap {{ badge.get(status_key, 'bg-slate-100 text-slate-600 border-slate-200') }}">{{ status_label }}</span>
+        </div>
+        <dl class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5 text-sm">
+            <div><dt class="{{ dt }}">Phiên dịch viên</dt><dd class="font-semibold text-slate-800 mt-0.5">{{ c.translator.name if c.translator else '—' }}</dd></div>
+            <div><dt class="{{ dt }}">Giá thỏa thuận</dt><dd class="font-extrabold text-brand-700 mt-0.5">{{ c.agreed_price|vnd }} VND</dd></div>
+            <div><dt class="{{ dt }}">Ngày bắt đầu</dt><dd class="font-semibold text-slate-800 mt-0.5">{{ c.created_at.strftime('%d/%m/%Y') }}</dd></div>
+            <div><dt class="{{ dt }}">Deadline</dt><dd class="font-semibold text-slate-800 mt-0.5">{{ deadline.strftime('%d/%m/%Y') if deadline else '—' }}</dd></div>
+        </dl>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-6 min-w-0">
+
+            <!-- Nghiệm thu & hỗ trợ -->
+            <section id="acceptance" class="{{ card }}">
+                <h2 class="{{ h2 }}">Nghiệm thu &amp; hỗ trợ</h2>
+                <div id="pj-alert" class="hidden mb-3 text-sm font-semibold rounded-xl p-3" role="alert"></div>
+                {% if status_key == 'awaiting_acceptance' %}
+                <p class="text-sm text-slate-600 mb-4">Phiên dịch viên đã bàn giao {{ deliverables|length }} tệp. Hãy kiểm tra tệp bàn giao rồi xác nhận hoàn thành hoặc yêu cầu chỉnh sửa.</p>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button type="button" data-pj-action="accept" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition shadow-sm">Xác nhận hoàn thành</button>
+                    <button type="button" data-pj-action="revise" class="px-5 py-2.5 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-sm font-bold transition">Yêu cầu chỉnh sửa</button>
+                </div>
+                {% elif status_key == 'revision_requested' %}
+                <p class="text-sm text-slate-600">Bạn đã yêu cầu chỉnh sửa. Đang chờ phiên dịch viên bàn giao lại.</p>
+                {% if last_revision %}<p class="mt-3 text-xs bg-rose-50 border border-rose-100 text-rose-800 rounded-xl p-3 whitespace-pre-line break-words"><strong>Nội dung bạn đã gửi ({{ last_revision.created_at.strftime('%d/%m/%Y %H:%M') }}):</strong>
+{{ last_revision.note }}</p>{% endif %}
+                {% elif status_key == 'in_progress' %}
+                <p class="text-sm text-slate-600">Phiên dịch viên đang thực hiện. Khi có tệp bàn giao, bạn sẽ có thể nghiệm thu tại đây.</p>
+                {% elif status_key == 'pending_payment' %}
+                <p class="text-sm text-slate-600 mb-3">Dự án đã được xác nhận nhưng chưa thanh toán vào Escrow nên phiên dịch viên chưa bắt đầu.</p>
+                <a href="{{ url_for('payment_mockup', contract_id=c.id) }}" class="inline-block px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold transition shadow-sm">Thanh toán Escrow</a>
+                {% elif status_key == 'awaiting_translator' %}
+                <p class="text-sm text-slate-600">Đang chờ phiên dịch viên xác nhận lịch.</p>
+                {% elif status_key == 'completed' %}
+                <p class="text-sm text-emerald-700 font-semibold mb-3">Dự án đã hoàn thành.</p>
+                {% if my_review %}
+                <p class="text-sm text-slate-600">Đánh giá của bạn: <strong>{{ my_review.rating }}/5</strong>{% if my_review.comment %} — {{ my_review.comment }}{% endif %}</p>
+                {% else %}
+                <form method="post" action="{{ url_for('submit_review', contract_id=c.id) }}" class="space-y-3">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500" for="rating">Đánh giá phiên dịch viên</label>
+                    <select id="rating" name="rating" class="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white">
+                        {% for n in [5,4,3,2,1] %}<option value="{{ n }}">{{ n }} sao</option>{% endfor %}
+                    </select>
+                    <textarea name="comment" rows="3" maxlength="1000" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Nhận xét (không bắt buộc)"></textarea>
+                    <button class="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold transition">Gửi đánh giá</button>
+                </form>
+                {% endif %}
+                {% else %}
+                <p class="text-sm text-slate-500">Dự án đã hủy. Không còn thao tác nào khả dụng.</p>
+                {% endif %}
+
+                <div class="mt-5 pt-4 border-t border-slate-100 text-xs text-slate-500 flex flex-wrap gap-x-5 gap-y-2">
+                    <a href="{{ url_for('transaction_detail', contract_id=c.id) }}" class="font-bold text-brand-600 hover:underline">Mở phòng làm việc</a>
+                    <a href="{{ url_for('payment_info') }}" class="font-bold text-brand-600 hover:underline">Cách hoạt động của Escrow</a>
+                    <span>Cần hỗ trợ? Nhắn tin cho phiên dịch viên ở khung tin nhắn bên dưới.</span>
+                </div>
+            </section>
+
+            <!-- Tệp bàn giao -->
+            <section class="{{ card }}">
+                <h2 class="{{ h2 }}">Tệp bàn giao <span class="text-slate-400 font-semibold">({{ deliverables|length }})</span></h2>
+                {% if deliverables %}
+                <ul class="space-y-2">
+                    {% for d in deliverables %}
+                    <li class="flex items-center justify-between gap-3 text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+                        <span class="truncate font-semibold text-slate-700">📎 {{ d.filename }}<span class="block text-[11px] text-slate-400 font-normal">{{ d.created_at.strftime('%d/%m/%Y %H:%M') if d.created_at }}</span></span>
+                        <a href="{{ url_for('download_deliverable', deliverable_id=d.id) }}" class="shrink-0 text-xs font-bold text-brand-600 hover:underline">Tải xuống</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-slate-400">Phiên dịch viên chưa bàn giao tệp nào.</p>
+                {% endif %}
+            </section>
+
+            <!-- Tin nhắn -->
+            <section class="{{ card }}" id="pj-messages" data-contract="{{ c.id }}" data-me="{{ c.hirer_id }}">
+                <h2 class="{{ h2 }}">Tin nhắn liên quan</h2>
+                <div id="pj-msg-list" class="space-y-2 max-h-72 overflow-y-auto mb-3" aria-live="polite">
+                    <div class="animate-pulse space-y-2"><div class="h-8 bg-slate-100 rounded-xl w-2/3"></div><div class="h-8 bg-slate-100 rounded-xl w-1/2 ml-auto"></div></div>
+                </div>
+                <p id="pj-msg-error" class="hidden text-xs font-semibold text-rose-600 mb-2">Không tải được tin nhắn. <button type="button" id="pj-msg-retry" class="underline">Thử lại</button></p>
+                <form id="pj-msg-form" class="flex gap-2">
+                    <input id="pj-msg-input" type="text" maxlength="2000" required class="flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Nhắn cho phiên dịch viên...">
+                    <button id="pj-msg-send" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition">Gửi</button>
+                </form>
+            </section>
+
+            <!-- Lịch sử -->
+            <section class="{{ card }}">
+                <h2 class="{{ h2 }}">Lịch sử hoạt động</h2>
+                <ol class="relative border-l border-slate-200 ml-2 space-y-4">
+                    {% for e in timeline %}
+                    <li class="ml-4">
+                        <span class="absolute -left-1.5 mt-1.5 w-3 h-3 rounded-full bg-brand-500 border-2 border-white"></span>
+                        <p class="text-sm font-semibold text-slate-800 break-words">{{ e.label }}</p>
+                        {% if e.note %}<p class="text-xs text-slate-600 mt-0.5 whitespace-pre-line break-words">{{ e.note }}</p>{% endif %}
+                        <p class="text-[11px] text-slate-400">{{ e.at_str }}{% if e.actor %} · {{ e.actor }}{% endif %}</p>
+                    </li>
+                    {% endfor %}
+                </ol>
+            </section>
+        </div>
+
+        <div class="space-y-6 min-w-0">
+            <!-- Tiến độ -->
+            <section class="{{ card }}">
+                <h2 class="{{ h2 }}">Deadline &amp; tiến độ</h2>
+                {% if stage >= 0 %}
+                <ol class="space-y-2.5">
+                    {% for s in stages %}
+                    {% set done = stage > loop.index0 %}{% set cur = stage == loop.index0 %}
+                    <li class="flex items-center gap-2.5 text-sm {{ 'text-slate-900 font-bold' if cur else ('text-slate-700' if done else 'text-slate-400') }}">
+                        <span class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 {{ 'bg-brand-600 text-white' if cur else ('bg-emerald-500 text-white' if done else 'bg-slate-200 text-slate-500') }}">{{ '✓' if done else loop.index }}</span>{{ s }}
+                    </li>
+                    {% endfor %}
+                </ol>
+                {% else %}<p class="text-sm text-slate-500">Dự án đã hủy.</p>{% endif %}
+                <div class="mt-4 pt-4 border-t border-slate-100 text-sm">
+                    <span class="{{ dt }}">Deadline</span>
+                    <p class="font-semibold text-slate-800 mt-0.5">{{ deadline.strftime('%d/%m/%Y') if deadline else 'Chưa có deadline' }}
+                    {% if days_left is not none %}<span class="text-xs font-bold {{ 'text-rose-600' if days_left < 0 else 'text-slate-500' }}">· {{ 'Quá hạn ' ~ (-days_left) ~ ' ngày' if days_left < 0 else ('Hôm nay' if days_left == 0 else 'Còn ' ~ days_left ~ ' ngày') }}</span>{% endif %}</p>
+                    {% if schedule %}<ul class="mt-2 text-xs text-slate-600 space-y-0.5">{% for e in schedule %}<li>{{ e.scheduled_date_display }} · {{ e.start_time }}–{{ e.end_time }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+            </section>
+
+            <!-- Người thực hiện -->
+            <section class="{{ card }}">
+                <h2 class="{{ h2 }}">Người thực hiện</h2>
+                {% if c.translator %}
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
+                        {% if c.translator.avatar_url %}<img src="{{ c.translator.avatar_url }}" alt="" class="w-full h-full object-cover object-top" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">{% endif %}
+                        <div style="display:{{ 'none' if c.translator.avatar_url else 'flex' }}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white font-extrabold">{{ c.translator.name[0]|upper }}</div>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="font-bold text-slate-900 break-words">{{ c.translator.name }}{% if profile and profile.is_verified %} <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-md">✓ Xác minh</span>{% endif %}</p>
+                        <p class="text-xs text-slate-500 break-words">{{ profile.title if profile and profile.title else 'Phiên dịch viên' }}</p>
+                        <p class="text-[11px] text-slate-400">{% if profile and profile.total_reviews %}★ {{ '%.1f'|format(profile.rating) }} ({{ profile.total_reviews }} đánh giá){% else %}Chưa có đánh giá{% endif %}{% if profile %} · {{ profile.total_jobs or 0 }} dự án{% endif %}</p>
+                    </div>
+                </div>
+                <div class="flex gap-2 text-xs font-bold">
+                    {% if profile %}<a href="{{ url_for('translator_profile', profile_id=profile.id) }}" class="px-3 py-1.5 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50">Xem hồ sơ</a>{% endif %}
+                    <a href="{{ url_for('direct_chat', translator_user_id=c.translator.id) }}" class="px-3 py-1.5 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50">Nhắn tin riêng</a>
+                </div>
+                {% else %}<p class="text-sm text-slate-400">Không còn thông tin người thực hiện.</p>{% endif %}
+            </section>
+
+            <!-- Giá & điều kiện -->
+            <section class="{{ card }}">
+                <h2 class="{{ h2 }}">Giá &amp; điều kiện đã thống nhất</h2>
+                <dl class="space-y-3 text-sm">
+                    <div><dt class="{{ dt }}">Giá</dt><dd class="font-extrabold text-brand-700 mt-0.5">{{ c.agreed_price|vnd }} VND</dd></div>
+                    <div><dt class="{{ dt }}">Thanh toán</dt><dd class="text-slate-800 font-semibold mt-0.5">{{ pay_label }}</dd></div>
+                    {% if proposal %}
+                    <div><dt class="{{ dt }}">Thời gian hoàn thành</dt><dd class="text-slate-700 mt-0.5">{{ proposal.time_estimate or '—' }}</dd></div>
+                    <div><dt class="{{ dt }}">Phạm vi công việc</dt><dd class="text-slate-700 mt-0.5">{{ or_dash(proposal.scope) }}</dd></div>
+                    <div><dt class="{{ dt }}">Điều kiện bàn giao</dt><dd class="text-slate-700 mt-0.5">{{ or_dash(proposal.delivery_terms) }}</dd></div>
+                    <div><dt class="{{ dt }}">Điều kiện chỉnh sửa</dt><dd class="text-slate-700 mt-0.5">{{ or_dash(proposal.revision_terms) }}</dd></div>
+                    {% else %}
+                    <p class="text-xs text-slate-400">Dự án đặt trực tiếp qua dịch vụ, không có báo giá kèm điều kiện.</p>
+                    {% endif %}
+                </dl>
+            </section>
+
+            <!-- Yêu cầu ban đầu + tài liệu đầu vào -->
+            <section class="{{ card }}">
+                <h2 class="{{ h2 }}">Yêu cầu ban đầu</h2>
+                {% if c.job %}
+                <dl class="space-y-3 text-sm">
+                    <div><dt class="{{ dt }}">Tên yêu cầu</dt><dd class="text-slate-800 font-semibold mt-0.5 break-words"><a href="{{ url_for('job_detail', job_id=c.job.id) }}" class="hover:text-brand-600">{{ c.job.title }}</a></dd></div>
+                    <div><dt class="{{ dt }}">Mô tả</dt><dd class="text-slate-700 mt-0.5 whitespace-pre-line break-words">{{ c.job.description }}</dd></div>
+                    {% if c.job.word_count %}<div><dt class="{{ dt }}">Khối lượng</dt><dd class="text-slate-700 mt-0.5">{{ '{:,.0f}'.format(c.job.word_count) }} từ</dd></div>{% endif %}
+                    {% if c.location %}<div><dt class="{{ dt }}">Địa điểm</dt><dd class="text-slate-700 mt-0.5 break-words">{{ c.location }}</dd></div>{% endif %}
+                    {% if c.job.extra_requirements %}<div><dt class="{{ dt }}">Yêu cầu bổ sung</dt><dd class="text-slate-700 mt-0.5 whitespace-pre-line break-words">{{ c.job.extra_requirements }}</dd></div>{% endif %}
+                </dl>
+                <h3 class="{{ dt }} mt-5 mb-2">Tài liệu đầu vào</h3>
+                {% if attachments %}
+                <ul class="space-y-1.5">{% for a in attachments %}<li><a href="{{ url_for('job_attachment', attachment_id=a.id) }}" class="text-xs font-semibold text-brand-700 hover:underline break-all">📎 {{ a.original_name }}</a></li>{% endfor %}</ul>
+                {% else %}<p class="text-xs text-slate-400">Không có tài liệu đầu vào.</p>{% endif %}
+                {% elif c.service %}
+                <p class="text-sm text-slate-700 font-semibold">{{ c.service.name }}</p>
+                <p class="text-xs text-slate-500 mt-1 whitespace-pre-line break-words">{{ c.service.description or '' }}</p>
+                {% else %}<p class="text-sm text-slate-400">Không có thông tin yêu cầu gốc.</p>{% endif %}
+            </section>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- Hộp thoại xác nhận -->
+<div id="pj-modal" class="hidden fixed inset-0 z-[60] items-end sm:items-center justify-center bg-slate-900/50 p-0 sm:p-4" role="presentation">
+    <div role="dialog" aria-modal="true" aria-labelledby="pj-title" class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <h3 id="pj-title" class="font-bold text-slate-900 mb-2"></h3>
+        <p id="pj-desc" class="text-sm text-slate-600 mb-4 leading-relaxed"></p>
+        <textarea id="pj-note" rows="4" maxlength="2000" class="hidden w-full px-3 py-2 border border-slate-200 rounded-xl text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Mô tả cụ thể phần cần chỉnh sửa (tối thiểu 10 ký tự)"></textarea>
+        <p id="pj-error" class="hidden text-xs font-semibold text-rose-600 my-2" role="alert"></p>
+        <div class="flex justify-end gap-2 mt-3">
+            <button type="button" id="pj-cancel" class="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50">Hủy</button>
+            <button type="button" id="pj-confirm" class="px-5 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-60 disabled:cursor-wait"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const CSRF = {{ csrf_token()|tojson }};
+    const CID = {{ c.id }};
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+
+    // ── Nghiệm thu / chỉnh sửa ──
+    const modal = $('pj-modal'); let kind = null;
+    function open(k) {
+        kind = k; const acc = k === 'accept';
+        $('pj-title').textContent = acc ? 'Xác nhận hoàn thành dự án?' : 'Yêu cầu chỉnh sửa';
+        $('pj-desc').textContent = acc ? 'Sau khi xác nhận, dự án chuyển sang Hoàn thành và tiền Escrow được giải ngân cho phiên dịch viên. Không thể hoàn tác.'
+                                       : 'Mô tả vấn đề để phiên dịch viên chỉnh sửa và bàn giao lại. Nội dung sẽ được lưu vào lịch sử và gửi qua tin nhắn.';
+        $('pj-note').classList.toggle('hidden', acc); $('pj-note').value = ''; $('pj-error').classList.add('hidden');
+        const c = $('pj-confirm'); c.disabled = false; c.textContent = acc ? 'Xác nhận hoàn thành' : 'Gửi yêu cầu chỉnh sửa';
+        c.className = 'px-5 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-60 disabled:cursor-wait ' + (acc ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700');
+        modal.classList.remove('hidden'); modal.classList.add('flex'); (acc ? c : $('pj-note')).focus();
+    }
+    function close() { modal.classList.add('hidden'); modal.classList.remove('flex'); kind = null; }
+    document.querySelectorAll('[data-pj-action]').forEach(b => b.addEventListener('click', () => open(b.dataset.pjAction)));
+    $('pj-cancel').addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && kind) close(); });
+    $('pj-confirm').addEventListener('click', async () => {
+        if (!kind) return;
+        const btn = $('pj-confirm'), err = $('pj-error'), label = btn.textContent;
+        if (kind === 'revise' && $('pj-note').value.trim().length < 10) { err.textContent = 'Vui lòng mô tả vấn đề (tối thiểu 10 ký tự).'; err.classList.remove('hidden'); return; }
+        btn.disabled = true; btn.textContent = 'Đang xử lý...'; err.classList.add('hidden');
+        const fd = new FormData(); fd.append('_csrf_token', CSRF); if (kind === 'revise') fd.append('note', $('pj-note').value);
+        try {
+            const res = await fetch('/api/projects/' + CID + '/' + (kind === 'accept' ? 'accept-delivery' : 'request-revision'), {
+                method: 'POST', body: fd, credentials: 'same-origin', headers: {'Accept': 'application/json', 'X-CSRF-Token': CSRF}});
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok || !d.ok) throw new Error(d.message || 'Không thể thực hiện thao tác. Vui lòng thử lại.');
+            btn.textContent = 'Thành công'; setTimeout(() => location.reload(), 500);
+        } catch (ex) {
+            err.textContent = ex.message || 'Lỗi kết nối. Vui lòng thử lại.'; err.classList.remove('hidden');
+            btn.disabled = false; btn.textContent = label;
+            if (/xử lý|trạng thái/i.test(ex.message)) setTimeout(() => location.reload(), 2500);
+        }
+    });
+
+    // ── Tin nhắn (dùng lại API /api/messages/<contract_id>) ──
+    const list = $('pj-msg-list'), me = {{ c.hirer_id }};
+    async function loadMessages() {
+        $('pj-msg-error').classList.add('hidden');
+        try {
+            const res = await fetch('/api/messages/' + CID, {credentials: 'same-origin', headers: {'Accept': 'application/json'}});
+            if (!res.ok) throw new Error(res.status);
+            const msgs = (await res.json()).slice(-30);
+            if (!msgs.length) { list.innerHTML = '<p class="text-sm text-slate-400">Chưa có tin nhắn nào.</p>'; return; }
+            list.innerHTML = msgs.map(m => `<div class="flex ${m.sender_id === me ? 'justify-end' : ''}"><div class="max-w-[85%] rounded-xl px-3 py-2 text-sm ${m.sender_id === me ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-800'}"><p class="whitespace-pre-line break-words">${esc(m.content)}</p><p class="text-[10px] mt-0.5 opacity-70">${esc(m.sender_name)} · ${esc(m.time)}</p></div></div>`).join('');
+            list.scrollTop = list.scrollHeight;
+        } catch (e) { list.innerHTML = ''; $('pj-msg-error').classList.remove('hidden'); }
+    }
+    $('pj-msg-retry').addEventListener('click', loadMessages);
+    $('pj-msg-form').addEventListener('submit', async (e) => {
+        e.preventDefault(); const input = $('pj-msg-input'), btn = $('pj-msg-send'), text = input.value.trim(); if (!text) return;
+        btn.disabled = true;
+        try {
+            const res = await fetch('/api/messages/' + CID, {method: 'POST', credentials: 'same-origin',
+                headers: {'Content-Type': 'application/json', 'Accept': 'application/json'}, body: JSON.stringify({content: text})});
+            if (!res.ok) throw new Error(res.status);
+            input.value = ''; await loadMessages();
+        } catch (ex) { $('pj-msg-error').firstChild.textContent = 'Không gửi được tin nhắn. '; $('pj-msg-error').classList.remove('hidden'); }
+        btn.disabled = false;
+    });
+    loadMessages();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Liên hệ hỗ trợ{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+    {% set help_active = 'contact' %}
+    {% include '_help_nav.html' %}
+
+    <h1 class="text-3xl font-black text-slate-900 tracking-tight">Liên hệ hỗ trợ</h1>
+    <p class="mt-2 mb-8 text-sm text-slate-500">Gửi yêu cầu và đội ngũ hỗ trợ sẽ phản hồi sớm nhất. Bạn cũng có thể email <a class="text-brand-600 font-semibold" href="mailto:support@viettranslate.vn">support@viettranslate.vn</a>.</p>
+
+    {% if not is_logged_in %}
+    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6 text-center">
+        <p class="text-sm text-slate-600 mb-4">Vui lòng đăng nhập để gửi yêu cầu hỗ trợ và theo dõi phản hồi.</p>
+        <a href="{{ url_for('login') }}" class="inline-block px-5 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 transition">Đăng nhập</a>
+    </div>
+    {% else %}
+    <form id="help-contact-form" enctype="multipart/form-data" class="bg-white rounded-2xl border border-slate-200/90 shadow-soft p-6 space-y-4">
+        <div id="help-contact-alert" class="hidden p-3.5 rounded-xl text-xs font-bold"></div>
+        <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5" for="hc-category">Chủ đề <span class="text-rose-500">*</span></label>
+            <select name="category" id="hc-category" required class="w-full text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-brand-500 outline-none">
+                <option value="" disabled {% if not selected_category %}selected{% endif %}>-- Chọn chủ đề --</option>
+                {% for key, cat in categories.items() %}
+                <option value="{{ key }}" {% if selected_category == key %}selected{% endif %}>{{ cat.title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5" for="hc-title">Tiêu đề <span class="text-rose-500">*</span></label>
+            <input type="text" name="title" id="hc-title" required minlength="5" maxlength="255" class="w-full text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-brand-500 outline-none">
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5" for="hc-desc">Nội dung chi tiết <span class="text-rose-500">*</span></label>
+            <textarea name="description" id="hc-desc" rows="5" required minlength="10" class="w-full text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-brand-500 outline-none"></textarea>
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5" for="hc-file">Đính kèm ảnh/PDF (tối đa 10MB, không bắt buộc)</label>
+            <input type="file" name="attachment" id="hc-file" accept=".png,.jpg,.jpeg,.webp,.pdf" class="text-xs">
+        </div>
+        <button type="submit" id="hc-submit" class="px-5 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 disabled:opacity-60 transition">Gửi yêu cầu hỗ trợ</button>
+    </form>
+
+    <h2 class="mt-10 mb-3 text-lg font-black text-slate-900">Yêu cầu của bạn ({{ tickets|length }})</h2>
+    {% if tickets %}
+    <div class="space-y-3">
+        {% for ticket in tickets %}
+        <div class="bg-white rounded-xl border border-slate-200/90 p-4">
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+                <span class="font-mono font-bold bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{{ ticket.ticket_code }}</span>
+                <span class="px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-700">{{ ticket.status_label }}</span>
+                <span class="text-slate-400">{{ ticket.created_at.strftime('%d/%m/%Y %H:%M') if ticket.created_at else '' }}</span>
+            </div>
+            <div class="mt-2 font-bold text-slate-900 text-sm">{{ ticket.title }}</div>
+            {% if ticket.admin_reply %}
+            <div class="mt-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200/70 text-xs text-emerald-900"><b>Phản hồi từ Ban Quản trị:</b> {{ ticket.admin_reply }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-500">Bạn chưa gửi yêu cầu hỗ trợ nào.</p>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+{% if is_logged_in %}
+<script>
+document.getElementById('help-contact-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var form = e.target, btn = document.getElementById('hc-submit'), box = document.getElementById('help-contact-alert');
+    btn.disabled = true; box.classList.add('hidden');
+    fetch('/account/support/tickets/create', { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+            btn.disabled = false;
+            box.className = 'p-3.5 rounded-xl text-xs font-bold ' + (res.ok && res.d.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200');
+            box.textContent = res.d.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.';
+            if (res.ok && res.d.success) setTimeout(function () { location.reload(); }, 1200);
+        })
+        .catch(function () {
+            btn.disabled = false;
+            box.className = 'p-3.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200';
+            box.textContent = 'Lỗi kết nối. Vui lòng thử lại.';
+        });
+});
+</script>
+{% endif %}
+{% endblock %}

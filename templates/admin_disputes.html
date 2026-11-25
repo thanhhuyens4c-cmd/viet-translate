@@ -1,75 +1,36 @@
 {% extends "admin_base.html" %}
-
-{% block title %}Tranh chấp{% endblock %}
-
+{% block title %}Khiếu nại đơn thuê{% endblock %}
 {% block content %}
-<div class="page-header">
-    <div>
-        <h1 class="page-title">Tranh chấp</h1>
-        <p class="page-subtitle">Tiền của hợp đồng đang tranh chấp bị đóng băng. Quyết định trong 5 ngày làm việc kể từ khi hết hạn nộp bằng chứng.</p>
-    </div>
-</div>
-
+<div class="page-header"><div>
+    <h1 class="page-title">Khiếu nại đơn thuê</h1>
+    <p class="page-subtitle">Khiếu nại của khách về hợp đồng đang giữ Escrow</p>
+</div></div>
 <div class="admin-card">
     <div class="filter-bar">
-        <a href="{{ url_for('admin_disputes', status='open') }}" class="filter-tab {% if status_filter == 'open' %}active{% endif %}">Đang mở</a>
-        <a href="{{ url_for('admin_disputes', status='resolved') }}" class="filter-tab {% if status_filter == 'resolved' %}active{% endif %}">Đã quyết định</a>
-        <a href="{{ url_for('admin_disputes', status='all') }}" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">Tất cả</a>
+        {% for key, label in [('pending_review','Chờ xác nhận'),('awaiting_response','Chờ PDV phản hồi'),('under_review','Đang xem xét'),('resolved','Đã có kết quả'),('rejected','Bác bỏ'),('all','Tất cả')] %}
+        <a href="{{ url_for('admin_disputes', status=key) }}" class="filter-tab {% if status_filter == key %}active{% endif %}">{{ label }}</a>
+        {% endfor %}
     </div>
-
-    {% if disputes %}
-    {% for d in disputes %}
-    <div class="p-4 border-b border-slate-700/50">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <div class="font-medium text-slate-200">
-                #DSP-{{ d.id }} · Hợp đồng #{{ d.contract_id }} ·
-                {{ 'Chất lượng' if d.kind == 'quality' else 'Khách hủy khi đang làm' }}
-                · giá {{ d.contract.agreed_price|vnd }}đ
-            </div>
-            <span class="badge {{ 'badge-yellow' if d.status == 'open' else 'badge-green' }}">{{ 'Đang mở' if d.status == 'open' else 'Đã quyết định' }}</span>
-        </div>
-        <div class="text-xs text-slate-300 space-y-1">
-            <p><strong>Khách:</strong> {{ d.hirer_evidence or '(chưa có)' }}</p>
-            <p><strong>Phiên dịch viên:</strong> {{ d.translator_evidence or '(chưa nộp bằng chứng)' }}</p>
-            {% if d.evidence_deadline %}
-            <p class="text-slate-400">Hạn bằng chứng: {{ (d.evidence_deadline + timedelta(hours=7)).strftime('%d/%m/%Y %H:%M') }}
-                {% if overdue.get(d.id) %}
-                <span class="text-amber-400 font-bold">· Quá hạn, chưa nộp:
-                    {% for who in overdue[d.id] %}{{ 'khách' if who == 'hirer' else 'phiên dịch viên' }}{% if not loop.last %}, {% endif %}{% endfor %}
-                    (theo điều khoản, bên này bị xử thua)</span>
-                {% endif %}
-            </p>
-            {% endif %}
-            {% if d.status == 'resolved' %}
-            <p class="text-emerald-400">Quyết định: {{ {'refund_full': 'Hoàn 100%', 'refund_partial': 'Hoàn một phần', 'release_full': 'Giải ngân toàn bộ'}.get(d.decision, d.decision) }}
-                ({{ d.refund_percent }}% hoàn). {{ d.decision_note or '' }}</p>
-            {% endif %}
-        </div>
-
-        {% if d.status == 'open' %}
-        <form method="POST" action="{{ url_for('admin_resolve_dispute', dispute_id=d.id) }}"
-              class="mt-3 flex flex-wrap items-end gap-2"
-              onsubmit="return confirm('Ghi quyết định này? Tiền sẽ được chia ngay và không hoàn tác được.');">
-            <select name="decision" class="form-input text-xs" required>
-                <option value="refund_full">Hoàn 100% cho khách</option>
-                <option value="refund_partial">Hoàn một phần</option>
-                <option value="release_full">Giải ngân toàn bộ cho phiên dịch viên</option>
-            </select>
-            <input type="number" name="refund_percent" min="1" max="99" placeholder="% hoàn (1 đến 99)" class="form-input text-xs w-40">
-            <select name="refund_to" class="form-input text-xs">
-                <option value="wallet">Hoàn vào ví</option>
-                <option value="original">Hoàn về phương thức gốc</option>
-            </select>
-            <input type="text" name="note" placeholder="Lý do quyết định (gửi cho cả hai bên)" required class="form-input text-xs flex-1 min-w-[200px]">
-            <button type="submit" class="btn btn-sm btn-primary">Ghi quyết định</button>
-        </form>
-        {% endif %}
-    </div>
-    {% endfor %}
+    {% if items %}
+    <div class="overflow-x-auto"><table class="admin-table w-full">
+        <thead><tr><th>ID</th><th>Hợp đồng</th><th>Khách</th><th>PDV</th><th>Lý do</th><th>Số tiền</th><th>Trạng thái</th><th>Ngày gửi</th><th></th></tr></thead>
+        <tbody>
+        {% for d in items %}
+        <tr>
+            <td class="font-medium text-brand">#{{ d.id }}</td>
+            <td>#CTR-{{ d.contract_id }}</td>
+            <td>{{ d.hirer.name }}</td>
+            <td>{{ d.translator.name }}</td>
+            <td>{{ categories[d.category] }}</td>
+            <td class="text-emerald-400">{{ money(d.final_amount if d.status == 'resolved' else d.contract.agreed_price) }} ₫</td>
+            <td><span class="badge {% if d.status == 'pending_review' %}badge-yellow{% elif d.status == 'resolved' %}badge-green{% elif d.status == 'rejected' %}badge-gray{% else %}badge-blue{% endif %}">{{ labels[d.status] }}</span></td>
+            <td class="text-xs text-slate-400 whitespace-nowrap">{{ d.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td><a class="btn btn-sm btn-ghost" href="{{ url_for('admin_dispute_detail', dispute_id=d.id) }}">Xem</a></td>
+        </tr>
+        {% endfor %}
+        </tbody></table></div>
     {% else %}
-    <div class="empty-state">
-        <div class="empty-state-title">Không có tranh chấp nào</div>
-    </div>
+    <div class="empty-state"><div class="empty-state-title">Không có khiếu nại nào</div></div>
     {% endif %}
 </div>
 {% endblock %}

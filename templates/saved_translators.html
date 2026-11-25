@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Phiên dịch viên đã lưu | VietTranslate{% endblock %}
+
+{% block content %}
+<div class="bg-slate-50/60 min-h-screen py-8 sm:py-12">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-extrabold text-slate-900">Phiên dịch viên đã lưu</h1>
+            <p class="text-sm text-slate-500 mt-1">Danh sách phiên dịch viên bạn quan tâm, lưu theo tài khoản.</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-3">
+            <a href="{{ url_for('translator_list') }}" class="inline-flex justify-center items-center bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold px-5 py-2.5 rounded-xl border border-slate-200 transition">Tìm phiên dịch viên</a>
+            <a href="{{ url_for('post_job') }}" class="inline-flex justify-center items-center bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition shadow-sm">+ Bắt đầu yêu cầu mới</a>
+        </div>
+    </div>
+
+    <div id="saved-skeleton" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" aria-hidden="true">
+        {% for i in range(3) %}<div class="animate-pulse bg-white rounded-2xl border border-slate-200/90 h-72"></div>{% endfor %}
+    </div>
+    <div id="saved-error" role="alert" class="hidden text-center py-12 px-4 bg-rose-50 rounded-2xl border border-rose-200">
+        <p class="text-sm font-semibold text-rose-800 mb-4">Không thể tải danh sách đã lưu. Vui lòng thử lại.</p>
+        <button id="saved-retry" type="button" class="text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-5 py-2.5 rounded-xl transition">Thử lại</button>
+    </div>
+    <div id="saved-empty" class="hidden text-center py-16 px-4 bg-white rounded-2xl border border-slate-200/90 shadow-soft">
+        <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center text-2xl">♥</div>
+        <h2 class="text-base font-bold text-slate-900 mb-1.5">Bạn chưa lưu phiên dịch viên nào</h2>
+        <p class="text-slate-500 text-sm max-w-sm mx-auto mb-5">Nhấn biểu tượng ♥ trên hồ sơ phiên dịch viên để lưu lại và so sánh sau.</p>
+        <a href="{{ url_for('translator_list') }}" class="inline-block text-sm font-bold text-white bg-brand-600 px-5 py-2.5 rounded-xl hover:bg-brand-700 transition">Tìm phiên dịch viên</a>
+    </div>
+    <div id="saved-grid" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% include '_translator_cards.html' %}
+<script>
+(function () {
+    const $ = (id) => document.getElementById(id);
+    const show = (id, on) => $(id).classList.toggle('hidden', !on);
+    let count = 0;
+
+    async function load() {
+        show('saved-skeleton', true); show('saved-error', false); show('saved-empty', false); show('saved-grid', false);
+        $('saved-skeleton').style.display = '';
+        try {
+            const res = await fetch('/api/favorites', {headers: {'Accept': 'application/json'}, credentials: 'same-origin'});
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const items = (await res.json()).items;
+            $('saved-skeleton').style.display = 'none';
+            count = items.length;
+            if (!count) { show('saved-empty', true); return; }
+            $('saved-grid').innerHTML = items.map(window.vtRenderCard).join('');
+            show('saved-grid', true);
+        } catch (e) {
+            $('saved-skeleton').style.display = 'none';
+            show('saved-error', true);
+        }
+    }
+    // Bỏ lưu → gỡ card khỏi danh sách
+    document.addEventListener('vt:favchange', (e) => {
+        if (e.detail.is_favorite) return;
+        const card = document.querySelector(`[data-card="${CSS.escape(String(e.detail.id))}"]`);
+        if (card) card.remove();
+        count = Math.max(0, count - 1);
+        if (!count) { show('saved-grid', false); show('saved-empty', true); }
+    });
+    $('saved-retry').addEventListener('click', load);
+    load();
+})();
+</script>
+{% endblock %}

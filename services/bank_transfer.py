@@ -84,6 +84,8 @@ def fund_contract(contract, payer_id, method, ref=None):
     if ref:
         deposit.transaction_ref = ref
     lifecycle.mark_paid(contract)
+    from models import ContractEvent
+    db.session.add(ContractEvent(contract_id=contract.id, actor_id=payer_id, event_type='paid'))
     return deposit
 
 

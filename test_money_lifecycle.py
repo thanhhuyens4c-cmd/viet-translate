@@ -116,8 +116,8 @@ class DocumentCancelTests(LifecycleBase):
         lifecycle.start_work(c, self.trans.id, now=NOW + timedelta(hours=1))
         kind, dispute = lifecycle.cancel_by_hirer(c, self.hirer.id, now=NOW + timedelta(hours=2))
         self.assertEqual(kind, 'dispute')
-        self.assertEqual(c.status, 'disputed')
-        self.assertEqual(dispute.kind, 'cancel_working')
+        self.assertEqual(c.status, 'in_progress')   # tiền vẫn được giữ, khách gửi khiếu nại để sàn phân xử
+        self.assertIsNone(dispute)
 
     def test_twelve_hours_after_payment_counts_as_started(self):
         c = self.funded_contract()
@@ -284,27 +284,23 @@ class TranslatorCancelTests(LifecycleBase):
 
 
 class RevisionAndReleaseTests(LifecycleBase):
-    def test_two_free_revisions_then_dispute_allowed(self):
+    def test_two_free_revisions_then_no_more(self):
         c = self.funded_contract()
-        with self.assertRaises(lifecycle.LifecycleError):
-            lifecycle.request_revision(c, self.hirer.id)        # chưa có bài nộp
         lifecycle.register_delivery(c, now=NOW + timedelta(days=1))
         self.assertEqual(c.auto_release_at, NOW + timedelta(days=1) + timedelta(days=5))
-
-        with self.assertRaises(lifecycle.LifecycleError):       # chưa sửa lần nào thì chưa mở tranh chấp chất lượng
-            lifecycle.open_dispute(c, self.hirer.id, 'Bản dịch sai nhiều thuật ngữ', now=NOW)
-
-        lifecycle.request_revision(c, self.hirer.id)
+        lifecycle.note_revision_requested(c)
         self.assertIsNone(c.auto_release_at)                    # chờ bài sửa, không tự giải ngân
         lifecycle.register_delivery(c, now=NOW + timedelta(days=2))
         self.assertEqual(c.auto_release_at, NOW + timedelta(days=2) + timedelta(days=5))   # tính lại từ đầu
-        lifecycle.request_revision(c, self.hirer.id)
+        lifecycle.note_revision_requested(c)
         lifecycle.register_delivery(c, now=NOW + timedelta(days=3))
         with self.assertRaises(lifecycle.LifecycleError):
-            lifecycle.request_revision(c, self.hirer.id)        # hết 2 lần
+            lifecycle.note_revision_requested(c)                # hết 2 lần
 
-        d = lifecycle.open_dispute(c, self.hirer.id, 'Vẫn sai sau hai lần sửa bài', now=NOW + timedelta(days=4))
-        self.assertEqual((c.status, d.status), ('disputed', 'open'))
+    def test_events_have_no_free_revisions(self):
+        c = self.funded_contract(group='interpretation_other', unit='hour', quantity=2, date='2026-12-20')
+        with self.assertRaises(lifecycle.LifecycleError):
+            lifecycle.note_revision_requested(c)
 
     def test_long_document_gets_seven_days(self):
         c = self.funded_contract(quantity=25)
@@ -315,9 +311,7 @@ class RevisionAndReleaseTests(LifecycleBase):
         c = self.funded_contract()
         lifecycle.register_delivery(c, now=NOW)
         db.session.flush()
-        sent = []
-        stats = lifecycle.run_scheduled_jobs(now=NOW + timedelta(days=4, hours=1),
-                                             notify=lambda *a: sent.append(a))
+        stats = lifecycle.run_scheduled_jobs(now=NOW + timedelta(days=4, hours=1), notify=lambda *a: None)
         self.assertEqual(stats['reminded'], 1)                  # còn dưới 24 giờ thì nhắc
         self.assertEqual(stats['auto_released'], 0)
         self.assertEqual(c.status, 'in_progress')
@@ -347,7 +341,7 @@ class RevisionAndReleaseTests(LifecycleBase):
         db.session.add(job)
         db.session.flush()
         c = Contract(job_id=job.id, hirer_id=self.hirer.id, translator_id=self.trans.id,
-                     agreed_price=500_000, status='escrow_pending', created_at=NOW)
+                     agreed_price=500_000, status='escrow_pending', created_at=NOW, updated_at=NOW)
         db.session.add(c)
         db.session.flush()
         lifecycle.run_scheduled_jobs(now=NOW + timedelta(hours=23), notify=lambda *a: None)
@@ -355,95 +349,75 @@ class RevisionAndReleaseTests(LifecycleBase):
         lifecycle.run_scheduled_jobs(now=NOW + timedelta(hours=25), notify=lambda *a: None)
         self.assertEqual((c.status, c.cancelled_by), ('cancelled', 'system'))
 
+    def test_revision_requested_contract_is_still_held_and_cancellable(self):
+        c = self.funded_contract()
+        c.status = 'revision_requested'
+        kind, _ = lifecycle.cancel_by_hirer(c, self.hirer.id, now=NOW + timedelta(hours=1))
+        self.assertEqual(kind, 'cancelled')
+        db.session.flush()
+        self.assert_conserved(c)
 
-class DisputeTests(LifecycleBase):
+
+class DisputeResolutionTests(LifecycleBase):
+    """Khiếu nại do disputes.py quản lý; ở đây kiểm tra kết luận được ghi vào sổ tiền."""
+
     def disputed(self):
+        from disputes import apply_resolution
         c = self.funded_contract()
         lifecycle.register_delivery(c, now=NOW)
-        lifecycle.request_revision(c, self.hirer.id)
-        lifecycle.register_delivery(c, now=NOW + timedelta(days=1))
-        d = lifecycle.open_dispute(c, self.hirer.id, 'Bản dịch vẫn sai nhiều chỗ', now=NOW + timedelta(days=2))
+        d = Dispute(contract_id=c.id, hirer_id=self.hirer.id, translator_id=self.trans.id,
+                    category='quality', description='Bản dịch sai nhiều chỗ, cần xem xét lại')
+        db.session.add(d)
         db.session.flush()
-        return c, d
+        return c, d, apply_resolution
 
-    def test_dispute_freezes_money_and_blocks_auto_release(self):
-        c, d = self.disputed()
-        self.assertIsNone(c.auto_release_at)
+    def test_active_dispute_freezes_auto_release_and_cancellation(self):
+        c, d, _ = self.disputed()
         stats = lifecycle.run_scheduled_jobs(now=NOW + timedelta(days=30), notify=lambda *a: None)
         self.assertEqual(stats['auto_released'], 0)
-        self.assertEqual(c.status, 'disputed')
-        self.assertEqual(d.evidence_deadline, NOW + timedelta(days=2, hours=48))
-
-    def test_evidence_window_is_48_hours_and_overdue_party_is_flagged(self):
-        c, d = self.disputed()
-        lifecycle.submit_evidence(d, self.hirer.id, 'Ảnh chụp các lỗi', now=d.created_at or NOW + timedelta(days=2, hours=1))
-        late = d.evidence_deadline + timedelta(minutes=1)
+        self.assertEqual(c.status, 'in_progress')
         with self.assertRaises(lifecycle.LifecycleError):
-            lifecycle.submit_evidence(d, self.trans.id, 'Đã nộp muộn', now=late)
-        self.assertEqual(lifecycle.evidence_overdue_parties(d, now=late), ['translator'])
+            lifecycle.cancel_by_hirer(c, self.hirer.id, now=NOW)
         with self.assertRaises(lifecycle.LifecycleError):
-            lifecycle.submit_evidence(d, 99999, 'người lạ', now=NOW + timedelta(days=2, hours=1))
+            lifecycle.cancel_for_late_delivery(c, self.hirer.id, now=NOW + timedelta(days=9))
 
-    def test_resolve_full_refund(self):
-        c, d = self.disputed()
-        lifecycle.resolve_dispute(d, None, 'refund_full', note='Bản dịch không đạt', now=NOW + timedelta(days=5))
+    def test_keep_100_releases_everything(self):
+        c, d, apply = self.disputed()
+        apply(d, 'keep_100', 'Bản dịch đạt', None)
         db.session.flush()
-        self.assertEqual((c.status, d.status, d.refund_percent), ('cancelled', 'resolved', 100))
+        self.assertEqual((c.status, d.status, d.final_amount), ('completed', 'resolved', 2_160_000))
+        r = self.rows(c)
+        self.assertEqual((r['release'].amount, r['platform_fee'].amount), (1_944_000, 259_200))
+        self.assert_conserved(c)
+
+    def test_refund_50_splits_with_commission_on_kept_half_only(self):
+        c, d, apply = self.disputed()
+        apply(d, 'refund_50', 'Lỗi một phần', None)
+        db.session.flush()
+        r = self.rows(c)
+        # Hoàn 50% giá (1.080.000) cộng phí 43.200. Phiên dịch viên giữ 1.080.000, hoa hồng 10% = 108.000.
+        self.assertEqual(r['refund'].amount, 1_080_000 + 43_200)
+        self.assertEqual(r['release'].amount, 1_080_000 - 108_000)
+        self.assertEqual(r['platform_fee'].amount, 108_000)
+        self.assertEqual((c.status, d.final_amount), ('completed', 1_080_000))
+        self.assert_conserved(c)
+
+    def test_cancel_payment_refunds_everything(self):
+        c, d, apply = self.disputed()
+        apply(d, 'cancel_payment', 'Không đạt', None)
+        db.session.flush()
+        self.assertEqual((c.status, d.final_amount), ('cancelled', 0))
         r = self.rows(c)
         self.assertEqual(r['refund'].amount, 2_203_200)
         self.assertNotIn('release', r)
         self.assert_conserved(c)
 
-    def test_resolve_partial_keeps_work_and_charges_commission_on_translator_share_only(self):
-        c, d = self.disputed()
-        lifecycle.resolve_dispute(d, None, 'refund_partial', refund_percent=40, note='Lỗi một phần',
-                                  now=NOW + timedelta(days=5))
+    def test_resolving_twice_cannot_double_pay(self):
+        c, d, apply = self.disputed()
+        apply(d, 'cancel_payment', '', None)
         db.session.flush()
-        r = self.rows(c)
-        # Hoàn 40% giá = 864.000 và phí 43.200. Phiên dịch viên giữ 1.296.000, hoa hồng 10% = 129.600.
-        self.assertEqual(r['refund'].amount, 864_000 + 43_200)
-        self.assertEqual(r['release'].amount, 1_296_000 - 129_600)
-        self.assertEqual(r['platform_fee'].amount, 129_600)
-        self.assertEqual(c.status, 'completed')
-        self.assert_conserved(c)
-
-    def test_resolve_release_full(self):
-        c, d = self.disputed()
-        lifecycle.resolve_dispute(d, None, 'release_full', note='Bản dịch đạt', now=NOW + timedelta(days=5))
-        db.session.flush()
-        self.assertEqual(c.status, 'completed')
-        r = self.rows(c)
-        self.assertEqual((r['release'].amount, r['platform_fee'].amount), (1_944_000, 259_200))
-        self.assertNotIn('refund', r)
-        self.assert_conserved(c)
-
-    def test_cannot_resolve_twice_or_with_bad_percent(self):
-        c, d = self.disputed()
-        for bad in (None, 0, 100, 150):
-            with self.assertRaises(lifecycle.LifecycleError):
-                lifecycle.resolve_dispute(d, None, 'refund_partial', refund_percent=bad)
-        with self.assertRaises(lifecycle.LifecycleError):
-            lifecycle.resolve_dispute(d, None, 'nonsense')
-        lifecycle.resolve_dispute(d, None, 'refund_full')
-        db.session.flush()
-        with self.assertRaises(lifecycle.LifecycleError):
-            lifecycle.resolve_dispute(d, None, 'release_full')
-
-    def test_cancel_while_working_defaults_to_staff_split_then_fifty_percent(self):
-        c = self.funded_contract()
-        lifecycle.start_work(c, self.trans.id, now=NOW + timedelta(hours=1))
-        kind, d = lifecycle.cancel_by_hirer(c, self.hirer.id, now=NOW + timedelta(hours=3))
-        db.session.flush()
-        self.assertEqual(kind, 'dispute')
-        lifecycle.resolve_dispute(d, None, 'refund_partial', refund_percent=refunds.DEFAULT_WORKING_REFUND_PERCENT)
-        db.session.flush()
-        self.assertEqual(c.status, 'cancelled')
-        self.assert_conserved(c)
-
-    def test_short_reason_rejected(self):
-        c = self.funded_contract()
-        with self.assertRaises(lifecycle.LifecycleError):
-            lifecycle.open_dispute(c, self.hirer.id, 'tệ', kind='cancel_working')
+        with self.assertRaises(payments.PaymentError):
+            lifecycle.apply_dispute_resolution(c, 'keep_100', d.id)
 
 
 class AdminRefundAndWithdrawalTests(LifecycleBase):

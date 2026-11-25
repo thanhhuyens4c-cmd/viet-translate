@@ -1,0 +1,1056 @@
+# -*- coding: utf-8 -*-
+"""
+generate_all_jobs.py
+Script to generate seed_100_jobs.py with 100 authentic, rich interpreter job listings.
+"""
+import json
+
+JOBS_DATA = [
+    # ── 1. IT & CÔNG NGHỆ THÔNG TIN (5 jobs) ──
+    {
+        "title": "Phiên dịch cabin Hội nghị Thượng đỉnh Trí tuệ Nhân tạo AI Summit 2026",
+        "description": "Cần 02 phiên dịch viên cabin chuyên ngành AI/Machine Learning cho hội thảo quốc tế với hơn 500 khách mời. Nội dung về Large Language Models, Generative AI và ứng dụng điện toán đám mây. Tài liệu thuyết trình và glossary thuật ngữ sẽ được gửi trước 5 ngày.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 6000000, "budget_max": 9500000,
+        "event_date": "2026-11-12", "event_time_start": "08:00", "event_time_end": "17:30",
+        "event_location": "Trung tâm Hội nghị Quốc gia, Nam Từ Liêm, Hà Nội",
+        "days_ago": 0, "deadline_days": 18, "hirer_index": 0
+    },
+    {
+        "title": "Tháp tùng đoàn chuyên gia Nhật Bản nghiệm thu hệ thống Cloud ERP",
+        "description": "Đoàn gồm 4 kỹ sư giải pháp từ Tokyo sang thẩm định quy trình vận hành và kiểm thử bảo mật dữ liệu hệ thống SAP/Cloud ERP tại trụ sở công ty. Yêu cầu JLPT N1/N2, tác phong doanh nghiệp chuẩn Nhật, nắm vững thuật ngữ công nghệ thông tin.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 5500000,
+        "event_date": "2026-10-28", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Tòa nhà Etown Central, Quận 4, TP. Hồ Chí Minh",
+        "days_ago": 1, "deadline_days": 8, "hirer_index": 0
+    },
+    {
+        "title": "Phiên dịch đàm phán hợp tác chuyển giao công nghệ bán dẫn với đối tác Hàn Quốc",
+        "description": "Buổi làm việc cấp cao giữa Ban Tổng Giám đốc và phái đoàn tập đoàn bán dẫn Seoul về đầu tư dây chuyền đóng gói vi mạch bán dẫn Packaging & Testing tại Khu công nghệ cao Đà Nẵng. Yêu cầu bảo mật thông tin tuyệt đối (ký NDA).",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Hàn", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 5000000, "budget_max": 8000000,
+        "event_date": "2026-11-05", "event_time_start": "09:00", "event_time_end": "16:30",
+        "event_location": "Khách sạn Novotel Danang Premier Han River, Đà Nẵng",
+        "days_ago": 2, "deadline_days": 12, "hirer_index": 0
+    },
+    {
+        "title": "Phiên dịch trực tuyến 2 giờ giới thiệu phần mềm FinTech cho khách hàng Thượng Hải",
+        "description": "Họp trực tuyến qua Zoom để demo tính năng cổng thanh toán xuyên biên giới và giải đáp thắc mắc kỹ thuật tích hợp API cho đối tác thương mại Thượng Hải. Cần phiên dịch viên nói lưu loát tiếng Trung chuẩn phổ thông, tác phong nhanh nhẹn.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Trung", "target_lang": "Tiếng Việt",
+        "budget_type": "fixed", "budget_min": 450000, "budget_max": None,
+        "event_date": "2026-10-22", "event_time_start": "14:00", "event_time_end": "16:00",
+        "event_location": "Trực tuyến qua Zoom Meeting",
+        "days_ago": 3, "deadline_days": 5, "hirer_index": 0
+    },
+    {
+        "title": "Phiên dịch Workshop An ninh Mạng & Phòng chống Ransomware cùng chuyên gia Đức",
+        "description": "Buổi đào tạo chuyên sâu kéo dài 1 ngày dành cho đội ngũ SOC và DevOps về nhận diện mối đe dọa Zero-day và chính sách bảo mật ISO 27001 từ chuyên gia Berlin. Dịch nối tiếp song song kết hợp giải thích câu hỏi kỹ thuật.",
+        "category": "Hội thảo", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Đức", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 6000000,
+        "event_date": "2026-11-18", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Học viện Công nghệ Bưu chính Viễn thông, Hà Đông, Hà Nội",
+        "days_ago": 5, "deadline_days": 20, "hirer_index": 0
+    },
+
+    # ── 2. Y TẾ & CHĂM SÓC SỨC KHỎE (5 jobs) ──
+    {
+        "title": "Phiên dịch cabin Hội thảo Can thiệp Tim mạch Quốc tế Pháp - Việt lần thứ 12",
+        "description": "Hội nghị khoa học thường niên quy tụ 30 giáo sư đầu ngành từ Bệnh viện Tim Paris và các bệnh viện tuyến đầu Việt Nam. Dịch cabin trực tiếp các ca mổ truyền hình trực tiếp và báo cáo lâm sàng kỹ thuật cao.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Pháp", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 7000000, "budget_max": 12000000,
+        "event_date": "2026-11-20", "event_time_start": "08:00", "event_time_end": "17:30",
+        "event_location": "Trung tâm Hội nghị White Palace, Phú Nhuận, TP.HCM",
+        "days_ago": 0, "deadline_days": 22, "hirer_index": 1
+    },
+    {
+        "title": "Tháp tùng đoàn bác sĩ chuyên khoa thẩm mỹ tái tạo Hàn Quốc làm việc tại BV Hạnh Phúc",
+        "description": "Hỗ trợ đoàn bác sĩ ngoại khoa Bệnh viện Đại học Quốc gia Seoul trong quá trình thăm khám, hội chẩn trước phẫu thuật và hướng dẫn hậu phẫu cho bệnh nhân. Cần phát âm chuẩn, thái độ ân cần và quen thuộc y lệnh tiếng Hàn.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Hàn", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 4000000, "budget_max": 6500000,
+        "event_date": "2026-10-30", "event_time_start": "08:00", "event_time_end": "17:00",
+        "event_location": "Bệnh viện Quốc tế Hạnh Phúc, Quận 1, TP. Hồ Chí Minh",
+        "days_ago": 1, "deadline_days": 9, "hirer_index": 1
+    },
+    {
+        "title": "Phiên dịch kỹ thuật lắp đặt & hướng dẫn vận hành hệ thống máy chụp cộng hưởng từ MRI 3.0T Siemens",
+        "description": "Kỹ sư chuyên gia y sinh từ Erlangen (Đức) hướng dẫn nhóm kỹ sư và bác sĩ chẩn đoán hình ảnh tại Cần Thơ về quy chuẩn vận hành, cân chỉnh từ trường và bảo dưỡng định kỳ máy chụp MRI thế hệ mới.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Đức", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3800000, "budget_max": 5500000,
+        "event_date": "2026-11-08", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "Bệnh viện Đa khoa Trung ương Cần Thơ, Ninh Kiều, Cần Thơ",
+        "days_ago": 4, "deadline_days": 15, "hirer_index": 1
+    },
+    {
+        "title": "Tư vấn từ xa 1 giờ giải mã kết quả xét nghiệm di truyền & ung bướu với chuyên gia Mỹ",
+        "description": "Phiên dịch nối tiếp trực tuyến buổi tư vấn giữa bệnh nhân, gia đình và bác sĩ chuyên khoa ung bướu Bệnh viện Mayo Clinic (Mỹ). Yêu cầu dịch chính xác, truyền tải rõ ràng chỉ số xét nghiệm gen di truyền, giọng nói ấm áp.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "fixed", "budget_min": 400000, "budget_max": None,
+        "event_date": "2026-10-24", "event_time_start": "20:00", "event_time_end": "21:00",
+        "event_location": "Trực tuyến qua Microsoft Teams",
+        "days_ago": 2, "deadline_days": 6, "hirer_index": 1
+    },
+    {
+        "title": "Hội thảo Quốc tế Nghiên cứu Dược phẩm & Thử nghiệm Lâm sàng Vắc-xin Sinh học",
+        "description": "Phiên dịch hội trường phiên thảo luận quy trình cấp phép và chuẩn mực thử nghiệm lâm sàng GCP quốc tế. Có đại diện các tập đoàn dược phẩm đa quốc gia và cơ quan quản lý dược phẩm Việt Nam tham dự.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3000000, "budget_max": 5000000,
+        "event_date": "2026-11-25", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Khách sạn Vinpearl Resort & Spa Nha Trang Bay, Khánh Hòa",
+        "days_ago": 6, "deadline_days": 24, "hirer_index": 1
+    },
+
+    # ── 3. PHÁP LÝ & TRANH CHẤP THƯƠNG MẠI (5 jobs) ──
+    {
+        "title": "Phiên dịch phiên điều trần trọng tài quốc tế tại Trung tâm Trọng tài VIAC",
+        "description": "Vụ tranh chấp hợp đồng mua bán ngoại thương và bồi thường thiệt hại logistics giữa công ty xuất nhập khẩu Việt Nam và đối tác châu Âu. Phiên xử kéo dài cả ngày, yêu cầu phiên dịch viên am tường tố tụng trọng tài thương mại quốc tế.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 8000000, "budget_max": 14000000,
+        "event_date": "2026-11-15", "event_time_start": "08:00", "event_time_end": "17:30",
+        "event_location": "Trung tâm Trọng tài Quốc tế Việt Nam (VIAC), Quận 1, TP.HCM",
+        "days_ago": 1, "deadline_days": 17, "hirer_index": 2
+    },
+    {
+        "title": "Phiên dịch đàm phán hợp đồng M&A chuyển nhượng cổ phần doanh nghiệp vốn Nhật Bản",
+        "description": "Đàm phán chi tiết các điều khoản bảo đảm vốn, quyền biểu quyết và nghĩa vụ cổ đông chiến lược. Yêu cầu dịch chính xác từng thuật ngữ luật doanh nghiệp Nhật - Việt, phản xạ nhanh và tuyệt đối trung lập.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 5500000, "budget_max": 8500000,
+        "event_date": "2026-11-03", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Khách sạn Lotte Hotel Hanoi, Ba Đình, Hà Nội",
+        "days_ago": 2, "deadline_days": 10, "hirer_index": 2
+    },
+    {
+        "title": "Tháp tùng luật sư và thân chủ quốc tịch Nga làm việc tại Tòa án & Viện kiểm sát Vũng Tàu",
+        "description": "Cần thông dịch viên tiếng Nga đồng hành cùng luật sư giải quyết thủ tục phân chia tài sản và quyền giám hộ liên quan đến công dân Liên bang Nga tại Vũng Tàu. Yêu cầu tác phong đứng đắn, giọng nói chuẩn và nắm chắc thuật ngữ tố tụng dân sự.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Nga", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2500000, "budget_max": 4200000,
+        "event_date": "2026-10-29", "event_time_start": "08:00", "event_time_end": "16:00",
+        "event_location": "Tòa án Nhân dân tỉnh Bà Rịa - Vũng Tàu, TP. Bà Rịa",
+        "days_ago": 4, "deadline_days": 8, "hirer_index": 2
+    },
+    {
+        "title": "Tư vấn trực tuyến 1.5 giờ về đăng ký bảo hộ nhãn hiệu và quyền tác giả tại thị trường Anh",
+        "description": "Họp trực tuyến giữa doanh nghiệp thời trang xuất khẩu Việt Nam và luật sư sở hữu trí tuệ tại London để chuẩn bị hồ sơ nộp đơn lên Cục Sở hữu Trí tuệ Vương quốc Anh (UKIPO).",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "fixed", "budget_min": 600000, "budget_max": None,
+        "event_date": "2026-10-23", "event_time_start": "15:00", "event_time_end": "16:30",
+        "event_location": "Trực tuyến qua Zoom Meeting",
+        "days_ago": 1, "deadline_days": 4, "hirer_index": 2
+    },
+    {
+        "title": "Phiên dịch công chứng hợp đồng góp vốn & thuê nhà xưởng khu công nghiệp cho nhà đầu tư Đài Loan",
+        "description": "Hỗ trợ đoàn doanh nhân Đài Loan ký kết văn bản công chứng chuyển nhượng quyền sử dụng đất và thuê hạ tầng nhà xưởng 20.000m2. Cần phiên dịch chuẩn xác, đọc hiểu hợp đồng kinh tế tiếng Trung phồn thể/giản thể.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Trung", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2000000, "budget_max": 3500000,
+        "event_date": "2026-11-06", "event_time_start": "09:00", "event_time_end": "15:30",
+        "event_location": "Văn phòng Công chứng Bến Cát, KCN Mỹ Phước 3, Bình Dương",
+        "days_ago": 5, "deadline_days": 13, "hirer_index": 2
+    },
+
+    # ── 4. SẢN XUẤT, TỰ ĐỘNG HÓA & CÔNG NGHIỆP NẶNG (5 jobs) ──
+    {
+        "title": "Phiên dịch chuyển giao công nghệ dập đúc kim loại tự động Fanuc từ Nhật Bản",
+        "description": "Nhà máy cơ khí chính xác tại Hải Phòng tiếp nhận 2 cụm máy ép dập thuỷ lực tự động 500 tấn. Chuyên gia Nhật hướng dẫn cài đặt thông số servo, calibrate cảm biến quang học và xử lý sự cố kẹt khuôn.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3200000, "budget_max": 5000000,
+        "event_date": "2026-11-10", "event_time_start": "08:00", "event_time_end": "17:00",
+        "event_location": "Khu Công nghiệp DEEP C 1, Đình Vũ, Hải Phòng",
+        "days_ago": 2, "deadline_days": 16, "hirer_index": 3
+    },
+    {
+        "title": "Đào tạo an toàn lao động & vận hành lò luyện phôi thép chuyên gia Trung Quốc",
+        "description": "Đào tạo trực tiếp tại phân xưởng luyện kim cho 40 công nhân và kỹ thuật viên Việt Nam. Nội dung bao gồm quy trình nạp liệu, kiểm soát nhiệt độ hồ quang và cấp cứu ngộ độc khí CO.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Trung", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2000000, "budget_max": 3500000,
+        "event_date": "2026-10-31", "event_time_start": "08:00", "event_time_end": "16:30",
+        "event_location": "Nhà máy Thép Cán Nguội, TX. Quảng Yên, Quảng Ninh",
+        "days_ago": 3, "deadline_days": 9, "hirer_index": 3
+    },
+    {
+        "title": "Tháp tùng đoàn thanh tra chất lượng ISO 9001 & BSCI cho chuỗi nhà máy dệt may xuất khẩu",
+        "description": "Đoàn đánh giá viên kiểm toán độc lập quốc tế thực hiện audit nhà máy dệt may, phỏng vấn đại diện công đoàn, kiểm tra nhật ký giờ làm việc và quy chuẩn an toàn hóa chất phòng cháy.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 1800000, "budget_max": 3000000,
+        "event_date": "2026-10-27", "event_time_start": "08:00", "event_time_end": "17:00",
+        "event_location": "KCN Amata, TP. Biên Hòa, Đồng Nai",
+        "days_ago": 0, "deadline_days": 7, "hirer_index": 3
+    },
+    {
+        "title": "Phiên dịch kỹ thuật lắp đặt cụm cánh tay Robot công nghiệp 6 trục KUKA từ Đức",
+        "description": "Kỹ sư chuyên gia hãng KUKA hướng dẫn lập trình đường chạy robot hàn điểm và liên kết PLC Siemens S7-1500 cho dây chuyền phụ tùng xe gắn máy.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Đức", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 4000000, "budget_max": 6500000,
+        "event_date": "2026-11-16", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "KCN VSIP 2 Mở rộng, TX. Tân Uyên, Bình Dương",
+        "days_ago": 4, "deadline_days": 21, "hirer_index": 3
+    },
+    {
+        "title": "Họp kỹ thuật xử lý sự cố thiết bị máy ép nhựa thủy lực tốc độ cao Hàn Quốc",
+        "description": "Buổi họp tại chỗ giữa đội ngũ bảo trì nhà máy và kỹ sư bảo hành hãng Woojin Plaimm để phân tích nguyên nhân lỗi nhiệt độ dầu thủy lực và điều chỉnh chu kỳ ép khuôn mẫu linh kiện điện tử.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Hàn", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2200000, "budget_max": 3800000,
+        "event_date": "2026-10-26", "event_time_start": "09:00", "event_time_end": "16:00",
+        "event_location": "KCN Quế Võ, TP. Bắc Ninh, Bắc Ninh",
+        "days_ago": 1, "deadline_days": 6, "hirer_index": 3
+    },
+
+    # ── 5. XÂY DỰNG, KIẾN TRÚC & HẠ TẦNG (5 jobs) ──
+    {
+        "title": "Phiên dịch hiện trường công trường dự án mở rộng Tuyến Metro ngầm",
+        "description": "Tháp tùng nhóm kỹ sư tư vấn giám sát Nhật Bản (Nippon Koei) kiểm tra thi công khoan hầm TBM, lắp đặt tấm vỏ hầm đúc sẵn và nghiệm thu cốt thép móng ga ngầm.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 5800000,
+        "event_date": "2026-11-04", "event_time_start": "07:30", "event_time_end": "16:30",
+        "event_location": "Công trường Nhà ga Bến Thành - Suối Tiên, Quận 1, TP.HCM",
+        "days_ago": 2, "deadline_days": 11, "hirer_index": 4
+    },
+    {
+        "title": "Họp giao ban tiến độ thi công cao ốc tổ hợp thương mại với tổng thầu Hàn Quốc",
+        "description": "Họp rà soát mốc bàn giao các gói thầu thi công mặt dựng kính Curtain Wall, thang máy tải trọng lớn và hệ thống cứu hỏa tiêu chuẩn NFPA với Ban Điều hành dự án Hyundai E&C.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Hàn", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2800000, "budget_max": 4500000,
+        "event_date": "2026-11-09", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "Ban Quản lý Dự án Tòa tháp StarLake, Tây Hồ Tây, Hà Nội",
+        "days_ago": 3, "deadline_days": 14, "hirer_index": 4
+    },
+    {
+        "title": "Hội thảo Kiến trúc Bền vững & Thiết kế Công trình Tiết kiệm Năng lượng Pháp - Việt",
+        "description": "Hội thảo chuyên môn có bài phát biểu của các kiến trúc sư trưởng từ Paris giới thiệu vật liệu sinh thái, giải pháp thông gió tự nhiên nhiệt đới hóa và chứng chỉ công trình xanh LOTUS/LEED.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Pháp", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3200000, "budget_max": 5500000,
+        "event_date": "2026-11-19", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Trung tâm Hành chính TP. Đà Nẵng, Hải Châu, Đà Nẵng",
+        "days_ago": 5, "deadline_days": 23, "hirer_index": 4
+    },
+    {
+        "title": "Tháp tùng khảo sát địa chất & thiết kế kết cấu cầu vượt biển chuyên gia Vương quốc Anh",
+        "description": "Làm việc tại hiện trường ven biển Hải Phòng và trên cano khảo sát vị trí móng cọc trụ cầu dây văng. Kỹ sư kết cấu Anh cần trao đổi chi tiết về độ sụt lún bùn đáy biển và ăn mòn nước mặn.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 4000000, "budget_max": 6800000,
+        "event_date": "2026-11-07", "event_time_start": "07:00", "event_time_end": "16:00",
+        "event_location": "Khu vực Cảng Lạch Huyện - Cát Hải, Hải Phòng",
+        "days_ago": 1, "deadline_days": 13, "hirer_index": 4
+    },
+    {
+        "title": "Đàm phán gói thầu cơ điện MEP trung tâm logistics quy mô 50 triệu USD",
+        "description": "Phiên làm việc song ngữ đàm phán hợp đồng cung ứng và lắp đặt hệ thống máy phát điện dự phòng, điều hòa không khí VRV trung tâm và trạm biến áp hạ thế cho chủ đầu tư Singapore.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2500000, "budget_max": 4000000,
+        "event_date": "2026-10-28", "event_time_start": "09:00", "event_time_end": "16:30",
+        "event_location": "Tòa nhà Saigon Centre, Lê Lợi, Quận 1, TP.HCM",
+        "days_ago": 0, "deadline_days": 7, "hirer_index": 4
+    },
+
+    # ── 6. TÀI CHÍNH, NGÂN HÀNG & ĐẦU TƯ MẠO HIỂM (5 jobs) ──
+    {
+        "title": "Phiên dịch cabin Diễn đàn Đầu tư Mạo hiểm & Startup Đông Nam Á (Venture Summit)",
+        "description": "Sự kiện quy tụ hơn 40 quỹ đầu tư mạo hiểm (Sequoia, 500 Global, Insignia) và 80 nhà sáng lập công nghệ. Phiên dịch cabin song song các phần thuyết trình gọi vốn Pitching Session và tọa đàm kinh tế vĩ mô.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 7500000, "budget_max": 13000000,
+        "event_date": "2026-11-14", "event_time_start": "08:00", "event_time_end": "18:00",
+        "event_location": "Khách sạn The Reverie Saigon, Times Square, Quận 1, TP.HCM",
+        "days_ago": 0, "deadline_days": 19, "hirer_index": 5
+    },
+    {
+        "title": "Đàm phán hợp đồng vay hợp vốn quốc tế 120 triệu USD giữa các ngân hàng thương mại",
+        "description": "Phiên làm việc kỹ thuật giữa đoàn đàm phán tài chính doanh nghiệp và nhóm đại diện ngân hàng bảo lãnh tín dụng (Syndicated Loan). Yêu cầu nắm chắc các khái niệm L/C, lãi suất SOFR, covenant tài chính.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 5000000, "budget_max": 8500000,
+        "event_date": "2026-11-02", "event_time_start": "09:00", "event_time_end": "17:00",
+        "event_location": "Tòa nhà Ngân hàng Nhà nước, Hoàn Kiếm, Hà Nội",
+        "days_ago": 2, "deadline_days": 10, "hirer_index": 5
+    },
+    {
+        "title": "Tháp tùng đoàn lãnh đạo Quỹ Đầu tư Tư nhân Tokyo khảo sát các doanh nghiệp bán lẻ",
+        "description": "Đồng hành cùng 3 đối tác quản lý quỹ của Nhật trong chuyến công tác 2 ngày khảo sát thực tế mạng lưới kho bãi, quy trình quản lý tồn kho và trao đổi với ban điều hành công ty mục tiêu.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 4000000, "budget_max": 6500000,
+        "event_date": "2026-11-11", "event_time_start": "08:30", "event_time_end": "17:30",
+        "event_location": "KCN Tân Bình và các trung tâm phân phối tại TP.HCM",
+        "days_ago": 3, "deadline_days": 16, "hirer_index": 5
+    },
+    {
+        "title": "Thẩm định năng lực tài chính & Due Diligence dự án nhà máy quang điện với đối tác Trung Quốc",
+        "description": "Kiểm toán soát xét chứng từ kế toán, dòng tiền dự án EPC năng lượng và mô hình dự báo tài chính DCF tại chỗ với đoàn kiểm toán viên và ban tài chính tập đoàn Hong Kong.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Trung", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3000000, "budget_max": 5200000,
+        "event_date": "2026-11-05", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Văn phòng Dự án Năng lượng, TP. Phan Rang - Tháp Chàm, Ninh Thuận",
+        "days_ago": 4, "deadline_days": 12, "hirer_index": 5
+    },
+    {
+        "title": "Họp trực tuyến 2 giờ rà soát báo cáo tài chính IFRS theo chuẩn mực kế toán quốc tế",
+        "description": "Thảo luận về phương pháp ghi nhận suy giảm giá trị tài sản vô hình và khấu hao tài sản cố định theo chuẩn IAS 36 giữa kế toán trưởng tại Việt Nam và chuyên gia kiểm toán PwC Singapore.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "fixed", "budget_min": 850000, "budget_max": None,
+        "event_date": "2026-10-25", "event_time_start": "14:00", "event_time_end": "16:00",
+        "event_location": "Trực tuyến qua Zoom Meeting",
+        "days_ago": 1, "deadline_days": 5, "hirer_index": 5
+    },
+
+    # ── 7. DU LỊCH, LỮ HÀNH & NGHỈ DƯỠNG CAO CẤP (5 jobs) ──
+    {
+        "title": "Tháp tùng đoàn du khách thượng lưu Pháp trải nghiệm du thuyền cao cấp vịnh Hạ Long (2 ngày)",
+        "description": "Đoàn 8 du khách VIP quốc tịch Pháp đi tour du thuyền 5 sao khám phá di sản vịnh Hạ Long và vịnh Lan Hạ. Thuyết minh địa chất hang động, hỗ trợ dịch thực đơn fine dining và phục vụ suốt hành trình.",
+        "category": "Du lịch", "category_group": "interpretation_other", "service_type": "travel",
+        "source_lang": "Tiếng Pháp", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 5000000, "budget_max": 8000000,
+        "event_date": "2026-11-07", "event_time_start": "08:00", "event_time_end": "18:00",
+        "event_location": "Cảng Tàu Khách Quốc tế Tuần Châu, TP. Hạ Long, Quảng Ninh",
+        "days_ago": 2, "deadline_days": 13, "hirer_index": 6
+    },
+    {
+        "title": "Phiên dịch đoàn Famtrip 20 công ty lữ hành Liên bang Nga khảo sát chuỗi resort Nha Trang",
+        "description": "Hỗ trợ đoàn đại diện các hãng lữ hành lớn của Nga khảo sát hạ tầng lưu trú, dịch vụ tắm bùn khoáng nóng, khu vui chơi giải trí và đàm phán hợp đồng bao phòng mùa cao điểm đông xuân.",
+        "category": "Du lịch", "category_group": "interpretation_other", "service_type": "travel",
+        "source_lang": "Tiếng Nga", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3200000, "budget_max": 5500000,
+        "event_date": "2026-11-13", "event_time_start": "08:30", "event_time_end": "17:30",
+        "event_location": "Khu nghỉ dưỡng Vinpearl Resort & Spa Nha Trang, Khánh Hòa",
+        "days_ago": 3, "deadline_days": 17, "hirer_index": 6
+    },
+    {
+        "title": "Hướng dẫn đoàn du khách cao cấp Thái Lan trải nghiệm ẩm thực phố cổ Hà Nội",
+        "description": "Dẫn đoàn 10 khách thương gia Thái Lan thưởng thức ẩm thực Michelin Selected tại phố cổ Hà Nội, giới thiệu văn hóa cà phê trứng, trà sen Tây Hồ và mua sắm lụa tơ tằm Vạn Phúc.",
+        "category": "Du lịch", "category_group": "interpretation_other", "service_type": "travel",
+        "source_lang": "Tiếng Thái", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 1500000, "budget_max": 2500000,
+        "event_date": "2026-10-27", "event_time_start": "10:00", "event_time_end": "18:00",
+        "event_location": "Khu phố cổ Hoàn Kiếm, Hà Nội",
+        "days_ago": 1, "deadline_days": 6, "hirer_index": 6
+    },
+    {
+        "title": "Tháp tùng đoàn doanh nhân Tây Ban Nha tham quan làng nghề điêu khắc đá Non Nước & phố cổ Hội An",
+        "description": "Thuyết minh lịch sử giao thương Đàng Trong thế kỷ 17, giới thiệu kiến trúc nhà cổ và nghệ thuật chế tác thủ công mỹ nghệ cho đoàn kiến trúc sư và nhà sưu tập nghệ thuật Tây Ban Nha.",
+        "category": "Du lịch", "category_group": "interpretation_other", "service_type": "travel",
+        "source_lang": "Tiếng Tây Ban Nha", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2200000, "budget_max": 3800000,
+        "event_date": "2026-11-01", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Khu phố cổ Hội An, Quảng Nam và Làng đá Non Nước, Đà Nẵng",
+        "days_ago": 4, "deadline_days": 9, "hirer_index": 6
+    },
+    {
+        "title": "Phiên dịch viên phục vụ giải Golf giao hữu doanh nhân Hàn Quốc tại đảo ngọc Phú Quốc",
+        "description": "Đồng hành trên sân golf 18 lỗ hỗ trợ dịch giao lưu thi đấu thể thao giữa các CEO câu lạc bộ doanh nhân Daegu và hội đồng doanh nghiệp tỉnh Kiên Giang. Yêu cầu ngoại hình thanh lịch, hiểu rõ quy tắc và thuật ngữ chơi golf.",
+        "category": "Du lịch", "category_group": "interpretation_other", "service_type": "travel",
+        "source_lang": "Tiếng Hàn", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 6000000,
+        "event_date": "2026-11-17", "event_time_start": "06:30", "event_time_end": "15:30",
+        "event_location": "Sân Vinpearl Golf Phú Quốc, Gành Dầu, TP. Phú Quốc",
+        "days_ago": 6, "deadline_days": 21, "hirer_index": 6
+    },
+
+    # ── 8. NGOẠI GIAO, CHÍNH PHỦ & HỢP TÁC ODA (5 jobs) ──
+    {
+        "title": "Phiên dịch cabin Diễn đàn Kinh tế & Hợp tác Song phương Việt Nam - Cộng hòa Pháp",
+        "description": "Hội nghị cấp cao nhân dịp kỷ niệm quan hệ đối tác chiến lược giữa hai nước với sự tham dự của các bộ trưởng, đại sứ quán và hơn 200 tập đoàn hàng đầu. Yêu cầu phiên dịch cabin kỳ cựu, giọng chuẩn Paris, nắm chắc nghi thức ngoại giao.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Pháp", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 9000000, "budget_max": 16000000,
+        "event_date": "2026-11-24", "event_time_start": "08:00", "event_time_end": "17:30",
+        "event_location": "Khách sạn Sofitel Legend Metropole Hanoi, Ngô Quyền, Hà Nội",
+        "days_ago": 0, "deadline_days": 25, "hirer_index": 7
+    },
+    {
+        "title": "Tháp tùng phái đoàn Đại sứ quán Bồ Đào Nha làm việc với UBND TP. Hồ Chí Minh",
+        "description": "Hỗ trợ phái đoàn ngoại giao và doanh nghiệp Bồ Đào Nha trong buổi chào xã giao lãnh đạo thành phố, thảo luận về hợp tác bảo tồn kiến trúc di sản đô thị và xúc tiến thương mại nông nghiệp Nam Âu.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Bồ Đào Nha", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 4000000, "budget_max": 6500000,
+        "event_date": "2026-11-06", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "Trụ sở UBND TP. Hồ Chí Minh, 86 Lê Thánh Tôn, Quận 1, TP.HCM",
+        "days_ago": 1, "deadline_days": 12, "hirer_index": 7
+    },
+    {
+        "title": "Họp đánh giá tác động môi trường & xã hội dự án ODA viện trợ không hoàn lại của JICA Nhật Bản",
+        "description": "Làm việc cùng đoàn thẩm định JICA về tiến độ đền bù giải phóng mặt bằng và các giải pháp chống ngập thích ứng triều cường vùng đồng bằng sông Cửu Long.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 5800000,
+        "event_date": "2026-11-09", "event_time_start": "08:00", "event_time_end": "16:30",
+        "event_location": "Sở Nông nghiệp & Phát triển Nông thôn TP. Cần Thơ, Ninh Kiều",
+        "days_ago": 3, "deadline_days": 15, "hirer_index": 7
+    },
+    {
+        "title": "Phiên dịch phái đoàn Ủy ban Thương mại Nghị viện Châu Âu về giám sát thực thi hiệp định EVFTA",
+        "description": "Tọa đàm chuyên đề giữa các nghị sĩ châu Âu, đại diện Bộ Công Thương và các hiệp hội xuất khẩu Việt Nam về sở hữu trí tuệ, tiêu chuẩn lao động và bảo vệ môi trường bền vững.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 6500000, "budget_max": 11000000,
+        "event_date": "2026-11-18", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Tòa nhà Quốc hội, Ba Đình, Hà Nội",
+        "days_ago": 2, "deadline_days": 20, "hirer_index": 7
+    },
+    {
+        "title": "Hội nghị Liên kết các Thành phố Kết nghĩa Việt Nam - Liên bang Nga nhân kỷ niệm thiết lập quan hệ",
+        "description": "Phiên dịch song song thảo luận về chương trình trao đổi sinh viên đại học, liên kết du lịch biển và hợp tác khai thác logistics cảng biển giữa Đà Nẵng và Saint Petersburg.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Nga", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 4500000, "budget_max": 7500000,
+        "event_date": "2026-11-21", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Khách sạn Furama Resort Danang, Ngũ Hành Sơn, Đà Nẵng",
+        "days_ago": 5, "deadline_days": 22, "hirer_index": 7
+    },
+
+    # ── 9. NĂNG LƯỢNG TÁI TẠO, DẦU KHÍ & MÔI TRƯỜNG (5 jobs) ──
+    {
+        "title": "Phiên dịch kỹ thuật công tác trên giàn khoan dầu khí ngoài khơi Vietsovpetro (2 ngày)",
+        "description": "Bay trực thăng ra giàn khoan mỏ Bạch Hổ để dịch nối tiếp kỹ thuật lắp đặt đầu giếng ngầm và hệ thống van chống phun trào áp lực cao cùng chuyên gia kỹ thuật Nga.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Nga", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 7000000, "budget_max": 12000000,
+        "event_date": "2026-11-12", "event_time_start": "07:00", "event_time_end": "18:00",
+        "event_location": "Giàn khoan trung tâm Mỏ Bạch Hổ, Thềm lục địa Vũng Tàu",
+        "days_ago": 1, "deadline_days": 16, "hirer_index": 8
+    },
+    {
+        "title": "Hội thảo Quốc tế về Phát triển Điện gió Ngoài khơi & Công nghệ Hydro Xanh",
+        "description": "Hội thảo bàn tròn kỹ thuật giữa Bộ Công Thương, đại diện Tập đoàn Orsted (Đan Mạch) và các nhà đầu tư quốc tế về cơ chế giá FIT, khảo sát độ sâu đáy biển và chuỗi cung ứng tua-bin 15MW.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 5500000, "budget_max": 9000000,
+        "event_date": "2026-11-23", "event_time_start": "08:30", "event_time_end": "17:30",
+        "event_location": "Khách sạn Sea Links City, Mũi Né, TP. Phan Thiết, Bình Thuận",
+        "days_ago": 2, "deadline_days": 24, "hirer_index": 8
+    },
+    {
+        "title": "Tháp tùng chuyên gia Trung Quốc lắp đặt & hiệu chuẩn trạm biến áp 220kV nhà máy điện mặt trời",
+        "description": "Làm việc tại hiện trường kiểm tra sơ đồ đấu nối máy biến áp lực, tủ điều khiển bảo vệ rơ-le số và hệ thống giám sát SCADA công trình quang điện 150MW.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Trung", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2800000, "budget_max": 4800000,
+        "event_date": "2026-10-30", "event_time_start": "08:00", "event_time_end": "17:00",
+        "event_location": "Khu vực Nhà máy Điện mặt trời Dầu Tiếng, Dương Minh Châu, Tây Ninh",
+        "days_ago": 4, "deadline_days": 8, "hirer_index": 8
+    },
+    {
+        "title": "Đàm phán hợp đồng mua bán chứng chỉ năng lượng tái tạo quốc tế I-REC",
+        "description": "Họp song phương giữa chủ đầu tư cụm nhà máy thủy điện vừa và nhỏ tại Việt Nam với quỹ đầu tư thương mại carbon Thụy Sĩ về giá bán và cơ chế chuyển quyền sở hữu chỉ tiêu phát thải.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3000000, "budget_max": 5000000,
+        "event_date": "2026-11-04", "event_time_start": "09:00", "event_time_end": "16:00",
+        "event_location": "Tòa nhà Deutsches Haus, Lê Duẩn, Quận 1, TP.HCM",
+        "days_ago": 0, "deadline_days": 11, "hirer_index": 8
+    },
+    {
+        "title": "Họp kỹ thuật chuyên gia Đức đánh giá hiệu suất tổ máy phát điện chạy khí Biogas",
+        "description": "Chuyên gia động cơ khí đốt MTU (Đức) kiểm tra hệ thống lọc tạp chất H2S, độ ổn định điện áp và tiêu chuẩn khí thải Euro 6 của dự án năng lượng sinh học từ trang trại chăn nuôi quy mô lớn.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Đức", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3000000, "budget_max": 4800000,
+        "event_date": "2026-11-10", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "Trang trại Năng lượng Xanh, Cẩm Mỹ, Đồng Nai",
+        "days_ago": 3, "deadline_days": 16, "hirer_index": 8
+    },
+
+    # ── 10. HÀNG HẢI, HÀNG KHÔNG & CHUỖI CUNG ỨNG LOGISTICS (5 jobs) ──
+    {
+        "title": "Phiên dịch nghiệm thu kỹ thuật bảo dưỡng đại tu động cơ phản lực Boeing 787",
+        "description": "Làm việc tại xưởng bảo dưỡng máy bay VAECO cùng chuyên gia hãng chế tạo động cơ Rolls-Royce/GE kiểm tra cánh quạt tuabin áp suất cao và hệ thống đo lường dao động động cơ.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 5000000, "budget_max": 8500000,
+        "event_date": "2026-11-13", "event_time_start": "08:00", "event_time_end": "17:00",
+        "event_location": "Khu Hangar Bảo dưỡng Máy bay VAECO, Sân bay Quốc tế Nội Bài, Hà Nội",
+        "days_ago": 1, "deadline_days": 18, "hirer_index": 9
+    },
+    {
+        "title": "Tháp tùng đoàn chuyên gia Cảng vụ Rotterdam (Hà Lan) khảo sát luồng tàu Cảng Cái Mép",
+        "description": "Đi cano dọc luồng hàng hải Vũng Tàu - Thị Vải, hỗ trợ thảo luận kỹ thuật về độ sâu mớn nước, quy hoạch bến sà lan trung chuyển và ứng dụng hệ thống số hóa cảng thông minh TOS.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3800000, "budget_max": 6200000,
+        "event_date": "2026-11-03", "event_time_start": "07:30", "event_time_end": "16:30",
+        "event_location": "Cảng Quốc tế Gemalink, Cái Mép, Thị xã Phú Mỹ, Bà Rịa - Vũng Tàu",
+        "days_ago": 2, "deadline_days": 10, "hirer_index": 9
+    },
+    {
+        "title": "Đàm phán hợp đồng thuê tàu định hạn vận tải hàng container tuyến quốc tế",
+        "description": "Họp thương thảo điều khoản giá cước thuê tàu Charterparty, phụ phí nhiên liệu BAF và mức phạt bốc dỡ chậm Demurrage với đại diện hãng tàu container COSCO Trung Quốc.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Trung", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2500000, "budget_max": 4200000,
+        "event_date": "2026-10-29", "event_time_start": "09:00", "event_time_end": "16:30",
+        "event_location": "Tòa nhà TD Plaza, Ngô Quyền, Hải Phòng",
+        "days_ago": 4, "deadline_days": 7, "hirer_index": 9
+    },
+    {
+        "title": "Hội thảo Giải pháp Tự động hóa Kho bãi Thông minh Smart Warehouse & AGV Nhật Bản",
+        "description": "Giới thiệu ứng dụng xe tự hành AGV, hệ thống băng tải tự động phân loại hàng hóa phân phối thương mại điện tử và giải pháp quản lý kho WMS từ tập đoàn Daifuku Nhật Bản.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 5800000,
+        "event_date": "2026-11-17", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Trung tâm Hội chợ & Triển lãm Sài Gòn (SECC), Quận 7, TP.HCM",
+        "days_ago": 3, "deadline_days": 21, "hirer_index": 9
+    },
+    {
+        "title": "Đào tạo quy trình bốc dỡ thiết bị siêu trường siêu trọng chuyên gia logistics Đức",
+        "description": "Tập huấn cho đội ngũ cẩu bờ và điều hành logistics về tính toán tâm trọng lực, sơ đồ chằng buộc kiện hàng máy biến áp 300 tấn theo tiêu chuẩn an toàn hàng hải DNV-GL.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Đức", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2800000, "budget_max": 4800000,
+        "event_date": "2026-11-07", "event_time_start": "08:00", "event_time_end": "16:30",
+        "event_location": "Khu Cảng Nam Tiền Phong, KCN Bắc Tiền Phong, Quảng Ninh",
+        "days_ago": 5, "deadline_days": 14, "hirer_index": 9
+    },
+
+    # ── 11. NÔNG NGHIỆP, THỦY HẢI SẢN & XUẤT KHẨU NÔNG SẢN (5 jobs) ──
+    {
+        "title": "Đàm phán hợp đồng xuất khẩu sầu riêng Ri6 & thanh long ruột đỏ sang hệ thống siêu thị Trung Quốc",
+        "description": "Làm việc với đoàn thương nhân tập đoàn bán lẻ nông sản Bắc Kinh về quy chuẩn mã số vùng trồng, kiểm dịch thực vật và kiểm soát dư lượng thuốc bảo vệ thực vật theo Lệnh 248.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Trung", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2500000, "budget_max": 4200000,
+        "event_date": "2026-10-31", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Văn phòng Hợp tác xã Nông sản Cái Bè, Tiền Giang",
+        "days_ago": 0, "deadline_days": 8, "hirer_index": 10
+    },
+    {
+        "title": "Thẩm định quy trình nuôi tôm sinh thái đạt chứng nhận quốc tế ASC xuất khẩu sang Brazil",
+        "description": "Đoàn đánh giá viên chứng nhận độc lập nói tiếng Bồ Đào Nha khảo sát mô hình nuôi tôm sú dưới tán rừng ngập mặn Cà Mau, kiểm tra sổ tay nhật ký sinh học và môi trường nước nuôi.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Bồ Đào Nha", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 6000000,
+        "event_date": "2026-11-08", "event_time_start": "07:30", "event_time_end": "16:30",
+        "event_location": "Vùng nuôi tôm sinh thái xã Đất Mũi, Ngọc Hiển, Cà Mau",
+        "days_ago": 2, "deadline_days": 14, "hirer_index": 10
+    },
+    {
+        "title": "Phiên dịch gian hàng Hội chợ Triển lãm Quốc tế Chuyên ngành Thực phẩm Vietfood & Beverage",
+        "description": "Đón tiếp các nhà nhập khẩu quốc tế, giới thiệu mẫu sản phẩm cà phê Robusta đặc sản và hạt điều chế biến sâu, hỗ trợ chốt đơn hàng và lưu giữ danh thiếp đối tác giao thương.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2200000, "budget_max": 3800000,
+        "event_date": "2026-11-12", "event_time_start": "08:30", "event_time_end": "17:30",
+        "event_location": "Trung tâm Hội chợ và Triển lãm Sài Gòn (SECC), Quận 7, TP.HCM",
+        "days_ago": 1, "deadline_days": 16, "hirer_index": 10
+    },
+    {
+        "title": "Khảo sát dây chuyền chế biến sữa tươi tiệt trùng từ tập đoàn thực phẩm Thái Lan",
+        "description": "Đoàn kỹ sư tập đoàn sữa Charoen Pokphand (Thái Lan) tham quan trang trại bò sữa hữu cơ và hệ thống vắt sữa tự động khép kín để hợp tác nhượng quyền sản phẩm tiệt trùng.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Thái", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2000000, "budget_max": 3500000,
+        "event_date": "2026-11-05", "event_time_start": "08:00", "event_time_end": "16:30",
+        "event_location": "Cụm Trang trại Bò sữa Hữu cơ, Nghĩa Đàn, Nghệ An",
+        "days_ago": 3, "deadline_days": 12, "hirer_index": 10
+    },
+    {
+        "title": "Chuyển giao công nghệ canh tác rau củ quả trong nhà kính thủy canh thông minh từ Nhật Bản",
+        "description": "Chuyên gia nông nghiệp hữu cơ tỉnh Nagano (Nhật Bản) hướng dẫn kỹ thuật pha chế dung dịch dinh dưỡng hữu cơ và tự động hóa hệ thống tưới nhỏ giọt kiểm soát qua smartphone.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2800000, "budget_max": 4800000,
+        "event_date": "2026-11-15", "event_time_start": "08:00", "event_time_end": "16:30",
+        "event_location": "Khu Nông nghiệp Công nghệ cao Đơn Dương, TP. Đà Lạt, Lâm Đồng",
+        "days_ago": 5, "deadline_days": 19, "hirer_index": 10
+    },
+
+    # ── 12. GIÁO DỤC, ĐÀO TẠO & HỢP TÁC HỌC THUẬT (5 jobs) ──
+    {
+        "title": "Phiên dịch Ngày hội Triển lãm Giáo dục & Học bổng Vương quốc Anh (Study in UK)",
+        "description": "Hỗ trợ đại diện tuyển sinh của 15 trường đại học nhóm Russell Group (Oxford, UCL, Warwick) tư vấn ngành học, yêu cầu IELTS và điều kiện nộp hồ sơ xin học bổng toàn phần cho học sinh Việt Nam.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2500000, "budget_max": 4500000,
+        "event_date": "2026-11-01", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Khách sạn Daewoo Hanoi, Ba Đình, Hà Nội",
+        "days_ago": 1, "deadline_days": 9, "hirer_index": 11
+    },
+    {
+        "title": "Hội thảo Liên kết Đào tạo Thạc sĩ Quản trị Đổi mới Sáng tạo Đại học Tokyo (UTokyo)",
+        "description": "Tọa đàm chuyên đề và ký kết biên bản ghi nhớ (MOU) chương trình đào tạo thạc sĩ 1+1 giữa Viện Sau Đại học UTokyo và trường đại học thành viên ĐHQG TP.HCM. Cần thông dịch viên dịch trôi chảy, học thuật cao.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 6000000,
+        "event_date": "2026-11-11", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "Trường Đại học Bách Khoa ĐHQG-HCM, Quận 10, TP.HCM",
+        "days_ago": 2, "deadline_days": 15, "hirer_index": 11
+    },
+    {
+        "title": "Phỏng vấn trực tuyến 1 giờ xét duyệt học bổng chính phủ Pháp Eiffel Excellence",
+        "description": "Phiên dịch viên hỗ trợ ứng viên Việt Nam trong buổi phỏng vấn trực tuyến với hội đồng giáo sư chuyên ngành kinh tế học phát triển tại Paris. Đòi hỏi tiếng Pháp học thuật chuẩn xác, lưu loát.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Pháp", "target_lang": "Tiếng Việt",
+        "budget_type": "fixed", "budget_min": 400000, "budget_max": None,
+        "event_date": "2026-10-25", "event_time_start": "19:00", "event_time_end": "20:00",
+        "event_location": "Trực tuyến qua Zoom Meeting",
+        "days_ago": 0, "deadline_days": 5, "hirer_index": 11
+    },
+    {
+        "title": "Khóa tập huấn phương pháp sư phạm mầm non quốc tế Reggio Emilia cho giáo viên",
+        "description": "Chuyên gia giáo dục sớm từ Ý giảng dạy bằng tiếng Anh cho 50 hiệu trưởng và giáo viên trường mầm non song ngữ. Nội dung về giáo dục cảm xúc, không gian học tập mở và phát triển tư duy sáng tạo của trẻ nhỏ.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2200000, "budget_max": 3800000,
+        "event_date": "2026-11-06", "event_time_start": "08:00", "event_time_end": "16:30",
+        "event_location": "Trường Quốc tế Song ngữ Song Ngữ Đà Nẵng, Ngũ Hành Sơn, Đà Nẵng",
+        "days_ago": 4, "deadline_days": 12, "hirer_index": 11
+    },
+    {
+        "title": "Tọa đàm Hợp tác Nghiên cứu Khoa học Biển & Hải dương học cùng Viện sĩ Viện Hàn lâm Nga",
+        "description": "Trao đổi kết quả chuyến khảo sát thực địa hải văn học tại vùng biển sâu Nam Trung Bộ giữa Viện Hải dương học Nha Trang và các nhà khoa học Viện Hàn lâm Khoa học Nga (RAS).",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Nga", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3200000, "budget_max": 5200000,
+        "event_date": "2026-11-19", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "Viện Hải dương học Nha Trang, Trần Phú, Cầu Đá, Nha Trang",
+        "days_ago": 6, "deadline_days": 21, "hirer_index": 11
+    },
+
+    # ── 13. Ô TÔ, XE ĐIỆN & CÔNG NGHỆ DI CHUYỂN THÔNG MINH (5 jobs) ──
+    {
+        "title": "Phiên dịch thử nghiệm va chạm & khí động học xe điện thông minh cùng kỹ sư Đức",
+        "description": "Làm việc tại trung tâm thử nghiệm an toàn xe hơi cùng chuyên gia hãng kiểm định TUV SUD (Đức). Kiểm tra độ biến dạng khung gầm nhôm hợp kim, độ nhạy cảm biến túi khí và phân tích dữ liệu hộp đen.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Đức", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 4500000, "budget_max": 7500000,
+        "event_date": "2026-11-14", "event_time_start": "08:00", "event_time_end": "17:00",
+        "event_location": "Tổ hợp Sản xuất Ô tô & Xe điện, Cát Hải, Hải Phòng",
+        "days_ago": 1, "deadline_days": 18, "hirer_index": 3
+    },
+    {
+        "title": "Chuyển giao công nghệ trạm sạc xe điện siêu nhanh 360kW từ đối tác Trung Quốc",
+        "description": "Kỹ sư chuyên môn của hãng sản xuất trạm sạc hàng đầu Thâm Quyến đào tạo quy trình đấu nối lưới điện trung thế, giao thức truyền thông sạc CCS2 và giải pháp tản nhiệt chất lỏng cho trụ sạc.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Trung", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2500000, "budget_max": 4200000,
+        "event_date": "2026-10-31", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "Trung tâm Đào tạo Kỹ thuật Xe điện, Long Biên, Hà Nội",
+        "days_ago": 2, "deadline_days": 9, "hirer_index": 3
+    },
+    {
+        "title": "Đàm phán chuỗi cung ứng linh kiện hộp điều khiển động cơ ECU với tập đoàn Denso Nhật",
+        "description": "Họp đàm phán hợp đồng cung ứng phụ tùng gốc OEM dài hạn, kiểm toán quy trình kiểm soát tỷ lệ lỗi PPM và thống nhất kế hoạch dự phòng kho đệm linh kiện.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 5800000,
+        "event_date": "2026-11-09", "event_time_start": "09:00", "event_time_end": "17:00",
+        "event_location": "KCN Bình Xuyên, Huyện Bình Xuyên, Vĩnh Phúc",
+        "days_ago": 4, "deadline_days": 15, "hirer_index": 3
+    },
+    {
+        "title": "Tháp tùng kỹ sư Hàn Quốc kiểm thử hệ thống pin Lithium Iron Phosphate (LFP) trong môi trường khắc nghiệt",
+        "description": "Đoàn kỹ sư pin năng lượng LG Energy Solution kiểm tra chu kỳ nạp xả, khả năng chống cháy nổ IP67 và hệ thống quản lý pin BMS dưới điều kiện nhiệt ẩm cao tại miền Trung.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Hàn", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 5800000,
+        "event_date": "2026-11-04", "event_time_start": "07:30", "event_time_end": "16:30",
+        "event_location": "Khu kinh tế Vũng Áng, Thị xã Kỳ Anh, Hà Tĩnh",
+        "days_ago": 0, "deadline_days": 11, "hirer_index": 3
+    },
+    {
+        "title": "Hội thảo Tiêu chuẩn An toàn Ô tô Quốc tế & Đổi mới Công nghệ Tự hành Euro NCAP 2026",
+        "description": "Phiên dịch chuyên đề về hệ thống hỗ trợ người lái nâng cao ADAS cấp độ 3, phanh khẩn cấp tự động và chia sẻ hạ tầng thử nghiệm phương tiện kết nối thông minh V2X.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3000000, "budget_max": 5200000,
+        "event_date": "2026-11-20", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Khách sạn Sheraton Saigon Hotel & Towers, Đồng Khởi, Quận 1, TP.HCM",
+        "days_ago": 3, "deadline_days": 22, "hirer_index": 3
+    },
+
+    # ── 14. BÁN LẺ, THƯƠNG MẠI ĐIỆN TỬ & FMCG (5 jobs) ──
+    {
+        "title": "Đàm phán mở rộng chuỗi đại siêu thị bán lẻ Thái Lan Central Retail tại Việt Nam",
+        "description": "Làm việc giữa ban phát triển mặt bằng tập đoàn bán lẻ Thái Lan và các chủ đầu tư trung tâm thương mại tại các thành phố vệ tinh. Thảo luận chi tiết về diện tích sàn GLM, tỷ lệ chia sẻ doanh thu và thời hạn thuê 20 năm.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Thái", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3000000, "budget_max": 5000000,
+        "event_date": "2026-11-05", "event_time_start": "09:00", "event_time_end": "17:00",
+        "event_location": "Tòa nhà Bitexco Financial Tower, Quận 1, TP. Hồ Chí Minh",
+        "days_ago": 1, "deadline_days": 12, "hirer_index": 10
+    },
+    {
+        "title": "Tháp tùng Giám đốc Thu mua Toàn cầu Lotte Mart Hàn Quốc khảo sát vùng trồng nông sản",
+        "description": "Đoàn chuyên gia thu mua sang Việt Nam tìm kiếm đối tác cung ứng ớt chỉ thiên, tỏi cô đơn và hạt tiêu xuất khẩu về hệ thống đại siêu thị Hàn Quốc. Đòi hỏi dịch chính xác và nhạy bén thương trường.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Hàn", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2500000, "budget_max": 4200000,
+        "event_date": "2026-10-28", "event_time_start": "08:00", "event_time_end": "16:30",
+        "event_location": "Vùng trồng nông sản huyện Hòa Vang, TP. Đà Nẵng",
+        "days_ago": 0, "deadline_days": 7, "hirer_index": 10
+    },
+    {
+        "title": "Phiên dịch Livestream trực tiếp bán hàng nông sản xuất khẩu trên nền tảng Douyin",
+        "description": "Cần 01 bạn phiên dịch viên tiếng Trung năng động, nói năng hoạt bát, phát âm chuẩn Bắc Kinh hỗ trợ KOL nổi tiếng Trung Quốc livestream bán hạt điều rang muối và mít sấy giòn trong 3 giờ.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Trung", "target_lang": "Tiếng Việt",
+        "budget_type": "fixed", "budget_min": 1500000, "budget_max": None,
+        "event_date": "2026-10-26", "event_time_start": "18:30", "event_time_end": "21:30",
+        "event_location": "Studio MCN Livestream, Cầu Giấy, Hà Nội",
+        "days_ago": 2, "deadline_days": 5, "hirer_index": 10
+    },
+    {
+        "title": "Khảo sát thị trường phân phối dược mỹ phẩm và chăm sóc cá nhân thương hiệu Tây Ban Nha",
+        "description": "Tháp tùng giám đốc kinh doanh khu vực Đông Nam Á của tập đoàn mỹ phẩm Barcelona thăm chuỗi nhà thuốc Guardian, Pharmacity và các đại lý mỹ phẩm tại TP.HCM để phân tích hành vi người tiêu dùng.",
+        "category": "Kinh doanh", "category_group": "interpretation_other", "service_type": "business",
+        "source_lang": "Tiếng Tây Ban Nha", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2200000, "budget_max": 3800000,
+        "event_date": "2026-11-03", "event_time_start": "09:00", "event_time_end": "17:00",
+        "event_location": "Các trung tâm thương mại Vincom & Takashimaya, Quận 1, TP.HCM",
+        "days_ago": 3, "deadline_days": 11, "hirer_index": 10
+    },
+    {
+        "title": "Hội nghị Khách hàng Thường niên Chuỗi Nhượng quyền F&B Quốc tế Hoa Kỳ",
+        "description": "Phiên dịch hội thảo cho 120 đối tác nhận quyền thương hiệu thức ăn nhanh Mỹ. Nội dung cập nhật chiến lược tiếp thị đa kênh Omni-channel, kiểm soát chi phí nguyên liệu và tiêu chuẩn dịch vụ khách hàng.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 6000000,
+        "event_date": "2026-11-18", "event_time_start": "08:30", "event_time_end": "17:30",
+        "event_location": "Khách sạn InterContinental Nha Trang, Trần Phú, Nha Trang",
+        "days_ago": 5, "deadline_days": 20, "hirer_index": 10
+    },
+
+    # ── 15. THỜI TRANG, MỸ PHẨM & LÀM ĐẸP (5 jobs) ──
+    {
+        "title": "Phiên dịch hậu trường Tuần lễ Thời trang Quốc tế Vietnam International Fashion Week",
+        "description": "Hỗ trợ các nhà thiết kế thời trang quốc tế và đạo diễn catwalk kiểm tra trang phục Fitting, khớp nhạc sàn diễn và hướng dẫn người mẫu quốc tế trong 2 ngày diễn ra tuần lễ thời trang.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 4000000, "budget_max": 7000000,
+        "event_date": "2026-11-13", "event_time_start": "13:00", "event_time_end": "22:00",
+        "event_location": "Nhà thi đấu Quân khu 7, Phú Nhuận, TP. Hồ Chí Minh",
+        "days_ago": 1, "deadline_days": 17, "hirer_index": 6
+    },
+    {
+        "title": "Workshop Đào tạo Kỹ thuật Điêu khắc Chân mày & Phun xăm Thẩm mỹ Viện trưởng Seoul",
+        "description": "Master thẩm mỹ từ Gangnam (Hàn Quốc) trực tiếp thị phạm kỹ thuật đi sợi chân mày Hairstroke và phun môi tế bào gốc cho 30 học viên chuyên nghiệp tại Hà Nội.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Hàn", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2500000, "budget_max": 4500000,
+        "event_date": "2026-11-02", "event_time_start": "09:00", "event_time_end": "17:00",
+        "event_location": "Khách sạn Pan Pacific Hanoi, Ba Đình, Hà Nội",
+        "days_ago": 2, "deadline_days": 10, "hirer_index": 6
+    },
+    {
+        "title": "Tháp tùng nhà thiết kế Haute Couture Pháp tuyển chọn chất liệu tơ lụa tự nhiên tại Lâm Đồng",
+        "description": "Đồng hành cùng nhà thiết kế thời trang cao cấp Paris thăm các nhà máy ươm tơ dệt lụa Bảo Lộc, dịch thuật chuyên môn về độ bóng sợi tơ tằm, mật độ sợi dọc ngang và quy trình nhuộm màu tự nhiên.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Pháp", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3200000, "budget_max": 5200000,
+        "event_date": "2026-11-08", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Làng lụa tơ tằm Bảo Lộc, TP. Bảo Lộc, Lâm Đồng",
+        "days_ago": 4, "deadline_days": 14, "hirer_index": 6
+    },
+    {
+        "title": "Giới thiệu ra mắt dòng sản phẩm tinh dầu hữu cơ thương hiệu Bồ Đào Nha tại TTTM",
+        "description": "Phiên dịch giới thiệu thương hiệu và thông dịch giao lưu giữa chuyên gia liệu pháp hương thơm (Aromatherapy) đến từ Lisbon và khách hàng VIP tại gian hàng pop-up.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Bồ Đào Nha", "target_lang": "Tiếng Việt",
+        "budget_type": "fixed", "budget_min": 1800000, "budget_max": None,
+        "event_date": "2026-10-31", "event_time_start": "14:00", "event_time_end": "20:00",
+        "event_location": "TTTM Saigon Centre, Lê Lợi, Quận 1, TP.HCM",
+        "days_ago": 0, "deadline_days": 8, "hirer_index": 6
+    },
+    {
+        "title": "Hội thảo Chuyên sâu về Công nghệ Chống lão hóa & Tế bào gốc Thực vật Nhật Bản",
+        "description": "Bác sĩ da liễu và viện sĩ nghiên cứu hóa mỹ phẩm Tokyo trình bày cơ chế tái tạo collagen tầng sâu, kiểm nghiệm độ an toàn trên da nhạy cảm châu Á và chuyển giao công thức serum.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3200000, "budget_max": 5500000,
+        "event_date": "2026-11-16", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "Khách sạn Grand Tourane Hotel Danang, Sơn Trà, Đà Nẵng",
+        "days_ago": 3, "deadline_days": 20, "hirer_index": 6
+    },
+
+    # ── 16. GIẢI TRÍ, ĐIỆN ẢNH, ÂM NHẠC & TRUYỀN THÔNG (5 jobs) ──
+    {
+        "title": "Tháp tùng đoàn làm phim tài liệu đài truyền hình NHK Nhật Bản tác nghiệp tại miền Trung",
+        "description": "Hỗ trợ đạo diễn, quay phim đài truyền hình NHK quay phim tài liệu về nghề đánh bắt cá ngừ đại dương và cuộc sống ngư dân đảo Lý Sơn. Cần phiên dịch viên sức khỏe tốt, chịu khó và nhiệt tình.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3800000, "budget_max": 6500000,
+        "event_date": "2026-11-06", "event_time_start": "06:00", "event_time_end": "18:00",
+        "event_location": "Huyện đảo Lý Sơn, Quảng Ngãi và Cảng cá Sa Kỳ",
+        "days_ago": 1, "deadline_days": 13, "hirer_index": 6
+    },
+    {
+        "title": "Phiên dịch hậu trường & điều phối kỹ thuật đêm nhạc giao lưu nghệ sĩ K-Pop tại Hà Nội",
+        "description": "Dịch chỉ đạo từ đạo diễn sân khấu Hàn Quốc cho đội ngũ ánh sáng, âm thanh, visual màn hình LED và hỗ trợ quản lý nghệ sĩ trong suốt buổi diễn tập Rehearsal và đêm diễn chính thức.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Hàn", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3200000, "budget_max": 5500000,
+        "event_date": "2026-11-21", "event_time_start": "13:00", "event_time_end": "23:00",
+        "event_location": "Sân vận động Quốc gia Mỹ Đình, Nam Từ Liêm, Hà Nội",
+        "days_ago": 0, "deadline_days": 23, "hirer_index": 6
+    },
+    {
+        "title": "Họp trực tuyến 1.5 giờ đàm phán bản quyền phát sóng phim điện ảnh với hãng phim Hollywood",
+        "description": "Họp giữa nền tảng xem phim trực tuyến tại Việt Nam và đơn vị phân phối phim Los Angeles về điều khoản chia sẻ doanh thu VOD, cửa sổ phát hành bản quyền (Holdback Period) và phụ đề số.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "fixed", "budget_min": 850000, "budget_max": None,
+        "event_date": "2026-10-24", "event_time_start": "09:00", "event_time_end": "10:30",
+        "event_location": "Trực tuyến qua Zoom Meeting",
+        "days_ago": 2, "deadline_days": 4, "hirer_index": 6
+    },
+    {
+        "title": "Phiên dịch đạo diễn âm thanh Pháp cho dự án hợp tác nhạc kịch cổ điển tại Nhà hát Lớn",
+        "description": "Làm việc cùng đạo diễn dàn dựng âm hưởng và nhạc trưởng người Pháp hướng dẫn dàn nhạc giao hưởng và các nghệ sĩ opera tập luyện tác phẩm Carmen.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Pháp", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3000000, "budget_max": 5000000,
+        "event_date": "2026-11-10", "event_time_start": "09:00", "event_time_end": "17:00",
+        "event_location": "Nhà hát Thành phố (Nhà hát Lớn), Công trường Lam Sơn, Quận 1, TP.HCM",
+        "days_ago": 4, "deadline_days": 15, "hirer_index": 6
+    },
+    {
+        "title": "Tháp tùng đoàn phóng viên báo chí quốc tế tác nghiệp tại Festival Nghệ thuật Truyền thống Huế",
+        "description": "Đồng hành cùng các nhà báo tạp chí du lịch quốc tế chụp ảnh, phỏng vấn nghệ nhân nhã nhạc cung đình Huế, trải nghiệm làm nón bài thơ và ẩm thực chay cung đình.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2200000, "budget_max": 3800000,
+        "event_date": "2026-11-04", "event_time_start": "08:00", "event_time_end": "17:00",
+        "event_location": "Quần thể Di tích Cố đô Huế, TP. Huế, Thừa Thiên Huế",
+        "days_ago": 5, "deadline_days": 11, "hirer_index": 6
+    },
+
+    # ── 17. THỂ THAO, ESPORTS & Y HỌC THỂ THAO (5 jobs) ──
+    {
+        "title": "Phiên dịch sân khấu Giải đấu Thể thao Điện tử Vô địch Đông Nam Á Mobile Legends SEA Cup",
+        "description": "Dịch trực tiếp phỏng vấn tuyển thủ sau trận đấu (Post-match Interview) trên sân khấu chính trước hàng nghìn khán giả và hàng trăm nghìn người theo dõi trực tuyến. Yêu cầu phản xạ cực nhanh, am hiểu thuật ngữ gaming.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3800000, "budget_max": 6500000,
+        "event_date": "2026-11-15", "event_time_start": "12:00", "event_time_end": "21:30",
+        "event_location": "Nhà thi đấu Thể dục Thể thao Phú Thọ, Quận 11, TP.HCM",
+        "days_ago": 1, "deadline_days": 18, "hirer_index": 6
+    },
+    {
+        "title": "Họp chiến thuật & huấn luyện thể lực cùng Huấn luyện viên trưởng người Hàn Quốc",
+        "description": "Dịch nối tiếp trong các buổi họp phân tích video đối thủ, giao bài tập thể lực chuyên biệt và truyền tải chỉ đạo trên sân tập cho câu lạc bộ bóng đá chuyên nghiệp V-League.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Hàn", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2800000, "budget_max": 4800000,
+        "event_date": "2026-10-30", "event_time_start": "08:00", "event_time_end": "16:30",
+        "event_location": "Trung tâm Đào tạo Bóng đá Trẻ, TP. Bà Rịa, Bà Rịa - Vũng Tàu",
+        "days_ago": 0, "deadline_days": 7, "hirer_index": 6
+    },
+    {
+        "title": "Phiên dịch trọng tài quốc tế giải quần vợt nhà nghề ATP Challenger Tour Đà Nẵng",
+        "description": "Hỗ trợ giám sát trận đấu, ban trọng tài quốc tế ATP và các tay vợt hàng đầu châu Á trong công tác tổ chức, xử lý khiếu nại luật thi đấu và phỏng vấn báo chí.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2800000, "budget_max": 4800000,
+        "event_date": "2026-11-09", "event_time_start": "08:30", "event_time_end": "17:30",
+        "event_location": "Cụm Sân Quần vợt Làng Thể thao Tuyên Sơn, Hải Châu, Đà Nẵng",
+        "days_ago": 3, "deadline_days": 15, "hirer_index": 6
+    },
+    {
+        "title": "Tháp tùng đoàn võ sĩ Muay Thái giao hữu tranh đai vô địch quốc tế tại TP.HCM",
+        "description": "Hỗ trợ các võ sĩ và ban huấn luyện Thái Lan trong buổi cân ký chính thức (Official Weigh-in), họp phổ biến luật thi đấu của Ủy ban quyền Anh nhà nghề và lễ chào võ đài.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Thái", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2000000, "budget_max": 3500000,
+        "event_date": "2026-11-03", "event_time_start": "13:00", "event_time_end": "21:00",
+        "event_location": "Câu lạc bộ Thể thao Hồ Xuân Hương, Quận 3, TP.HCM",
+        "days_ago": 2, "deadline_days": 10, "hirer_index": 6
+    },
+    {
+        "title": "Hội thảo Dinh dưỡng Vận động & Phục hồi Chấn thương Thể thao chuyên gia Đức",
+        "description": "Bác sĩ thể thao từ Munich chia sẻ về ứng dụng liệu pháp lạnh Cryotherapy, phương pháp giãn cơ mạc sâu và chế độ bổ sung điện giải chuyên sâu cho vận động viên đỉnh cao.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Đức", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2800000, "budget_max": 4500000,
+        "event_date": "2026-11-18", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "Bệnh viện Thể thao Việt Nam, Mỹ Đình, Nam Từ Liêm, Hà Nội",
+        "days_ago": 5, "deadline_days": 21, "hirer_index": 6
+    },
+
+    # ── 18. VĂN HÓA, MỸ THUẬT, BẢO TÀNG & DI SẢN (5 jobs) ──
+    {
+        "title": "Triển lãm Nghệ thuật Gốm sứ Truyền thống Giao lưu Văn hóa Nhật Bản - Việt Nam",
+        "description": "Thông dịch lễ khai mạc và buổi trò chuyện chuyên đề giữa nghệ nhân gốm sứ Bizen cổ đại của Nhật và các nghệ nhân làng gốm Bát Tràng về kỹ thuật nung củi và men tro tự nhiên.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2500000, "budget_max": 4200000,
+        "event_date": "2026-11-05", "event_time_start": "09:00", "event_time_end": "17:00",
+        "event_location": "Trung tâm Giao lưu Văn hóa Nhật Bản tại Việt Nam, Quang Trung, Hà Nội",
+        "days_ago": 1, "deadline_days": 12, "hirer_index": 7
+    },
+    {
+        "title": "Tháp tùng đoàn chuyên gia di sản UNESCO khảo sát thực địa bảo tồn Điện Kiến Trung - Huế",
+        "description": "Làm việc cùng đoàn kiến trúc sư di sản UNESCO kiểm tra kỹ thuật khảm sành sứ, kỹ thuật phục hồi tranh tường sơn dầu và quy chuẩn chống ẩm dột cho công trình hoàng gia.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3800000, "budget_max": 6200000,
+        "event_date": "2026-11-12", "event_time_start": "08:00", "event_time_end": "16:30",
+        "event_location": "Khu di tích Tử Cấm Thành Huế, TP. Huế, Thừa Thiên Huế",
+        "days_ago": 2, "deadline_days": 16, "hirer_index": 7
+    },
+    {
+        "title": "Tọa đàm Văn hóa Ẩm thực & Di sản Rượu vang Tây Ban Nha vùng Rioja",
+        "description": "Chuyên gia thử nếm rượu vang (Sommelier) giới thiệu phương pháp ủ thùng gỗ sồi, lịch sử làm vang hàng trăm năm và hướng dẫn thực khách kết hợp vang với đặc sản ẩm thực Việt.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Tây Ban Nha", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2200000, "budget_max": 3800000,
+        "event_date": "2026-10-30", "event_time_start": "16:00", "event_time_end": "21:00",
+        "event_location": "Khách sạn Caravelle Saigon, Quảng trường Lam Sơn, Quận 1, TP.HCM",
+        "days_ago": 0, "deadline_days": 8, "hirer_index": 7
+    },
+    {
+        "title": "Hội thảo Khoa học Phục chế Sách Cổ & Bản khắc Hán Nôm Viện Viễn Đông Bác Cổ (EFEO)",
+        "description": "Các nhà lưu trữ học Pháp chia sẻ kỹ thuật khử axit giấy dó, kỹ thuật đóng gáy chỉ truyền thống và số hóa 3D các văn bia cổ quý hiếm thời Lê - Nguyễn.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Pháp", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3500000, "budget_max": 5800000,
+        "event_date": "2026-11-20", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Thư viện Quốc gia Việt Nam, Tràng Thi, Hoàn Kiếm, Hà Nội",
+        "days_ago": 4, "deadline_days": 22, "hirer_index": 7
+    },
+    {
+        "title": "Thuyết minh trưng bày hiện vật khảo cổ học hợp tác Bảo tàng Quốc gia Hermitage (Nga)",
+        "description": "Phiên dịch viên hỗ trợ các nhà nghiên cứu Nga trong lễ mở màn triển lãm cổ vật văn hóa Đông Sơn và trao đổi học thuật về niên đại phóng xạ carbon C14 của các di vật đồng thau.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Nga", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2800000, "budget_max": 4800000,
+        "event_date": "2026-11-14", "event_time_start": "09:00", "event_time_end": "16:30",
+        "event_location": "Bảo tàng Lịch sử TP. Hồ Chí Minh, Nguyễn Bỉnh Khiêm, Quận 1, TP.HCM",
+        "days_ago": 3, "deadline_days": 17, "hirer_index": 7
+    },
+
+    # ── 19. KINH TẾ TUẦN HOÀN, TÍN CHỈ CARBON & MÔI TRƯỜNG (5 jobs) ──
+    {
+        "title": "Đàm phán hợp đồng chuyển nhượng tín chỉ carbon rừng theo tiêu chuẩn quốc tế Verra (VCS)",
+        "description": "Làm việc giữa ban quản lý dự án bảo vệ rừng tự nhiên và quỹ đầu tư môi trường quốc tế về định giá tín chỉ carbon, cơ chế thẩm định MRV và chia sẻ lợi ích với cộng đồng cư dân bản địa.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 4500000, "budget_max": 7500000,
+        "event_date": "2026-11-06", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Văn phòng Vườn Quốc gia Phong Nha - Kẻ Bàng, Bố Trạch, Quảng Bình",
+        "days_ago": 1, "deadline_days": 13, "hirer_index": 8
+    },
+    {
+        "title": "Chuyển giao công nghệ xử lý rác thải sinh hoạt phát điện Waste-to-Energy Thụy Điển",
+        "description": "Chuyên gia công nghệ môi trường Bắc Âu hướng dẫn quy trình kiểm soát khí thải Dioxin/Furan theo tiêu chuẩn EU 2010 và giải pháp tận dụng xỉ đáy lò làm gạch không nung.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3800000, "budget_max": 6200000,
+        "event_date": "2026-11-13", "event_time_start": "08:00", "event_time_end": "16:30",
+        "event_location": "Nhà máy Điện rác Cần Thơ, Huyện Thới Lai, Cần Thơ",
+        "days_ago": 2, "deadline_days": 18, "hirer_index": 8
+    },
+    {
+        "title": "Thẩm tra báo cáo kiểm kê khí nhà kính Scope 1-2-3 cho tập đoàn sản xuất Nhật Bản",
+        "description": "Làm việc cùng đoàn chuyên gia kiểm toán carbon độc lập từ Tokyo soát xét số liệu tiêu thụ điện, khí gas và phát thải gián tiếp từ chuỗi cung ứng theo chuẩn mực quốc tế ISO 14064.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Nhật", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3200000, "budget_max": 5500000,
+        "event_date": "2026-11-03", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "KCN Sóng Thần 3, TP. Thủ Dầu Một, Bình Dương",
+        "days_ago": 0, "deadline_days": 10, "hirer_index": 8
+    },
+    {
+        "title": "Khảo sát công nghệ xử lý nước thải công nghiệp tuần hoàn không xả thải ZLD từ CHLB Đức",
+        "description": "Kỹ sư xử lý nước thải công nghiệp Đức khảo sát trạm xử lý nước thải tập trung KCN dệt nhuộm, kiểm tra màng lọc thẩm thấu ngược RO áp lực cao và thiết bị kết tinh muối bay hơi MVR.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Đức", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3200000, "budget_max": 5200000,
+        "event_date": "2026-11-09", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "KCN Yên Phong, Huyện Yên Phong, Bắc Ninh",
+        "days_ago": 3, "deadline_days": 15, "hirer_index": 8
+    },
+    {
+        "title": "Hội thảo Giải pháp Bao bì Tự hủy Sinh học & Tái chế Nhựa cho Chuỗi Cung ứng Xanh",
+        "description": "Các nhà sản xuất bao bì thân thiện môi trường hàng đầu châu Á và đại diện các tập đoàn bán lẻ đa quốc gia thảo luận về lộ trình loại bỏ nhựa sử dụng một lần và áp dụng trách nhiệm mở rộng của nhà sản xuất (EPR).",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2800000, "budget_max": 4800000,
+        "event_date": "2026-11-17", "event_time_start": "08:30", "event_time_end": "17:00",
+        "event_location": "Khách sạn New World Saigon, Lê Lai, Quận 1, TP.HCM",
+        "days_ago": 5, "deadline_days": 21, "hirer_index": 8
+    },
+
+    # ── 20. TỔ CHỨC PHI CHÍNH PHỦ (NGO) & PHÁT TRIỂN CỘNG ĐỒNG (5 jobs) ──
+    {
+        "title": "Phiên dịch Hội nghị Tổng kết Dự án Sinh kế Thích ứng Biến đổi Khí hậu Đồng bằng Sông Cửu Long",
+        "description": "Hội thảo tổng kết dự án 5 năm do Tổ chức Phát triển Quốc tế tài trợ. Trình bày các mô hình sinh kế thành công: nuôi tôm rừng, trồng lúa chịu mặn và thành lập hợp tác xã thích ứng nước ngọt.",
+        "category": "Hội nghị", "category_group": "interpretation_other", "service_type": "conference",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3200000, "budget_max": 5200000,
+        "event_date": "2026-11-10", "event_time_start": "08:00", "event_time_end": "17:00",
+        "event_location": "Trung tâm Hội nghị Khách sạn Hàm Luông, TP. Bến Tre, Bến Tre",
+        "days_ago": 1, "deadline_days": 16, "hirer_index": 7
+    },
+    {
+        "title": "Tháp tùng đoàn công tác UNICEF khảo sát chương trình cải thiện dinh dưỡng học đường vùng cao",
+        "description": "Đến các điểm trường mầm non và tiểu học vùng đồng bào dân tộc thiểu số tại Điện Biên. Dịch các buổi phỏng vấn giáo viên, phụ huynh và kiểm tra điều kiện nước sạch, bếp ăn bán trú.",
+        "category": "Tháp tùng", "category_group": "interpretation_other", "service_type": "escort",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 3800000, "budget_max": 6500000,
+        "event_date": "2026-11-04", "event_time_start": "07:30", "event_time_end": "17:00",
+        "event_location": "Các xã vùng cao huyện Mường Chà và Nậm Pồ, Tỉnh Điện Biên",
+        "days_ago": 2, "deadline_days": 11, "hirer_index": 7
+    },
+    {
+        "title": "Phiên dịch phỏng vấn nhóm cộng đồng dự án bảo tồn động vật hoang dã của WWF",
+        "description": "Làm việc cùng các chuyên gia bảo tồn sinh học quốc tế phỏng vấn các đội tuần tra rừng cộng đồng và cán bộ kiểm lâm về công tác tháo gỡ bẫy thú và phục hồi rừng hành lang đa dạng sinh học.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2500000, "budget_max": 4200000,
+        "event_date": "2026-10-31", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "Khu Bảo tồn Thiên nhiên Sông Thanh, Nam Giang, Quảng Nam",
+        "days_ago": 3, "deadline_days": 8, "hirer_index": 7
+    },
+    {
+        "title": "Họp điều phối cứu trợ khẩn cấp thiên tai bão lũ cùng phái đoàn Chữ Thập Đỏ Pháp",
+        "description": "Phiên dịch khẩn các cuộc họp giao ban giữa đoàn cứu trợ nhân đạo Hội Chữ Thập Đỏ Pháp và Ban Chỉ huy Phòng chống Thiên tai & Tìm kiếm Cứu nạn địa phương để phân phối gói hàng cứu trợ.",
+        "category": "Đàm phán", "category_group": "interpretation_other", "service_type": "meeting",
+        "source_lang": "Tiếng Pháp", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2800000, "budget_max": 4800000,
+        "event_date": "2026-10-28", "event_time_start": "08:00", "event_time_end": "17:00",
+        "event_location": "UBND Huyện Cẩm Xuyên, Tỉnh Hà Tĩnh",
+        "days_ago": 0, "deadline_days": 6, "hirer_index": 7
+    },
+    {
+        "title": "Tập huấn nâng cao năng lực phụ nữ khởi nghiệp nông thôn tiểu vùng sông Mê Kông",
+        "description": "Dịch cho chuyên gia đào tạo phát triển kinh tế cộng đồng Thái Lan giảng dạy phương pháp lập kế hoạch tài chính hộ gia đình, tiếp thị sản phẩm thủ công dệt chiếu và thương mại du lịch cộng đồng.",
+        "category": "Sự kiện", "category_group": "interpretation_other", "service_type": "event",
+        "source_lang": "Tiếng Thái", "target_lang": "Tiếng Việt",
+        "budget_type": "range", "budget_min": 2200000, "budget_max": 3800000,
+        "event_date": "2026-11-07", "event_time_start": "08:30", "event_time_end": "16:30",
+        "event_location": "Hội Liên hiệp Phụ nữ Huyện Châu Phú, Tỉnh An Giang",
+        "days_ago": 4, "deadline_days": 13, "hirer_index": 7
+    }
+]
+
+print(f"Total jobs defined: {len(JOBS_DATA)}")
+
+# Lưu JOBS_DATA vào file jobs_data.json
+with open('jobs_data.json', 'w', encoding='utf-8') as f:
+    json.dump(JOBS_DATA, f, ensure_ascii=False, indent=2)
+
+print("Saved jobs_data.json successfully.")

@@ -1,0 +1,380 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Trung tâm Tác vụ | VietTranslate Admin{% endblock %}
+
+{% block header_title %}Trung tâm Tác vụ cần xử lý{% endblock %}
+
+{% block content %}
+<div class="admin-tasks-container">
+
+    <!-- ════ 1. KPI COUNTER SUMMARY CARDS ════ -->
+    <div class="kpi-grid">
+        <!-- Card 1: Tổng chờ xử lý -->
+        <div class="kpi-card">
+            <div class="kpi-label">Tổng tác vụ chờ xử lý</div>
+            <div class="kpi-value" style="color: var(--warning);">{{ summary.total_pending }}</div>
+            <div class="kpi-sub" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                <span>⚡ {{ summary.pending_jobs }} Jobs</span> • 
+                <span>👤 {{ summary.pending_translators }} PDV</span> • 
+                <span>🏢 {{ summary.pending_hirers }} Khách</span>
+            </div>
+        </div>
+
+        <!-- Card 2: Cảnh báo / Nghiêm trọng -->
+        <div class="kpi-card">
+            <div class="kpi-label">Ưu tiên cao / Cảnh báo</div>
+            <div class="kpi-value" style="color: var(--danger);">{{ summary.critical_count }}</div>
+            <div class="kpi-sub" style="color: var(--muted);">Phát hiện vi phạm nghiêm trọng cần kiểm tra ngay</div>
+        </div>
+
+        <!-- Card 3: Báo cáo & Khiếu nại -->
+        <div class="kpi-card">
+            <div class="kpi-label">Báo cáo & Khiếu nại</div>
+            <div class="kpi-value" style="color: #60a5fa;">{{ summary.pending_reports + summary.pending_disputes }}</div>
+            <div class="kpi-sub">
+                <span>{{ summary.pending_reports }} Báo cáo</span> • 
+                <span>{{ summary.pending_disputes }} Tranh chấp đơn</span>
+            </div>
+        </div>
+
+        <!-- Card 4: Đã xử lý hôm nay -->
+        <div class="kpi-card">
+            <div class="kpi-label">Đã xử lý hôm nay</div>
+            <div class="kpi-value" style="color: var(--success);">{{ summary.resolved_today }}</div>
+            <div class="kpi-sub" style="color: var(--muted);">Hành động duyệt / thẩm định đã ghi nhật ký</div>
+        </div>
+    </div>
+
+    <!-- ════ 2. UNIFIED FILTER & SEARCH BAR ════ -->
+    <div class="admin-card" style="margin-bottom: 24px;">
+        <div class="admin-card-header" style="flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                <span>Bộ lọc tác vụ thống nhất</span>
+            </div>
+
+            <!-- Quick Filter Chips -->
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <a href="{{ url_for('admin_tasks', type='all', status='all') }}" 
+                   class="badge {% if filters.type == 'all' and filters.status == 'all' %}badge-blue{% else %}badge-gray{% endif %}" style="text-decoration: none; padding: 4px 10px; cursor: pointer;">
+                    Tất cả ({{ summary.total_pending }})
+                </a>
+                <a href="{{ url_for('admin_tasks', type='job', status='pending') }}" 
+                   class="badge {% if filters.type == 'job' and filters.status == 'pending' %}badge-blue{% else %}badge-gray{% endif %}" style="text-decoration: none; padding: 4px 10px; cursor: pointer;">
+                    Jobs chờ duyệt ({{ summary.pending_jobs }})
+                </a>
+                <a href="{{ url_for('admin_tasks', type='translator', status='pending') }}" 
+                   class="badge {% if filters.type == 'translator' %}badge-indigo{% else %}badge-gray{% endif %}" style="text-decoration: none; padding: 4px 10px; cursor: pointer;">
+                    Hồ sơ PDV ({{ summary.pending_translators }})
+                </a>
+                <a href="{{ url_for('admin_tasks', type='hirer', status='pending') }}" 
+                   class="badge {% if filters.type == 'hirer' %}badge-cyan{% else %}badge-gray{% endif %}" style="text-decoration: none; padding: 4px 10px; cursor: pointer;">
+                    Khách đăng ({{ summary.pending_hirers }})
+                </a>
+                <a href="{{ url_for('admin_tasks', priority='critical') }}" 
+                   class="badge {% if filters.priority == 'critical' %}badge-red{% else %}badge-gray{% endif %}" style="text-decoration: none; padding: 4px 10px; cursor: pointer;">
+                    Khẩn cấp / Cảnh báo ({{ summary.critical_count }})
+                </a>
+            </div>
+        </div>
+
+        <form method="GET" action="{{ url_for('admin_tasks') }}" style="padding: 16px 20px;">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                
+                <!-- Tìm kiếm từ khóa -->
+                <div class="lg:col-span-4">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">
+                        Tìm kiếm từ khóa
+                    </label>
+                    <div style="position: relative;">
+                        <input type="text" name="q" value="{{ filters.q }}" placeholder="Mã ID, tiêu đề, tên hoặc email..." 
+                               style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f1f5f9; padding: 8px 12px 8px 34px; font-size: 13px;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="position: absolute; left: 10px; top: 11px;">
+                            <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Phân loại tác vụ -->
+                <div class="lg:col-span-2">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">
+                        Loại tác vụ
+                    </label>
+                    <select name="type" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f1f5f9; padding: 8px 10px; font-size: 13px;">
+                        <option value="all" {% if filters.type == 'all' %}selected{% endif %}>Tất cả loại việc</option>
+                        <option value="job" {% if filters.type == 'job' %}selected{% endif %}>Duyệt Job ({{ summary.pending_jobs }})</option>
+                        <option value="translator" {% if filters.type == 'translator' %}selected{% endif %}>Hồ sơ PDV ({{ summary.pending_translators }})</option>
+                        <option value="hirer" {% if filters.type == 'hirer' %}selected{% endif %}>Người đăng tuyển ({{ summary.pending_hirers }})</option>
+                        <option value="report" {% if filters.type == 'report' %}selected{% endif %}>Báo cáo vi phạm ({{ summary.pending_reports }})</option>
+                        <option value="dispute" {% if filters.type == 'dispute' %}selected{% endif %}>Tranh chấp hợp đồng ({{ summary.pending_disputes }})</option>
+                    </select>
+                </div>
+
+                <!-- Mức độ ưu tiên -->
+                <div class="lg:col-span-2">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">
+                        Mức ưu tiên
+                    </label>
+                    <select name="priority" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f1f5f9; padding: 8px 10px; font-size: 13px;">
+                        <option value="all" {% if filters.priority == 'all' %}selected{% endif %}>Tất cả mức độ</option>
+                        <option value="critical" {% if filters.priority == 'critical' %}selected{% endif %}>Nghiêm trọng / Cảnh báo</option>
+                        <option value="warning" {% if filters.priority == 'warning' %}selected{% endif %}>Cần xem xét</option>
+                        <option value="normal" {% if filters.priority == 'normal' %}selected{% endif %}>Bình thường</option>
+                    </select>
+                </div>
+
+                <!-- Khoảng thời gian -->
+                <div class="lg:col-span-2">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;">
+                        Thời gian nộp
+                    </label>
+                    <select name="time_range" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f1f5f9; padding: 8px 10px; font-size: 13px;">
+                        <option value="all" {% if filters.time_range == 'all' %}selected{% endif %}>Mọi thời điểm</option>
+                        <option value="today" {% if filters.time_range == 'today' %}selected{% endif %}>Hôm nay</option>
+                        <option value="7d" {% if filters.time_range == '7d' %}selected{% endif %}>7 ngày gần nhất</option>
+                        <option value="30d" {% if filters.time_range == '30d' %}selected{% endif %}>30 ngày gần nhất</option>
+                    </select>
+                </div>
+
+                <!-- Nút bấm hành động -->
+                <div class="lg:col-span-2 flex gap-2">
+                    <button type="submit" class="btn btn-primary" style="flex: 1; justify-content: center; height: 38px;">
+                        Lọc kết quả
+                    </button>
+                    <a href="{{ url_for('admin_tasks') }}" class="btn btn-ghost" style="padding: 8px 12px; height: 38px;" title="Đặt lại bộ lọc">
+                        ✕
+                    </a>
+                </div>
+
+            </div>
+        </form>
+    </div>
+
+    <!-- ════ 3. DANH SÁCH TÁC VỤ CẦN XỬ LÝ ════ -->
+    <div class="admin-card">
+        <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 13px; font-weight: 700;">
+                Hàng chờ tác vụ <span style="color: var(--muted); font-weight: 500;">(Hiển thị {{ tasks|length }} / {{ total_count }} kết quả)</span>
+            </div>
+            {% if filters.q or filters.type != 'all' or filters.priority != 'all' or filters.time_range != 'all' %}
+            <span class="badge badge-yellow" style="font-size: 11px;">Đang áp dụng bộ lọc tùy chỉnh</span>
+            {% endif %}
+        </div>
+
+        <!-- 3.1. DESKTOP VIEW: BẢNG DỮ LIỆU ĐẦY ĐỦ (Màn hình >= 768px) -->
+        <div class="hidden md:block overflow-x-auto">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th style="min-width: 120px;">Mã & Loại</th>
+                        <th style="min-width: 280px;">Tiêu đề / Đối tượng cần xử lý</th>
+                        <th style="min-width: 170px;">Người gửi / Tài khoản</th>
+                        <th style="min-width: 130px;">Mức ưu tiên</th>
+                        <th style="min-width: 110px;">Ngày gửi</th>
+                        <th style="min-width: 180px; text-align: right;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr {% if task.priority == 'critical' %}style="background: rgba(239,68,68,0.06);"{% endif %}>
+                        <!-- Cột 1: Mã & Loại tác vụ -->
+                        <td>
+                            <div style="font-weight: 700; color: #94a3b8; font-size: 11px; margin-bottom: 4px;">
+                                #{{ task.id }}
+                            </div>
+                            <span class="badge {{ task.type_badge }}">{{ task.type_label }}</span>
+                        </td>
+
+                        <!-- Cột 2: Tiêu đề & nội dung tóm tắt -->
+                        <td>
+                            <div style="font-weight: 700; color: #f1f5f9; font-size: 13px; margin-bottom: 3px;" title="{{ task.title }}">
+                                {{ task.title }}
+                            </div>
+                            <div style="font-size: 11.5px; color: var(--muted);">
+                                {{ task.subtitle }}
+                            </div>
+                            {% if task.eval_summary %}
+                            <div style="margin-top: 5px;">
+                                <span class="badge {{ task.eval_badge }}" style="font-size: 10px;">{{ task.eval_summary }}</span>
+                            </div>
+                            {% endif %}
+                        </td>
+
+                        <!-- Cột 3: Người liên quan -->
+                        <td>
+                            <div style="font-size: 13px; font-weight: 600; color: #cbd5e1; display: flex; align-items: center; gap: 5px;">
+                                {{ task.user_name }}
+                                {% if task.is_user_verified %}
+                                <span style="color: #22c55e; font-size: 12px; font-weight: 800;" title="Tài khoản đã xác minh">✓</span>
+                                {% endif %}
+                            </div>
+                            <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">
+                                {{ task.user_sub }}
+                            </div>
+                        </td>
+
+                        <!-- Cột 4: Mức ưu tiên & Trạng thái -->
+                        <td>
+                            <span class="badge {{ task.priority_badge }}" style="font-weight: 700;">
+                                ● {{ task.priority_label }}
+                            </span>
+                        </td>
+
+                        <!-- Cột 5: Ngày tạo -->
+                        <td style="color: var(--muted); font-size: 12px; white-space: nowrap;">
+                            {{ task.created_at.strftime('%d/%m/%Y') }}
+                            <div style="font-size: 10px; color: #64748b;">{{ task.created_at.strftime('%H:%M') }}</div>
+                        </td>
+
+                        <!-- Cột 6: Thao tác an toàn -->
+                        <td style="text-align: right; white-space: nowrap;">
+                            {% if task.type == 'job' %}
+                                {% if task.can_quick_approve %}
+                                <!-- NÚT DUYỆT NHANH (Chỉ khả dụng khi đạt 100% điều kiện an toàn) -->
+                                <form method="POST" action="{{ task.quick_approve_url }}" style="display: inline;" onsubmit="return confirm('Xác nhận phê duyệt nhanh Job #{{ task.raw_id }}?');">
+                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="redirect_to" value="{{ request.full_path }}">
+                                    <button type="submit" class="btn btn-success btn-sm" style="font-weight: 700; padding: 5px 10px; margin-right: 4px;" title="Duyệt nhanh (Đã kiểm tra 39 tiêu chí & Khách có tích xanh)">
+                                        ⚡ Duyệt nhanh
+                                    </button>
+                                </form>
+                                {% else %}
+                                <!-- Nút duyệt nhanh bị vô hiệu hóa kèm lý do minh bạch -->
+                                <button type="button" class="btn btn-ghost btn-sm" style="opacity: 0.5; cursor: not-allowed; padding: 5px 8px; font-size: 11px; margin-right: 4px;" title="{{ task.quick_approve_reason }}">
+                                    ⚡ Duyệt nhanh
+                                </button>
+                                {% endif %}
+                            {% endif %}
+
+                            <!-- Nút Xét duyệt chi tiết / Thẩm định -->
+                            <a href="{{ task.detail_url }}" class="btn btn-primary btn-sm" style="font-weight: 600; padding: 5px 12px;">
+                                {% if task.type == 'job' %}Xét duyệt →{% elif task.type in ('translator', 'hirer') %}Thẩm định →{% else %}Xử lý →{% endif %}
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <div class="empty-state-title">Không tìm thấy tác vụ nào phù hợp</div>
+                            <div class="empty-state-desc">Hãy thử thay đổi từ khóa hoặc đặt lại bộ lọc tìm kiếm.</div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 3.2. MOBILE VIEW: CARDS THÂN THIỆN MÀN HÌNH CẢM ỨNG (Màn hình < 768px) -->
+        <div class="block md:hidden p-3 space-y-3">
+            {% for task in tasks %}
+            <div style="background: rgba(15,23,42,0.8); border: 1px solid {% if task.priority == 'critical' %}rgba(239,68,68,0.4){% else %}#334155{% endif %}; border-radius: 12px; padding: 14px;">
+                
+                <!-- Card Header: Badge loại, ID, và Badge ưu tiên -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span class="badge {{ task.type_badge }}" style="font-size: 10px;">{{ task.type_label }}</span>
+                        <span style="font-size: 11px; font-weight: 700; color: #64748b;">#{{ task.id }}</span>
+                    </div>
+                    <span class="badge {{ task.priority_badge }}" style="font-size: 10px; font-weight: 700;">
+                        ● {{ task.priority_label }}
+                    </span>
+                </div>
+
+                <!-- Tiêu đề -->
+                <div style="font-size: 14px; font-weight: 700; color: #f1f5f9; line-height: 1.35; margin-bottom: 4px;">
+                    {{ task.title }}
+                </div>
+                <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">
+                    {{ task.subtitle }}
+                </div>
+
+                <!-- Thông tin người gửi & thời gian -->
+                <div style="background: rgba(30,41,59,0.6); border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="color: #cbd5e1; font-weight: 600;">{{ task.user_name }}</span>
+                        {% if task.is_user_verified %}
+                        <span style="color: #22c55e; font-weight: 800;">✓</span>
+                        {% endif %}
+                        <div style="color: #64748b; font-size: 10.5px;">{{ task.user_sub }}</div>
+                    </div>
+                    <div style="text-align: right; color: #94a3b8; font-size: 11px;">
+                        {{ task.created_at.strftime('%d/%m/%Y') }}
+                        <div style="font-size: 10px; color: #64748b;">{{ task.created_at.strftime('%H:%M') }}</div>
+                    </div>
+                </div>
+
+                <!-- Kết quả đánh giá nếu có -->
+                {% if task.eval_summary %}
+                <div style="margin-bottom: 12px;">
+                    <span class="badge {{ task.eval_badge }}" style="font-size: 11px; padding: 3px 8px;">
+                        Kiểm tra: {{ task.eval_summary }}
+                    </span>
+                </div>
+                {% endif %}
+
+                <!-- Các nút bấm thao tác trên Mobile (Touch target >= 44px) -->
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    {% if task.type == 'job' and task.can_quick_approve %}
+                    <form method="POST" action="{{ task.quick_approve_url }}" onsubmit="return confirm('Xác nhận duyệt nhanh Job #{{ task.raw_id }}?');">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="redirect_to" value="{{ request.full_path }}">
+                        <button type="submit" class="btn btn-success" style="width: 100%; min-height: 44px; justify-content: center; font-weight: 700; font-size: 13px;">
+                            ⚡ Duyệt nhanh công việc
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    <a href="{{ task.detail_url }}" class="btn btn-primary" style="width: 100%; min-height: 44px; justify-content: center; font-weight: 600; font-size: 13px; text-decoration: none;">
+                        {% if task.type == 'job' %}Xét duyệt chi tiết 39 tiêu chí →{% elif task.type in ('translator', 'hirer') %}Xem hồ sơ thẩm định →{% else %}Mở hồ sơ xử lý →{% endif %}
+                    </a>
+                </div>
+
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">📋</div>
+                <div class="empty-state-title">Không có tác vụ nào cần xử lý</div>
+                <div class="empty-state-desc">Tất cả hàng chờ kiểm duyệt đã hoàn thành.</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- ════ 4. PHÂN TRANG (PAGINATION) ════ -->
+        {% if total_pages > 1 %}
+        <div class="pagination" style="flex-wrap: wrap; gap: 8px;">
+            <div>
+                Trang <strong style="color: #f1f5f9;">{{ current_page }}</strong> / {{ total_pages }}
+            </div>
+            <div class="pagination-btns">
+                {% if current_page > 1 %}
+                <a href="{{ url_for('admin_tasks', page=current_page-1, q=filters.q, type=filters.type, priority=filters.priority, time_range=filters.time_range) }}" class="page-btn">
+                    ‹
+                </a>
+                {% endif %}
+
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == current_page %}
+                    <span class="page-btn active">{{ p }}</span>
+                    {% elif p <= 5 or p == total_pages or (p >= current_page - 1 and p <= current_page + 1) %}
+                    <a href="{{ url_for('admin_tasks', page=p, q=filters.q, type=filters.type, priority=filters.priority, time_range=filters.time_range) }}" class="page-btn">
+                        {{ p }}
+                    </a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if current_page < total_pages %}
+                <a href="{{ url_for('admin_tasks', page=current_page+1, q=filters.q, type=filters.type, priority=filters.priority, time_range=filters.time_range) }}" class="page-btn">
+                    ›
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{# Thanh điều hướng chung cho các trang Cài đặt. Biến: settings_active = 'center' | 'security' | 'account' | 'notifications' #}
+{% set _items = [
+    ('center', url_for('settings_center'), 'Tổng quan'),
+    ('security', url_for('settings_security'), 'Bảo mật tài khoản'),
+    ('account', url_for('settings_account'), 'Cài đặt tài khoản'),
+    ('notifications', url_for('settings_notifications'), 'Cài đặt thông báo'),
+] %}
+<nav aria-label="Cài đặt" class="flex gap-2 overflow-x-auto pb-1 mb-8">
+    {% for key, href, label in _items %}
+    <a href="{{ href }}"
+        class="shrink-0 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border transition {% if settings_active == key %}bg-brand-50 text-brand-600 border-brand-200{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-brand-600{% endif %}"
+        {% if settings_active == key %}aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+</nav>

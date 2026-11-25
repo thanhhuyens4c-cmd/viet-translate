@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Khiếu nại #{{ d.id }} | VietTranslate{% endblock %}
+{% block content %}
+<div class="bg-slate-50/60 min-h-screen py-10">
+<div class="max-w-4xl mx-auto px-4 sm:px-6">
+    <a href="{{ url_for('my_disputes') }}" class="text-xs font-bold text-slate-500 hover:text-brand-600">&larr; Khiếu nại của tôi</a>
+    <div class="flex flex-wrap items-center justify-between gap-3 mt-3 mb-5">
+        <h1 class="text-xl font-extrabold text-slate-900">Khiếu nại #{{ d.id }} · Hợp đồng #{{ d.contract_id }}</h1>
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-800 border border-brand-200/70">{{ labels[d.status] }}</span>
+    </div>
+
+    {% if d.status == 'resolved' %}
+    <div class="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Kết quả</p>
+        <p class="font-extrabold text-slate-900 mt-1">{{ resolutions[d.resolution] }}</p>
+        <p class="text-sm text-slate-700 mt-1">Số tiền thanh toán: <s class="text-slate-400">{{ money(d.original_amount) }}</s> → <strong>{{ money(d.final_amount) }} VND</strong></p>
+        {% if d.resolution_note %}<p class="text-sm text-slate-600 mt-2">{{ d.resolution_note }}</p>{% endif %}
+    </div>
+    {% elif d.status == 'rejected' %}
+    <div class="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-5">
+        <p class="font-extrabold text-rose-800">Đơn khiếu nại bị bác bỏ</p>
+        <p class="text-sm text-slate-700 mt-1">{{ d.admin_note }}</p>
+    </div>
+    {% elif d.status == 'awaiting_response' %}
+    <div class="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+        PDV cần phản hồi trước <strong>{{ d.response_deadline.strftime('%d/%m/%Y %H:%M') }}</strong> (UTC).
+    </div>
+    {% endif %}
+
+    <div class="grid md:grid-cols-5 gap-5">
+        <div class="md:col-span-2 bg-white rounded-2xl border border-slate-200/90 p-6">
+            <h2 class="text-sm font-bold text-slate-900 mb-4">Tiến trình</h2>
+            {% include '_dispute_tracker.html' %}
+        </div>
+        <div class="md:col-span-3 space-y-5">
+            <div class="bg-white rounded-2xl border border-slate-200/90 p-6">
+                <h2 class="text-sm font-bold text-slate-900">Khiếu nại của khách · {{ categories[d.category] }}</h2>
+                <p class="text-sm text-slate-700 mt-2 whitespace-pre-line">{{ d.description }}</p>
+                {% set files = d.evidence | selectattr('side', 'equalto', 'hirer') | list %}{% include '_dispute_files.html' %}
+            </div>
+
+            {% if d.translator_response %}
+            <div class="bg-white rounded-2xl border border-slate-200/90 p-6">
+                <h2 class="text-sm font-bold text-slate-900">Phản hồi của PDV</h2>
+                <p class="text-sm text-slate-700 mt-2 whitespace-pre-line">{{ d.translator_response }}</p>
+                {% set files = d.evidence | selectattr('side', 'equalto', 'translator') | list %}{% include '_dispute_files.html' %}
+            </div>
+            {% endif %}
+
+            {% if can_respond %}
+            <form method="POST" action="{{ url_for('dispute_respond', dispute_id=d.id) }}" enctype="multipart/form-data"
+                  class="bg-white rounded-2xl border border-amber-200 p-6 space-y-3">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <h2 class="text-sm font-bold text-slate-900">Kháng đơn — giải trình trong 24h</h2>
+                <textarea name="response" rows="4" required minlength="20" maxlength="4000" class="w-full border border-slate-200 rounded-xl p-3 text-sm" placeholder="Lý do, diễn biến thực tế..."></textarea>
+                <input type="file" name="evidence" multiple class="text-sm">
+                <p class="text-[11px] text-slate-400">Tối đa {{ max_files }} tệp minh chứng, ≤10MB mỗi tệp.</p>
+                <button class="bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl">Gửi phản hồi</button>
+            </form>
+            {% endif %}
+
+            <div class="bg-white rounded-2xl border border-slate-200/90 p-6">
+                <h2 class="text-sm font-bold text-slate-900 mb-2">Các phiên bản tệp bàn giao</h2>
+                {% for f in deliverables %}
+                <p class="text-xs text-slate-700">V{{ loop.index }} · <a class="text-brand-600 hover:underline" href="{{ url_for('download_deliverable', deliverable_id=f.id) }}">{{ f.filename }}</a> · <span class="text-slate-400">{{ f.created_at.strftime('%d/%m/%Y %H:%M') }}</span></p>
+                {% else %}<p class="text-xs text-slate-400">Chưa có tệp bàn giao.</p>{% endfor %}
+            </div>
+        </div>
+    </div>
+</div></div>
+{% endblock %}

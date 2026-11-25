@@ -7,13 +7,28 @@ hoàn + giải ngân + phí sàn = đúng số khách đã nạp.
 """
 from datetime import datetime, timedelta
 
-from models import (db, Contract, Dispute, PaymentTransaction, TranslatorProfile,
+from models import (db, Contract, PaymentTransaction, TranslatorProfile,
                     TranslatorSchedule, TranslatorViolation, User)
 from services import payments, pricing, refunds
 
 
 class LifecycleError(Exception):
     pass
+
+
+# Hợp đồng đang được sàn giữ tiền: đang làm, hoặc khách đã yêu cầu sửa bài.
+FUNDED_STATUSES = ('in_progress', 'revision_requested')
+
+
+def _has_active_dispute(contract):
+    """Hợp đồng có khiếu nại đang xử lý (hệ thống khiếu nại trong disputes.py) thì tiền bị đóng băng."""
+    from disputes import active_dispute
+    return active_dispute(contract.id) is not None
+
+
+def _require_not_frozen(contract):
+    if _has_active_dispute(contract):
+        raise LifecycleError('Hợp đồng đang có khiếu nại chưa giải quyết, tiền đang bị đóng băng.')
 
 
 # ─── Mốc thời gian ────────────────────────────────────────────────────────────
@@ -41,7 +56,7 @@ def has_started(contract, now=None):
 
 def is_funded(contract):
     """Sàn đang giữ tiền của hợp đồng này (đã nạp, chưa giải ngân hay hoàn)."""
-    return contract.status in ('in_progress', 'disputed') and PaymentTransaction.query.filter_by(
+    return contract.status in FUNDED_STATUSES and PaymentTransaction.query.filter_by(
         contract_id=contract.id, kind='deposit', status='escrow_pending').first() is not None
 
 
@@ -60,7 +75,7 @@ def mark_paid(contract, now=None):
 def start_work(contract, user_id, now=None):
     if user_id != contract.translator_id:
         raise LifecycleError('Chỉ phiên dịch viên của hợp đồng mới bấm được "Bắt đầu".')
-    if contract.status != 'in_progress':
+    if contract.status not in FUNDED_STATUSES:
         raise LifecycleError('Phiên dịch viên chỉ bắt đầu khi hợp đồng ở trạng thái đang giữ tiền.')
     if contract.started_at is None:
         contract.started_at = _now(now)
@@ -78,16 +93,14 @@ def register_delivery(contract, now=None):
         contract.release_reminded_at = None
 
 
-def request_revision(contract, user_id):
-    """Khách yêu cầu sửa bài: mỗi đơn có 2 lần sửa miễn phí, chỉ cho dịch tài liệu."""
-    if user_id != contract.hirer_id:
-        raise LifecycleError('Chỉ khách hàng mới yêu cầu sửa bài.')
-    if contract.status != 'in_progress' or contract.delivered_at is None:
-        raise LifecycleError('Chỉ yêu cầu sửa được sau khi phiên dịch viên đã nộp bài.')
+def note_revision_requested(contract):
+    """Ghi nhận một lần yêu cầu sửa bài (gọi từ services/projects.py). Mỗi đơn có 2 lần sửa miễn phí, chỉ dịch tài liệu."""
+    if contract.refund_policy is None:
+        payments.ensure_pricing_snapshot(contract)
     if contract.refund_policy != 'document':
         raise LifecycleError('Phiên dịch tại sự kiện không áp dụng sửa bài miễn phí.')
     if (contract.revisions_used or 0) >= refunds.FREE_REVISIONS:
-        raise LifecycleError('Đã hết 2 lần sửa miễn phí. Nếu bài vẫn chưa đạt, bạn có thể mở tranh chấp.')
+        raise LifecycleError('Đã hết 2 lần sửa miễn phí. Nếu bài vẫn chưa đạt, bạn có thể gửi khiếu nại.')
     contract.revisions_used = (contract.revisions_used or 0) + 1
     contract.delivered_at = None
     contract.auto_release_at = None
@@ -217,17 +230,18 @@ def cancel_by_hirer(contract, user_id, *, now=None, refund_to='wallet', disaster
         _cancel_schedule(contract)
         _close_job(contract, reopen=True)
         return 'cancelled', {'refund': 0}
-    if contract.status != 'in_progress':
+    if contract.status not in FUNDED_STATUSES:
         raise LifecycleError('Hợp đồng ở trạng thái này không hủy được.')
+    _require_not_frozen(contract)
 
     if disaster:
         # Thiên tai, dịch bệnh, lệnh nhà nước: hoàn 100%, sàn miễn hoa hồng. Chỉ admin xác nhận được.
-        raise LifecycleError('Hủy do bất khả kháng cần nhân viên sàn xác nhận, vui lòng mở tranh chấp.')
+        raise LifecycleError('Hủy do bất khả kháng cần nhân viên sàn xác nhận, vui lòng gửi khiếu nại.')
 
     percent, reason = hirer_cancel_percent(contract, now)
     if percent is None:
-        dispute = open_dispute(contract, user_id, reason, kind='cancel_working', now=now)
-        return 'dispute', dispute
+        # Cần sàn phân xử: khách gửi khiếu nại, tiền được giữ cho tới khi có kết luận.
+        return 'dispute', None
 
     result = settle(contract, percent, refund_fee=percent > 0, refund_to=refund_to,
                     cancelled_by='hirer', reason=reason)
@@ -235,13 +249,22 @@ def cancel_by_hirer(contract, user_id, *, now=None, refund_to='wallet', disaster
     return 'cancelled', result
 
 
+def hirer_cancel_percent_applied(contract):
+    """Phần trăm giá đã hoàn cho khách ở lần hủy vừa ghi sổ (để hiện thông báo)."""
+    refund = PaymentTransaction.query.filter_by(contract_id=contract.id, kind='refund').first()
+    if refund is None or not contract.agreed_price:
+        return 0
+    return min(100, round(100 * (refund.amount - (contract.client_fee or 0)) / contract.agreed_price))         if refund.amount > (contract.client_fee or 0) else 0
+
+
 def cancel_for_late_delivery(contract, user_id, *, now=None):
     """Phiên dịch viên trễ hạn quá 24 giờ: khách hủy ngay, hoàn 100% kể cả phí, về phương thức gốc."""
     now = _now(now)
     if user_id != contract.hirer_id:
         raise LifecycleError('Chỉ khách hàng của hợp đồng mới hủy được.')
-    if contract.status != 'in_progress' or contract.delivered_at is not None:
+    if contract.status not in FUNDED_STATUSES or contract.delivered_at is not None:
         raise LifecycleError('Chỉ hủy vì trễ hạn được khi phiên dịch viên chưa nộp bài.')
+    _require_not_frozen(contract)
     deadline = contract.job.deadline if contract.job is not None else None
     if deadline is None:
         raise LifecycleError('Hợp đồng không có hạn nộp bài nên không xét trễ hạn.')
@@ -295,10 +318,10 @@ def cancel_by_translator(contract, *, now=None, no_show=False, excused=False, re
     - Ốm đau, tai nạn có giấy tờ (excused): không ghi vi phạm, không voucher.
     """
     now = _now(now)
-    if contract.status not in ('in_progress', 'escrow_pending'):
+    if contract.status not in FUNDED_STATUSES + ('escrow_pending',):
         raise LifecycleError('Hợp đồng ở trạng thái này không hủy được.')
 
-    funded = contract.status == 'in_progress'
+    funded = contract.status in FUNDED_STATUSES
     if funded:
         settle(contract, 100, refund_fee=True, refund_to=refund_to, waive_commission=True,
                cancelled_by='translator',
@@ -328,107 +351,31 @@ def cancel_by_translator(contract, *, now=None, no_show=False, excused=False, re
     return {'voucher': voucher}
 
 
-# ─── Tranh chấp ───────────────────────────────────────────────────────────────
+# ─── Kết luận khiếu nại ghi vào sổ tiền ───────────────────────────────────────
 
-def open_dispute(contract, user_id, reason, *, kind='quality', now=None):
-    """Khách mở tranh chấp trước khi tiền được giải ngân: tiền bị đóng băng, không tự giải ngân."""
-    now = _now(now)
-    if user_id != contract.hirer_id:
-        raise LifecycleError('Chỉ khách hàng mới mở được tranh chấp.')
-    if contract.status != 'in_progress':
-        raise LifecycleError('Chỉ mở được tranh chấp khi sàn còn đang giữ tiền.')
-    reason = (reason or '').strip()
-    if len(reason) < 10:
-        raise LifecycleError('Vui lòng nêu rõ lý do tranh chấp (ít nhất 10 ký tự).')
-    if kind == 'quality' and contract.refund_policy == 'document':
-        if contract.delivered_at is None and (contract.revisions_used or 0) == 0:
-            raise LifecycleError('Chỉ mở tranh chấp chất lượng sau khi phiên dịch viên đã nộp bài.')
-        if (contract.revisions_used or 0) == 0:
-            raise LifecycleError('Bạn cần yêu cầu sửa bài ít nhất một lần trước khi mở tranh chấp về chất lượng.')
+def apply_dispute_resolution(contract, resolution, dispute_id):
+    """Kết luận khiếu nại (disputes.py) và chia tiền qua sổ giao dịch.
 
-    dispute = Dispute(contract_id=contract.id, opened_by=user_id, kind=kind, reason=reason,
-                      hirer_evidence=reason, status='open',
-                      evidence_deadline=now + timedelta(hours=refunds.EVIDENCE_HOURS))
-    db.session.add(dispute)
-    contract.status = 'disputed'
-    contract.auto_release_at = None
-    return dispute
-
-
-def submit_evidence(dispute, user_id, text, now=None):
-    now = _now(now)
-    if dispute.status != 'open':
-        raise LifecycleError('Tranh chấp đã được giải quyết.')
-    if dispute.evidence_deadline and now > dispute.evidence_deadline:
-        raise LifecycleError('Đã quá hạn 48 giờ nộp bằng chứng.')
-    text = (text or '').strip()
-    if not text:
-        raise LifecycleError('Bằng chứng không được để trống.')
-    contract = dispute.contract
-    if user_id == contract.hirer_id:
-        dispute.hirer_evidence = ((dispute.hirer_evidence or '') + '\n' + text).strip()
-    elif user_id == contract.translator_id:
-        dispute.translator_evidence = ((dispute.translator_evidence or '') + '\n' + text).strip()
-    else:
-        raise LifecycleError('Bạn không phải bên trong hợp đồng này.')
-
-
-def resolve_dispute(dispute, admin_id, decision, *, refund_percent=None, note='', refund_fee=None,
-                    refund_to='wallet', now=None):
-    """Nhân viên tài chính quyết định: hoàn 100%, hoàn một phần, hoặc giải ngân toàn bộ."""
-    now = _now(now)
-    if dispute.status != 'open':
-        raise LifecycleError('Tranh chấp đã được giải quyết.')
-    contract = dispute.contract
-    if decision == 'release_full':
-        percent = 0
-    elif decision == 'refund_full':
-        percent = 100
-    elif decision == 'refund_partial':
-        if refund_percent is None or not (0 < int(refund_percent) < 100):
-            raise LifecycleError('Hoàn một phần cần tỷ lệ từ 1 đến 99%.')
-        percent = int(refund_percent)
-    else:
-        raise LifecycleError('Quyết định không hợp lệ.')
-
-    # Tranh chấp được xử lý như hợp đồng đang giữ tiền.
-    contract.status = 'in_progress'
-    if decision == 'release_full':
+    keep_100: giải ngân đủ cho phiên dịch viên. refund_50: hoàn 50% giá (kèm phí 2%), phần còn lại
+    cho phiên dịch viên sau hoa hồng. cancel_payment: hoàn 100% kể cả phí, miễn hoa hồng.
+    Trả về giá cuối cùng phiên dịch viên được tính (để hiển thị).
+    """
+    price = contract.agreed_price
+    if resolution == 'keep_100':
         complete_contract(contract)
-    else:
-        # Tranh chấp chất lượng mà vẫn có phần trả cho phiên dịch viên thì coi như đã hoàn thành một phần.
-        keeps_work = dispute.kind == 'quality' and percent < 100
-        settle(contract, percent, refund_fee=(percent > 0 if refund_fee is None else refund_fee),
-               refund_to=refund_to, cancelled_by='admin',
-               reason=f'Tranh chấp #{dispute.id}: hoàn {percent}%',
-               waive_commission=(percent == 100),
-               final_status='completed' if keeps_work else 'cancelled')
-        if keeps_work:
-            if contract.job:
-                contract.job.status = 'completed'
-        else:
-            _close_job(contract, reopen=False)
-
-    dispute.status = 'resolved'
-    dispute.decision = decision
-    dispute.refund_percent = percent
-    dispute.decision_note = (note or '').strip()
-    dispute.decided_by = admin_id
-    dispute.decided_at = now
-    return dispute
-
-
-def evidence_overdue_parties(dispute, now=None):
-    """Bên chưa nộp bằng chứng khi đã hết hạn 48 giờ: sàn xem để xử thua theo điều khoản."""
-    now = _now(now)
-    if dispute.evidence_deadline is None or now <= dispute.evidence_deadline:
-        return []
-    missing = []
-    if not (dispute.hirer_evidence or '').strip():
-        missing.append('hirer')
-    if not (dispute.translator_evidence or '').strip():
-        missing.append('translator')
-    return missing
+        return price
+    if resolution == 'refund_50':
+        settle(contract, 50, refund_fee=True, cancelled_by='admin',
+               reason=f'Khiếu nại #{dispute_id}: hoàn 50%', final_status='completed')
+        if contract.job:
+            contract.job.status = 'completed'
+        return price - price * 50 // 100
+    if resolution == 'cancel_payment':
+        settle(contract, 100, refund_fee=True, waive_commission=True, cancelled_by='admin',
+               reason=f'Khiếu nại #{dispute_id}: hoàn 100%')
+        _close_job(contract, reopen=False)
+        return 0
+    raise LifecycleError('Kết luận không hợp lệ.')
 
 
 # ─── Việc chạy định kỳ ────────────────────────────────────────────────────────
@@ -444,7 +391,7 @@ def run_scheduled_jobs(now=None, notify=None):
     stats = {'unpaid_cancelled': 0, 'reminded': 0, 'auto_released': 0}
 
     cutoff = now - timedelta(hours=refunds.UNPAID_CANCEL_HOURS)
-    for c in Contract.query.filter(Contract.status == 'escrow_pending', Contract.created_at <= cutoff).all():
+    for c in Contract.query.filter(Contract.status == 'escrow_pending', Contract.updated_at <= cutoff).all():
         c.status = 'cancelled'
         c.cancelled_by = 'system'
         c.cancel_reason = 'Khách không thanh toán trong 24 giờ'
@@ -454,8 +401,10 @@ def run_scheduled_jobs(now=None, notify=None):
                'Hợp đồng bị hủy vì quá 24 giờ chưa thanh toán, lịch đã được nhả.', c.id)
         stats['unpaid_cancelled'] += 1
 
-    due = Contract.query.filter(Contract.status == 'in_progress', Contract.auto_release_at.isnot(None)).all()
+    due = Contract.query.filter(Contract.status.in_(FUNDED_STATUSES), Contract.auto_release_at.isnot(None)).all()
     for c in due:
+        if _has_active_dispute(c):
+            continue   # đang khiếu nại: tiền bị đóng băng, không tự giải ngân
         remaining = (c.auto_release_at - now).total_seconds() / 3600.0
         if remaining <= 0:
             try:
@@ -482,30 +431,27 @@ POLICY_LABELS = {'document': 'Dịch tài liệu', 'event': 'Phiên dịch sự 
 
 def panel_context(contract, now=None):
     """Những gì giao diện cần để hiện nút và mức hoàn tiền dự kiến cho từng bên."""
+    from disputes import active_dispute
     now = _now(now)
     payments.ensure_pricing_snapshot(contract)
+    funded = contract.status in FUNDED_STATUSES
     percent, reason = (None, '')
-    if contract.status == 'in_progress':
+    if funded:
         percent, reason = hirer_cancel_percent(contract, now)
     deadline = contract.job.deadline if contract.job is not None else None
     late = False
-    if contract.status == 'in_progress' and contract.delivered_at is None and deadline is not None:
+    if funded and contract.delivered_at is None and deadline is not None:
         late = now >= datetime.combine(deadline, datetime.min.time()) + timedelta(days=1, hours=refunds.LATE_GRACE_HOURS)
-    open_dispute_row = Dispute.query.filter_by(contract_id=contract.id, status='open').first()
+    frozen = active_dispute(contract.id) if funded else None
     return {
+        'funded': funded,
         'policy_label': POLICY_LABELS.get(contract.refund_policy, ''),
         'is_document': contract.refund_policy == 'document',
         'cancel_percent': percent,
         'cancel_reason': reason,
         'cancel_refund_amount': (contract.agreed_price * percent // 100) if percent is not None else None,
-        'can_start': contract.status == 'in_progress' and contract.started_at is None
-                     and contract.refund_policy == 'document',
+        'can_start': funded and contract.started_at is None and contract.refund_policy == 'document' and not frozen,
         'revisions_left': max(refunds.FREE_REVISIONS - (contract.revisions_used or 0), 0),
-        'can_revise': contract.status == 'in_progress' and contract.delivered_at is not None
-                      and contract.refund_policy == 'document'
-                      and (contract.revisions_used or 0) < refunds.FREE_REVISIONS,
-        'can_late_cancel': late,
-        'dispute': open_dispute_row,
-        'evidence_open': bool(open_dispute_row and open_dispute_row.evidence_deadline
-                              and now <= open_dispute_row.evidence_deadline),
+        'can_late_cancel': late and not frozen,
+        'frozen': frozen,
     }
