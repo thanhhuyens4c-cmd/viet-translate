@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, Wallet, WalletTransaction, WALLET_TX_TYPES
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -1177,6 +1177,156 @@ def account_history():
         contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
     return render_template('account_history.html', user=user, contracts=contracts)
 
+
+# ─── VÍ CÁ NHÂN ────────────────────────────────────────────────────────────────
+
+def _wallet_csrf_token():
+    import secrets
+    token = session.get('_wallet_csrf')
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session['_wallet_csrf'] = token
+    return token
+
+
+app.add_template_global(_wallet_csrf_token, 'wallet_csrf_token')
+
+
+def _check_wallet_csrf():
+    import secrets
+    sent = request.form.get('_wallet_csrf', '')
+    stored = session.get('_wallet_csrf', '')
+    if not stored or not secrets.compare_digest(str(stored), str(sent)):
+        abort(400)
+
+
+def _wallet_user_or_redirect():
+    user = get_current_user()
+    if not isinstance(user, User):
+        flash('Ví cá nhân chỉ khả dụng cho tài khoản hệ thống.', 'warning')
+        return None
+    if user.role not in ('hirer', 'translator'):
+        flash('Ví cá nhân chỉ dành cho khách thuê và phiên dịch viên.', 'warning')
+        return None
+    return user
+
+
+@app.route('/wallet')
+@login_required
+def wallet_page():
+    user = _wallet_user_or_redirect()
+    if not user:
+        return redirect(url_for('index'))
+    from services import wallet as wallet_service
+    wallet = wallet_service.get_or_create_wallet(user.id)
+    db.session.commit()
+
+    type_filter = request.args.get('type', 'all')
+    q = WalletTransaction.query.filter_by(wallet_id=wallet.id)
+    if type_filter in WALLET_TX_TYPES.values():
+        q = q.filter_by(type=type_filter)
+    else:
+        type_filter = 'all'
+    page = max(request.args.get('page', 1, type=int), 1)
+    pagination = q.order_by(WalletTransaction.created_at.desc(), WalletTransaction.id.desc()).paginate(
+        page=page, per_page=15, error_out=False)
+
+    completed = WalletTransaction.query.filter_by(wallet_id=wallet.id, status='completed')
+    total_in = sum(t.amount for t in completed.filter(WalletTransaction.amount > 0).all()
+                   if t.type != WALLET_TX_TYPES['REFUND'] or t.contract_id)
+    total_out = -sum(t.amount for t in completed.filter(WalletTransaction.amount < 0).all())
+
+    escrow_amount = 0
+    if user.role == 'hirer':
+        escrow_amount = db.session.query(db.func.coalesce(db.func.sum(Contract.agreed_price), 0)).filter(
+            Contract.hirer_id == user.id, Contract.status == 'in_progress').scalar() or 0
+    else:
+        in_progress = db.session.query(db.func.coalesce(db.func.sum(Contract.agreed_price), 0)).filter(
+            Contract.translator_id == user.id, Contract.status == 'in_progress').scalar() or 0
+        escrow_amount = in_progress - wallet_service.platform_fee(in_progress)
+
+    return render_template(
+        'wallet.html', user=user, wallet=wallet, pagination=pagination,
+        transactions=pagination.items, type_filter=type_filter,
+        total_in=total_in, total_out=total_out, escrow_amount=escrow_amount,
+        min_deposit=wallet_service.MIN_DEPOSIT, max_deposit=wallet_service.MAX_DEPOSIT,
+        min_withdraw=wallet_service.MIN_WITHDRAW,
+    )
+
+
+@app.route('/wallet/deposit', methods=['POST'])
+@login_required
+def wallet_deposit():
+    _check_wallet_csrf()
+    user = _wallet_user_or_redirect()
+    if not user:
+        return redirect(url_for('index'))
+    from services import wallet as wallet_service
+    method = request.form.get('method', 'bank_transfer')
+    if method not in ('bank_transfer', 'card', 'momo'):
+        method = 'bank_transfer'
+    try:
+        amount = wallet_service.parse_amount(request.form.get('amount'))
+        wallet_service.deposit(user.id, amount, method)
+        db.session.commit()
+        flash(f'Nạp thành công {amount:,} VND vào ví.'.replace(',', '.'), 'success')
+    except wallet_service.WalletError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    except SQLAlchemyError:
+        db.session.rollback()
+        flash(_t('flash.system_error'), 'error')
+
+    next_url = request.form.get('next', '')
+    if next_url.startswith('/') and not next_url.startswith('//'):
+        return redirect(next_url)
+    return redirect(url_for('wallet_page'))
+
+
+@app.route('/wallet/withdraw', methods=['POST'])
+@login_required
+def wallet_withdraw():
+    _check_wallet_csrf()
+    user = _wallet_user_or_redirect()
+    if not user:
+        return redirect(url_for('index'))
+    from services import wallet as wallet_service
+    try:
+        amount = wallet_service.parse_amount(request.form.get('amount'))
+        tx = wallet_service.request_withdraw(
+            user.id, amount,
+            request.form.get('bank_name'), request.form.get('bank_account'), request.form.get('bank_holder'))
+        db.session.flush()
+        db.session.add(AdminNotification(
+            type='WALLET_WITHDRAW',
+            title='Yêu cầu rút tiền mới',
+            message=f'{user.name} yêu cầu rút {amount:,} VND về {tx.bank_name}.'.replace(',', '.'),
+            url=url_for('admin_wallets', status='pending'),
+            related_id=tx.id,
+        ))
+        db.session.commit()
+        flash('Đã gửi yêu cầu rút tiền. Tiền sẽ được chuyển trong 1–2 ngày làm việc.', 'success')
+    except wallet_service.WalletError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    except SQLAlchemyError:
+        db.session.rollback()
+        flash(_t('flash.system_error'), 'error')
+    return redirect(url_for('wallet_page'))
+
+
+@app.route('/api/wallet/balance')
+@login_required
+def api_wallet_balance():
+    user = get_current_user()
+    if not isinstance(user, User):
+        return jsonify({'balance': 0, 'pending_balance': 0})
+    wallet = Wallet.query.filter_by(user_id=user.id).first()
+    return jsonify({
+        'balance': int(wallet.balance) if wallet else 0,
+        'pending_balance': int(wallet.pending_balance) if wallet else 0,
+    })
+
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
 @app.route('/translator')
@@ -1874,21 +2024,58 @@ def payment_mockup(contract_id):
     from services.permissions import require_contract_access
     require_contract_access(session['user_id'], contract)
 
-    platform_fee = int(contract.agreed_price * 0.10)
+    from services import wallet as wallet_service
+    platform_fee = wallet_service.platform_fee(contract.agreed_price)
     translator_receives = contract.agreed_price - platform_fee
+    is_hirer = session['user_id'] == contract.hirer_id
+    hirer_wallet = Wallet.query.filter_by(user_id=contract.hirer_id).first() if is_hirer else None
+
     if request.method == 'POST':
+        if not is_hirer:
+            abort(403)
+        if contract.status != 'escrow_pending':
+            flash('Hợp đồng này đã được thanh toán hoặc không còn hiệu lực.', 'warning')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+
+        payment_method = request.form.get('payment_method', 'card')
+        if payment_method not in ('card', 'wallet'):
+            payment_method = 'card'
+
         from services.scheduling import confirm_slot, SlotExpiredError
         try:
+            # Khóa hợp đồng để tránh thanh toán 2 lần khi bấm liên tiếp
+            contract = Contract.query.with_for_update().get(contract.id)
+            if contract.status != 'escrow_pending':
+                db.session.rollback()
+                flash('Hợp đồng này đã được thanh toán.', 'warning')
+                return redirect(url_for('transaction_detail', contract_id=contract.id))
+
             success = confirm_slot(contract.id)
             if not success:
+                db.session.rollback()
                 flash('Thanh toán thất bại: Không tìm thấy lịch hoặc trạng thái không hợp lệ.', 'error')
                 return redirect(url_for('index'))
-                
+
+            if payment_method == 'wallet':
+                try:
+                    wallet_service.pay_contract(session['user_id'], contract)
+                except wallet_service.WalletError as e:
+                    db.session.rollback()
+                    flash(str(e), 'error')
+                    return redirect(url_for('payment_mockup', contract_id=contract.id))
+
+            db.session.add(PaymentTransaction(
+                contract_id=contract.id,
+                user_id=session['user_id'],
+                amount=contract.agreed_price,
+                status='escrow_pending',
+                payment_method=payment_method,
+            ))
             contract.status = 'in_progress'
             db.session.commit()
             flash('Thanh toán thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
             return redirect(url_for('transaction_detail', contract_id=contract.id))
-            
+
         except SlotExpiredError as e:
             db.session.rollback()
             flash(str(e), 'error')
@@ -1906,7 +2093,8 @@ def payment_mockup(contract_id):
             db.session.commit()
             return redirect(url_for('index'))
     return render_template('payment_mockup.html', contract=contract,
-                           platform_fee=platform_fee, translator_receives=translator_receives)
+                           platform_fee=platform_fee, translator_receives=translator_receives,
+                           wallet=hirer_wallet)
 
 @app.route('/transaction/<int:contract_id>', methods=['GET', 'POST'])
 @login_required
@@ -1990,14 +2178,31 @@ def approve_contract(contract_id):
     from services.permissions import require_contract_access
     require_contract_access(session['user_id'], contract)
     if session['user_id'] == contract.hirer_id and contract.status == 'in_progress':
+        from services import wallet as wallet_service
+        contract = Contract.query.with_for_update().get(contract.id)
+        if contract.status != 'in_progress':
+            db.session.rollback()
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
         contract.status = 'completed'
         if contract.job:
             contract.job.status = 'completed'
         prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
         if prof:
             prof.total_jobs += 1
+        # Giải ngân escrow vào ví phiên dịch viên (đã trừ phí nền tảng)
+        earning = wallet_service.release_to_translator(contract)
+        for p in PaymentTransaction.query.filter_by(contract_id=contract.id, status='escrow_pending').all():
+            p.status = 'completed'
+        create_notification(
+            user_id=contract.translator_id,
+            notification_type='PAYMENT',
+            title='Bạn vừa nhận được tiền vào ví',
+            message=f'Hợp đồng #{contract.id} đã được nghiệm thu. +{earning.amount:,} VND đã được cộng vào ví của bạn.'.replace(',', '.'),
+            url=url_for('wallet_page'),
+            related_contract_id=contract.id,
+        )
         db.session.commit()
-        flash('Nghiệm thu thành công! Tiền Escrow đã được giải ngân.', 'success')
+        flash('Nghiệm thu thành công! Tiền Escrow đã được giải ngân vào ví phiên dịch viên.', 'success')
     return redirect(url_for('transaction_detail', contract_id=contract.id))
 
 @app.route('/submit-review/<int:contract_id>', methods=['POST'])
@@ -2552,9 +2757,24 @@ def admin_refund_payment(payment_id):
         flash('Chỉ có thể hoàn tiền các giao dịch ở trạng thái escrow_pending hoặc completed.', 'error')
         return redirect(url_for('admin_payments'))
         
+    if p.status == 'completed':
+        flash('Giao dịch đã giải ngân cho phiên dịch viên, không thể hoàn tiền tự động.', 'error')
+        return redirect(url_for('admin_payments'))
+
     p.status = 'refunded'
     if p.contract:
         p.contract.status = 'cancelled' # hoặc trạng thái tương ứng
+        # Hoàn tiền về ví cá nhân của khách thuê
+        from services import wallet as wallet_service
+        wallet_service.refund_contract(p.contract, amount=p.amount)
+        create_notification(
+            user_id=p.contract.hirer_id,
+            notification_type='PAYMENT',
+            title='Bạn đã được hoàn tiền vào ví',
+            message=f'Hợp đồng #{p.contract_id} đã bị hủy. {p.amount:,} VND đã được hoàn vào ví của bạn.'.replace(',', '.'),
+            url=url_for('wallet_page'),
+            related_contract_id=p.contract_id,
+        )
 
     _audit_log(
         action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
@@ -2566,6 +2786,70 @@ def admin_refund_payment(payment_id):
     db.session.commit()
     flash('Đã hoàn tiền thành công.', 'success')
     return redirect(url_for('admin_payments'))
+
+@app.route('/admin/wallets')
+@admin_required
+def admin_wallets():
+    status_filter = request.args.get('status', 'pending')
+    type_filter = request.args.get('type', 'withdraw')
+    q = WalletTransaction.query.join(Wallet)
+    if type_filter in WALLET_TX_TYPES.values():
+        q = q.filter(WalletTransaction.type == type_filter)
+    else:
+        type_filter = 'all'
+    if status_filter in ('pending', 'completed', 'rejected'):
+        q = q.filter(WalletTransaction.status == status_filter)
+    else:
+        status_filter = 'all'
+    transactions = q.order_by(WalletTransaction.created_at.desc()).limit(300).all()
+
+    stats = {
+        'total_balance': db.session.query(db.func.coalesce(db.func.sum(Wallet.balance), 0)).scalar() or 0,
+        'total_pending': db.session.query(db.func.coalesce(db.func.sum(Wallet.pending_balance), 0)).scalar() or 0,
+        'pending_count': WalletTransaction.query.filter_by(type='withdraw', status='pending').count(),
+        'wallet_count': Wallet.query.count(),
+    }
+    return render_template('admin_wallets.html', transactions=transactions, stats=stats,
+                           status_filter=status_filter, type_filter=type_filter)
+
+
+@app.route('/admin/wallets/withdraw/<int:tx_id>/<action>', methods=['POST'])
+@admin_required
+@csrf_protected
+def admin_wallet_withdraw_action(tx_id, action):
+    from services import wallet as wallet_service
+    tx = WalletTransaction.query.with_for_update().get_or_404(tx_id)
+    note = request.form.get('note', '').strip()
+    try:
+        if action == 'approve':
+            wallet_service.approve_withdraw(tx, note)
+            title, msg = 'Yêu cầu rút tiền đã được duyệt', f'{abs(tx.amount):,} VND đã được chuyển về {tx.bank_name}.'
+        elif action == 'reject':
+            wallet_service.reject_withdraw(tx, note)
+            title, msg = 'Yêu cầu rút tiền bị từ chối', f'{abs(tx.amount):,} VND đã được hoàn lại vào ví.' + (f' Lý do: {note}' if note else '')
+        else:
+            abort(400)
+        create_notification(
+            user_id=tx.wallet.user_id,
+            notification_type='PAYMENT',
+            title=title,
+            message=msg.replace(',', '.'),
+            url=url_for('wallet_page'),
+        )
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
+            target_type='wallet_transaction',
+            target_id=tx.id,
+            description=f"Admin {'duyệt' if action == 'approve' else 'từ chối'} rút tiền #{tx.id} ({abs(tx.amount)} VND) của user #{tx.wallet.user_id}",
+            extra_data={'note': note} if note else None,
+        )
+        db.session.commit()
+        flash('Đã cập nhật yêu cầu rút tiền.', 'success')
+    except wallet_service.WalletError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    return redirect(request.referrer or url_for('admin_wallets'))
+
 
 @app.route('/admin/notifications')
 @admin_required

@@ -883,6 +883,14 @@
                 Payment
             </a>
 
+            <a href="{{ url_for('admin_wallets') if 'admin_wallets' in get_admin_routes() else '#' }}"
+               class="nav-item {% if request.endpoint == 'admin_wallets' %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 12V8H6a2 2 0 010-4h12v4"/><path d="M4 6v12a2 2 0 002 2h14v-4"/><path d="M18 12a2 2 0 000 4h4v-4z"/>
+                </svg>
+                Ví người dùng
+            </a>
+
             <a href="{{ url_for('admin_reviews') if 'admin_reviews' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_reviews' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -1,0 +1,117 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Quản lý Ví người dùng{% endblock %}
+
+{% set type_labels = {'deposit': 'Nạp tiền', 'withdraw': 'Rút tiền', 'payment': 'Thanh toán', 'earning': 'Thu nhập', 'refund': 'Hoàn tiền'} %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Ví người dùng</h1>
+        <p class="page-subtitle">Duyệt yêu cầu rút tiền và giám sát giao dịch ví của khách thuê & phiên dịch viên</p>
+    </div>
+</div>
+
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-label">Tổng số dư khả dụng</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(stats.total_balance).replace(',', '.') }} ₫</div>
+        <div class="kpi-sub">{{ stats.wallet_count }} ví</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Đang chờ rút</div>
+        <div class="kpi-value">{{ "{:,.0f}".format(stats.total_pending).replace(',', '.') }} ₫</div>
+        <div class="kpi-sub">{{ stats.pending_count }} yêu cầu chờ duyệt</div>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="filter-bar">
+        <a href="{{ url_for('admin_wallets', type='withdraw', status='pending') }}" class="filter-tab {% if type_filter == 'withdraw' and status_filter == 'pending' %}active{% endif %}">Rút tiền chờ duyệt{% if stats.pending_count %} ({{ stats.pending_count }}){% endif %}</a>
+        <a href="{{ url_for('admin_wallets', type='withdraw', status='all') }}" class="filter-tab {% if type_filter == 'withdraw' and status_filter == 'all' %}active{% endif %}">Tất cả lệnh rút</a>
+        <div class="filter-sep"></div>
+        <a href="{{ url_for('admin_wallets', type='all', status='all') }}" class="filter-tab {% if type_filter == 'all' %}active{% endif %}">Mọi giao dịch</a>
+        <a href="{{ url_for('admin_wallets', type='deposit', status='all') }}" class="filter-tab {% if type_filter == 'deposit' %}active{% endif %}">Nạp</a>
+        <a href="{{ url_for('admin_wallets', type='payment', status='all') }}" class="filter-tab {% if type_filter == 'payment' %}active{% endif %}">Thanh toán</a>
+        <a href="{{ url_for('admin_wallets', type='earning', status='all') }}" class="filter-tab {% if type_filter == 'earning' %}active{% endif %}">Thu nhập</a>
+        <a href="{{ url_for('admin_wallets', type='refund', status='all') }}" class="filter-tab {% if type_filter == 'refund' %}active{% endif %}">Hoàn tiền</a>
+    </div>
+
+    {% if transactions %}
+    <div class="overflow-x-auto">
+        <table class="admin-table w-full">
+            <thead>
+                <tr>
+                    <th>Mã GD</th>
+                    <th>Người dùng</th>
+                    <th>Loại</th>
+                    <th>Số tiền</th>
+                    <th>Chi tiết</th>
+                    <th>Trạng thái</th>
+                    <th>Thời gian</th>
+                    <th class="text-right">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in transactions %}
+                {% set u = tx.wallet.user %}
+                <tr>
+                    <td class="font-medium text-brand">#WTX-{{ tx.id }}</td>
+                    <td>
+                        <a href="{{ url_for('admin_users') }}?search={{ u.email }}" class="text-slate-300 hover:text-white hover:underline">{{ u.name }}</a>
+                        <div class="text-[10px] text-slate-500">{{ 'Khách thuê' if u.role == 'hirer' else ('Phiên dịch viên' if u.role == 'translator' else u.role) }}</div>
+                    </td>
+                    <td class="text-slate-300">{{ type_labels.get(tx.type, tx.type) }}</td>
+                    <td class="font-medium whitespace-nowrap {{ 'text-emerald-400' if tx.amount > 0 else 'text-rose-300' }}">
+                        {{ '+' if tx.amount > 0 else '−' }}{{ "{:,.0f}".format(tx.amount|abs).replace(',', '.') }} ₫
+                    </td>
+                    <td class="text-xs text-slate-400">
+                        {% if tx.type == 'withdraw' %}
+                            <div class="text-slate-300">{{ tx.bank_name }}</div>
+                            <div class="font-mono">{{ tx.bank_account }}</div>
+                            <div>{{ tx.bank_holder }}</div>
+                        {% else %}
+                            {{ tx.description }}
+                        {% endif %}
+                        {% if tx.admin_note %}<div class="italic mt-1">Ghi chú: {{ tx.admin_note }}</div>{% endif %}
+                    </td>
+                    <td>
+                        {% if tx.status == 'completed' %}<span class="badge badge-green">Thành công</span>
+                        {% elif tx.status == 'pending' %}<span class="badge badge-yellow">Chờ duyệt</span>
+                        {% elif tx.status == 'rejected' %}<span class="badge badge-red">Từ chối</span>
+                        {% else %}<span class="badge badge-gray">{{ tx.status }}</span>{% endif %}
+                    </td>
+                    <td class="text-xs text-slate-400 whitespace-nowrap">{{ tx.created_at.strftime('%d/%m/%Y %H:%M') if tx.created_at else '' }}</td>
+                    <td>
+                        {% if tx.type == 'withdraw' and tx.status == 'pending' %}
+                        <div class="flex items-center justify-end gap-2">
+                            <form method="POST" action="{{ url_for('admin_wallet_withdraw_action', tx_id=tx.id, action='approve') }}"
+                                  onsubmit="return confirm('Xác nhận đã chuyển {{ "{:,.0f}".format(tx.amount|abs).replace(',', '.') }} ₫ cho {{ tx.bank_holder }}?');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-success">Duyệt</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('admin_wallet_withdraw_action', tx_id=tx.id, action='reject') }}"
+                                  onsubmit="var n = prompt('Lý do từ chối (sẽ gửi cho người dùng):'); if (n === null) return false; this.note.value = n; return true;">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="note" value="">
+                                <button type="submit" class="btn btn-sm btn-danger">Từ chối</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M20 12V8H6a2 2 0 010-4h12v4"/><path d="M4 6v12a2 2 0 002 2h14v-4"/><path d="M18 12a2 2 0 000 4h4v-4z"/>
+        </svg>
+        <div class="empty-state-title">Không có giao dịch nào</div>
+        <div class="empty-state-desc">Chưa có giao dịch ví phù hợp bộ lọc này.</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -416,6 +416,57 @@ class PaymentTransaction(db.Model):
     contract = db.relationship('Contract', backref=db.backref('payments', lazy=True))
     user = db.relationship('User', foreign_keys=[user_id])
 
+# ─── WALLET MODELS (VÍ CÁ NHÂN) ────────────────────────────────────────────────
+
+class Wallet(db.Model):
+    """Ví cá nhân — mỗi tài khoản (khách thuê / phiên dịch viên) có đúng một ví."""
+    __table_args__ = (
+        db.CheckConstraint('balance >= 0 AND pending_balance >= 0', name='ck_wallet_balance_non_negative'),
+    )
+    id =db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True, index=True)
+    balance = db.Column(db.BigInteger, nullable=False, default=0)          # Số dư khả dụng (VND)
+    pending_balance = db.Column(db.BigInteger, nullable=False, default=0)  # Đang chờ rút (VND)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('wallet', uselist=False, cascade='all, delete-orphan'))
+    transactions = db.relationship('WalletTransaction', backref='wallet', lazy='dynamic',
+                                   cascade='all, delete-orphan',
+                                   order_by='desc(WalletTransaction.created_at)')
+
+
+# Loại giao dịch ví
+WALLET_TX_TYPES = {
+    'DEPOSIT': 'deposit',        # Nạp tiền vào ví
+    'WITHDRAW': 'withdraw',      # Rút tiền về ngân hàng
+    'PAYMENT': 'payment',        # Khách thuê thanh toán hợp đồng (chuyển vào escrow)
+    'EARNING': 'earning',        # Phiên dịch viên nhận tiền khi hợp đồng nghiệm thu
+    'REFUND': 'refund',          # Hoàn tiền vào ví
+}
+
+
+class WalletTransaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    wallet_id = db.Column(db.Integer, db.ForeignKey('wallet.id'), nullable=False, index=True)
+    type = db.Column(db.String(20), nullable=False, index=True)
+    amount = db.Column(db.BigInteger, nullable=False)          # Có dấu: + cộng vào ví, - trừ khỏi ví
+    balance_after = db.Column(db.BigInteger, nullable=False)
+    # completed | pending | rejected
+    status = db.Column(db.String(20), nullable=False, default='completed', index=True)
+    description = db.Column(db.String(255))
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True, index=True)
+    # Thông tin rút tiền (chỉ dùng cho type=withdraw)
+    bank_name = db.Column(db.String(100))
+    bank_account = db.Column(db.String(50))
+    bank_holder = db.Column(db.String(100))
+    admin_note = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    contract = db.relationship('Contract', foreign_keys=[contract_id])
+
+
 # ─── ADMIN NOTIFICATION MODEL (TASK 14) ────────────────────────────────────────
 
 class AdminNotification(db.Model):

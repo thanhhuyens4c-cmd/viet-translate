@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Ví của tôi | VietTranslate{% endblock %}
+
+{% set tx_labels = {
+    'deposit': ('Nạp tiền', 'bg-emerald-50 text-emerald-700 border-emerald-200'),
+    'withdraw': ('Rút tiền', 'bg-amber-50 text-amber-700 border-amber-200'),
+    'payment': ('Thanh toán', 'bg-sky-50 text-sky-700 border-sky-200'),
+    'earning': ('Thu nhập', 'bg-indigo-50 text-indigo-700 border-indigo-200'),
+    'refund': ('Hoàn tiền', 'bg-teal-50 text-teal-700 border-teal-200'),
+} %}
+{% set status_labels = {
+    'completed': ('Thành công', 'text-emerald-600'),
+    'pending': ('Chờ duyệt', 'text-amber-600'),
+    'rejected': ('Từ chối', 'text-rose-600'),
+} %}
+
+{% block content %}
+<div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col md:flex-row gap-8">
+
+        <!-- Sidebar -->
+        <aside class="w-full md:w-64 shrink-0">
+            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden md:sticky md:top-24">
+                <div class="p-6 text-center border-b border-slate-100 bg-slate-50/40">
+                    <div class="w-20 h-20 bg-gradient-to-br from-brand-600 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white text-2xl font-black shadow-soft mb-3">
+                        {{ user.name[0] | upper }}
+                    </div>
+                    <h2 class="font-bold text-slate-900 text-sm sm:text-base">{{ user.name }}</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">{{ user.role == 'hirer' and 'Khách thuê' or 'Phiên dịch viên' }}</p>
+                </div>
+                <nav class="p-3 space-y-1">
+                    <a href="{{ url_for('account_profile') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        {{ t('account_history_page.nav_profile') }}
+                    </a>
+                    <a href="{{ url_for('account_history') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
+                        {{ t('account_history_page.nav_history') }}
+                    </a>
+                    <a href="{{ url_for('wallet_page') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 bg-brand-50 text-brand-700 font-bold rounded-xl text-xs sm:text-sm">
+                        <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                        Ví của tôi
+                    </a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main -->
+        <div class="flex-grow min-w-0 space-y-6">
+
+            <!-- Balance card -->
+            <div class="rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-700 text-white shadow-soft p-6 sm:p-8 relative overflow-hidden">
+                <div class="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/10"></div>
+                <div class="absolute right-16 -bottom-16 w-40 h-40 rounded-full bg-white/5"></div>
+                <div class="relative">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-white/70">Số dư khả dụng</p>
+                    <p class="text-3xl sm:text-4xl font-black mt-1 tabular-nums">{{ wallet.balance|vnd }} <span class="text-lg font-bold text-white/80">VND</span></p>
+                    <div class="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-xs text-white/80">
+                        {% if wallet.pending_balance %}
+                        <span>Đang chờ rút: <strong class="text-white">{{ wallet.pending_balance|vnd }} VND</strong></span>
+                        {% endif %}
+                        {% if escrow_amount %}
+                        <span>{{ user.role == 'hirer' and 'Đang giữ trong Escrow' or 'Sắp nhận (Escrow)' }}: <strong class="text-white">{{ escrow_amount|vnd }} VND</strong></span>
+                        {% endif %}
+                    </div>
+                    <div class="flex flex-wrap gap-3 mt-6">
+                        <button type="button" data-open="deposit-modal" class="inline-flex items-center gap-2 bg-white text-brand-700 hover:bg-brand-50 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                            Nạp tiền
+                        </button>
+                        <button type="button" data-open="withdraw-modal" class="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"/></svg>
+                            Rút tiền
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">{{ user.role == 'hirer' and 'Tổng nạp & hoàn' or 'Tổng thu nhập & nạp' }}</p>
+                    <p class="text-lg sm:text-xl font-extrabold text-emerald-600 mt-1 tabular-nums">+{{ total_in|vnd }} VND</p>
+                </div>
+                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">{{ user.role == 'hirer' and 'Tổng chi & rút' or 'Tổng đã rút' }}</p>
+                    <p class="text-lg sm:text-xl font-extrabold text-slate-800 mt-1 tabular-nums">−{{ total_out|vnd }} VND</p>
+                </div>
+            </div>
+
+            <!-- Transactions -->
+            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                    <h1 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                        Lịch sử giao dịch
+                    </h1>
+                    <div class="flex flex-wrap gap-1.5 text-xs">
+                        {% for key, label in [('all', 'Tất cả'), ('deposit', 'Nạp'), ('withdraw', 'Rút'), ('payment', 'Thanh toán'), ('earning', 'Thu nhập'), ('refund', 'Hoàn tiền')] %}
+                        {% if not (user.role == 'hirer' and key == 'earning') and not (user.role == 'translator' and key == 'payment') %}
+                        <a href="{{ url_for('wallet_page', type=key) }}"
+                           class="px-3 py-1.5 rounded-lg font-semibold transition {% if type_filter == key %}bg-brand-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">{{ label }}</a>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% if transactions %}
+                <ul class="divide-y divide-slate-100">
+                    {% for tx in transactions %}
+                    {% set lbl = tx_labels.get(tx.type, (tx.type, 'bg-slate-50 text-slate-600 border-slate-200')) %}
+                    {% set st = status_labels.get(tx.status, (tx.status, 'text-slate-500')) %}
+                    <li class="py-3.5 flex items-center gap-3">
+                        <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center {{ 'bg-emerald-50 text-emerald-600' if tx.amount > 0 else 'bg-slate-100 text-slate-500' }}">
+                            {% if tx.amount > 0 %}
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                            {% else %}
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                            {% endif %}
+                        </div>
+                        <div class="min-w-0 flex-grow">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-[10px] font-bold uppercase tracking-wide border px-1.5 py-0.5 rounded-md {{ lbl[1] }}">{{ lbl[0] }}</span>
+                                <span class="text-[11px] font-semibold {{ st[1] }}">{{ st[0] }}</span>
+                            </div>
+                            <p class="text-xs sm:text-sm font-semibold text-slate-800 truncate mt-0.5">
+                                {{ tx.description }}
+                                {% if tx.contract_id %}
+                                · <a href="{{ url_for('transaction_detail', contract_id=tx.contract_id) }}" class="text-brand-600 hover:underline">Xem HĐ</a>
+                                {% endif %}
+                            </p>
+                            <p class="text-[11px] text-slate-400">
+                                {{ tx.created_at.strftime('%d/%m/%Y %H:%M') if tx.created_at }}
+                                {% if tx.bank_account %} · TK ****{{ tx.bank_account[-4:] }}{% endif %}
+                                {% if tx.admin_note %} · Ghi chú: {{ tx.admin_note }}{% endif %}
+                            </p>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <p class="text-sm font-extrabold tabular-nums {{ 'text-emerald-600' if tx.amount > 0 else ('text-slate-400 line-through' if tx.status == 'rejected' else 'text-slate-800') }}">
+                                {{ '+' if tx.amount > 0 else '−' }}{{ (tx.amount|abs)|vnd }}
+                            </p>
+                            <p class="text-[11px] text-slate-400 tabular-nums">Số dư: {{ tx.balance_after|vnd }}</p>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                {% if pagination.pages > 1 %}
+                <div class="flex items-center justify-between mt-5 text-xs">
+                    {% if pagination.has_prev %}
+                    <a href="{{ url_for('wallet_page', type=type_filter, page=pagination.prev_num) }}" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 font-semibold text-slate-600">← Trước</a>
+                    {% else %}<span></span>{% endif %}
+                    <span class="text-slate-400">Trang {{ pagination.page }}/{{ pagination.pages }}</span>
+                    {% if pagination.has_next %}
+                    <a href="{{ url_for('wallet_page', type=type_filter, page=pagination.next_num) }}" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 font-semibold text-slate-600">Sau →</a>
+                    {% else %}<span></span>{% endif %}
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="text-center py-12">
+                    <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    </div>
+                    <p class="text-sm font-bold text-slate-700">Chưa có giao dịch nào</p>
+                    <p class="text-xs text-slate-400 mt-1">
+                        {{ user.role == 'hirer' and 'Nạp tiền vào ví để thanh toán hợp đồng nhanh hơn.' or 'Thu nhập từ các hợp đồng đã nghiệm thu sẽ hiển thị tại đây.' }}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- Deposit modal -->
+<div id="deposit-modal" class="wallet-modal fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/50 px-4" role="dialog" aria-modal="true">
+    <form method="POST" action="{{ url_for('wallet_deposit') }}" class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+        <input type="hidden" name="_wallet_csrf" value="{{ wallet_csrf_token() }}">
+        <div class="flex items-center justify-between">
+            <h3 class="font-bold text-slate-900">Nạp tiền vào ví</h3>
+            <button type="button" data-close class="text-slate-400 hover:text-slate-700 text-xl leading-none">&times;</button>
+        </div>
+        <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số tiền (VND)</label>
+            <input type="text" inputmode="numeric" name="amount" required data-money placeholder="VD: 500.000" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-brand-500 focus:border-brand-500">
+            <div class="flex flex-wrap gap-1.5 mt-2">
+                {% for v in [100000, 500000, 1000000, 2000000, 5000000] %}
+                <button type="button" data-quick="{{ v }}" class="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-600">{{ v|vnd }}</button>
+                {% endfor %}
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1.5">Tối thiểu {{ min_deposit|vnd }} – tối đa {{ max_deposit|vnd }} VND mỗi lần.</p>
+        </div>
+        <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Phương thức</label>
+            <div class="grid grid-cols-3 gap-2 text-xs font-semibold">
+                {% for val, label in [('bank_transfer', 'Chuyển khoản'), ('card', 'Thẻ'), ('momo', 'MoMo')] %}
+                <label class="flex items-center justify-center gap-1.5 border border-slate-200 rounded-xl py-2.5 cursor-pointer has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-700">
+                    <input type="radio" name="method" value="{{ val }}" class="sr-only" {% if loop.first %}checked{% endif %}>{{ label }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-[11px] text-amber-800">
+            💡 Môi trường demo: tiền được cộng vào ví ngay, không trừ tiền thật.
+        </div>
+        <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm transition">Xác nhận nạp tiền</button>
+    </form>
+</div>
+
+<!-- Withdraw modal -->
+<div id="withdraw-modal" class="wallet-modal fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/50 px-4" role="dialog" aria-modal="true">
+    <form method="POST" action="{{ url_for('wallet_withdraw') }}" class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+        <input type="hidden" name="_wallet_csrf" value="{{ wallet_csrf_token() }}">
+        <div class="flex items-center justify-between">
+            <h3 class="font-bold text-slate-900">Rút tiền về ngân hàng</h3>
+            <button type="button" data-close class="text-slate-400 hover:text-slate-700 text-xl leading-none">&times;</button>
+        </div>
+        <p class="text-xs text-slate-500">Số dư khả dụng: <strong class="text-slate-800">{{ wallet.balance|vnd }} VND</strong></p>
+        <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số tiền (VND)</label>
+            <div class="flex gap-2">
+                <input type="text" inputmode="numeric" name="amount" required data-money placeholder="Tối thiểu {{ min_withdraw|vnd }}" class="flex-grow px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-brand-500 focus:border-brand-500">
+                <button type="button" data-quick="{{ wallet.balance }}" class="px-3 text-xs font-bold rounded-xl bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-600">Tất cả</button>
+            </div>
+        </div>
+        <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Ngân hàng</label>
+            <input type="text" name="bank_name" required maxlength="100" list="bank-list" placeholder="VD: Vietcombank" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm">
+            <datalist id="bank-list">
+                {% for b in ['Vietcombank', 'VietinBank', 'BIDV', 'Agribank', 'Techcombank', 'MB Bank', 'ACB', 'VPBank', 'TPBank', 'Sacombank'] %}<option value="{{ b }}">{% endfor %}
+            </datalist>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số tài khoản</label>
+                <input type="text" inputmode="numeric" name="bank_account" required maxlength="20" pattern="[0-9 ]{6,20}" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-mono">
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Chủ tài khoản</label>
+                <input type="text" name="bank_holder" required maxlength="100" value="{{ user.name }}" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm uppercase">
+            </div>
+        </div>
+        <p class="text-[11px] text-slate-400">Yêu cầu sẽ được quản trị viên duyệt trong 1–2 ngày làm việc. Nếu bị từ chối, tiền được hoàn lại vào ví.</p>
+        <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm transition">Gửi yêu cầu rút tiền</button>
+    </form>
+</div>
+
+<script>
+(function () {
+    function fmt(v) {
+        var digits = String(v).replace(/\D/g, '');
+        return digits ? Number(digits).toLocaleString('vi-VN') : '';
+    }
+    document.querySelectorAll('[data-open]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var m = document.getElementById(btn.dataset.open);
+            m.classList.remove('hidden'); m.classList.add('flex');
+            var first = m.querySelector('input[data-money]'); if (first) first.focus();
+        });
+    });
+    document.querySelectorAll('.wallet-modal').forEach(function (m) {
+        function close() { m.classList.add('hidden'); m.classList.remove('flex'); }
+        m.addEventListener('click', function (e) { if (e.target === m || e.target.closest('[data-close]')) close(); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        m.querySelectorAll('[data-quick]').forEach(function (b) {
+            b.addEventListener('click', function () { m.querySelector('input[data-money]').value = fmt(b.dataset.quick); });
+        });
+    });
+    document.querySelectorAll('input[data-money]').forEach(function (inp) {
+        inp.addEventListener('input', function () { inp.value = fmt(inp.value); });
+    });
+    {% if request.args.get('open') in ('deposit', 'withdraw') %}
+    document.querySelector('[data-open="{{ request.args.get('open') }}-modal"]').click();
+    {% endif %}
+})();
+</script>
+{% endblock %}
