@@ -58,7 +58,7 @@ ROLE_PERMISSIONS = {
     },
     'finance': {
         'view_dashboard', 'view_payments', 'refund_payment', 'view_contracts',
-        'view_proposals', 'view_notifications',
+        'view_proposals', 'view_notifications', 'resolve_dispute',
     },
     'support': {
         'view_dashboard', 'view_users', 'view_translators', 'view_hirers', 'view_jobs',

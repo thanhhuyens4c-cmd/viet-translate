@@ -1,4 +1,6 @@
 import os
+import logging
+from services import pricing
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -1657,6 +1659,9 @@ def format_date_vn(val):
         except Exception:
             return val
     return str(val)
+
+app.jinja_env.globals['UNIT_LABELS'] = pricing.UNIT_LABELS
+app.jinja_env.globals['timedelta'] = timedelta
 
 @app.template_filter('vnd')
 def vnd_filter(value):
@@ -7274,6 +7279,34 @@ def contract_invoice(contract_id):
                            translator_receives=contract.agreed_price - platform_fee)
 
 
+@app.route('/account/wallet', methods=['GET', 'POST'])
+@login_required
+def account_wallet():
+    """Ví của phiên dịch viên: số dư đã giải ngân, lịch sử và yêu cầu rút tiền."""
+    user = get_current_user()
+    if not user or user.role not in ('translator', 'hirer'):
+        flash('Tài khoản này không có ví.', 'error')
+        return redirect(url_for('account_history'))
+
+    from services import payments
+    if request.method == 'POST':
+        try:
+            payments.request_withdrawal(user.id, request.form.get('amount'))
+            db.session.commit()
+            flash('Đã gửi yêu cầu rút tiền. Sàn sẽ chuyển khoản trong 2 ngày làm việc.', 'success')
+        except payments.PaymentError as e:
+            db.session.rollback()
+            flash(str(e), 'error')
+        return redirect(url_for('account_wallet'))
+
+    transactions = PaymentTransaction.query.filter(
+        PaymentTransaction.payee_id == user.id,
+        PaymentTransaction.kind.in_(['release', 'refund', 'voucher', 'withdraw'])
+    ).order_by(PaymentTransaction.created_at.desc()).all()
+    return render_template('account_wallet.html', user=user, balance=payments.wallet_balance(user.id),
+                           voucher=payments.voucher_balance(user.id),
+                           transactions=transactions, withdraw_min=pricing.WITHDRAW_MIN)
+
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
 @app.route('/translator')
@@ -8557,6 +8590,10 @@ def validate_job_form(form, existing=None, locked=False):
             errors['event_location'] = 'Vui lòng nhập địa điểm (hoặc "Trực tuyến").'
     else:
         d['event_date'] = d['event_time_start'] = d['event_time_end'] = d['event_location'] = ''
+    if not locked:
+        # Khối lượng và đơn vị tính dùng chung cho dịch tài liệu và phiên dịch: giá = đơn giá x số lượng + phụ phí.
+        d['pricing_unit'] = pricing.normalize_unit(form.get('pricing_unit'), d.get('category_group'))
+        d['quantity'] = pricing.normalize_quantity(form.get('quantity'))
     return d, errors
 
 
@@ -10513,26 +10550,35 @@ def payment_mockup(contract_id):
             flash('Hợp đồng này không ở trạng thái chờ thanh toán.', 'error')
         return redirect(url_for('transaction_detail', contract_id=contract.id))
 
-    platform_fee = int(contract.agreed_price * 0.10)
-    translator_receives = contract.agreed_price - platform_fee
+    from services import payments, lifecycle
+    payments.ensure_pricing_snapshot(contract)
+    platform_fee = contract.client_fee
+    translator_receives = contract.translator_net
+    total_payable = payments.amount_to_pay(contract)
+    from services import bank_transfer
+    live = bank_transfer.is_live()
     if request.method == 'POST':
+        # Chế độ live: tiền chỉ được ghim khi ngân hàng báo về qua webhook, không có nút thanh toán giả.
+        if live or session['user_id'] != contract.hirer_id:
+            flash('Vui lòng chuyển khoản theo mã QR. Hợp đồng được kích hoạt tự động khi sàn nhận đủ tiền.', 'error')
+            return redirect(url_for('payment_mockup', contract_id=contract.id))
         from services.scheduling import confirm_slot, SlotExpiredError
+        from services.booking import contract_has_no_time_slot
         try:
-            success = confirm_slot(contract.id)
+            # Dịch tài liệu không giữ khung giờ nên không có lịch để xác nhận.
+            success = True if contract_has_no_time_slot(contract) else confirm_slot(contract.id)
             if not success:
                 flash('Thanh toán thất bại: Không tìm thấy lịch hoặc trạng thái không hợp lệ.', 'error')
                 return redirect(url_for('index'))
                 
             contract.status = 'in_progress'
+            payments.record_deposit(contract, session['user_id'])
+            lifecycle.mark_paid(contract)
             db.session.add(ContractEvent(contract_id=contract.id, actor_id=contract.hirer_id, event_type='paid'))
-            db.session.add(PaymentTransaction(
-                contract_id=contract.id, user_id=contract.hirer_id,
-                amount=contract.agreed_price, status='escrow_pending',
-                payment_method='mockup'))
             create_notification(
                 user_id=contract.translator_id, notification_type='PAYMENT_RECEIVED',
                 title='Khách đã thanh toán vào Escrow',
-                message=f'{contract.hirer.name} đã thanh toán {contract.agreed_price:,} VND vào Escrow. Bạn có thể bắt đầu thực hiện.',
+                message=f'{contract.hirer.name} đã thanh toán {total_payable:,} VND vào Escrow. Bạn có thể bắt đầu thực hiện.',
                 url=url_for('transaction_detail', contract_id=contract.id), related_contract_id=contract.id)
             db.session.commit()
             flash('Thanh toán thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
@@ -10554,8 +10600,54 @@ def payment_mockup(contract_id):
                 
             db.session.commit()
             return redirect(url_for('index'))
+    if contract.status != 'escrow_pending':
+        return redirect(url_for('transaction_detail', contract_id=contract.id))
+    live_info = None
+    if live:
+        if bank_transfer.live_ready():
+            live_info = {**bank_transfer.bank_config(), 'qr': bank_transfer.qr_url(contract),
+                         'code': bank_transfer.transfer_code(contract.id), 'amount': total_payable}
+        else:
+            live_info = {'error': True}
     return render_template('payment_mockup.html', contract=contract,
-                           platform_fee=platform_fee, translator_receives=translator_receives)
+                           platform_fee=platform_fee, translator_receives=translator_receives,
+                           total_payable=total_payable, live=live, live_info=live_info)
+
+
+@app.route('/payment/<int:contract_id>/status')
+@login_required
+def payment_status(contract_id):
+    """Trang thanh toán hỏi định kỳ để tự chuyển sang hợp đồng khi tiền đã về."""
+    contract = Contract.query.get_or_404(contract_id)
+    from services.permissions import require_contract_access
+    require_contract_access(session['user_id'], contract)
+    return jsonify({'paid': contract.status != 'escrow_pending' and contract.paid_at is not None,
+                    'status': contract.status})
+
+
+@app.route('/api/webhooks/sepay', methods=['POST'])
+def sepay_webhook():
+    """SePay báo có tiền vào tài khoản. Xác thực bằng khóa, khớp mã hợp đồng và số tiền, rồi mới ghim tiền."""
+    from services import bank_transfer
+    if not bank_transfer.verify_api_key(request.headers.get('Authorization', '')):
+        return jsonify({'success': False, 'error': 'unauthorized'}), 401
+    payload = request.get_json(silent=True) or {}
+    try:
+        outcome, note = bank_transfer.process_webhook(payload)
+        if outcome == 'funded':
+            contract = Contract.query.get(int(bank_transfer.extract_contract_id(
+                ' '.join(str(payload.get(k) or '') for k in ('code', 'content', 'description')))))
+            _notify_contract(contract, contract.translator_id, 'Khách đã thanh toán',
+                             'Sàn đã nhận tiền và đang giữ cho hợp đồng. Bạn có thể bắt đầu làm việc.')
+            _notify_contract(contract, contract.hirer_id, 'Đã nhận tiền của bạn',
+                             'Sàn đã nhận đủ tiền và đang giữ an toàn cho tới khi nghiệm thu.')
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logging.exception('Lỗi xử lý webhook SePay')
+        return jsonify({'success': False}), 500   # SePay sẽ gọi lại; xử lý lặp là an toàn nhờ mã giao dịch
+    # Mọi kết quả khác (đã xử lý, sai số tiền, không phải của sàn) đều trả 200 để SePay không gọi lại vô ích.
+    return jsonify({'success': True, 'result': outcome})
 
 @app.route('/transaction/<int:contract_id>', methods=['GET', 'POST'])
 @login_required
@@ -10643,7 +10735,8 @@ def transaction_detail(contract_id):
 
         return redirect(url_for('transaction_detail', contract_id=contract.id))
 
-    return render_template('transaction_detail.html', contract=contract)
+    from services import lifecycle
+    return render_template('transaction_detail.html', contract=contract, money=lifecycle.panel_context(contract))
 
 @app.route('/contract/<int:contract_id>/<action>', methods=['POST'])
 @login_required
@@ -10692,6 +10785,91 @@ def approve_contract(contract_id):
             except ProjectError as e:
                 flash(e.message, 'error')
     return redirect(url_for('transaction_detail', contract_id=contract.id))
+
+
+# ─── VÒNG ĐỜI TIỀN: BẮT ĐẦU, SỬA BÀI, HỦY, TRANH CHẤP (điều khoản mục 4 đến 8) ──────
+
+def _contract_action(contract_id, action, success_message):
+    """Chạy một thao tác vòng đời trên hợp đồng đã khóa dòng; lỗi nghiệp vụ hiện thành thông báo."""
+    from services import lifecycle, payments
+    from services.permissions import require_contract_access
+    contract = Contract.query.with_for_update().filter_by(id=contract_id).first_or_404()
+    require_contract_access(session['user_id'], contract)
+    try:
+        result = action(contract)
+        db.session.commit()
+        if success_message:
+            flash(success_message, 'success')
+        return result
+    except (lifecycle.LifecycleError, payments.PaymentError) as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    return None
+
+
+def _back_to_contract(contract_id):
+    return redirect(url_for('transaction_detail', contract_id=contract_id))
+
+
+def _notify_contract(contract, user_id, title, message):
+    create_notification(user_id=user_id, notification_type='CONTRACT_UPDATE', title=title, message=message,
+                        url=url_for('transaction_detail', contract_id=contract.id), related_contract_id=contract.id)
+
+
+@app.route('/contract/<int:contract_id>/start', methods=['POST'])
+@login_required
+def contract_start(contract_id):
+    from services import lifecycle
+    _contract_action(contract_id,
+                     lambda c: lifecycle.start_work(c, session['user_id']),
+                     'Đã ghi nhận bạn bắt đầu làm việc.')
+    return _back_to_contract(contract_id)
+
+
+@app.route('/contract/<int:contract_id>/cancel', methods=['POST'])
+@login_required
+def contract_cancel(contract_id):
+    from services import lifecycle
+    refund_to = 'original' if request.form.get('refund_to') == 'original' else 'wallet'
+
+    def action(c):
+        kind, _result = lifecycle.cancel_by_hirer(c, session['user_id'], refund_to=refund_to)
+        if kind == 'cancelled':
+            _notify_contract(c, c.translator_id, 'Khách đã hủy hợp đồng', 'Khách đã hủy hợp đồng.')
+        return kind
+    kind = _contract_action(contract_id, action, None)
+    if kind == 'cancelled':
+        flash('Đã hủy hợp đồng. Tiền hoàn được ghi theo chính sách hủy.', 'success')
+    elif kind == 'dispute':
+        flash('Phiên dịch viên đang làm việc nên sàn sẽ phân xử mức hoàn tiền. Vui lòng gửi khiếu nại, tiền được giữ trong lúc chờ.', 'info')
+        return redirect(url_for('dispute_new', contract_id=contract_id))
+    return _back_to_contract(contract_id)
+
+
+@app.route('/contract/<int:contract_id>/cancel-late', methods=['POST'])
+@login_required
+def contract_cancel_late(contract_id):
+    from services import lifecycle
+    _contract_action(contract_id,
+                     lambda c: lifecycle.cancel_for_late_delivery(c, session['user_id']),
+                     'Đã hủy vì phiên dịch viên trễ hạn. Bạn được hoàn 100% về phương thức thanh toán gốc.')
+    return _back_to_contract(contract_id)
+
+
+@app.route('/contract/<int:contract_id>/translator-cancel', methods=['POST'])
+@login_required
+def contract_translator_cancel(contract_id):
+    from services import lifecycle
+
+    def action(c):
+        if session['user_id'] != c.translator_id:
+            abort(403)
+        lifecycle.cancel_by_translator(c)
+        _notify_contract(c, c.hirer_id, 'Phiên dịch viên đã hủy',
+                         'Phiên dịch viên đã hủy hợp đồng. Bạn được hoàn 100% kể cả phí dịch vụ.')
+    _contract_action(contract_id, action, 'Đã hủy hợp đồng. Khách được hoàn 100% và vi phạm (nếu có) được ghi theo điều khoản.')
+    return _back_to_contract(contract_id)
+
 
 @app.route('/submit-review/<int:contract_id>', methods=['POST'])
 @login_required
@@ -12485,14 +12663,21 @@ def admin_payments():
 @csrf_protected
 @require_permission('refund_payment')
 def admin_refund_payment(payment_id):
+    """Hoàn 100% khoản đang giữ về phương thức gốc, ghi sổ đầy đủ, miễn hoa hồng."""
+    from services import lifecycle
     p = PaymentTransaction.query.get_or_404(payment_id)
-    if p.status != 'escrow_pending' and p.status != 'completed':
-        flash('Chỉ có thể hoàn tiền các giao dịch ở trạng thái escrow_pending hoặc completed.', 'error')
+    if p.kind != 'deposit' or p.status != 'escrow_pending' or p.contract is None:
+        flash('Chỉ hoàn tiền được khoản đang giữ (escrow). Tiền đã giải ngân cho phiên dịch viên thì không hoàn.', 'error')
         return redirect(url_for('admin_payments'))
-        
-    p.status = 'refunded'
+
+    try:
+        lifecycle.settle(p.contract, 100, refund_fee=True, refund_to='original', waive_commission=True,
+                         cancelled_by='admin', reason='Admin hoàn tiền')
+    except lifecycle.LifecycleError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+        return redirect(url_for('admin_payments'))
     if p.contract:
-        p.contract.status = 'cancelled' # hoặc trạng thái tương ứng
         for uid_, url_ in ((p.contract.hirer_id, url_for('project_detail', contract_id=p.contract.id)),
                            (p.contract.translator_id, url_for('transaction_detail', contract_id=p.contract.id))):
             create_notification(user_id=uid_, notification_type='PAYMENT_REFUNDED', title='Giao dịch được hoàn tiền',
@@ -12503,11 +12688,55 @@ def admin_refund_payment(payment_id):
         action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
         target_type='payment',
         target_id=p.id,
-        description=f"Admin hoàn tiền giao dịch #{p.id} (Contract #{p.contract_id})",
+        description=f"Admin hoàn 100% giao dịch #{p.id} (Contract #{p.contract_id}) về phương thức gốc",
     )
-    
     db.session.commit()
-    flash('Đã hoàn tiền thành công.', 'success')
+    flash('Đã hoàn tiền. Khoản hoàn về phương thức gốc đang chờ đánh dấu đã chuyển khoản.', 'success')
+    return redirect(url_for('admin_payments'))
+
+
+@app.route('/admin/contracts/<int:contract_id>/translator-no-show', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('resolve_dispute')
+def admin_translator_no_show(contract_id):
+    """Phiên dịch viên không đến: hoàn 100%, voucher 10%, 2 vi phạm. Có giấy tờ ốm đau thì miễn vi phạm."""
+    from services import lifecycle
+    contract = Contract.query.with_for_update().filter_by(id=contract_id).first_or_404()
+    try:
+        lifecycle.cancel_by_translator(contract, no_show=True, excused=request.form.get('excused') == '1')
+        _notify_contract(contract, contract.hirer_id, 'Phiên dịch viên không đến',
+                         'Bạn được hoàn 100% kể cả phí dịch vụ, kèm voucher bồi thường 10% giá hợp đồng.')
+        _audit_log(action=ADMIN_AUDIT_ACTIONS['CANCEL_BOOKING'], target_type='contract', target_id=contract.id,
+                   description=f'Ghi nhận phiên dịch viên không đến, hợp đồng #{contract.id}')
+        db.session.commit()
+        flash('Đã hoàn tiền cho khách và ghi nhận vi phạm.', 'success')
+    except lifecycle.LifecycleError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    return redirect(url_for('admin_contracts'))
+
+@app.route('/admin/payments/<int:payment_id>/complete-withdrawal', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('refund_payment')
+def admin_complete_withdrawal(payment_id):
+    from services import payments
+    p = PaymentTransaction.query.get_or_404(payment_id)
+    try:
+        payments.complete_withdrawal(p)
+    except payments.PaymentError as e:
+        flash(str(e), 'error')
+        return redirect(url_for('admin_payments'))
+
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
+        target_type='payment',
+        target_id=p.id,
+        description=f"Admin xác nhận đã chuyển khoản rút tiền #{p.id} ({p.amount}đ) cho user #{p.payee_id}",
+    )
+    db.session.commit()
+    flash('Đã đánh dấu yêu cầu rút tiền hoàn tất.', 'success')
     return redirect(url_for('admin_payments'))
 
 @app.route('/admin/notifications')
@@ -13464,9 +13693,16 @@ def cron_release_expired():
         return jsonify({'error': 'Unauthorized'}), 401
 
     from services.scheduling import release_expired
+    from services import lifecycle
+
+    def notify(user_id, notification_type, title, message, contract_id):
+        create_notification(user_id=user_id, notification_type='CONTRACT_UPDATE', title=title, message=message,
+                            url=f'/transaction/{contract_id}', related_contract_id=contract_id)
     try:
         count = release_expired()
-        return jsonify({'success': True, 'released_count': count})
+        stats = lifecycle.run_scheduled_jobs(notify=notify)
+        db.session.commit()
+        return jsonify({'success': True, 'released_count': count, **stats})
     except Exception as e:
         app.logger.error("Lỗi khi chạy cron release_expired: %s", e)
         return jsonify({'error': str(e)}), 500

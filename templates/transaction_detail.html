@@ -158,6 +158,8 @@
             <!-- Left Column: Shift Information & Stepper -->
             <div class="w-full lg:w-7/12 space-y-6">
 
+                {% if contract.status not in ['escrow_pending', 'awaiting_translator'] %}{% include '_contract_money_panel.html' %}{% endif %}
+
                 <!-- Shift Overview Card -->
                 <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-7">
                     <div class="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-4">

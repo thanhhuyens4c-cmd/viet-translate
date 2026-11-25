@@ -13,6 +13,24 @@ class BookingConflictError(Exception):
 class BookingValidationError(Exception):
     pass
 
+def job_needs_time_slot(job, scheduled_date, start_time, end_time):
+    """Dịch tài liệu chỉ có hạn nộp bài, không chiếm một khung giờ cố định của phiên dịch viên.
+
+    Chỉ bỏ qua giữ chỗ khi đó là job dịch viết và không ghi ngày giờ nào. Phiên dịch
+    (hoặc job dịch viết có ghi ngày giờ) vẫn bắt buộc có lịch hợp lệ.
+    """
+    is_document = job is not None and job.display_category_group == 'translation'
+    has_any_time = any((scheduled_date, start_time, end_time))
+    return not (is_document and not has_any_time)
+
+
+def contract_has_no_time_slot(contract):
+    """True nếu hợp đồng dịch tài liệu không có lịch giữ chỗ (nên không cần xác nhận lịch khi thanh toán)."""
+    if contract.job is None or contract.job.display_category_group != 'translation':
+        return False
+    return TranslatorSchedule.query.filter_by(contract_id=contract.id).first() is None
+
+
 def create_contract_booking(
     *,
     hirer_id,
@@ -82,6 +100,10 @@ def create_contract_booking(
         )
         db.session.add(contract)
         db.session.flush()
+
+        # Chốt số lượng, đơn giá và phí ngay lúc tạo hợp đồng.
+        from services.payments import ensure_pricing_snapshot
+        ensure_pricing_snapshot(contract)
 
         from services.scheduling import reserve_slot, SlotTakenError
         from services.schedule import parse_job_all_schedule_entries

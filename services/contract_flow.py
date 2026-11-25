@@ -104,16 +104,28 @@ def cancel_contract(contract, user_id):
 
     by_hirer = user_id == contract.hirer_id
     pct = 0
-    if contract.status == 'in_progress':
-        pct = refund_percent(contract, by_hirer)
-        pay = (PaymentTransaction.query.filter_by(contract_id=contract.id)
-               .filter(PaymentTransaction.status.in_(['escrow_pending', 'completed']))
-               .first())
-        if pay:
-            if pct == 100:
-                pay.status = 'refunded'
-            # hoàn một phần/không hoàn: giữ trạng thái, ghi tỷ lệ để admin đối soát
-            pay.transaction_ref = f'cancel:refund={pct}%'
+    if contract.status in ('in_progress', 'revision_requested'):
+        # Tiền đang được sàn giữ: chia theo điều khoản (mục 5 đến 7) và ghi vào sổ giao dịch.
+        from services import lifecycle
+        try:
+            if by_hirer:
+                kind, _ = lifecycle.cancel_by_hirer(contract, user_id)
+                if kind == 'dispute':
+                    raise ContractFlowError('Phiên dịch viên đang làm việc nên sàn cần phân xử mức hoàn. Vui lòng gửi khiếu nại.')
+                pct = lifecycle.hirer_cancel_percent_applied(contract)
+            else:
+                lifecycle.cancel_by_translator(contract)
+                pct = 100
+        except lifecycle.LifecycleError as e:
+            raise ContractFlowError(str(e))
+        other_id = contract.translator_id if by_hirer else contract.hirer_id
+        who = contract.hirer.name if by_hirer else contract.translator.name
+        msg = f'{who} đã hủy hợp đồng #{contract.id}.'
+        if by_hirer and pct:
+            msg += f' Hoàn tiền cho khách: {pct}%.'
+        _notify(other_id, 'CONTRACT_CANCELLED', 'Hợp đồng đã bị hủy', msg, contract.id)
+        db.session.commit()
+        return pct
 
     contract.status = 'cancelled'
     cancel_slot(contract.id)

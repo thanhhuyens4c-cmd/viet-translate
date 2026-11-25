@@ -160,8 +160,10 @@ def accept_delivery(contract_id, hirer_id):
         db.session.rollback()
         raise ProjectError('Dự án vừa được xử lý bởi thao tác khác.', 409)
     try:
-        for pay in PaymentTransaction.query.filter_by(contract_id=c.id, status='escrow_pending').all():
-            pay.status = 'completed'
+        # Ghi sổ: giải ngân phần của phiên dịch viên, sàn giữ phí và hoa hồng (khớp đúng số khách đã nạp).
+        from services import payments
+        payments.release_funds(c)
+        c.auto_release_at = None
         c = db.session.get(Contract, contract_id)
         if c.job:
             c.job.status = 'completed'
@@ -192,6 +194,11 @@ def request_revision(contract_id, hirer_id, note):
         raise ProjectError('Dự án không ở trạng thái cho phép yêu cầu chỉnh sửa.', 409)
     if Deliverable.query.filter_by(contract_id=c.id).count() == 0:
         raise ProjectError('Phiên dịch viên chưa bàn giao tệp nào.', 409)
+    from services import lifecycle
+    try:
+        lifecycle.note_revision_requested(c)   # tối đa 2 lần sửa miễn phí, dừng đồng hồ tự giải ngân
+    except lifecycle.LifecycleError as e:
+        raise ProjectError(str(e), 409)
     claimed = (Contract.query.filter(Contract.id == c.id, Contract.status == 'in_progress')
                .update({'status': 'revision_requested', 'updated_at': datetime.utcnow()}, synchronize_session=False))
     if claimed != 1:
@@ -213,6 +220,8 @@ def request_revision(contract_id, hirer_id, note):
 
 def record_delivery(contract, actor_id):
     """Gọi khi phiên dịch viên tải tệp bàn giao (trong cùng transaction với lưu Deliverable)."""
+    from services import lifecycle
+    lifecycle.register_delivery(contract)   # mốc nộp bài và hạn tự giải ngân, tính lại sau mỗi lần nộp
     if contract.status == 'revision_requested':
         contract.status = 'in_progress'
         log_event(contract.id, actor_id, 'redelivered')

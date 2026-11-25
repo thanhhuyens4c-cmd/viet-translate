@@ -101,38 +101,18 @@ def _save_evidence(d, files, uploader_id, side):
 
 
 def apply_resolution(d, resolution, note, admin_id):
-    """Kết luận khiếu nại và điều chỉnh khoản thanh toán theo kết quả. Chạy trong 1 transaction."""
+    """Kết luận khiếu nại và chia tiền qua sổ giao dịch. Chạy trong 1 transaction."""
+    from services import lifecycle
+    if resolution not in Dispute.RESOLUTIONS:
+        raise ValueError('resolution')
     c = d.contract
     original = c.agreed_price
-    pays = PaymentTransaction.query.filter(
-        PaymentTransaction.contract_id == c.id,
-        PaymentTransaction.status.in_(('escrow_pending', 'completed'))).all()
-
-    if resolution == 'keep_100':
-        final = original
-        if c.status in ('in_progress', 'delivered', 'revision_requested'):
-            c.status = 'completed'
-            for p in pays:
-                p.status = 'completed'
-    elif resolution == 'refund_50':
-        final = original // 2
-        c.agreed_price = final
-        if c.status in ('in_progress', 'delivered', 'revision_requested'):
-            c.status = 'completed'
-        for p in pays:
-            p.amount = final
-            p.status = 'completed'
-            p.transaction_ref = f'dispute:{d.id}:50%'
-    elif resolution == 'cancel_payment':
-        final = 0
-        c.status = 'cancelled'
-        for p in pays:
-            p.status = 'refunded'
-            p.transaction_ref = f'dispute:{d.id}:refund'
-        if getattr(c, 'schedule', None):
-            c.schedule.status = 'cancelled'
+    # Hợp đồng còn giữ tiền thì mới chia lại tiền; còn lại chỉ ghi kết luận.
+    if c.status in ('in_progress', 'delivered', 'revision_requested', 'escrow_paid'):
+        c.status = 'in_progress'
+        final = lifecycle.apply_dispute_resolution(c, resolution, d.id)
     else:
-        raise ValueError('resolution')
+        final = {'keep_100': original, 'refund_50': original // 2, 'cancel_payment': 0}[resolution]
 
     d.resolution = resolution
     d.resolution_note = note or None

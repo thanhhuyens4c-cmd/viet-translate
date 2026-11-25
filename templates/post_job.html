@@ -160,6 +160,22 @@
         <!-- Bước 3 -->
         <section data-step="3" class="space-y-4 hidden">
             <h2 class="text-lg font-bold text-slate-900">Ngân sách &amp; deadline</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="{{ label_cls }}" for="quantity">Khối lượng công việc</label>
+                    <input type="number" id="quantity" name="quantity" min="1" value="{{ v.get('quantity') or 1 }}" {{ 'disabled' if locked }}
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50" placeholder="VD: 12">
+                </div>
+                <div>
+                    <label class="{{ label_cls }}" for="pricing_unit">Đơn vị tính</label>
+                    <select id="pricing_unit" name="pricing_unit" {{ 'disabled' if locked }}
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50">
+                        {% for val, lab in [('page', 'Trang (dịch tài liệu)'), ('hour', 'Giờ (phiên dịch)'), ('day', 'Ngày (hội nghị)'), ('flat', 'Trọn gói')] %}
+                        <option value="{{ val }}" {{ 'selected' if v.get('pricing_unit') == val }}>{{ lab }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
             <div>
                 <span class="{{ label_cls }}">Hình thức ngân sách</span>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
