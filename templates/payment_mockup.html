@@ -59,6 +59,7 @@
                     {% endif %}
                     {% if not live %}
                     <form method="POST" action="{{ url_for('payment_mockup', contract_id=contract.id) }}" class="p-5 sm:p-6 space-y-5">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
                         <!-- Card UI Mockup -->
                         <div class="space-y-4">

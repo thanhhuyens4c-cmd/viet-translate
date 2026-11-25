@@ -10559,6 +10559,9 @@ def payment_mockup(contract_id):
     live = bank_transfer.is_live()
     if request.method == 'POST':
         # Chế độ live: tiền chỉ được ghim khi ngân hàng báo về qua webhook, không có nút thanh toán giả.
+        if not _csrf_ok():
+            flash('Phiên làm việc không hợp lệ. Vui lòng thử lại.', 'error')
+            return redirect(url_for('payment_mockup', contract_id=contract.id))
         if live or session['user_id'] != contract.hirer_id:
             flash('Vui lòng chuyển khoản theo mã QR. Hợp đồng được kích hoạt tự động khi sàn nhận đủ tiền.', 'error')
             return redirect(url_for('payment_mockup', contract_id=contract.id))
@@ -10795,6 +10798,9 @@ def _contract_action(contract_id, action, success_message):
     """Chạy một thao tác vòng đời trên hợp đồng đã khóa dòng; lỗi nghiệp vụ hiện thành thông báo."""
     from services import lifecycle, payments
     from services.permissions import require_contract_access
+    if not _csrf_ok():
+        flash('Phiên làm việc không hợp lệ. Vui lòng thử lại.', 'error')
+        return None
     contract = Contract.query.with_for_update().filter_by(id=contract_id).first_or_404()
     require_contract_access(session['user_id'], contract)
     try:

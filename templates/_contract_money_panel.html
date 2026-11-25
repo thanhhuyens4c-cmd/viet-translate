@@ -58,12 +58,14 @@
         {% if is_translator %}
             {% if money.can_start %}
             <form method="POST" action="{{ url_for('contract_start', contract_id=contract.id) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs">Bắt đầu làm việc</button>
                 <p class="text-[11px] text-slate-500 mt-1.5">Sau 12 giờ kể từ khi khách thanh toán, bạn được coi là đã bắt đầu dù chưa bấm.</p>
             </form>
             {% endif %}
             <form method="POST" action="{{ url_for('contract_translator_cancel', contract_id=contract.id) }}"
                 onsubmit="return confirm('Hủy hợp đồng? Khách được hoàn 100% và bạn có thể bị ghi vi phạm. 3 vi phạm trong 12 tháng sẽ khóa tài khoản.');">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="text-red-700 border border-red-200 hover:bg-red-50 font-bold px-5 py-2.5 rounded-xl text-xs">Tôi không thể thực hiện, hủy hợp đồng</button>
             </form>
         {% endif %}
@@ -72,12 +74,14 @@
             {% if money.can_late_cancel %}
             <form method="POST" action="{{ url_for('contract_cancel_late', contract_id=contract.id) }}"
                 onsubmit="return confirm('Phiên dịch viên đã trễ hạn quá 24 giờ. Hủy và nhận hoàn 100% về phương thức thanh toán gốc?');">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs">Trễ hạn quá 24 giờ, hủy và hoàn 100%</button>
             </form>
             {% endif %}
 
             <form method="POST" action="{{ url_for('contract_cancel', contract_id=contract.id) }}"
                 onsubmit="return confirm('Bạn chắc chắn muốn hủy hợp đồng này?');" class="space-y-2">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 {% if money.cancel_percent is not none %}
                 <p class="text-xs text-slate-600">Hủy bây giờ: hoàn <strong>{{ money.cancel_percent }}%</strong> giá hợp đồng
                     ({{ money.cancel_refund_amount|vnd }}đ){% if money.cancel_percent > 0 %} và hoàn phí dịch vụ 2%{% endif %}.

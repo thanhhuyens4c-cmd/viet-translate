@@ -112,7 +112,8 @@ class BankTransferTests(unittest.TestCase):
     def test_live_mode_blocks_the_fake_pay_button(self):
         with self.client.session_transaction() as s:
             s['user_id'] = self.h.id
-        r = self.client.post(f'/payment-mockup/{self.cid}')
+            s['admin_csrf_token'] = 'tok'
+        r = self.client.post(f'/payment-mockup/{self.cid}', data={'_csrf_token': 'tok'})
         self.assertEqual(r.status_code, 302)
         self.assertEqual(self.contract().status, 'escrow_pending')
         self.assertEqual(PaymentTransaction.query.filter_by(contract_id=self.cid).count(), 0)
@@ -155,12 +156,23 @@ class BankTransferTests(unittest.TestCase):
         os.environ['PAYMENT_MODE'] = 'sandbox'
         with self.client.session_transaction() as s:
             s['user_id'] = self.t.id
-        self.client.post(f'/payment-mockup/{self.cid}')
+            s['admin_csrf_token'] = 'tok'
+        self.client.post(f'/payment-mockup/{self.cid}', data={'_csrf_token': 'tok'})
         self.assertEqual(self.contract().status, 'escrow_pending')      # phiên dịch viên không tự "thanh toán" được
         with self.client.session_transaction() as s:
             s['user_id'] = self.h.id
-        self.client.post(f'/payment-mockup/{self.cid}')
+            s['admin_csrf_token'] = 'tok'
+        self.client.post(f'/payment-mockup/{self.cid}', data={'_csrf_token': 'tok'})
         self.assertEqual(self.contract().status, 'in_progress')
+
+    def test_payment_post_without_csrf_token_is_rejected(self):
+        os.environ['PAYMENT_MODE'] = 'sandbox'
+        with self.client.session_transaction() as s:
+            s['user_id'] = self.h.id
+            s['admin_csrf_token'] = 'tok'
+        self.client.post(f'/payment-mockup/{self.cid}')
+        self.client.post(f'/payment-mockup/{self.cid}', data={'_csrf_token': 'sai'})
+        self.assertEqual(self.contract().status, 'escrow_pending')
 
     def test_status_endpoint_flips_after_payment(self):
         with self.client.session_transaction() as s:

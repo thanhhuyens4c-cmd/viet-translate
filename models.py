@@ -1246,6 +1246,11 @@ class Contract(db.Model):
     messages = db.relationship('Message', backref='contract', lazy=True, cascade='all, delete-orphan')
     deliverables = db.relationship('Deliverable', backref='contract', lazy=True, cascade='all, delete-orphan')
     reviews = db.relationship('Review', backref='contract', lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def schedule(self):
+        """Lịch giữ chỗ đầu tiên của hợp đồng (app.py và contract_flow.py dùng `contract.schedule`)."""
+        return TranslatorSchedule.query.filter_by(contract_id=self.id).order_by(TranslatorSchedule.id).first()
     service = db.relationship('Service', backref='contracts')
     interpreter_service = db.relationship('InterpreterService', backref='contracts')
 

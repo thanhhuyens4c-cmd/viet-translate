@@ -462,5 +462,22 @@ class AdminRefundAndWithdrawalTests(LifecycleBase):
         self.assertEqual(pricing.compute_commission(2_160_000), 216_000)
 
 
+class CsrfOnContractActionsTests(LifecycleBase):
+    def test_cancel_and_start_require_csrf_token(self):
+        c = self.funded_contract()
+        db.session.commit()
+        cl = app.test_client()
+        with cl.session_transaction() as s:
+            s['user_id'] = self.hirer.id
+            s['admin_csrf_token'] = 'tok'
+        cl.post(f'/contract/{c.id}/cancel', data={'refund_to': 'wallet'})                       # thiếu token
+        cl.post(f'/contract/{c.id}/cancel', data={'refund_to': 'wallet', '_csrf_token': 'x'})    # sai token
+        db.session.expire_all()
+        self.assertEqual(Contract.query.get(c.id).status, 'in_progress')
+        cl.post(f'/contract/{c.id}/cancel', data={'refund_to': 'wallet', '_csrf_token': 'tok'})
+        db.session.expire_all()
+        self.assertEqual(Contract.query.get(c.id).status, 'cancelled')
+
+
 if __name__ == '__main__':
     unittest.main()
