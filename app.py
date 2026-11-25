@@ -1743,10 +1743,23 @@ def inject_globals():
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
     if current_lang not in ('vi', 'en'):
         current_lang = 'vi'
+    saved_jobs_count = 0
+    if user and getattr(user, 'role', None) == 'translator':
+        try:
+            saved_jobs_count = (
+                SavedJob.query
+                .join(Job, SavedJob.job_id == Job.id)
+                .filter(SavedJob.user_id == user.id)
+                .count()
+            )
+        except Exception:
+            db.session.rollback()
+            saved_jobs_count = 0
     return dict(
         current_user=user,
         LANGUAGES=get_localized_languages(current_lang),
         current_lang=current_lang,
+        saved_jobs_count=saved_jobs_count,
         t=lambda key, **kwargs: t_lookup(key, current_lang, **kwargs),
         lang_name=lambda name: get_language_display_name(name, current_lang)
     )
@@ -9391,6 +9404,22 @@ def applied_jobs():
     return redirect(url_for('job_statistics', **args))
 
 
+@app.route('/saved-jobs', endpoint='saved_jobs')
+@login_required
+def saved_jobs():
+    """Điểm truy cập chuẩn cho danh sách công việc đã lưu của phiên dịch viên."""
+    user = get_current_user()
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('index'))
+    if user.role != 'translator':
+        flash('Trang này dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('my_jobs'))
+    args = dict(request.args)
+    args['tab'] = 'saved'
+    return redirect(url_for('job_statistics', **args))
+
+
 @app.route('/api/proposals/<int:proposal_id>/withdraw', methods=['POST'])
 @login_required
 def api_withdraw_proposal(proposal_id):
@@ -10273,20 +10302,27 @@ def api_toggle_save_job(job_id):
     if saved:
         db.session.delete(saved)
         db.session.commit()
-        return jsonify({
-            'success': True,
-            'saved': False,
-            'message': 'Đã bỏ lưu công việc thành công.'
-        })
+        is_saved = False
+        msg = 'Đã bỏ lưu công việc thành công.'
     else:
         new_save = SavedJob(user_id=user.id, job_id=job.id)
         db.session.add(new_save)
         db.session.commit()
-        return jsonify({
-            'success': True,
-            'saved': True,
-            'message': 'Đã lưu công việc thành công.'
-        })
+        is_saved = True
+        msg = 'Đã lưu công việc thành công.'
+
+    saved_count = (
+        SavedJob.query
+        .join(Job, SavedJob.job_id == Job.id)
+        .filter(SavedJob.user_id == user.id)
+        .count()
+    )
+    return jsonify({
+        'success': True,
+        'saved': is_saved,
+        'saved_count': saved_count,
+        'message': msg
+    })
 
 
 @app.route('/api/jobs/<int:job_id>/schedule-check', methods=['GET'])

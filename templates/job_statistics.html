@@ -139,7 +139,6 @@
                     </span>
                 </a>
 
-                {% if tab == 'saved' or tab_counts.saved > 0 %}
                 <!-- Đã lưu -->
                 <a href="{{ url_for('job_statistics', tab='saved') }}"
                     class="py-3 px-1 border-b-2 transition flex items-center gap-1.5
@@ -149,7 +148,6 @@
                         {{ tab_counts.saved }}
                     </span>
                 </a>
-                {% endif %}
             </nav>
         </div>
 
@@ -686,6 +684,8 @@
             <h3 class="text-sm sm:text-base font-semibold text-slate-900">
                 {% if search_query or (status_filter and status_filter != 'all') or (acceptance_filter and acceptance_filter != 'all') %}
                 Không tìm thấy công việc phù hợp
+                {% elif tab == 'saved' %}
+                Chưa có công việc nào được lưu
                 {% else %}
                 Chưa có công việc nào
                 {% endif %}
@@ -693,6 +693,8 @@
             <p class="text-xs text-slate-500 mt-1">
                 {% if search_query or (status_filter and status_filter != 'all') or (acceptance_filter and acceptance_filter != 'all') %}
                 Thử xóa từ khóa tìm kiếm hoặc bấm "Xóa bộ lọc" để xem danh sách đầy đủ.
+                {% elif tab == 'saved' %}
+                Nhấn nút "Lưu tin" ở trang chi tiết công việc để lưu lại và xem nhanh tại đây.
                 {% else %}
                 Theo dõi việc làm mới trên hệ thống để nộp đơn ứng tuyển.
                 {% endif %}

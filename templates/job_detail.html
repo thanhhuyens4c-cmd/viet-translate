@@ -1069,6 +1069,12 @@
                             ? '<svg class="w-4 h-4 text-amber-500 fill-amber-500 inline mr-1" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg> <span>Đã lưu công việc</span>'
                             : '<svg class="w-4 h-4 text-slate-400 fill-none inline mr-1" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg> <span>Lưu công việc</span>';
                     }
+                    if (typeof data.saved_count === 'number') {
+                        document.querySelectorAll('[data-saved-jobs-badge]').forEach(el => {
+                            el.textContent = data.saved_count;
+                            el.classList.toggle('hidden', data.saved_count <= 0);
+                        });
+                    }
                 }
             })
             .catch(err => {

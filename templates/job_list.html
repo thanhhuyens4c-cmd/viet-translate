@@ -113,6 +113,14 @@
           <span>{{ t('job_list_page.post_job_cta') }}</span>
         </a>
       </div>
+      {% elif current_user.is_authenticated and current_user.role == 'translator' %}
+      <div class="shrink-0">
+        <a href="{{ url_for('saved_jobs') }}" class="inline-flex items-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-semibold text-xs sm:text-sm px-4 py-2 rounded-xl transition shadow-2xs">
+          <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+          <span>Công việc đã lưu</span>
+          <span data-saved-jobs-badge class="inline-flex items-center justify-center text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-200/70 text-amber-900 {% if not saved_jobs_count %}hidden{% endif %}">{{ saved_jobs_count or 0 }}</span>
+        </a>
+      </div>
       {% endif %}
     </div>
   </div>

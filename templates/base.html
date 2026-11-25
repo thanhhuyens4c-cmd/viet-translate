@@ -334,7 +334,8 @@
     {% set is_interp_overview = request.endpoint == 'interpreter_dashboard' %}
     {% set is_interp_browse = request.endpoint in ['job_list', 'jobs', 'job_detail'] and not request.args.get('recommended') %}
     {% set is_interp_rec = request.endpoint in ['job_list', 'jobs'] and request.args.get('recommended') %}
-    {% set is_interp_stats = request.endpoint in ['job_statistics', 'job_stats', 'applied_jobs', 'accepted_jobs', 'completed_jobs'] %}
+    {% set is_interp_saved = request.endpoint == 'saved_jobs' or (request.endpoint in ['job_statistics', 'job_stats'] and (request.args.get('tab') == 'saved' or request.args.get('filter') == 'saved')) %}
+    {% set is_interp_stats = request.endpoint in ['job_statistics', 'job_stats', 'applied_jobs', 'accepted_jobs', 'completed_jobs'] and not is_interp_saved %}
     {% set is_interp_schedule = request.endpoint == 'my_schedule' %}
     {% set is_interp_income = request.endpoint and request.endpoint.startswith('interpreter_income_') %}
     {% set is_interp_account = request.endpoint in ['account_profile', 'profile', 'account_overview', 'account_history', 'verification_form', 'verification_status_page', 'verification_revision_page', 'verification_notifications_page'] %}
@@ -924,6 +925,14 @@
                         <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
                         <span>Việc phù hợp</span>
                     </a>
+                    <a href="{{ url_for('saved_jobs') }}"
+                        class="block px-3 py-2 rounded-lg text-sm font-semibold {% if is_interp_saved %}text-brand-600 bg-white shadow-xs font-bold{% else %}text-slate-700 hover:bg-white hover:text-brand-600{% endif %} flex items-center justify-between gap-2">
+                        <span class="flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 {% if is_interp_saved %}text-brand-600{% else %}text-amber-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                            <span>Công việc đã lưu</span>
+                        </span>
+                        <span data-saved-jobs-badge class="text-[11px] font-bold px-1.5 py-0.5 rounded-full {% if is_interp_saved %}bg-brand-50 text-brand-700{% else %}bg-amber-50 text-amber-700{% endif %} {% if not saved_jobs_count %}hidden{% endif %}">{{ saved_jobs_count or 0 }}</span>
+                    </a>
                     <a href="{{ url_for('job_statistics') }}"
                         class="block px-3 py-2 rounded-lg text-sm font-semibold {% if is_interp_stats %}text-brand-600 bg-white shadow-xs font-bold{% else %}text-slate-700 hover:bg-white hover:text-brand-600{% endif %} flex items-center gap-2">
                         <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
@@ -1168,6 +1177,13 @@
                 <a href="{{ url_for('job_list', recommended=1) }}" class="side-link {% if is_interp_rec %}active{% endif %}">
                     <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
                     <span>Việc phù hợp</span>
+                </a>
+                <a href="{{ url_for('saved_jobs') }}" class="side-link justify-between {% if is_interp_saved %}active{% endif %}">
+                    <span class="flex items-center gap-[0.65rem] min-w-0">
+                        <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                        <span class="truncate">Công việc đã lưu</span>
+                    </span>
+                    <span data-saved-jobs-badge class="ml-auto text-[11px] font-bold px-1.5 py-0.5 rounded-full {% if is_interp_saved %}bg-brand-100 text-brand-700{% else %}bg-amber-50 text-amber-700{% endif %} {% if not saved_jobs_count %}hidden{% endif %}">{{ saved_jobs_count or 0 }}</span>
                 </a>
                 <a href="{{ url_for('job_statistics') }}" class="side-link {% if is_interp_stats %}active{% endif %}">
                     <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
