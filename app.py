@@ -1019,6 +1019,15 @@ def _ensure_columns(table, cols):
 def _ensure_job_columns():
     _ensure_columns('job', {'specialty': 'VARCHAR(100)', 'word_count': 'INTEGER', 'extra_requirements': 'TEXT',
                             'updated_at': 'TIMESTAMP', 'closed_at': 'TIMESTAMP'})
+    # Giá chung và vòng đời tiền (xem migrations/migration_add_unified_pricing.sql, migration_add_money_lifecycle.sql)
+    _ensure_columns('job', {'pricing_unit': 'VARCHAR(20)', 'quantity': 'INTEGER'})
+    _ensure_columns('contract', {
+        'pricing_unit': 'VARCHAR(20)', 'quantity': 'INTEGER', 'unit_price': 'INTEGER',
+        'client_fee': 'INTEGER', 'commission': 'INTEGER', 'translator_net': 'INTEGER',
+        'refund_policy': 'VARCHAR(20)', 'paid_at': 'TIMESTAMP', 'started_at': 'TIMESTAMP',
+        'delivered_at': 'TIMESTAMP', 'auto_release_at': 'TIMESTAMP', 'release_reminded_at': 'TIMESTAMP',
+        'revisions_used': 'INTEGER DEFAULT 0', 'cancelled_by': 'VARCHAR(20)', 'cancel_reason': 'VARCHAR(255)'})
+    _ensure_columns('payment_transaction', {'kind': "VARCHAR(20) NOT NULL DEFAULT 'deposit'", 'payee_id': 'INTEGER'})
     _ensure_columns('proposal', {'scope': 'TEXT', 'delivery_terms': 'TEXT', 'revision_terms': 'TEXT',
                                  'valid_until': 'DATE', 'responded_at': 'TIMESTAMP', 'response_note': 'TEXT'})
     _ensure_columns('translator_schedule', {'schedule_type': "VARCHAR(20) DEFAULT 'shift'",
