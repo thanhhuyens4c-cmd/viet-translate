@@ -9301,7 +9301,7 @@ def job_statistics():
                     'data': j,
                     'created_at': j.created_at or datetime.min,
                     'sort_date': j.created_at or datetime.min,
-                    'price': j.budget or 0,
+                    'price': (j.budget_max or j.budget_min or 0),
                     'title': j.title
                 })
 
@@ -9407,7 +9407,7 @@ def applied_jobs():
 @app.route('/saved-jobs', endpoint='saved_jobs')
 @login_required
 def saved_jobs():
-    """Điểm truy cập chuẩn cho danh sách công việc đã lưu của phiên dịch viên."""
+    """Trang hiển thị danh sách công việc đã lưu đơn giản dành cho phiên dịch viên."""
     user = get_current_user()
     if not user:
         flash(_t('flash.account_not_found'), 'error')
@@ -9415,9 +9415,30 @@ def saved_jobs():
     if user.role != 'translator':
         flash('Trang này dành riêng cho tài khoản phiên dịch viên.', 'warning')
         return redirect(url_for('my_jobs'))
-    args = dict(request.args)
-    args['tab'] = 'saved'
-    return redirect(url_for('job_statistics', **args))
+
+    try:
+        saved_records = (
+            SavedJob.query
+            .join(Job, SavedJob.job_id == Job.id)
+            .filter(SavedJob.user_id == user.id)
+            .order_by(SavedJob.created_at.desc())
+            .all()
+        )
+    except Exception:
+        db.session.rollback()
+        saved_records = []
+
+    applied_job_ids = {
+        p.job_id
+        for p in Proposal.query.filter_by(translator_id=user.id).with_entities(Proposal.job_id).all()
+        if p.job_id
+    }
+
+    return render_template(
+        'saved_jobs.html',
+        saved_records=saved_records,
+        applied_job_ids=applied_job_ids,
+    )
 
 
 @app.route('/api/proposals/<int:proposal_id>/withdraw', methods=['POST'])

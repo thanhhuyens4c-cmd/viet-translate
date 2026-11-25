@@ -611,7 +611,18 @@
                         </a>
                     </h3>
                     <div class="text-xs text-slate-500 mt-1">
-                        Ngân sách: <strong class="text-slate-800 font-medium">{{ "{:,.0f}".format(s_job.budget or 0) if s_job.budget else 'Thỏa thuận' }}đ</strong>
+                        Ngân sách:
+                        <strong class="text-slate-800 font-medium">
+                            {% if s_job.budget_type == 'range' and s_job.budget_min and s_job.budget_max %}
+                                {{ s_job.budget_min|vnd }} – {{ s_job.budget_max|vnd }}đ
+                            {% elif s_job.budget_min %}
+                                {{ s_job.budget_min|vnd }}đ
+                            {% elif s_job.budget_max %}
+                                {{ s_job.budget_max|vnd }}đ
+                            {% else %}
+                                Thỏa thuận
+                            {% endif %}
+                        </strong>
                     </div>
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
