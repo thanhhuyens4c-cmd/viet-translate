@@ -349,7 +349,7 @@ def can_user_modify_verification_documents(user, verification):
     return True, None
 
 
-def save_private_document(file_storage, user, doc_type, verification=None):
+def save_private_document(file_storage, user, doc_type, verification=None, replace_doc_id=None, replace_existing=False):
     """
     Lưu tài liệu minh chứng vào vùng lưu trữ riêng tư (Private Storage).
     Thực hiện kiểm tra nghiêm ngặt:
@@ -358,7 +358,9 @@ def save_private_document(file_storage, user, doc_type, verification=None):
     - Kiểm tra loại tệp thực tế qua chữ ký nhị phân (magic bytes)
     - Kiểm tra kích thước tệp thực tế
     - Lưu metadata vào bảng VerificationDocument
-    - Đánh dấu tài liệu cũ cùng loại là 'replaced'
+    - Chỉ đánh dấu tài liệu cũ là 'replaced' khi truyền replace_doc_id (thay thế đích danh)
+      hoặc replace_existing=True (luồng bổ sung/thay thế theo loại tài liệu).
+      Mặc định tải lên thêm sẽ GIỮ NGUYÊN toàn bộ tài liệu đã tải trước đó.
     - Tuyệt đối không coi việc tải lên thành công là đã xác minh
     Trả về: (thành_công: bool, document: VerificationDocument, lỗi: str)
     """
@@ -483,16 +485,27 @@ def save_private_document(file_storage, user, doc_type, verification=None):
         if not supabase_stored:
             return False, None, 'Không thể lưu trữ tệp trên vùng an toàn máy chủ. Vui lòng thử lại.'
 
-    # Đánh dấu các tài liệu cũ của cùng doc_type là 'replaced' và is_active=False
-    existing_active = VerificationDocument.query.filter_by(
-        verification_id=verification.id,
-        document_type=doc_type,
-        is_active=True
-    ).all()
-    for old_doc in existing_active:
-        old_doc.is_active = False
-        old_doc.status = 'replaced'
-        old_doc.updated_at = datetime.utcnow()
+    # Chỉ đánh dấu 'replaced' khi người dùng chủ động thay thế tài liệu
+    if replace_doc_id:
+        old_doc = VerificationDocument.query.filter_by(
+            id=replace_doc_id,
+            user_id=user.id,
+            is_active=True
+        ).first()
+        if old_doc:
+            old_doc.is_active = False
+            old_doc.status = 'replaced'
+            old_doc.updated_at = datetime.utcnow()
+    elif replace_existing:
+        existing_active = VerificationDocument.query.filter_by(
+            verification_id=verification.id,
+            document_type=doc_type,
+            is_active=True
+        ).all()
+        for old_doc in existing_active:
+            old_doc.is_active = False
+            old_doc.status = 'replaced'
+            old_doc.updated_at = datetime.utcnow()
 
     # Tạo bản ghi mới cho VerificationDocument
     # LƯU Ý: Trạng thái mặc định là 'uploaded' - TUYỆT ĐỐI CHƯA PHẢI LÀ 'approved' HAY 'verified'

@@ -4983,12 +4983,12 @@
                                                 </a>
 
                                                 {% if not user.latest_verification or user.latest_verification.status in ('draft', 'rejected', 'needs_revision', 'not_started', None) %}
-                                                <button type="button" onclick="replaceVerificationDoc('{{ doc.document_type }}')"
+                                                <button type="button" onclick='replaceVerificationDoc({{ doc.id }}, {{ doc.document_type | tojson }}, {{ doc.original_filename | tojson }})'
                                                     class="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-amber-600 hover:bg-slate-50 transition" title="Thay thế tệp này">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                                                 </button>
 
-                                                <button type="button" onclick="deleteVerificationDoc({{ doc.id }}, '{{ doc.original_filename }}')"
+                                                <button type="button" onclick='deleteVerificationDoc({{ doc.id }}, {{ doc.original_filename | tojson }})'
                                                     class="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-rose-600 hover:bg-slate-50 transition" title="Xóa tài liệu">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                                 </button>
@@ -5037,13 +5037,26 @@
                                 <p><strong>Đã xác minh:</strong> Hồ sơ của bạn đã được thẩm định thành công. Nếu bạn cần cập nhật thêm chứng chỉ mới, vui lòng liên hệ Ban quản trị để yêu cầu mở lại đợt thẩm định.</p>
                             </div>
                             {% else %}
+                            {% set has_cv_doc = verification_documents and (verification_documents | selectattr('document_type', 'equalto', 'cv') | list | length > 0) %}
                             <div id="doc-upload-box" class="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-5 sm:p-6 space-y-4">
+                                <input type="hidden" id="replace-doc-id" value="">
                                 <div class="flex items-center justify-between">
                                     <h4 id="doc-upload-heading" class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                                         <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                                        <span>Tải Lên Hoặc Thay Thế Tài Liệu Minh Chứng</span>
+                                        <span id="doc-upload-heading-text">Tải Lên Tài Liệu Minh Chứng Mới</span>
                                     </h4>
                                     <span class="text-[10px] text-slate-400 font-medium">Kiểm tra chữ ký máy chủ</span>
+                                </div>
+
+                                <!-- Banner chế độ thay thế tệp đích danh -->
+                                <div id="replace-doc-banner" class="hidden p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                        <span class="truncate">Đang thay thế tệp: <strong id="replace-doc-filename"></strong></span>
+                                    </div>
+                                    <button type="button" onclick="cancelReplaceVerificationDoc()" class="shrink-0 px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 font-semibold text-[11px] transition cursor-pointer">
+                                        Hủy thay thế
+                                    </button>
                                 </div>
 
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -5052,12 +5065,13 @@
                                         <label class="block text-xs font-bold text-slate-700 mb-1">Loại tài liệu được phép <span class="text-rose-500">*</span></label>
                                         <select id="doc-type-select" onchange="onDocTypeChange(this.value)"
                                             class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white font-medium cursor-pointer">
-                                            <option value="cv" selected>Sơ yếu lý lịch (CV / Resume) — Bắt buộc</option>
-                                            <option value="certificate">Bằng cấp / Chứng chỉ ngoại ngữ</option>
+                                            <option value="cv" {% if not has_cv_doc %}selected{% endif %}>Sơ yếu lý lịch (CV / Resume) — Bắt buộc</option>
+                                            <option value="certificate" {% if has_cv_doc %}selected{% endif %}>Bằng cấp / Chứng chỉ ngoại ngữ</option>
                                             <option value="id_card">Căn cước công dân / Hộ chiếu (CCCD)</option>
                                             <option value="diploma">Bằng tốt nghiệp Đại học / Cao đẳng</option>
                                             <option value="recommendation">Thư giới thiệu / Hợp đồng tiêu biểu</option>
                                         </select>
+                                        <p class="text-[11px] text-slate-500 mt-1">Tải lên mới sẽ giữ nguyên các tài liệu đã có (bấm nút thay thế trên thẻ nếu muốn đổi tệp cũ).</p>
                                     </div>
 
                                     <!-- Thẻ chính sách của loại tài liệu -->
@@ -6739,7 +6753,19 @@
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
-    function replaceVerificationDoc(docType) {
+    function replaceVerificationDoc(docId, docType, docName) {
+        const replaceInput = document.getElementById('replace-doc-id');
+        const banner = document.getElementById('replace-doc-banner');
+        const filenameEl = document.getElementById('replace-doc-filename');
+        const headingText = document.getElementById('doc-upload-heading-text');
+        const btnText = document.getElementById('doc-upload-btn-text');
+
+        if (replaceInput) replaceInput.value = docId || '';
+        if (filenameEl) filenameEl.textContent = docName || '';
+        if (banner) banner.classList.remove('hidden');
+        if (headingText) headingText.textContent = 'Thay Thế Tài Liệu Minh Chứng';
+        if (btnText) btnText.textContent = 'Xác nhận thay thế tài liệu';
+
         const select = document.getElementById('doc-type-select');
         if (select) {
             select.value = docType;
@@ -6748,9 +6774,21 @@
         const uploadBox = document.getElementById('doc-upload-box');
         if (uploadBox) {
             uploadBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            uploadBox.classList.add('ring-2', 'ring-brand-500');
-            setTimeout(() => uploadBox.classList.remove('ring-2', 'ring-brand-500'), 1500);
+            uploadBox.classList.add('ring-2', 'ring-amber-400');
+            setTimeout(() => uploadBox.classList.remove('ring-2', 'ring-amber-400'), 1500);
         }
+    }
+
+    function cancelReplaceVerificationDoc() {
+        const replaceInput = document.getElementById('replace-doc-id');
+        const banner = document.getElementById('replace-doc-banner');
+        const headingText = document.getElementById('doc-upload-heading-text');
+        const btnText = document.getElementById('doc-upload-btn-text');
+
+        if (replaceInput) replaceInput.value = '';
+        if (banner) banner.classList.add('hidden');
+        if (headingText) headingText.textContent = 'Tải Lên Tài Liệu Minh Chứng Mới';
+        if (btnText) btnText.textContent = 'Bắt đầu tải lên tài liệu';
     }
 
     function deleteVerificationDoc(docId, docName) {
@@ -6797,6 +6835,10 @@
         const formData = new FormData();
         formData.append('file', file);
         formData.append('document_type', docType);
+        const replaceDocId = document.getElementById('replace-doc-id')?.value;
+        if (replaceDocId) {
+            formData.append('replace_doc_id', replaceDocId);
+        }
 
         uploadBtn.disabled = true;
         btnText.textContent = 'Đang tải lên...';
@@ -6822,7 +6864,8 @@
 
         xhr.onload = function() {
             uploadBtn.disabled = false;
-            btnText.textContent = 'Bắt đầu tải lên tài liệu';
+            const isReplaceMode = Boolean(document.getElementById('replace-doc-id')?.value);
+            btnText.textContent = isReplaceMode ? 'Xác nhận thay thế tài liệu' : 'Bắt đầu tải lên tài liệu';
 
             try {
                 const res = JSON.parse(xhr.responseText);
@@ -6854,7 +6897,8 @@
 
         xhr.onerror = function() {
             uploadBtn.disabled = false;
-            btnText.textContent = 'Bắt đầu tải lên tài liệu';
+            const isReplaceMode = Boolean(document.getElementById('replace-doc-id')?.value);
+            btnText.textContent = isReplaceMode ? 'Xác nhận thay thế tài liệu' : 'Bắt đầu tải lên tài liệu';
             progBox.classList.add('hidden');
             showDocError('Lỗi kết nối mạng trong quá trình tải lên. Vui lòng thử lại.');
         };
@@ -7229,6 +7273,8 @@
     // 7. Validate Client & Submit AJAX
     let profileDobCtrl = null;
     document.addEventListener('DOMContentLoaded', function() {
+        const docSelectEl = document.getElementById('doc-type-select');
+        if (docSelectEl) onDocTypeChange(docSelectEl.value);
         initProfileBioCounter();
         if (window.vtInitDobSelects) {
             profileDobCtrl = window.vtInitDobSelects({

@@ -4769,8 +4769,9 @@ def upload_verification_document():
 
     file = request.files.get('file') or request.files.get('document_file')
     doc_type = request.form.get('document_type') or request.form.get('doc_type')
+    replace_doc_id = request.form.get('replace_doc_id', type=int)
 
-    ok, doc, err = save_private_document(file, user, doc_type=doc_type)
+    ok, doc, err = save_private_document(file, user, doc_type=doc_type, replace_doc_id=replace_doc_id, replace_existing=False)
 
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
 
@@ -5443,11 +5444,15 @@ def verification_revision_upload_document():
         return jsonify({'success': False, 'message': rev_err}), 403
 
     doc_type = request.form.get('document_type')
+    replace_doc_id = request.form.get('replace_doc_id', type=int)
     file = request.files.get('file') or request.files.get('document_file')
     if not file or not file.filename:
         return jsonify({'success': False, 'message': 'Vui lòng chọn tệp tài liệu để tải lên.'}), 400
 
-    ok, doc, err = save_private_document(file, user, doc_type=doc_type, verification=verification)
+    ok, doc, err = save_private_document(
+        file, user, doc_type=doc_type, verification=verification,
+        replace_doc_id=replace_doc_id, replace_existing=(replace_doc_id is None)
+    )
     if not ok:
         return jsonify({'success': False, 'message': err}), 400
 
