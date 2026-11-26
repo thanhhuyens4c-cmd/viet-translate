@@ -1,0 +1,690 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Phòng làm việc' if current_lang == 'vi' else 'Workspace' }} #{{ contract.id }} | VietTranslate{% endblock %}
+
+{% block head %}
+<style>
+    .ws-feed::-webkit-scrollbar { width: 6px; }
+    .ws-feed::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    dialog.ws-modal { padding: 0; border: none; border-radius: 20px; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px); box-shadow: 0 24px 60px -12px rgba(15, 23, 42, .35); }
+    dialog.ws-modal::backdrop { background: rgba(15, 23, 42, .45); backdrop-filter: blur(2px); }
+    .star-rating-input { display: flex; flex-direction: row-reverse; justify-content: center; gap: .35rem; }
+    .star-rating-input input { display: none; }
+    .star-rating-input label { font-size: 1.75rem; color: #cbd5e1; cursor: pointer; transition: color .15s, transform .15s; }
+    .star-rating-input label:hover, .star-rating-input label:hover ~ label, .star-rating-input input:checked ~ label { color: #f59e0b; }
+    #ws-input { max-height: 140px; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set vi = current_lang == 'vi' %}
+{% set is_hirer = role == 'hirer' %}
+{% set is_translator = role == 'translator' %}
+{% set st = contract.status %}
+{% set funded = st in ['in_progress', 'revision_requested'] %}
+{% set frozen = active_dispute is not none %}
+{% set CSRF = csrf_token() %}
+{% set tone_pill = {
+    'awaiting_translator': 'bg-amber-50 text-amber-800 border-amber-200',
+    'pending_payment': 'bg-violet-50 text-violet-800 border-violet-200',
+    'in_progress': 'bg-brand-50 text-brand-800 border-brand-200',
+    'revision_requested': 'bg-orange-50 text-orange-800 border-orange-200',
+    'awaiting_acceptance': 'bg-cyan-50 text-cyan-800 border-cyan-200',
+    'completed': 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    'cancelled': 'bg-slate-100 text-slate-700 border-slate-200'} %}
+{% set field = 'w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent' %}
+{% set btn_primary = 'w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed' %}
+{% set btn_success = 'w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition' %}
+{% set btn_ghost = 'w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition' %}
+{% set link_danger = 'text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline' %}
+{% set revision_event = contract.events | selectattr('event_type', 'equalto', 'revision_requested') | list | sort(attribute='created_at') | last %}
+
+{% macro avatar(user, size='w-10 h-10', text='text-sm') -%}
+{% if user and user.avatar_url %}
+<img src="{{ user.avatar_url }}" alt="{{ user.name }}" class="{{ size }} rounded-full object-cover ring-2 ring-white shrink-0">
+{% else %}
+<span class="{{ size }} {{ text }} rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 text-white font-bold flex items-center justify-center ring-2 ring-white shrink-0">{{ (user.name if user else '?')[:1]|upper }}</span>
+{% endif %}
+{%- endmacro %}
+
+{% macro modal(id, heading, action_url, submit_label, tone='brand', multipart=False) -%}
+<dialog id="{{ id }}" class="ws-modal">
+    <form method="POST" action="{{ action_url }}" {% if multipart %}enctype="multipart/form-data"{% endif %} class="flex flex-col max-h-[calc(100vh-48px)]">
+        <input type="hidden" name="_csrf_token" value="{{ CSRF }}">
+        <div class="px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between gap-4">
+            <h3 class="text-base font-extrabold text-slate-900">{{ heading }}</h3>
+            <button type="button" data-close class="p-1 -m-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100" aria-label="Close">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="px-6 py-5 space-y-4 overflow-y-auto text-sm text-slate-700">{{ caller() }}</div>
+        <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/70 flex justify-end gap-2 rounded-b-[20px]">
+            <button type="button" data-close class="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200/70">{{ 'Hủy bỏ' if current_lang == 'vi' else 'Cancel' }}</button>
+            <button type="submit" data-submit class="px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition {% if tone == 'rose' %}bg-rose-600 hover:bg-rose-700{% elif tone == 'emerald' %}bg-emerald-600 hover:bg-emerald-700{% else %}bg-brand-600 hover:bg-brand-700{% endif %}">{{ submit_label }}</button>
+        </div>
+    </form>
+</dialog>
+{%- endmacro %}
+
+<div class="bg-slate-50 py-6 md:py-8 min-h-screen">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+    <nav class="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-4">
+        {% if is_translator %}
+        <a href="{{ url_for('job_statistics', tab='completed' if st in ['completed', 'reviewed'] else 'accepted') }}" class="hover:text-brand-600">{{ 'Thống kê công việc' if vi else 'My work' }}</a>
+        {% else %}
+        <a href="{{ url_for('my_projects') }}" class="hover:text-brand-600">{{ 'Dự án của tôi' if vi else 'My projects' }}</a>
+        {% endif %}
+        <span>/</span>
+        <span class="text-slate-700">{{ 'Phòng làm việc' if vi else 'Workspace' }} #{{ contract.id }}</span>
+    </nav>
+
+    <!-- ═══ HEADER ═══ -->
+    <section class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+        <div class="flex flex-col lg:flex-row lg:items-start gap-5">
+            <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-2 mb-2.5">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-900 text-white">
+                        {% if onsite %}🎙️ {{ money.policy_label or ('Phiên dịch trực tiếp' if vi else 'On-site interpreting') }}{% else %}📄 {{ 'Dịch tài liệu' if vi else 'Document translation' }}{% endif %}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border {{ tone_pill.get(status_key, 'bg-slate-100 text-slate-700 border-slate-200') }}">
+                        {% if st not in ['completed', 'reviewed', 'cancelled'] %}<span class="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>{% endif %}
+                        {{ status_text }}
+                    </span>
+                    {% if frozen %}<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-rose-50 text-rose-700 border-rose-200">⚖️ {{ 'Đang khiếu nại' if vi else 'In dispute' }}</span>{% endif %}
+                    <span class="text-[11px] font-mono font-semibold text-slate-400">#HD{{ '%06d' % contract.id }}</span>
+                </div>
+                <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-snug">{{ title }}</h1>
+                <div class="mt-3 flex flex-wrap gap-2 text-xs">
+                    {% if lang_pair %}<span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-semibold text-slate-700">🌐 {{ lang_pair }}</span>{% endif %}
+                    {% if onsite and contract.scheduled_date %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-semibold text-slate-700">📅 {{ contract.scheduled_date | format_date_vn }}{% if contract.scheduled_time_start %} · {{ contract.scheduled_time_start }}{% if contract.scheduled_time_end %}–{{ contract.scheduled_time_end }}{% endif %}{% endif %}</span>
+                    {% endif %}
+                    {% if contract.location %}<span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-semibold text-slate-700">📍 {{ contract.location }}</span>{% endif %}
+                    {% if not onsite and deadline %}
+                    {% set overdue = deadline < now_local.date() and funded and not contract.delivered_at %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border font-semibold {{ 'bg-rose-50 border-rose-200 text-rose-700' if overdue else 'bg-slate-50 border-slate-200 text-slate-700' }}">⏳ {{ 'Hạn bàn giao' if vi else 'Due' }}: {{ deadline | format_date_vn }}{% if overdue %} · {{ 'Quá hạn' if vi else 'Overdue' }}{% endif %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex sm:items-center gap-4 lg:gap-6 lg:pl-6 lg:border-l border-slate-100 flex-col sm:flex-row">
+                <div class="flex items-center gap-3">
+                    <div class="flex -space-x-3">{{ avatar(contract.hirer) }}{{ avatar(contract.translator) }}</div>
+                    <div class="text-xs leading-relaxed">
+                        <div><span class="text-slate-400">{{ 'Khách hàng' if vi else 'Client' }}:</span> <strong class="text-slate-800">{{ contract.hirer.name }}</strong>{% if is_hirer %} <span class="text-brand-600">({{ 'bạn' if vi else 'you' }})</span>{% endif %}</div>
+                        <div><span class="text-slate-400">{{ 'Phiên dịch viên' if vi else 'Interpreter' }}:</span> <strong class="text-slate-800">{{ contract.translator.name }}</strong>{% if is_translator %} <span class="text-brand-600">({{ 'bạn' if vi else 'you' }})</span>{% endif %}</div>
+                    </div>
+                </div>
+                <div class="sm:text-right">
+                    <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{{ 'Giá hợp đồng' if vi else 'Contract value' }}</div>
+                    <div class="text-xl font-extrabold text-slate-900">{{ contract.agreed_price|vnd }} <span class="text-xs font-bold text-slate-400">VND</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stepper -->
+        {% if onsite %}
+        {% set steps = [('Xác nhận lịch', 'Confirm'), ('Ký quỹ', 'Escrow'), ('Có mặt & phiên dịch', 'On-site work'), ('Nghiệm thu biên bản', 'Sign-off'), ('Giải ngân', 'Payout'), ('Đánh giá', 'Review')] %}
+        {% else %}
+        {% set steps = [('Xác nhận', 'Confirm'), ('Ký quỹ', 'Escrow'), ('Thực hiện', 'In progress'), ('Nghiệm thu', 'Approval'), ('Giải ngân', 'Payout'), ('Đánh giá', 'Review')] %}
+        {% endif %}
+        {% set all_done = st in ['completed', 'reviewed'] and my_review %}
+        <div class="mt-6 pt-5 border-t border-slate-100 overflow-x-auto -mx-1 px-1">
+            <ol class="flex items-start min-w-[620px]">
+                {% for s in steps %}
+                {% set i = loop.index0 %}
+                {% set done = all_done or (i < step and st != 'cancelled') %}
+                {% set current = not all_done and i == step and st != 'cancelled' %}
+                {% set blocked = current and frozen %}
+                <li class="flex-1 flex flex-col items-center text-center relative">
+                    {% if not loop.first %}<span class="absolute top-[15px] h-[3px] rounded-full {{ 'bg-emerald-500' if done or current else 'bg-slate-200' }}" style="width: calc(100% - 32px); right: calc(50% + 16px);"></span>{% endif %}
+                    <span class="relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold border-2
+                        {% if done %}bg-emerald-500 border-emerald-500 text-white{% elif blocked %}bg-rose-500 border-rose-500 text-white{% elif current %}bg-white border-brand-600 text-brand-700 ring-4 ring-brand-100{% else %}bg-white border-slate-200 text-slate-400{% endif %}">
+                        {% if done %}<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>{% elif blocked %}!{% else %}{{ loop.index }}{% endif %}
+                    </span>
+                    <span class="mt-2 text-[11px] sm:text-xs font-bold {{ 'text-slate-900' if done or current else 'text-slate-400' }}">{{ s[0] if vi else s[1] }}</span>
+                    <span class="text-[10px] h-4 {{ 'text-rose-600' if blocked else 'text-brand-600' }} font-semibold">{% if blocked %}{{ 'Tạm dừng' if vi else 'On hold' }}{% elif current %}{{ 'Hiện tại' if vi else 'Current' }}{% endif %}</span>
+                </li>
+                {% endfor %}
+            </ol>
+        </div>
+    </section>
+
+    <!-- ═══ BANNERS ═══ -->
+    {% if st == 'cancelled' %}
+    <div class="mt-5 p-4 rounded-2xl bg-slate-100 border border-slate-200 flex gap-3 text-sm">
+        <span class="text-xl">⛔</span>
+        <div><p class="font-bold text-slate-900">{{ 'Hợp đồng đã hủy hoặc hết hạn' if vi else 'Contract cancelled or expired' }}</p>
+        {% if contract.cancel_reason %}<p class="text-slate-600 mt-0.5">{{ contract.cancel_reason }}</p>{% endif %}</div>
+    </div>
+    {% endif %}
+    {% if frozen %}
+    <a href="{{ url_for('dispute_detail', dispute_id=active_dispute.id) }}" class="mt-5 p-4 rounded-2xl bg-rose-50 border border-rose-200 flex gap-3 text-sm hover:bg-rose-100 transition">
+        <span class="text-xl">⚖️</span>
+        <div class="flex-1"><p class="font-bold text-rose-900">{{ 'Hợp đồng đang có khiếu nại' if vi else 'This contract is in dispute' }} #{{ active_dispute.id }}</p>
+        <p class="text-rose-800 mt-0.5 text-xs">{{ 'Tiền bị đóng băng, không tự giải ngân cho tới khi sàn kết luận. Hai bên vẫn có thể trao đổi trong phòng làm việc.' if vi else 'Funds are frozen until the platform decides. You can keep chatting here.' }}</p></div>
+        <span class="text-xs font-bold text-rose-700 self-center">{{ 'Xem tiến trình →' if vi else 'View →' }}</span>
+    </a>
+    {% endif %}
+    {% if is_translator and state.progress_requested_at and funded and not awaiting_acceptance %}
+    <div class="mt-5 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center gap-3 text-sm">
+        <span class="text-xl">🔔</span>
+        <p class="flex-1 text-amber-900"><strong>{{ 'Khách hàng yêu cầu cập nhật tiến độ' if vi else 'The client asked for a progress update' }}</strong> · {{ state.progress_requested_at | vn_time }}</p>
+        <button type="button" data-open="dlg-progress" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold">{{ 'Cập nhật ngay' if vi else 'Update now' }}</button>
+    </div>
+    {% endif %}
+    {% if st == 'revision_requested' and revision_event %}
+    <div class="mt-5 p-4 rounded-2xl bg-orange-50 border border-orange-200 flex gap-3 text-sm">
+        <span class="text-xl">✏️</span>
+        <div><p class="font-bold text-orange-900">{{ 'Yêu cầu chỉnh sửa' if vi else 'Revision request' }} ({{ contract.revisions_used or 0 }}/2) · {{ revision_event.created_at | vn_time }}</p>
+        <p class="text-orange-900 mt-0.5 whitespace-pre-line">{{ revision_event.note }}</p></div>
+    </div>
+    {% endif %}
+
+    <!-- ═══ MAIN GRID ═══ -->
+    <div class="mt-5 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+        <aside class="lg:col-span-5 lg:order-2 space-y-5">
+
+            <!-- Việc cần làm -->
+            <section class="bg-white rounded-2xl shadow-soft border-2 {{ 'border-brand-200' if st not in ['completed', 'reviewed', 'cancelled'] else 'border-slate-200/90' }} overflow-hidden">
+                <div class="px-5 py-3.5 bg-gradient-to-r from-brand-50 to-indigo-50/60 border-b border-brand-100 flex items-center justify-between">
+                    <h2 class="text-sm font-extrabold text-slate-900">⚡ {{ 'Việc cần làm của bạn' if vi else 'Your next step' }}</h2>
+                    <span class="text-[11px] font-semibold text-slate-500">{{ ('Khách hàng' if vi else 'Client') if is_hirer else ('Phiên dịch viên' if vi else 'Interpreter') }}</span>
+                </div>
+                <div class="p-5 space-y-3 text-sm">
+
+                {% if st == 'awaiting_translator' %}
+                    {% if is_translator %}
+                    <p class="text-slate-600">{{ 'Khách hàng muốn đặt lịch với bạn. Kiểm tra lịch, địa điểm và yêu cầu rồi xác nhận trong 24 giờ.' if vi else 'A client wants to book you. Check the schedule and brief, then confirm within 24h.' }}</p>
+                    <form method="POST" action="{{ url_for('contract_action', contract_id=contract.id, action='accept') }}"><button class="{{ btn_success }}">🤝 {{ 'Nhận lịch' if vi else 'Accept booking' }}</button></form>
+                    <form method="POST" action="{{ url_for('contract_action', contract_id=contract.id, action='decline') }}" onsubmit="return confirm('{{ 'Từ chối yêu cầu này?' if vi else 'Decline this request?' }}');"><button class="{{ btn_ghost }}">{{ 'Từ chối' if vi else 'Decline' }}</button></form>
+                    {% else %}
+                    <p class="text-slate-600">⏳ {{ 'Đang chờ phiên dịch viên xác nhận lịch. Bạn chỉ thanh toán sau khi phiên dịch viên đồng ý.' if vi else 'Waiting for the interpreter to confirm. You pay only after they accept.' }}</p>
+                    <form method="POST" action="{{ url_for('contract_action', contract_id=contract.id, action='cancel') }}" onsubmit="return confirm('{{ 'Hủy yêu cầu đặt lịch?' if vi else 'Cancel this request?' }}');" class="text-center"><button class="{{ link_danger }}">{{ 'Hủy yêu cầu' if vi else 'Cancel request' }}</button></form>
+                    {% endif %}
+
+                {% elif st == 'escrow_pending' %}
+                    {% if is_hirer %}
+                    <p class="text-slate-600">{{ 'Phiên dịch viên đã nhận. Thanh toán vào Escrow để giữ lịch — tiền được sàn giữ, chỉ giải ngân khi bạn nghiệm thu.' if vi else 'The interpreter accepted. Pay into escrow to lock the booking — released only when you approve.' }}</p>
+                    <a href="{{ url_for('payment_mockup', contract_id=contract.id) }}" class="{{ btn_primary }}">🔒 {{ 'Thanh toán Escrow' if vi else 'Pay into escrow' }}</a>
+                    <form method="POST" action="{{ url_for('contract_action', contract_id=contract.id, action='cancel') }}" onsubmit="return confirm('{{ 'Bạn chắc chắn muốn hủy hợp đồng?' if vi else 'Cancel this contract?' }}');" class="text-center"><button class="{{ link_danger }}">{{ 'Hủy hợp đồng (chưa thanh toán, không mất phí)' if vi else 'Cancel (no charge yet)' }}</button></form>
+                    {% else %}
+                    <p class="text-slate-600">⏳ {{ 'Đang chờ khách hàng thanh toán Escrow. Bạn sẽ được thông báo khi có thể bắt đầu.' if vi else 'Waiting for the client to pay into escrow. You will be notified when you can start.' }}</p>
+                    {% endif %}
+
+                {% elif funded and frozen %}
+                    <p class="text-slate-600">⚖️ {{ 'Sàn đang xem xét khiếu nại dựa trên lịch sử trao đổi, tệp và chấm công trong phòng làm việc. Hãy bổ sung bằng chứng qua trang khiếu nại.' if vi else 'The platform is reviewing the dispute using this workspace history. Add evidence on the dispute page.' }}</p>
+                    <a href="{{ url_for('dispute_detail', dispute_id=active_dispute.id) }}" class="{{ btn_ghost }}">{{ 'Mở trang khiếu nại' if vi else 'Open dispute' }}</a>
+
+                {% elif funded and awaiting_acceptance %}
+                    {% if contract.auto_release_at %}
+                    <div class="p-3 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-900 text-xs">⏱️ {{ 'Tự giải ngân sau' if vi else 'Auto-release in' }} <strong data-countdown="{{ auto_release_iso }}">…</strong> {{ 'nếu khách không phản hồi' if vi else 'if the client does not respond' }} ({{ contract.auto_release_at | vn_time }}).</div>
+                    {% endif %}
+                    {% if is_hirer %}
+                    <p class="text-slate-600">{{ ('Kiểm tra biên bản: số ca, tổng giờ có mặt và nội dung buổi làm việc.' if vi else 'Check the report: sessions, hours and summary.') if onsite else ('Tải và kiểm tra kỹ các tệp bàn giao trước khi nghiệm thu.' if vi else 'Download and check every deliverable before approving.') }}</p>
+                    <button type="button" data-open="dlg-approve" class="{{ btn_success }}">✅ {{ 'Nghiệm thu & giải ngân' if vi else 'Approve & release payment' }}</button>
+                    {% if not onsite %}
+                        {% if money.revisions_left > 0 %}
+                        <button type="button" data-open="dlg-revision" class="{{ btn_ghost }}">✏️ {{ 'Yêu cầu chỉnh sửa' if vi else 'Request revisions' }} ({{ 'còn' if vi else '' }} {{ money.revisions_left }}/2)</button>
+                        {% else %}
+                        <p class="text-xs text-slate-500 text-center">{{ 'Đã hết 2 lần sửa miễn phí.' if vi else 'No free revisions left.' }}</p>
+                        {% endif %}
+                    {% endif %}
+                    <div class="text-center"><a href="{{ url_for('dispute_new', contract_id=contract.id) }}" class="{{ link_danger }}">{{ 'Không đạt yêu cầu? Gửi khiếu nại' if vi else 'Not acceptable? Open a dispute' }}</a></div>
+                    {% else %}
+                    <p class="text-slate-600">📦 {{ 'Đã bàn giao. Đang chờ khách hàng nghiệm thu — tiền được giải ngân vào ví của bạn ngay khi nghiệm thu.' if vi else 'Delivered. Waiting for the client to approve — funds go to your wallet on approval.' }}</p>
+                    {% if not onsite and contract.status == 'in_progress' %}<button type="button" data-open="dlg-deliver" class="{{ btn_ghost }}">📎 {{ 'Bổ sung tệp bàn giao' if vi else 'Add another file' }}</button>{% endif %}
+                    {% endif %}
+
+                {% elif funded %}
+                    {% if is_translator %}
+                        {% if onsite %}
+                            {% if open_session %}
+                            <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>{{ 'Đang trong ca từ' if vi else 'On shift since' }} <strong>{{ open_session.checkin_at | vn_time('%H:%M') }}</strong></div>
+                            <button type="button" data-open="dlg-checkout" class="{{ btn_primary }}">🏁 {{ 'Check-out kết thúc ca' if vi else 'Check out' }}</button>
+                            {% else %}
+                            <p class="text-slate-600">{{ 'Đến đúng giờ và check-in tại địa điểm. Mỗi ca cần check-in và check-out để làm căn cứ nghiệm thu.' if vi else 'Arrive on time and check in. Each session needs a check-in and check-out.' }}</p>
+                            {% if checkin_opens_at and now_local < checkin_opens_at %}
+                            <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">🕒 {{ 'Check-in mở lúc' if vi else 'Check-in opens at' }} <strong>{{ checkin_opens_at.strftime('%H:%M %d/%m/%Y') }}</strong> ({{ checkin_early_hours }}h {{ 'trước giờ hẹn' if vi else 'before start' }})</div>
+                            <button type="button" disabled class="{{ btn_primary }}">📍 {{ 'Check-in có mặt' if vi else 'Check in on site' }}</button>
+                            {% else %}
+                            <button type="button" data-open="dlg-checkin" class="{{ btn_primary }}">📍 {{ 'Check-in có mặt' if vi else 'Check in on site' }}</button>
+                            {% endif %}
+                            {% if sessions %}<button type="button" data-open="dlg-report" class="{{ btn_success }}">📋 {{ 'Gửi biên bản nghiệm thu' if vi else 'Submit sign-off report' }}</button>{% endif %}
+                            {% endif %}
+                            <button type="button" data-open="dlg-progress" class="{{ btn_ghost }}">📝 {{ 'Gửi cập nhật tình hình' if vi else 'Post a status update' }}</button>
+                        {% else %}
+                            {% if money.can_start %}
+                            <form method="POST" action="{{ url_for('contract_start', contract_id=contract.id) }}"><button class="{{ btn_primary }}">🚀 {{ 'Nhận việc & bắt đầu làm' if vi else 'Start working' }}</button></form>
+                            <p class="text-[11px] text-slate-500 -mt-1">{{ 'Sau 12 giờ kể từ khi khách thanh toán, bạn được coi là đã bắt đầu dù chưa bấm.' if vi else 'You are deemed started 12h after payment even if you do not press it.' }}</p>
+                            {% else %}
+                            <p class="text-slate-600">{{ 'Cập nhật tiến độ thường xuyên. Hoàn thành thì bàn giao tệp để khách nghiệm thu.' if vi else 'Post regular updates. When done, deliver files for approval.' }}</p>
+                            {% endif %}
+                            <button type="button" data-open="dlg-progress" class="{{ btn_ghost if money.can_start else btn_primary }}">📈 {{ 'Cập nhật tiến độ' if vi else 'Update progress' }}</button>
+                            <button type="button" data-open="dlg-deliver" class="{{ btn_success }}">📦 {{ 'Bàn giao tệp để nghiệm thu' if vi else 'Deliver files for approval' }}{% if st == 'revision_requested' %} ({{ 'bản sửa' if vi else 'revised' }}){% endif %}</button>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-slate-600">{{ ('Phiên dịch viên check-in khi có mặt. Bạn xác nhận từng ca để làm căn cứ nghiệm thu.' if vi else 'The interpreter checks in on arrival. Confirm each session as evidence.') if onsite else ('Phiên dịch viên đang thực hiện. Theo dõi tiến độ và trao đổi trong khung chat.' if vi else 'The interpreter is working. Track progress and chat here.') }}</p>
+                        {% for s in sessions if not s.confirmed_at %}
+                        <form method="POST" action="{{ url_for('workspace_action', contract_id=contract.id, action='confirm_attendance') }}">
+                            <input type="hidden" name="_csrf_token" value="{{ CSRF }}"><input type="hidden" name="session_id" value="{{ s.id }}">
+                            <button class="{{ btn_success }}">✅ {{ 'Xác nhận PDV có mặt' if vi else 'Confirm attendance' }} ({{ s.checkin_at | vn_time('%H:%M %d/%m') }})</button>
+                        </form>
+                        {% endfor %}
+                        {% if state.progress_requested_at %}
+                        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">🔔 {{ 'Đã gửi yêu cầu cập nhật lúc' if vi else 'Update requested at' }} {{ state.progress_requested_at | vn_time }} — {{ 'đang chờ phản hồi.' if vi else 'awaiting reply.' }}</div>
+                        {% else %}
+                        <button type="button" data-open="dlg-request" class="{{ btn_ghost }}">🔔 {{ 'Yêu cầu cập nhật tiến độ' if vi else 'Request a progress update' }}</button>
+                        {% endif %}
+                        <div class="text-center"><a href="{{ url_for('dispute_new', contract_id=contract.id) }}" class="{{ link_danger }}">{{ 'Gặp vấn đề? Gửi khiếu nại' if vi else 'Problem? Open a dispute' }}</a></div>
+                    {% endif %}
+
+                {% elif st in ['completed', 'reviewed'] %}
+                    <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900">
+                        <p class="font-extrabold">🎉 {{ 'Hợp đồng hoàn tất' if vi else 'Contract completed' }}</p>
+                        <p class="text-xs mt-1">{{ 'Tiền đã giải ngân cho phiên dịch viên' if vi else 'Payment released to the interpreter' }}{% if is_translator and contract.translator_net %}: <strong>{{ contract.translator_net|vnd }} VND</strong>{% endif %}.</p>
+                    </div>
+                    <form method="POST" action="{{ url_for('submit_review', contract_id=contract.id) }}" class="pt-1">
+                        <input type="hidden" name="_csrf_token" value="{{ CSRF }}">
+                        <p class="text-xs font-bold text-slate-700 text-center mb-1">{{ ('Sửa đánh giá' if my_review else 'Đánh giá') if vi else ('Edit review for' if my_review else 'Rate') }} {{ other.name }}</p>
+                        <div class="star-rating-input">
+                            {% for n in [5, 4, 3, 2, 1] %}
+                            <input type="radio" id="star{{ n }}" name="rating" value="{{ n }}" {% if (my_review and my_review.rating == n) or (not my_review and n == 5) %}checked{% endif %}><label for="star{{ n }}">★</label>
+                            {% endfor %}
+                        </div>
+                        <textarea name="comment" rows="3" class="{{ field }} mt-2" placeholder="{{ 'Chia sẻ trải nghiệm làm việc…' if vi else 'Share your experience…' }}">{{ my_review.comment if my_review else '' }}</textarea>
+                        <button class="{{ btn_primary }} mt-2">{{ ('Lưu đánh giá' if my_review else 'Gửi đánh giá') if vi else ('Save review' if my_review else 'Submit review') }}</button>
+                    </form>
+                    {% if their_review %}
+                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs"><p class="font-bold text-slate-700">{{ other.name }} {{ 'đánh giá bạn' if vi else 'rated you' }} <span class="text-amber-500">{{ '★' * their_review.rating }}</span></p>{% if their_review.comment %}<p class="text-slate-600 mt-1">{{ their_review.comment }}</p>{% endif %}</div>
+                    {% endif %}
+
+                {% else %}
+                    <p class="text-slate-600">{{ 'Hợp đồng đã đóng. Lịch sử trao đổi được lưu để tra cứu.' if vi else 'This contract is closed. History is kept for reference.' }}</p>
+                {% endif %}
+                </div>
+            </section>
+
+            <!-- Tiến độ / chấm công -->
+            {% if funded or st in ['completed', 'reviewed'] %}
+            <section class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-extrabold text-slate-900">{{ ('Chấm công tại chỗ' if vi else 'On-site attendance') if onsite else ('Tiến độ công việc' if vi else 'Progress') }}</h2>
+                    <span class="text-sm font-extrabold text-brand-700">{{ progress }}%</span>
+                </div>
+                <div class="h-2.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-brand-500 to-indigo-500" style="width: {{ progress }}%"></div></div>
+                {% if onsite %}
+                    {% if sessions %}
+                    <div class="mt-4 overflow-hidden rounded-xl border border-slate-200">
+                        <table class="w-full text-xs">
+                            <thead class="bg-slate-50 text-slate-500"><tr><th class="text-left font-semibold px-3 py-2">{{ 'Ca' if vi else 'Session' }}</th><th class="text-left font-semibold px-2 py-2">{{ 'Vào' if vi else 'In' }}</th><th class="text-left font-semibold px-2 py-2">{{ 'Ra' if vi else 'Out' }}</th><th class="text-right font-semibold px-2 py-2">{{ 'Giờ' if vi else 'Hrs' }}</th><th class="text-right font-semibold px-3 py-2" title="{{ 'Khách xác nhận' if vi else 'Client confirmed' }}">KH</th></tr></thead>
+                            <tbody class="divide-y divide-slate-100">
+                            {% for s in sessions %}
+                                <tr>
+                                    <td class="px-3 py-2 font-semibold text-slate-700">#{{ loop.index }} · {{ s.checkin_at | vn_time('%d/%m') }}{% if s.checkin_lat %} <span title="{{ 'Có định vị' if vi else 'Geo-tagged' }}">📍</span>{% endif %}</td>
+                                    <td class="px-2 py-2">{{ s.checkin_at | vn_time('%H:%M') }}</td>
+                                    <td class="px-2 py-2">{% if s.checkout_at %}{{ s.checkout_at | vn_time('%H:%M') }}{% else %}<span class="text-emerald-600 font-bold">{{ 'đang làm' if vi else 'live' }}</span>{% endif %}</td>
+                                    <td class="px-2 py-2 text-right font-semibold">{{ s.hours if s.hours is not none else '—' }}</td>
+                                    <td class="px-3 py-2 text-right">{% if s.confirmed_at %}<span class="text-emerald-600" title="{{ s.confirmed_at | vn_time }}">✓</span>{% else %}<span class="text-slate-300">○</span>{% endif %}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                            <tfoot class="bg-slate-50"><tr><td colspan="3" class="px-3 py-2 font-bold text-slate-700">{{ 'Tổng giờ' if vi else 'Total hours' }}</td><td class="px-2 py-2 text-right font-extrabold text-slate-900">{{ total_hours }}</td><td></td></tr></tfoot>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="mt-3 text-xs text-slate-500">{{ 'Chưa có ca làm việc nào được check-in.' if vi else 'No sessions checked in yet.' }}</p>
+                    {% endif %}
+                {% endif %}
+                {% if last_progress %}
+                <div class="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <p class="text-[11px] font-semibold text-slate-400">{{ 'Cập nhật gần nhất' if vi else 'Latest update' }} · {{ last_progress.created_at | vn_time }}</p>
+                    <p class="text-xs text-slate-700 mt-1 whitespace-pre-line">{{ last_progress.note }}</p>
+                </div>
+                {% endif %}
+            </section>
+            {% endif %}
+
+            <!-- Tiền: dùng nguyên khung giữ tiền / hủy / tranh chấp của hệ thống -->
+            {% if st not in ['escrow_pending', 'awaiting_translator'] %}{% include '_contract_money_panel.html' %}{% endif %}
+
+            <!-- Tệp bàn giao -->
+            {% if contract.deliverables %}
+            <section class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5">
+                <h2 class="text-sm font-extrabold text-slate-900 mb-3">📦 {{ 'Tệp bàn giao' if vi else 'Deliverables' }}</h2>
+                <div class="space-y-1.5">
+                    {% for d in contract.deliverables|sort(attribute='created_at', reverse=True) %}
+                    <a href="{{ url_for('download_deliverable', deliverable_id=d.id) }}" target="_blank" class="group flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 hover:border-brand-300 hover:bg-brand-50/40 transition">
+                        <span class="w-8 h-8 rounded-lg bg-brand-50 text-brand-700 text-[10px] font-extrabold uppercase flex items-center justify-center shrink-0">{{ d.filename.rsplit('.', 1)[-1][:4] }}</span>
+                        <span class="min-w-0 flex-1"><span class="block text-xs font-bold text-slate-800 truncate group-hover:text-brand-700">{{ d.filename }}</span><span class="block text-[11px] text-slate-400">{{ d.created_at | vn_time('%H:%M %d/%m/%Y') }}</span></span>
+                        <svg class="w-4 h-4 text-slate-300 group-hover:text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    </a>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Quy trình -->
+            <details class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 group">
+                <summary class="text-sm font-extrabold text-slate-900 cursor-pointer list-none flex items-center justify-between">📜 {{ 'Quy trình & cam kết' if vi else 'Process & rules' }}
+                    <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></summary>
+                <ol class="mt-3 space-y-2 text-xs text-slate-600 list-decimal pl-4">
+                    <li>{{ 'Khách thanh toán vào Escrow; sàn giữ tiền, chưa chuyển cho phiên dịch viên.' if vi else 'The client pays into escrow; the platform holds it.' }}</li>
+                    {% if onsite %}
+                    <li>{{ 'Mỗi ca tại chỗ phải check-in khi có mặt (mở sớm nhất %d giờ trước giờ hẹn) và check-out khi kết thúc; khách xác nhận có mặt từng ca.'|format(checkin_early_hours) if vi else 'Every session needs a check-in on arrival (opens %dh early) and a check-out; the client confirms each one.'|format(checkin_early_hours) }}</li>
+                    <li>{{ 'Kết thúc, phiên dịch viên gửi biên bản (tổng giờ + tóm tắt) để khách nghiệm thu.' if vi else 'At the end, the interpreter submits a sign-off report for approval.' }}</li>
+                    {% else %}
+                    <li>{{ 'Phiên dịch viên cập nhật tiến độ; khách có thể yêu cầu cập nhật bất cứ lúc nào.' if vi else 'The interpreter posts progress; the client may request an update anytime.' }}</li>
+                    <li>{{ 'Hoàn thành, phiên dịch viên bàn giao tệp. Khách có 2 lần yêu cầu sửa miễn phí.' if vi else 'When done, files are delivered. The client gets 2 free revisions.' }}</li>
+                    {% endif %}
+                    <li>{{ 'Chỉ khi khách nghiệm thu (hoặc quá hạn phản hồi) tiền mới được giải ngân, sau khi trừ hoa hồng sàn.' if vi else 'Funds are released only on approval (or after the response window), minus commission.' }}</li>
+                    <li>{{ 'Có khiếu nại thì tiền bị đóng băng; sàn phân xử dựa trên lịch sử phòng làm việc. Không giao dịch ngoài nền tảng.' if vi else 'Disputes freeze funds; the platform decides from this history. Keep everything on-platform.' }}</li>
+                </ol>
+            </details>
+        </aside>
+
+        <!-- ─── CHAT ─── -->
+        <section class="lg:col-span-7 lg:order-1 bg-white rounded-2xl shadow-soft border border-slate-200/90 flex flex-col overflow-hidden h-[78vh] min-h-[560px] max-h-[860px] lg:sticky lg:top-24">
+            <header class="px-4 sm:px-5 py-3.5 border-b border-slate-100 flex items-center gap-3">
+                {{ avatar(other) }}
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-extrabold text-slate-900 truncate">{{ other.name }}</p>
+                    <p class="text-[11px] text-slate-500">{{ ('Phiên dịch viên' if vi else 'Interpreter') if is_hirer else ('Khách hàng' if vi else 'Client') }} · {{ 'Phòng làm việc' if vi else 'Workspace' }} #{{ contract.id }}</p>
+                </div>
+                <span class="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{{ 'Được bảo vệ' if vi else 'Protected' }}</span>
+            </header>
+            <div class="px-4 sm:px-5 py-2 bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500">🔒 {{ 'Tin nhắn, tệp và mốc tiến độ ở đây là căn cứ khi nghiệm thu và giải quyết khiếu nại.' if vi else 'Messages, files and milestones here are the record for approval and disputes.' }}</div>
+            <div id="ws-reload" class="hidden px-4 py-2 bg-brand-600 text-white text-xs font-semibold flex items-center justify-between">
+                <span>{{ 'Trạng thái hợp đồng vừa thay đổi.' if vi else 'Contract status just changed.' }}</span>
+                <button onclick="location.reload()" class="underline font-bold">{{ 'Tải lại' if vi else 'Reload' }}</button>
+            </div>
+            <div id="ws-feed" class="ws-feed flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-3 bg-gradient-to-b from-slate-50/60 to-white"
+                 data-contract-id="{{ contract.id }}" data-me="{{ current_user.id }}" data-status="{{ st }}" data-delivered="{{ 'true' if contract.delivered_at else 'false' }}">
+                <div class="h-full flex items-center justify-center text-xs text-slate-400">{{ 'Đang tải…' if vi else 'Loading…' }}</div>
+            </div>
+            {% if st != 'cancelled' %}
+            <footer class="border-t border-slate-100 p-3 bg-white">
+                {% if funded and not frozen %}
+                <div class="flex gap-2 mb-2 overflow-x-auto">
+                    {% if is_translator and not awaiting_acceptance %}
+                    <button type="button" data-open="dlg-progress" class="shrink-0 px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 text-[11px] font-bold hover:bg-brand-100">📈 {{ 'Cập nhật tiến độ' if vi else 'Progress update' }}</button>
+                    {% if onsite and not open_session and not (checkin_opens_at and now_local < checkin_opens_at) %}<button type="button" data-open="dlg-checkin" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold hover:bg-slate-200">📍 Check-in</button>{% endif %}
+                    {% if onsite and open_session %}<button type="button" data-open="dlg-checkout" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold hover:bg-slate-200">🏁 Check-out</button>{% endif %}
+                    {% endif %}
+                    {% if is_hirer and not state.progress_requested_at and not awaiting_acceptance %}
+                    <button type="button" data-open="dlg-request" class="shrink-0 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 text-[11px] font-bold hover:bg-amber-100">🔔 {{ 'Hỏi tiến độ' if vi else 'Ask for update' }}</button>
+                    {% endif %}
+                </div>
+                {% endif %}
+                <div id="ws-preview" class="hidden mb-2 flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200">
+                    <img id="ws-preview-img" class="w-12 h-12 rounded-lg object-cover" alt="">
+                    <span class="text-xs text-slate-600 flex-1">{{ 'Ảnh sẽ gửi kèm tin nhắn' if vi else 'Image will be sent' }}</span>
+                    <button type="button" id="ws-preview-x" class="text-slate-400 hover:text-rose-600 px-2">✕</button>
+                </div>
+                <div class="flex items-end gap-2">
+                    <label class="shrink-0 p-2.5 rounded-xl text-slate-500 hover:text-brand-600 hover:bg-brand-50 cursor-pointer transition" title="{{ 'Gửi ảnh' if vi else 'Send image' }}">
+                        <input type="file" id="ws-attach" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    </label>
+                    <textarea id="ws-input" rows="1" maxlength="4000" class="flex-1 resize-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
+                              placeholder="{{ 'Nhập tin nhắn…' if vi else 'Type a message…' }}" title="{{ 'Enter để gửi, Shift+Enter xuống dòng' if vi else 'Enter to send, Shift+Enter for a new line' }}"></textarea>
+                    <button id="ws-send" class="shrink-0 p-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition disabled:opacity-50" aria-label="Send">
+                        <svg class="w-5 h-5 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                    </button>
+                </div>
+                <p id="ws-warn" class="hidden mt-1.5 text-[11px] text-amber-700"></p>
+            </footer>
+            {% endif %}
+        </section>
+    </div>
+</div>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+{% if is_translator and funded %}
+{% call modal('dlg-progress', ('Cập nhật tiến độ' if vi else 'Progress update'), url_for('workspace_action', contract_id=contract.id, action='progress'), ('Gửi cập nhật' if vi else 'Post update')) %}
+    {% if not onsite %}
+    <div>
+        <div class="flex justify-between text-xs font-bold text-slate-700 mb-1"><span>{{ 'Mức độ hoàn thành' if vi else 'Completion' }}</span><span id="pct-out">{{ [state.progress_percent, 95]|min }}%</span></div>
+        <input type="range" name="percent" min="0" max="95" step="5" value="{{ [state.progress_percent, 95]|min }}" class="w-full accent-brand-600" oninput="document.getElementById('pct-out').textContent=this.value+'%'">
+        <p class="text-[11px] text-slate-400 mt-1">{{ 'Tối đa 95% — đạt 100% khi bàn giao tệp.' if vi else 'Max 95% — 100% on delivery.' }}</p>
+    </div>
+    {% endif %}
+    <textarea name="note" rows="4" required minlength="5" class="{{ field }}" placeholder="{{ ('Đã xong phần nào, còn lại gì, có vướng mắc không…' if vi else 'What is done, what remains, blockers…') if not onsite else ('Tình hình chuẩn bị / diễn biến buổi làm việc…' if vi else 'Preparation / how the session is going…') }}"></textarea>
+{% endcall %}
+
+{% if onsite %}
+{% call modal('dlg-checkin', 'Check-in ' ~ ('có mặt tại địa điểm' if vi else 'on site'), url_for('workspace_action', contract_id=contract.id, action='checkin'), 'Check-in') %}
+    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">📍 {{ contract.location or ('(chưa có địa điểm)' if vi else '(no location)') }}{% if contract.scheduled_time_start %}<br>⏰ {{ contract.scheduled_date | format_date_vn }} {{ contract.scheduled_time_start }}{% endif %}</div>
+    <input type="hidden" name="lat" id="geo-lat"><input type="hidden" name="lng" id="geo-lng">
+    <p id="geo-status" class="text-xs text-slate-500">{{ 'Đang lấy vị trí để xác thực có mặt (không bắt buộc)…' if vi else 'Getting your location (optional)…' }}</p>
+    <textarea name="note" rows="2" class="{{ field }}" placeholder="{{ 'Ghi chú (VD: đã gặp anh Minh tại sảnh)' if vi else 'Note (e.g. met Mr. Minh at the lobby)' }}"></textarea>
+{% endcall %}
+{% call modal('dlg-checkout', 'Check-out ' ~ ('kết thúc ca' if vi else 'end session'), url_for('workspace_action', contract_id=contract.id, action='checkout'), 'Check-out') %}
+    {% if open_session %}<p class="text-xs text-slate-600">{{ 'Ca bắt đầu lúc' if vi else 'Started at' }} <strong>{{ open_session.checkin_at | vn_time }}</strong>.</p>{% endif %}
+    <textarea name="note" rows="2" class="{{ field }}" placeholder="{{ 'Ghi chú (VD: phát sinh 30 phút do họp kéo dài)' if vi else 'Note (e.g. +30 min overtime)' }}"></textarea>
+{% endcall %}
+{% call modal('dlg-report', ('Gửi biên bản nghiệm thu' if vi else 'Submit sign-off report'), url_for('workspace_action', contract_id=contract.id, action='onsite_report'), ('Gửi biên bản' if vi else 'Submit'), 'emerald') %}
+    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">⏱️ {{ sessions|length }} {{ 'ca' if vi else 'sessions' }} · {{ 'Tổng' if vi else 'Total' }} <strong>{{ total_hours }} {{ 'giờ' if vi else 'h' }}</strong>
+        {% if open_session %}<p class="text-rose-600 font-semibold mt-1">{{ 'Bạn cần check-out ca đang mở trước.' if vi else 'Check out the open session first.' }}</p>{% endif %}</div>
+    <textarea name="note" rows="4" required minlength="10" class="{{ field }}" placeholder="{{ 'Tóm tắt nội dung đã phiên dịch, phát sinh (nếu có)…' if vi else 'Summary of the work, any extras…' }}"></textarea>
+    <p class="text-[11px] text-slate-500">{{ 'Có ảnh biên bản ký / bảng chấm công? Gửi vào khung chat để làm bằng chứng.' if vi else 'Have a signed sheet? Send a photo in the chat as evidence.' }}</p>
+    <label class="flex gap-2.5 items-start text-xs"><input type="checkbox" name="confirm" value="1" required class="mt-0.5 accent-emerald-600"> <span>{{ 'Tôi cam kết đã có mặt và hoàn thành công việc như biên bản; thông tin trên là chính xác.' if vi else 'I confirm I attended and completed the work as reported.' }}</span></label>
+{% endcall %}
+{% else %}
+{% call modal('dlg-deliver', ('Bàn giao tệp để nghiệm thu' if vi else 'Deliver files'), url_for('transaction_detail', contract_id=contract.id), ('Bàn giao' if vi else 'Deliver'), 'emerald', True) %}
+    <label class="block text-xs font-bold text-slate-700">{{ 'Tệp bàn giao' if vi else 'Deliverable' }} <span class="text-rose-500">*</span>
+        <input type="file" name="file" required class="mt-1.5 {{ field }} text-xs"></label>
+    <p class="text-[11px] text-slate-400">PDF, Word, Excel, PowerPoint, ZIP… · {{ 'tối đa' if vi else 'max' }} 10MB. {{ 'Sau khi bàn giao, hạn tự giải ngân được tính lại từ đầu.' if vi else 'Delivering restarts the auto-release window.' }}</p>
+    <label class="flex gap-2.5 items-start text-xs"><input type="checkbox" required class="mt-0.5 accent-emerald-600"> <span>{{ 'Tôi cam kết bản bàn giao đã hoàn thành đúng yêu cầu.' if vi else 'I confirm the work meets the brief.' }}</span></label>
+{% endcall %}
+{% endif %}
+{% endif %}
+
+{% if is_hirer %}
+{% call modal('dlg-request', ('Yêu cầu cập nhật tiến độ' if vi else 'Request a progress update'), url_for('workspace_action', contract_id=contract.id, action='request_progress'), ('Gửi yêu cầu' if vi else 'Send request')) %}
+    <p class="text-xs text-slate-500">{{ 'Phiên dịch viên sẽ nhận thông báo và được nhắc cập nhật ngay trong phòng làm việc.' if vi else 'The interpreter is notified and prompted to post an update.' }}</p>
+    <textarea name="note" rows="3" class="{{ field }}" placeholder="{{ 'Bạn muốn biết thêm điều gì? (không bắt buộc)' if vi else 'Anything specific? (optional)' }}"></textarea>
+{% endcall %}
+{% call modal('dlg-approve', ('Nghiệm thu & giải ngân' if vi else 'Approve & release payment'), url_for('approve_contract', contract_id=contract.id), ('Nghiệm thu & giải ngân' if vi else 'Approve & release'), 'emerald') %}
+    <p class="text-xs text-slate-600">{{ 'Sàn sẽ giải ngân giá hợp đồng cho phiên dịch viên (sau hoa hồng). Phí dịch vụ không hoàn lại.' if vi else 'The contract price is released to the interpreter (minus commission).' }}</p>
+    {% if onsite %}<div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">⏱️ {{ sessions|length }} {{ 'ca' if vi else 'sessions' }} · <strong>{{ total_hours }} {{ 'giờ' if vi else 'h' }}</strong> · {{ sessions|selectattr('confirmed_at')|list|length }}/{{ sessions|length }} {{ 'ca đã xác nhận có mặt' if vi else 'confirmed' }}</div>{% endif %}
+    <label class="flex gap-2.5 items-start text-xs"><input type="checkbox" required class="mt-0.5 accent-emerald-600"> <span>{{ ('Tôi xác nhận phiên dịch viên đã có mặt và hoàn thành công việc như biên bản.' if vi else 'I confirm the interpreter attended and completed the work.') if onsite else ('Tôi đã kiểm tra đầy đủ tệp bàn giao và hài lòng với kết quả.' if vi else 'I have checked all deliverables and am satisfied.') }} <strong>{{ 'Không thể hoàn tác.' if vi else 'This cannot be undone.' }}</strong></span></label>
+{% endcall %}
+<dialog id="dlg-revision" class="ws-modal">
+    <form id="revision-form" class="flex flex-col">
+        <div class="px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between gap-4">
+            <h3 class="text-base font-extrabold text-slate-900">{{ 'Yêu cầu chỉnh sửa' if vi else 'Request revisions' }}</h3>
+            <button type="button" data-close class="p-1 -m-1 rounded-lg text-slate-400 hover:text-slate-700">✕</button>
+        </div>
+        <div class="px-6 py-5 space-y-3 text-sm">
+            <p class="text-xs text-slate-500">{{ 'Lần sửa miễn phí còn lại' if vi else 'Free revisions left' }}: <strong>{{ money.revisions_left }}/2</strong>. {{ 'Nêu cụ thể vị trí và nội dung cần sửa. Đồng hồ tự giải ngân tạm dừng cho tới lần bàn giao tiếp theo.' if vi else 'Be specific. The auto-release clock pauses until the next delivery.' }}</p>
+            <textarea name="note" rows="5" required minlength="10" maxlength="2000" class="{{ field }}" placeholder="{{ 'VD: Trang 3, đoạn 2 dịch sai thuật ngữ…' if vi else 'e.g. Page 3, para 2: wrong term…' }}"></textarea>
+            <p id="revision-error" class="hidden text-xs text-rose-600 font-semibold"></p>
+        </div>
+        <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/70 flex justify-end gap-2 rounded-b-[20px]">
+            <button type="button" data-close class="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200/70">{{ 'Hủy bỏ' if vi else 'Cancel' }}</button>
+            <button type="submit" class="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-brand-600 hover:bg-brand-700">{{ 'Gửi yêu cầu' if vi else 'Send request' }}</button>
+        </div>
+    </form>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const isVi = "{{ current_lang }}" === "vi";
+    const CSRF = {{ csrf_token()|tojson }};
+    const feed = document.getElementById('ws-feed');
+    const contractId = feed.dataset.contractId;
+    const me = String(feed.dataset.me);
+    const initialStatus = feed.dataset.status, initialDelivered = feed.dataset.delivered === 'true';
+    let signature = '';
+
+    // ── Modals ──
+    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => {
+        const dlg = document.getElementById(btn.dataset.open);
+        if (!dlg) return;
+        dlg.showModal();
+        if (btn.dataset.open === 'dlg-checkin') captureLocation();
+    }));
+    document.querySelectorAll('dialog.ws-modal').forEach(dlg => {
+        dlg.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => dlg.close()));
+        dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+        const form = dlg.querySelector('form[method]');
+        form && form.addEventListener('submit', () => {
+            const b = form.querySelector('[data-submit]');
+            if (b) { b.disabled = true; b.textContent = isVi ? 'Đang xử lý…' : 'Working…'; }
+        });
+    });
+    const revForm = document.getElementById('revision-form');
+    revForm && revForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        const fd = new FormData(revForm); fd.append('_csrf_token', CSRF);
+        const err = document.getElementById('revision-error');
+        const res = await fetch(`/api/projects/${contractId}/request-revision`, { method: 'POST', body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) { location.reload(); return; }
+        err.textContent = data.message || (isVi ? 'Không gửi được yêu cầu.' : 'Request failed.');
+        err.classList.remove('hidden');
+    });
+
+    function captureLocation() {
+        const status = document.getElementById('geo-status');
+        if (!status || !navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(pos => {
+            document.getElementById('geo-lat').value = pos.coords.latitude.toFixed(6);
+            document.getElementById('geo-lng').value = pos.coords.longitude.toFixed(6);
+            status.textContent = (isVi ? '✓ Đã ghi nhận vị trí (±' : '✓ Location captured (±') + Math.round(pos.coords.accuracy) + 'm)';
+            status.className = 'text-xs text-emerald-600 font-semibold';
+        }, () => { status.textContent = isVi ? 'Không lấy được vị trí — vẫn có thể check-in.' : 'Location unavailable — you can still check in.'; },
+        { enableHighAccuracy: true, timeout: 8000 });
+    }
+
+    // ── Countdown ──
+    function tick() {
+        document.querySelectorAll('[data-countdown]').forEach(el => {
+            const iso = el.dataset.countdown; if (!iso || iso === 'None') return;
+            const ms = new Date(iso) - new Date();
+            if (ms <= 0) { el.textContent = isVi ? 'đến hạn' : 'due'; return; }
+            const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+            el.textContent = h >= 24 ? `${Math.floor(h / 24)}${isVi ? ' ngày ' : 'd '}${h % 24}${isVi ? ' giờ' : 'h'}` : `${h}${isVi ? ' giờ ' : 'h '}${m}${isVi ? ' phút' : 'm'}`;
+        });
+    }
+    tick(); setInterval(tick, 30000);
+
+    // ── Feed ──
+    const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+    const safeUrl = u => (typeof u === 'string' && (u.startsWith('/') || u.startsWith('data:image/'))) ? u : '';
+    const tones = { brand: 'bg-brand-50 border-brand-200 text-brand-900', emerald: 'bg-emerald-50 border-emerald-200 text-emerald-900',
+        amber: 'bg-amber-50 border-amber-200 text-amber-900', cyan: 'bg-cyan-50 border-cyan-200 text-cyan-900',
+        orange: 'bg-orange-50 border-orange-200 text-orange-900', slate: 'bg-white border-slate-200 text-slate-700' };
+    function render(items) {
+        if (!items.length) {
+            feed.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-center text-slate-400 gap-2 py-12"><span class="text-3xl">💬</span><p class="text-xs font-medium">${isVi ? 'Chưa có trao đổi nào.<br>Hãy chào hỏi và thống nhất chi tiết công việc tại đây.' : 'No messages yet.'}</p></div>`;
+            return;
+        }
+        let html = '', lastDate = '', lastMine = -1;
+        items.forEach((it, i) => { if (it.kind === 'message' && String(it.sender_id) === me) lastMine = i; });
+        items.forEach((it, i) => {
+            if (it.date !== lastDate) {
+                lastDate = it.date;
+                html += `<div class="flex items-center gap-3 py-1"><span class="flex-1 h-px bg-slate-200"></span><span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">${esc(it.date)}</span><span class="flex-1 h-px bg-slate-200"></span></div>`;
+            }
+            if (it.kind === 'event') {
+                const files = (it.files || []).map(f => `<a href="${esc(safeUrl(f.url))}" target="_blank" class="mt-1.5 flex items-center gap-2 p-2 rounded-lg bg-white border border-slate-200 text-slate-800 hover:border-brand-300"><span>📄</span><span class="text-xs font-bold truncate max-w-[240px]">${esc(f.name)}</span></a>`).join('');
+                html += `<div class="flex justify-center"><div class="max-w-[92%] w-full sm:w-auto px-3.5 py-2.5 rounded-xl border text-xs ${tones[it.tone] || tones.slate}">
+                    <div class="flex items-center gap-2"><span>${esc(it.icon)}</span><span class="font-bold">${esc(it.label)}</span>${it.actor ? `<span class="opacity-60">· ${esc(it.actor)}</span>` : ''}<span class="ml-auto pl-2 text-[10px] opacity-60 shrink-0">${esc(it.time)}</span></div>
+                    ${it.note ? `<p class="mt-1.5 pl-6 whitespace-pre-line opacity-90">${esc(it.note)}</p>` : ''}${files ? `<div class="pl-6">${files}</div>` : ''}</div></div>`;
+            } else {
+                const mine = String(it.sender_id) === me;
+                const img = safeUrl(it.image_url);
+                html += `<div class="flex ${mine ? 'justify-end' : 'justify-start'}"><div class="max-w-[82%] flex flex-col ${mine ? 'items-end' : 'items-start'}">
+                    <span class="text-[10px] text-slate-400 mb-0.5 px-1">${mine ? '' : esc(it.sender_name) + ' · '}${esc(it.time)}</span>
+                    <div class="px-3.5 py-2 rounded-2xl text-sm shadow-sm ${mine ? 'bg-brand-600 text-white rounded-br-md' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-md'}">
+                        ${img ? `<a href="${esc(img)}" target="_blank"><img src="${esc(img)}" class="max-w-[240px] max-h-[240px] rounded-lg ${it.content ? 'mb-1.5' : ''}" alt=""></a>` : ''}
+                        ${it.content ? `<p class="whitespace-pre-line break-words">${esc(it.content)}</p>` : ''}
+                    </div>
+                    ${i === lastMine && it.is_read ? `<span class="text-[10px] text-brand-500 mt-0.5 px-1">✓✓ ${isVi ? 'Đã xem' : 'Seen'}</span>` : ''}
+                </div></div>`;
+            }
+        });
+        feed.innerHTML = html;
+    }
+    async function load(force) {
+        try {
+            const res = await fetch(`/api/workspace/${contractId}/feed`, { headers: { Accept: 'application/json' } });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.status !== initialStatus || data.delivered !== initialDelivered) document.getElementById('ws-reload').classList.remove('hidden');
+            const last = data.items[data.items.length - 1];
+            const sig = data.items.length + '|' + (last ? last.key + last.is_read : '');
+            if (sig === signature && !force) return;
+            const atBottom = feed.scrollHeight - feed.clientHeight - feed.scrollTop < 80;
+            signature = sig; render(data.items);
+            if (atBottom || force) feed.scrollTop = feed.scrollHeight;
+        } catch (e) { /* thử lại ở lần sau */ }
+    }
+
+    // ── Composer (ảnh dùng API chat sẵn có: tải lên server, lỗi thì nén ảnh phía trình duyệt) ──
+    const input = document.getElementById('ws-input');
+    if (input) {
+        const sendBtn = document.getElementById('ws-send'), attach = document.getElementById('ws-attach');
+        const preview = document.getElementById('ws-preview'), previewImg = document.getElementById('ws-preview-img');
+        const warn = document.getElementById('ws-warn');
+        let pendingFile = null;
+        const autosize = () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 140) + 'px'; };
+        function compressImage(file, max = 1200, q = 0.8) {
+            return new Promise(resolve => {
+                const r = new FileReader();
+                r.onload = e => { const img = new Image(); img.onload = () => {
+                    let w = img.width, h = img.height;
+                    if (w > max || h > max) { if (w > h) { h = Math.round(h * max / w); w = max; } else { w = Math.round(w * max / h); h = max; } }
+                    const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
+                    resolve(c.toDataURL('image/jpeg', q)); }; img.onerror = () => resolve(e.target.result); img.src = e.target.result; };
+                r.readAsDataURL(file);
+            });
+        }
+        async function uploadImage(file) {
+            try {
+                const fd = new FormData(); fd.append('image', file);
+                const res = await fetch('/api/chat/upload-image', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.status === 'ok' && data.image_url) return data.image_url;
+            } catch (e) { /* fallback */ }
+            return await compressImage(file);
+        }
+        attach.addEventListener('change', () => {
+            const f = attach.files[0]; if (!f) return;
+            if (f.size > 5 * 1024 * 1024) { alert(isVi ? 'Ảnh vượt quá 5MB.' : 'Image exceeds 5MB.'); attach.value = ''; return; }
+            pendingFile = f; previewImg.src = URL.createObjectURL(f); preview.classList.remove('hidden');
+        });
+        document.getElementById('ws-preview-x').addEventListener('click', () => { pendingFile = null; attach.value = ''; preview.classList.add('hidden'); });
+        async function send() {
+            const text = input.value.trim();
+            if (!text && !pendingFile) return;
+            sendBtn.disabled = true;
+            try {
+                let image_url = '';
+                if (pendingFile) image_url = await uploadImage(pendingFile);
+                const res = await fetch(`/api/messages/${contractId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, image_url }) });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    input.value = ''; autosize(); pendingFile = null; attach.value = ''; preview.classList.add('hidden');
+                    if (data.has_warning && data.warning_message) { warn.textContent = data.warning_message; warn.classList.remove('hidden'); } else warn.classList.add('hidden');
+                    await load(true);
+                } else { warn.textContent = data.message || (isVi ? 'Không gửi được tin nhắn.' : 'Send failed.'); warn.classList.remove('hidden'); }
+            } finally { sendBtn.disabled = false; input.focus(); }
+        }
+        input.addEventListener('input', autosize);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
+        sendBtn.addEventListener('click', send);
+    }
+
+    load(true);
+    setInterval(load, 4000);
+})();
+</script>
+{% endblock %}

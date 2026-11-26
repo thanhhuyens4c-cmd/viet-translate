@@ -38,6 +38,13 @@ EVENT_LABELS = {
     'revision_requested': 'Khách yêu cầu chỉnh sửa',
     'redelivered': 'Phiên dịch viên bàn giao lại sau chỉnh sửa',
     'completed': 'Khách xác nhận hoàn thành',
+    'started': 'Phiên dịch viên bắt đầu làm việc',
+    'progress': 'Cập nhật tiến độ',
+    'progress_requested': 'Khách yêu cầu cập nhật tiến độ',
+    'checkin': 'Phiên dịch viên check-in có mặt',
+    'checkout': 'Phiên dịch viên check-out kết thúc ca',
+    'attendance_confirmed': 'Khách xác nhận phiên dịch viên có mặt',
+    'onsite_report': 'Phiên dịch viên gửi biên bản nghiệm thu',
 }
 
 
@@ -53,7 +60,8 @@ def display_status(contract, deliverable_count=None):
     s = contract.status
     if s == 'escrow_pending':
         key = 'pending_payment'
-    elif s == 'in_progress' and n > 0:
+    elif s == 'in_progress' and (n > 0 or (contract.refund_policy not in (None, 'document') and contract.delivered_at)):
+        # Dịch tài liệu: đã có tệp bàn giao. Phiên dịch trực tiếp: đã gửi biên bản (delivered_at).
         key = 'awaiting_acceptance'
     elif s in DISPLAY_STATUS:
         key = s
@@ -152,7 +160,11 @@ def accept_delivery(contract_id, hirer_id):
     from disputes import active_dispute
     if active_dispute(c.id):
         raise ProjectError('Hợp đồng đang có khiếu nại chưa giải quyết, chưa thể nghiệm thu.', 409)
-    if Deliverable.query.filter_by(contract_id=c.id).count() == 0:
+    if c.refund_policy not in (None, 'document'):
+        # Phiên dịch trực tiếp: nghiệm thu theo biên bản ca làm (services/workspace.py), không cần tệp.
+        if c.delivered_at is None:
+            raise ProjectError('Phiên dịch viên chưa gửi biên bản hoàn thành ca làm để nghiệm thu.', 409)
+    elif Deliverable.query.filter_by(contract_id=c.id).count() == 0:
         raise ProjectError('Phiên dịch viên chưa bàn giao tệp nào để nghiệm thu.', 409)
     claimed = (Contract.query.filter(Contract.id == c.id, Contract.status == 'in_progress')
                .update({'status': 'completed', 'updated_at': datetime.utcnow()}, synchronize_session=False))

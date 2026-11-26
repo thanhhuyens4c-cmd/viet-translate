@@ -10064,85 +10064,54 @@ def api_report_contract_issue(contract_id):
 @app.route('/api/contracts/<int:contract_id>/complete-shift', methods=['POST'])
 @login_required
 def api_complete_shift(contract_id):
+    """Báo kết thúc ca (API cũ của trang thống kê): gửi biên bản qua luồng phòng làm việc.
+    Trước đây đặt status='delivered' — trạng thái nằm ngoài vòng đời tiền nên tiền bị kẹt."""
+    import services.workspace as ws
     user = get_current_user()
     if not user:
         return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
-    contract = Contract.query.get_or_404(contract_id)
+    contract = Contract.query.with_for_update().get_or_404(contract_id)
     if user.id != contract.translator_id:
         return jsonify({'success': False, 'message': 'Chỉ phiên dịch viên phụ trách ca mới có thể báo hoàn thành.'}), 403
-
-    if contract.status not in ['in_progress', 'escrow_paid']:
-        return jsonify({'success': False, 'message': 'Ca làm hiện không ở trạng thái cho phép báo hoàn thành.'}), 400
-
-    note = request.form.get('note', '').strip()
-    if not note and request.is_json:
-        note = request.json.get('note', '').strip()
-
-    contract.status = 'delivered'
-    contract.updated_at = datetime.utcnow()
-
-    completion_msg = Message(
-        contract_id=contract.id,
-        sender_id=user.id,
-        content=f'✅ [Báo cáo hoàn thành ca làm]: Phiên dịch viên đã thực hiện xong ca làm việc. Ghi chú: {note or "Ca làm đã hoàn tất theo kế hoạch."}'
-    )
-    db.session.add(completion_msg)
-
+    data = request.get_json(silent=True) or {}
+    note = (request.form.get('note') or data.get('note') or '').strip() or 'Ca làm đã hoàn tất theo kế hoạch.'
     try:
-        create_notification(
-            user_id=contract.hirer_id,
-            notification_type='CONTRACT_COMPLETED',
-            title='Ca làm đã hoàn tất - Chờ bạn nghiệm thu',
-            message=f'Phiên dịch viên {user.name} đã báo kết thúc ca làm "#{contract.id}". Vui lòng kiểm tra và nghiệm thu giải ngân.',
-            url=url_for('transaction_detail', contract_id=contract.id),
-            related_contract_id=contract.id
-        )
-    except Exception:
-        pass
-
-    db.session.commit()
-
-    return jsonify({
-        'success': True,
-        'message': 'Đã gửi báo cáo hoàn thành ca làm! Vui lòng chờ khách hàng nghiệm thu giải ngân.'
-    })
+        if not contract.attendance_sessions:
+            # Ca chưa từng check-in qua phòng làm việc: ghi nhận một ca kết thúc ngay để có căn cứ.
+            ws.checkin(contract, user.id, note='Check-in khi báo kết thúc ca')
+            db.session.flush()
+        if ws.open_session(contract):
+            ws.checkout(contract, user.id)
+            db.session.flush()
+        ws.submit_onsite_report(contract, user.id, note if len(note) >= 10 else note + ' (báo kết thúc ca)', confirm=True)
+        db.session.commit()
+    except ws.WorkspaceError as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+    return jsonify({'success': True,
+                    'message': 'Đã gửi biên bản hoàn thành ca làm! Vui lòng chờ khách hàng nghiệm thu giải ngân.'})
 
 
 @app.route('/api/contracts/<int:contract_id>/checkin', methods=['POST'])
 @login_required
 def api_contract_checkin(contract_id):
+    import services.workspace as ws
     user = get_current_user()
     if not user:
         return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
-    contract = Contract.query.get_or_404(contract_id)
+    contract = Contract.query.with_for_update().get_or_404(contract_id)
     if user.id != contract.translator_id:
         return jsonify({'success': False, 'message': 'Chỉ phiên dịch viên phụ trách mới có quyền check-in ca làm.'}), 403
-
-    now_str = datetime.now().strftime('%H:%M %d/%m/%Y')
-    checkin_msg = Message(
-        contract_id=contract.id,
-        sender_id=user.id,
-        content=f'📍 [Check-in ca làm]: Phiên dịch viên {user.name} đã có mặt / sẵn sàng vào ca lúc {now_str}.'
-    )
-    db.session.add(checkin_msg)
-
+    data = request.get_json(silent=True) or {}
     try:
-        create_notification(
-            user_id=contract.hirer_id,
-            notification_type='CONTRACT_UPDATE',
-            title='Phiên dịch viên đã check-in',
-            message=f'Phiên dịch viên {user.name} đã check-in sẵn sàng cho ca làm "#{contract.id}".',
-            url=url_for('transaction_detail', contract_id=contract.id),
-            related_contract_id=contract.id
-        )
-    except Exception:
-        pass
-
-    db.session.commit()
-    return jsonify({
-        'success': True,
-        'message': 'Check-in thành công! Chúc bạn có ca làm việc chuyên nghiệp và hiệu quả.'
-    })
+        ws.checkin(contract, user.id, lat=request.form.get('lat') or data.get('lat'),
+                   lng=request.form.get('lng') or data.get('lng'), note=request.form.get('note') or data.get('note'))
+        db.session.commit()
+    except ws.WorkspaceError as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+    return jsonify({'success': True,
+                    'message': 'Check-in thành công! Chúc bạn có ca làm việc chuyên nghiệp và hiệu quả.'})
 
 
 @app.route('/completed-jobs', endpoint='completed_jobs')
@@ -11107,7 +11076,115 @@ def transaction_detail(contract_id):
         return redirect(url_for('transaction_detail', contract_id=contract.id))
 
     from services import lifecycle
-    return render_template('transaction_detail.html', contract=contract, money=lifecycle.panel_context(contract))
+    import services.workspace as ws
+    try:
+        ws.heal_legacy_status(contract)
+        ws.get_state(contract)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    return render_template('workspace.html', contract=contract, money=lifecycle.panel_context(contract),
+                           **_workspace_context(contract))
+
+
+def _workspace_context(contract):
+    import services.workspace as ws
+    from services.projects import display_status, language_pair, project_title, project_deadline
+    me = session['user_id']
+    role = 'hirer' if me == contract.hirer_id else 'translator'
+    state = ws.get_state(contract)
+    status_key, status_text = display_status(contract)
+    events = [e for e in contract.events if e.event_type == 'progress']
+    events.sort(key=lambda e: e.created_at or datetime.min)
+    active = [d for d in contract.disputes if d.status in ('pending_review', 'awaiting_response', 'under_review')]
+    return dict(
+        role=role, other=contract.translator if role == 'hirer' else contract.hirer,
+        state=state, onsite=not ws.is_document(contract),
+        status_key=status_key, status_text=status_text,
+        title=project_title(contract), lang_pair=language_pair(contract), deadline=project_deadline(contract),
+        step=ws.step_index(contract), progress=ws.progress_percent(contract),
+        awaiting_acceptance=ws.awaiting_acceptance(contract),
+        sessions=contract.attendance_sessions, open_session=ws.open_session(contract),
+        total_hours=ws.total_hours(contract),
+        checkin_opens_at=ws.checkin_opens_at_local(contract),
+        now_local=ws.to_local(ws.now_utc()),
+        last_progress=events[-1] if events else None,
+        active_dispute=active[0] if active else None,
+        my_review=next((r for r in contract.reviews if r.reviewer_id == me), None),
+        their_review=next((r for r in contract.reviews if r.reviewer_id != me and not r.is_hidden), None),
+        auto_release_iso=ws.iso_utc(contract.auto_release_at),
+        checkin_early_hours=ws.CHECKIN_EARLY_HOURS,
+    )
+
+
+@app.template_filter('vn_time')
+def vn_time_filter(dt, fmt='%H:%M %d/%m/%Y'):
+    return (dt + timedelta(hours=7)).strftime(fmt) if dt else ''
+
+
+@app.route('/workspace/<int:contract_id>')
+@login_required
+def workspace(contract_id):
+    return redirect(url_for('transaction_detail', contract_id=contract_id))
+
+
+@app.route('/workspace/<int:contract_id>/action/<action>', methods=['POST'])
+@login_required
+def workspace_action(contract_id, action):
+    """Thao tác phòng làm việc không liên quan trực tiếp đến tiền: tiến độ, chấm công, biên bản."""
+    import services.workspace as ws
+    from services.permissions import require_contract_access
+    contract = Contract.query.with_for_update().filter_by(id=contract_id).first_or_404()
+    require_contract_access(session['user_id'], contract)
+    if not _csrf_ok():
+        flash('Phiên làm việc không hợp lệ. Vui lòng tải lại trang.', 'error')
+        return redirect(url_for('transaction_detail', contract_id=contract_id))
+    me, f = session['user_id'], request.form
+    handlers = {
+        'progress': (lambda: ws.post_progress(contract, me, f.get('percent'), f.get('note')), 'Đã cập nhật tiến độ.'),
+        'request_progress': (lambda: ws.request_progress(contract, me, f.get('note')),
+                             'Đã gửi yêu cầu cập nhật tiến độ tới phiên dịch viên.'),
+        'checkin': (lambda: ws.checkin(contract, me, f.get('lat'), f.get('lng'), f.get('note')),
+                    'Check-in thành công. Khách hàng đã được thông báo.'),
+        'checkout': (lambda: ws.checkout(contract, me, f.get('note')), 'Đã check-out, ca làm việc được ghi nhận.'),
+        'confirm_attendance': (lambda: ws.confirm_attendance(contract, me, f.get('session_id', type=int)),
+                               'Đã xác nhận phiên dịch viên có mặt.'),
+        'onsite_report': (lambda: ws.submit_onsite_report(contract, me, f.get('note'), confirm=f.get('confirm') == '1'),
+                          'Đã gửi biên bản. Khách hàng sẽ kiểm tra và nghiệm thu.'),
+    }
+    if action not in handlers:
+        abort(404)
+    fn, ok_msg = handlers[action]
+    try:
+        fn()
+        db.session.commit()
+        flash(ok_msg, 'success')
+    except ws.WorkspaceError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    return redirect(url_for('transaction_detail', contract_id=contract_id))
+
+
+@app.route('/api/workspace/<int:contract_id>/feed')
+@login_required
+def api_workspace_feed(contract_id):
+    import services.workspace as ws
+    from services.permissions import require_contract_access
+    contract = Contract.query.get_or_404(contract_id)
+    me = session['user_id']
+    require_contract_access(me, contract)
+    lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    try:
+        unread = Message.query.filter(Message.contract_id == contract.id, Message.sender_id != me,
+                                      Message.is_read == False).all()  # noqa: E712
+        for m in unread:
+            m.is_read = True
+        if unread:
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+    return jsonify({'status': contract.status, 'delivered': bool(contract.delivered_at),
+                    'items': ws.build_feed(contract, lang)})
 
 @app.route('/contract/<int:contract_id>/<action>', methods=['POST'])
 @login_required
@@ -11149,8 +11226,10 @@ def approve_contract(contract_id):
         else:
             try:
                 accept_delivery(contract.id, session['user_id'])
-                if contract.schedule:
-                    contract.schedule.status = 'completed'
+                # Contract không có quan hệ `schedule` (TranslatorSchedule.contract không khai báo backref).
+                sched = TranslatorSchedule.query.filter_by(contract_id=contract.id).first()
+                if sched and sched.status in ('reserved', 'active'):
+                    sched.status = 'completed'
                     db.session.commit()
                 flash('Nghiệm thu thành công! Tiền Escrow đã được giải ngân.', 'success')
             except ProjectError as e:
@@ -11191,9 +11270,12 @@ def _notify_contract(contract, user_id, title, message):
 @login_required
 def contract_start(contract_id):
     from services import lifecycle
-    _contract_action(contract_id,
-                     lambda c: lifecycle.start_work(c, session['user_id']),
-                     'Đã ghi nhận bạn bắt đầu làm việc.')
+    def action(c):
+        first = c.started_at is None
+        lifecycle.start_work(c, session['user_id'])
+        if first:
+            db.session.add(ContractEvent(contract_id=c.id, actor_id=session['user_id'], event_type='started'))
+    _contract_action(contract_id, action, 'Đã ghi nhận bạn bắt đầu làm việc.')
     return _back_to_contract(contract_id)
 
 
