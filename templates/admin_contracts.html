@@ -15,7 +15,9 @@
         <a href="{{ url_for('admin_contracts', status='all') }}" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">Tất cả</a>
         <div class="filter-sep"></div>
         <a href="{{ url_for('admin_contracts', status='escrow_pending') }}" class="filter-tab {% if status_filter == 'escrow_pending' %}active{% endif %}">Chờ thanh toán</a>
+        <a href="{{ url_for('admin_contracts', status='funded') }}" class="filter-tab {% if status_filter == 'funded' %}active{% endif %}">Chờ nhận việc</a>
         <a href="{{ url_for('admin_contracts', status='in_progress') }}" class="filter-tab {% if status_filter == 'in_progress' %}active{% endif %}">Đang thực hiện</a>
+        <a href="{{ url_for('admin_contracts', status='submitted') }}" class="filter-tab {% if status_filter == 'submitted' %}active{% endif %}">Chờ nghiệm thu</a>
         <a href="{{ url_for('admin_contracts', status='completed') }}" class="filter-tab {% if status_filter == 'completed' %}active{% endif %}">Đã hoàn thành</a>
         <a href="{{ url_for('admin_contracts', status='cancelled') }}" class="filter-tab danger {% if status_filter == 'cancelled' %}active{% endif %}">Đã hủy</a>
         <a href="{{ url_for('admin_contracts', status='disputed') }}" class="filter-tab danger {% if status_filter == 'disputed' %}active{% endif %}">Đang tranh chấp</a>
@@ -94,8 +96,14 @@
                     <td>
                         {% if c.status == 'escrow_pending' %}
                             <span class="badge badge-yellow">Chờ thanh toán</span>
+                        {% elif c.status == 'funded' %}
+                            <span class="badge badge-yellow">Chờ nhận việc</span>
                         {% elif c.status == 'in_progress' %}
                             <span class="badge badge-blue">Đang thực hiện</span>
+                        {% elif c.status == 'revision' %}
+                            <span class="badge badge-yellow">Đang chỉnh sửa</span>
+                        {% elif c.status == 'submitted' %}
+                            <span class="badge badge-blue">Chờ nghiệm thu</span>
                         {% elif c.status == 'completed' %}
                             <span class="badge badge-green">Hoàn thành</span>
                         {% elif c.status == 'cancelled' %}
@@ -109,6 +117,18 @@
                     <td>
                         <div class="flex flex-col items-end gap-2">
                             <button class="btn btn-sm btn-ghost" onclick="viewContractDetail({{ c.id }})">Chi tiết</button>
+                            {% if c.status == 'disputed' and c.workflow %}
+                            <div class="text-[11px] text-rose-300 max-w-[220px] text-right" title="{{ c.workflow.dispute_reason }}">⚠️ {{ c.workflow.dispute_reason|truncate(90) }}</div>
+                            <form method="POST" action="{{ url_for('admin_resolve_dispute', contract_id=c.id) }}" class="flex flex-col items-end gap-1"
+                                  onsubmit="return confirm('Xác nhận phân xử? Thao tác này không thể hoàn tác.');">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="text" name="note" placeholder="Ghi chú phân xử" class="text-xs px-2 py-1 rounded bg-slate-800 border border-slate-600 text-slate-200 w-48">
+                                <div class="flex gap-1">
+                                    <button name="outcome" value="release" class="btn btn-sm btn-ghost text-emerald-400">Giải ngân PDV</button>
+                                    <button name="outcome" value="refund" class="btn btn-sm btn-ghost text-rose-400">Hoàn tiền KH</button>
+                                </div>
+                            </form>
+                            {% endif %}
                             {% if c.schedule %}
                                 <a href="{{ url_for('admin_schedules') }}?contract_id={{ c.id }}" class="text-[10px] text-brand hover:underline">Xem lịch trình</a>
                             {% endif %}

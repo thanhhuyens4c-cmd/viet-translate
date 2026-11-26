@@ -369,6 +369,142 @@ class TranslatorSchedule(db.Model):
     contract = db.relationship('Contract', backref=db.backref('schedule', uselist=False))
 
 
+# ─── PHÒNG LÀM VIỆC (WORKSPACE) ────────────────────────────────────────────────
+# Các bảng mới (tạo tự động bởi db.create_all) — không ALTER bảng cũ.
+#
+# Vòng đời Contract.status:
+#   escrow_pending → funded → in_progress ⇄ revision → submitted → completed
+#   (nhánh phụ: cancelled, disputed)
+
+class ContractWorkflow(db.Model):
+    """Trạng thái chi tiết của quy trình làm việc cho 1 hợp đồng (quan hệ 1-1)."""
+    __tablename__ = 'contract_workflow'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, unique=True, index=True)
+    # 'document' = dịch tài liệu (bàn giao file) | 'onsite' = phiên dịch trực tiếp (chấm công tại chỗ)
+    work_mode = db.Column(db.String(20), nullable=False, default='document')
+    progress_percent = db.Column(db.Integer, default=0, nullable=False)
+
+    funded_at = db.Column(db.DateTime)
+    accept_deadline = db.Column(db.DateTime)
+    accepted_at = db.Column(db.DateTime)
+
+    last_progress_at = db.Column(db.DateTime)
+    progress_requested_at = db.Column(db.DateTime)  # != None khi khách đang chờ PDV cập nhật
+
+    submitted_at = db.Column(db.DateTime)
+    review_deadline = db.Column(db.DateTime)
+    revision_count = db.Column(db.Integer, default=0, nullable=False)
+
+    completed_at = db.Column(db.DateTime)
+    auto_approved = db.Column(db.Boolean, default=False, nullable=False)
+    released_at = db.Column(db.DateTime)
+    payout_amount = db.Column(db.Integer)
+    platform_fee = db.Column(db.Integer)
+
+    disputed_at = db.Column(db.DateTime)
+    dispute_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    dispute_reason = db.Column(db.Text)
+    dispute_prev_status = db.Column(db.String(50))
+
+    cancelled_at = db.Column(db.DateTime)
+    cancel_reason = db.Column(db.Text)
+    refunded_at = db.Column(db.DateTime)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    contract = db.relationship('Contract', backref=db.backref('workflow', uselist=False, cascade='all, delete-orphan'))
+
+
+class ContractEvent(db.Model):
+    """Nhật ký sự kiện của hợp đồng — hiển thị xen kẽ trong khung chat như tin hệ thống."""
+    __tablename__ = 'contract_event'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # None = hệ thống
+    type = db.Column(db.String(40), nullable=False)
+    note = db.Column(db.Text)
+    data = db.Column(db.Text)  # JSON
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    actor = db.relationship('User', foreign_keys=[actor_id])
+    contract = db.relationship('Contract', backref=db.backref('events', lazy=True, cascade='all, delete-orphan',
+                                                              order_by='ContractEvent.created_at'))
+
+    def get_data(self):
+        try:
+            return json.loads(self.data) if self.data else {}
+        except (ValueError, TypeError):
+            return {}
+
+
+class WorkSubmission(db.Model):
+    """Một lần gửi nghiệm thu (bàn giao tài liệu hoặc biên bản phiên dịch trực tiếp)."""
+    __tablename__ = 'work_submission'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    round_no = db.Column(db.Integer, nullable=False, default=1)
+    note = db.Column(db.Text)
+    actual_hours = db.Column(db.Float)  # onsite: tổng giờ từ các ca check-in/out
+    # pending | accepted | auto_accepted | revision_requested | disputed
+    status = db.Column(db.String(30), default='pending', nullable=False)
+    feedback = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_at = db.Column(db.DateTime)
+
+    contract = db.relationship('Contract', backref=db.backref('submissions', lazy=True, cascade='all, delete-orphan',
+                                                              order_by='WorkSubmission.round_no'))
+
+
+class AttendanceSession(db.Model):
+    """Ca làm việc tại chỗ (phiên dịch trực tiếp): check-in / check-out / khách xác nhận."""
+    __tablename__ = 'attendance_session'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    checkin_at = db.Column(db.DateTime, nullable=False)
+    checkin_lat = db.Column(db.Float)
+    checkin_lng = db.Column(db.Float)
+    checkin_note = db.Column(db.String(500))
+    checkout_at = db.Column(db.DateTime)
+    checkout_note = db.Column(db.String(500))
+    confirmed_at = db.Column(db.DateTime)  # khách hàng xác nhận PDV có mặt
+
+    contract = db.relationship('Contract', backref=db.backref('attendance_sessions', lazy=True, cascade='all, delete-orphan',
+                                                              order_by='AttendanceSession.checkin_at'))
+
+    @property
+    def hours(self):
+        if not self.checkout_at:
+            return None
+        return round((self.checkout_at - self.checkin_at).total_seconds() / 3600, 2)
+
+
+class WorkspaceFile(db.Model):
+    """Tệp trong phòng làm việc. category: reference | progress | deliverable | evidence | chat"""
+    __tablename__ = 'workspace_file'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    uploader_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    category = db.Column(db.String(20), nullable=False, default='reference')
+    original_name = db.Column(db.String(255), nullable=False)
+    stored_name = db.Column(db.String(255), nullable=False, unique=True)
+    size = db.Column(db.Integer, default=0)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('contract_event.id'), nullable=True)
+    submission_id = db.Column(db.Integer, db.ForeignKey('work_submission.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    uploader = db.relationship('User', foreign_keys=[uploader_id])
+    submission = db.relationship('WorkSubmission', backref=db.backref('files', lazy=True))
+    contract = db.relationship('Contract', backref=db.backref('workspace_files', lazy=True, cascade='all, delete-orphan',
+                                                              order_by='WorkspaceFile.created_at'))
+
+
 # ─── REPORT MODEL (TASK 11) ────────────────────────────────────────────────────
 
 class Report(db.Model):

@@ -451,7 +451,7 @@
                                 {{ t('job_detail_page.accepted_badge') }}
                             </span>
                             {% if job.contract %}
-                            <a href="{{ url_for('transaction_detail', contract_id=job.contract.id) }}"
+                            <a href="{{ url_for('workspace', contract_id=job.contract.id) }}"
                                 class="px-3.5 py-2 bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200/80 rounded-xl text-xs font-bold transition">
                                 {{ t('job_detail_page.workspace_btn') }}
                             </a>

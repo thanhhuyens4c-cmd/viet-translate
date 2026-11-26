@@ -66,13 +66,23 @@
                                     <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200/70">{{ t('auto.chờ_escrow') }}</span>
                                     {% elif contract.status == 'in_progress' %}
                                     <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-brand-50 text-brand-800 border border-brand-200/70">{{ t('auto.đang_thực_hiện') }}</span>
+                                    {% elif contract.status == 'funded' %}
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-violet-50 text-violet-800 border border-violet-200/70">{{ 'Chờ nhận việc' if current_lang == 'vi' else 'Awaiting acceptance' }}</span>
+                                    {% elif contract.status == 'revision' %}
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-orange-50 text-orange-800 border border-orange-200/70">{{ 'Đang chỉnh sửa' if current_lang == 'vi' else 'Revising' }}</span>
+                                    {% elif contract.status == 'submitted' %}
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200/70">{{ 'Chờ nghiệm thu' if current_lang == 'vi' else 'Awaiting approval' }}</span>
+                                    {% elif contract.status == 'disputed' %}
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-rose-50 text-rose-800 border border-rose-200/70">{{ 'Đang tranh chấp' if current_lang == 'vi' else 'In dispute' }}</span>
+                                    {% elif contract.status == 'cancelled' %}
+                                    <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-200">{{ 'Đã hủy' if current_lang == 'vi' else 'Cancelled' }}</span>
                                     {% elif contract.status == 'completed' %}
                                     <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/70">{{ t('auto.hoàn_tất') }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="py-4 text-slate-400 text-xs">{{ contract.created_at.strftime('%d/%m/%Y') }}</td>
                                 <td class="py-4 text-right">
-                                    <a href="{{ url_for('transaction_detail', contract_id=contract.id) }}" class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50/60 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition border border-brand-200/50">
+                                    <a href="{{ url_for('workspace', contract_id=contract.id) }}" class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50/60 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition border border-brand-200/50">
                                         {{ t('auto.phòng_làm_việc_→') }}
                                     </a>
                                 </td>

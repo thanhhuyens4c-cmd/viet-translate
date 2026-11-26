@@ -1484,7 +1484,7 @@ def api_conversations():
                 'last_time': last_msg.created_at,
                 'last_time_str': last_msg.created_at.strftime('%H:%M %d/%m'),
                 'unread_count': unread,
-                'url': url_for('transaction_detail', contract_id=contract.id),
+                'url': url_for('workspace', contract_id=contract.id),
                 'contract_id': contract.id,
             }
 
@@ -1884,10 +1884,16 @@ def payment_mockup(contract_id):
                 flash('Thanh toán thất bại: Không tìm thấy lịch hoặc trạng thái không hợp lệ.', 'error')
                 return redirect(url_for('index'))
                 
-            contract.status = 'in_progress'
+            from services.workspace import mark_funded, WorkflowError
+            try:
+                mark_funded(contract, session['user_id'])
+            except WorkflowError as e:
+                db.session.rollback()
+                flash(str(e), 'error')
+                return redirect(url_for('workspace', contract_id=contract.id))
             db.session.commit()
-            flash('Thanh toán thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
-            return redirect(url_for('transaction_detail', contract_id=contract.id))
+            flash('Thanh toán thành công! Tiền đã được giữ trong Escrow — chờ phiên dịch viên nhận việc.', 'success')
+            return redirect(url_for('workspace', contract_id=contract.id))
             
         except SlotExpiredError as e:
             db.session.rollback()
@@ -1908,97 +1914,210 @@ def payment_mockup(contract_id):
     return render_template('payment_mockup.html', contract=contract,
                            platform_fee=platform_fee, translator_receives=translator_receives)
 
-@app.route('/transaction/<int:contract_id>', methods=['GET', 'POST'])
-@login_required
-def transaction_detail(contract_id):
+# ─── PHÒNG LÀM VIỆC (WORKSPACE) ────────────────────────────────────────────────
+
+def _load_contract_for(contract_id):
     contract = Contract.query.get_or_404(contract_id)
     from services.permissions import require_contract_access
     require_contract_access(session['user_id'], contract)
+    return contract
 
-    if request.method == 'POST' and 'file' in request.files:
-        if contract.status != 'in_progress':
-            flash('Hợp đồng chưa ở trạng thái thực hiện.', 'error')
-            return redirect(url_for('transaction_detail', contract_id=contract.id))
 
-        if session['user_id'] != contract.translator_id:
-            abort(403)
+@app.template_filter('vn_time')
+def vn_time_filter(dt, fmt='%H:%M %d/%m/%Y'):
+    from services.workspace import to_local
+    return to_local(dt).strftime(fmt) if dt else ''
 
-        file = request.files.get('file')
-        if not file or file.filename == '':
-            flash('Vui lòng chọn file.', 'error')
-            return redirect(url_for('transaction_detail', contract_id=contract.id))
 
-        if not allowed_file(file.filename):
-            flash('Loại tệp không được hỗ trợ.', 'error')
-            return redirect(url_for('transaction_detail', contract_id=contract.id))
+@app.route('/transaction/<int:contract_id>')
+@login_required
+def transaction_detail(contract_id):
+    """URL cũ — chuyển hướng sang phòng làm việc mới."""
+    return redirect(url_for('workspace', contract_id=contract_id))
 
-        filename = secure_filename(file.filename)
-        if not filename:
-            flash('Tên file không hợp lệ.', 'error')
-            return redirect(url_for('transaction_detail', contract_id=contract.id))
 
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+@app.route('/workspace/<int:contract_id>')
+@login_required
+def workspace(contract_id):
+    import services.workspace as ws
+    contract = _load_contract_for(contract_id)
+    try:
+        ws.get_workflow(contract)
+        if ws.maybe_auto_approve(contract):
+            flash('Đã quá hạn nghiệm thu — hệ thống tự động nghiệm thu và giải ngân.', 'info')
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    wf = ws.get_workflow(contract)
 
-        try:
-            file.save(filepath)
-        except Exception:
-            flash('Lỗi khi tải file lên máy chủ.', 'error')
-            return redirect(url_for('transaction_detail', contract_id=contract.id))
+    me = session['user_id']
+    role = ws.role_of(me, contract)
+    lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    other = contract.translator if role == 'hirer' else contract.hirer
+    files = contract.workspace_files
+    my_review = next((r for r in contract.reviews if r.reviewer_id == me), None)
+    their_review = next((r for r in contract.reviews if r.reviewer_id != me and not r.is_hidden), None)
+    return render_template(
+        'workspace.html', contract=contract, wf=wf, role=role, other=other,
+        code=ws.contract_code(contract),
+        status_meta=ws.STATUS_META.get(contract.status, {'vi': contract.status, 'en': contract.status, 'tone': 'slate'}),
+        mode_meta=ws.MODE_META[wf.work_mode],
+        step=ws.step_index(contract, wf), progress=ws.progress_percent(contract, wf),
+        fees=ws.fee_breakdown(contract),
+        sessions=contract.attendance_sessions, open_session=ws.open_session(contract),
+        submissions=contract.submissions, latest_sub=ws.latest_submission(contract),
+        sub_files={s.id: [ws.file_dict(f) for f in s.files] for s in contract.submissions},
+        reference_files=[ws.file_dict(f) for f in files if f.category in ('reference', 'chat')],
+        deliverable_files=[ws.file_dict(f) for f in files if f.category in ('deliverable', 'evidence', 'progress')],
+        legacy_deliverables=contract.deliverables,
+        my_review=my_review, their_review=their_review,
+        job_deadline=contract.job.deadline if contract.job else None,
+        scheduled_start=ws.scheduled_start_local(contract),
+        accept_deadline_iso=ws.iso_utc(wf.accept_deadline), review_deadline_iso=ws.iso_utc(wf.review_deadline),
+        max_revisions=ws.MAX_REVISIONS, review_hours=ws.REVIEW_HOURS, accept_hours=ws.ACCEPT_HOURS,
+        checkin_early_hours=ws.CHECKIN_EARLY_HOURS,
+        now_local=ws.to_local(ws.now_utc()),
+        checkin_opens_at=(ws.scheduled_start_local(contract) - timedelta(hours=ws.CHECKIN_EARLY_HOURS)
+                          if ws.scheduled_start_local(contract) else None),
+        last_progress_event=next((e for e in reversed(contract.events) if e.type in ('progress', 'progress_note')), None),
+    )
 
-        try:
-            deliverable = Deliverable(
-                contract_id=contract.id,
-                filename=filename,
-                filepath=filename
-            )
-            message = Message(
-                contract_id=contract.id,
-                sender_id=session['user_id'],
-                content=f'📎 Đã gửi tệp: {filename}'
-            )
 
-            db.session.add(deliverable)
-            db.session.add(message)
-            db.session.flush()
+@app.route('/workspace/<int:contract_id>/action/<action>', methods=['POST'])
+@login_required
+def workspace_action(contract_id, action):
+    import services.workspace as ws
+    contract = _load_contract_for(contract_id)
+    ws.get_workflow(contract)
+    me = session['user_id']
+    f = request.form
+    handlers = {
+        'accept': lambda: ws.accept_job(contract, me, f.get('note')),
+        'decline': lambda: ws.decline_job(contract, me, f.get('reason')),
+        'cancel': lambda: ws.cancel_contract(contract, me, f.get('reason')),
+        'progress': lambda: ws.post_progress(contract, me, f.get('percent'), f.get('note')),
+        'request_progress': lambda: ws.request_progress(contract, me, f.get('note')),
+        'checkin': lambda: ws.checkin(contract, me, f.get('lat'), f.get('lng'), f.get('note')),
+        'checkout': lambda: ws.checkout(contract, me, f.get('note')),
+        'confirm_attendance': lambda: ws.confirm_attendance(contract, me, f.get('session_id', type=int)),
+        'submit': lambda: ws.submit_work(contract, me, f.get('note'), request.files.getlist('files'),
+                                         confirm=f.get('confirm') == '1'),
+        'approve': lambda: ws.approve_work(contract, me, confirm=f.get('confirm') == '1'),
+        'revision': lambda: ws.request_revision(contract, me, f.get('feedback')),
+        'dispute': lambda: ws.open_dispute(contract, me, f.get('reason')),
+        'reference': lambda: ws.upload_reference(contract, me, request.files.getlist('files'), f.get('note')),
+    }
+    success = {
+        'accept': 'Đã nhận việc. Chúc bạn làm việc hiệu quả!',
+        'decline': 'Đã từ chối nhận việc. Tiền ký quỹ được hoàn lại cho khách hàng.',
+        'cancel': 'Đã hủy hợp đồng. Tiền ký quỹ (nếu có) được hoàn 100%.',
+        'progress': 'Đã cập nhật tiến độ.',
+        'request_progress': 'Đã gửi yêu cầu cập nhật tiến độ tới phiên dịch viên.',
+        'checkin': 'Check-in thành công. Khách hàng đã được thông báo.',
+        'checkout': 'Đã check-out, ca làm việc được ghi nhận.',
+        'confirm_attendance': 'Đã xác nhận phiên dịch viên có mặt.',
+        'submit': 'Đã gửi nghiệm thu. Khách hàng có 72 giờ để kiểm tra.',
+        'approve': 'Nghiệm thu thành công! Tiền đã được giải ngân cho phiên dịch viên.',
+        'revision': 'Đã gửi yêu cầu chỉnh sửa.',
+        'dispute': 'Đã mở khiếu nại. Ban quản trị sẽ liên hệ trong 48 giờ.',
+        'reference': 'Đã tải tài liệu lên phòng làm việc.',
+    }
+    handler = handlers.get(action)
+    if handler is None:
+        abort(404)
+    try:
+        handler()
+        db.session.commit()
+        flash(success[action], 'success')
+    except ws.WorkflowError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.exception('workspace_action %s failed: %s', action, e)
+        flash(_t('flash.system_error'), 'error')
+    return redirect(url_for('workspace', contract_id=contract.id))
 
-            from services.notifications import should_notify
-            hirer = User.query.get(contract.hirer_id)
-            if hirer and should_notify(hirer, 'NEW_MESSAGE'):
-                create_notification(
-                    user_id=contract.hirer_id,
-                    notification_type='NEW_MESSAGE',
-                    title='Bạn có tin nhắn mới',
-                    message=f'{contract.translator.name} đã gửi cho bạn một tin nhắn trong hợp đồng.',
-                    url=url_for('transaction_detail', contract_id=contract.id),
-                    related_contract_id=contract.id
-                )
-
-            db.session.commit()
-            flash('Đã gửi tài liệu thành công.', 'success')
-        except Exception:
-            db.session.rollback()
-            flash('Lỗi hệ thống khi lưu tài liệu.', 'error')
-
-        return redirect(url_for('transaction_detail', contract_id=contract.id))
-
-    return render_template('transaction_detail.html', contract=contract)
 
 @app.route('/approve-contract/<int:contract_id>', methods=['POST'])
 @login_required
 def approve_contract(contract_id):
-    contract = Contract.query.get_or_404(contract_id)
-    from services.permissions import require_contract_access
-    require_contract_access(session['user_id'], contract)
-    if session['user_id'] == contract.hirer_id and contract.status == 'in_progress':
-        contract.status = 'completed'
-        if contract.job:
-            contract.job.status = 'completed'
-        prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
-        if prof:
-            prof.total_jobs += 1
+    """Giữ tương thích: chuyển sang quy trình nghiệm thu mới."""
+    return workspace_action(contract_id, 'approve')
+
+
+@app.route('/api/workspace/<int:contract_id>/feed')
+@login_required
+def api_workspace_feed(contract_id):
+    import services.workspace as ws
+    contract = _load_contract_for(contract_id)
+    me = session['user_id']
+    lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    try:
+        ws.get_workflow(contract)
+        ws.maybe_auto_approve(contract)
+        unread = Message.query.filter(Message.contract_id == contract.id, Message.sender_id != me,
+                                      Message.is_read == False).all()  # noqa: E712
+        for m in unread:
+            m.is_read = True
         db.session.commit()
-        flash('Nghiệm thu thành công! Tiền Escrow đã được giải ngân.', 'success')
-    return redirect(url_for('transaction_detail', contract_id=contract.id))
+    except Exception:
+        db.session.rollback()
+    return jsonify({'status': contract.status, 'items': ws.build_feed(contract, lang)})
+
+
+@app.route('/api/workspace/<int:contract_id>/attach', methods=['POST'])
+@login_required
+def api_workspace_attach(contract_id):
+    import services.workspace as ws
+    contract = _load_contract_for(contract_id)
+    try:
+        ws.chat_attachment(contract, session['user_id'], request.files.get('file'), request.form.get('caption'))
+        db.session.commit()
+    except ws.WorkflowError as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+    other_id = contract.translator_id if session['user_id'] == contract.hirer_id else contract.hirer_id
+    try:
+        create_notification(user_id=other_id, notification_type='NEW_MESSAGE', title='Bạn có tệp mới',
+                            message='Một tệp vừa được gửi trong phòng làm việc.',
+                            url=url_for('workspace', contract_id=contract.id), related_contract_id=contract.id)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    return jsonify({'status': 'ok'})
+
+
+@app.route('/workspace/<int:contract_id>/files/<int:file_id>')
+@login_required
+def workspace_file(contract_id, file_id):
+    from flask import send_from_directory
+    from models import WorkspaceFile
+    contract = _load_contract_for(contract_id)
+    f = WorkspaceFile.query.filter_by(id=file_id, contract_id=contract.id).first_or_404()
+    folder = os.path.abspath(app.config['UPLOAD_FOLDER'])
+    inline = f.original_name.rsplit('.', 1)[-1].lower() in ('pdf', 'png', 'jpg', 'jpeg', 'webp', 'txt')
+    return send_from_directory(folder, f.stored_name, as_attachment=not inline, download_name=f.original_name)
+
+
+@app.route('/api/cron/auto-approve', methods=['GET', 'POST'])
+def cron_auto_approve():
+    expected_secret = os.environ.get('CRON_SECRET')
+    provided = request.args.get('secret') or request.headers.get('Authorization')
+    if not expected_secret:
+        return jsonify({'error': 'CRON_SECRET not configured'}), 500
+    if provided not in (expected_secret, f'Bearer {expected_secret}'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    from services.workspace import run_auto_approvals
+    try:
+        count = run_auto_approvals()
+        db.session.commit()
+        return jsonify({'success': True, 'auto_approved': count})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/submit-review/<int:contract_id>', methods=['POST'])
 @login_required
@@ -2011,7 +2130,7 @@ def submit_review(contract_id):
             rating = int(request.form.get('rating', 5))
         except ValueError:
             flash('Vui lòng chọn số sao đánh giá hợp lệ.', 'error')
-            return redirect(url_for('transaction_detail', contract_id=contract.id))
+            return redirect(url_for('workspace', contract_id=contract.id))
         
         comment = request.form.get('comment', '')
         reviewer_id = session['user_id']
@@ -2019,7 +2138,7 @@ def submit_review(contract_id):
 
         if reviewer_id == reviewee_id:
             flash('Bạn không thể tự đánh giá chính mình.', 'error')
-            return redirect(url_for('transaction_detail', contract_id=contract.id))
+            return redirect(url_for('workspace', contract_id=contract.id))
 
         existing = Review.query.filter_by(contract_id=contract.id, reviewer_id=reviewer_id).first()
         is_edit = False
@@ -2071,7 +2190,7 @@ def submit_review(contract_id):
                                 notification_type='NEW_REVIEW',
                                 title='Bạn nhận được đánh giá mới',
                                 message=f'{reviewer.name} vừa cập nhật đánh giá {rating}/5.',
-                                url=url_for('transaction_detail', contract_id=contract.id),
+                                url=url_for('workspace', contract_id=contract.id),
                                 related_review_id=review.id,
                                 related_contract_id=contract.id
                             )
@@ -2081,7 +2200,7 @@ def submit_review(contract_id):
                             notification_type='NEW_REVIEW',
                             title='Bạn nhận được đánh giá mới',
                             message=f'{reviewer.name} vừa đánh giá bạn {rating}/5.',
-                            url=url_for('transaction_detail', contract_id=contract.id),
+                            url=url_for('workspace', contract_id=contract.id),
                             related_review_id=review.id,
                             related_contract_id=contract.id
                         )
@@ -2091,7 +2210,7 @@ def submit_review(contract_id):
 
         db.session.commit()
         flash('Đánh giá đã được lưu thành công!', 'success')
-    return redirect(url_for('transaction_detail', contract_id=contract.id))
+    return redirect(url_for('workspace', contract_id=contract.id))
 
 # ─── CHAT API (CONTRACT) ────────────────────────────────────────────────────────
 
@@ -2144,7 +2263,7 @@ def send_message(contract_id):
                         notification_type='NEW_MESSAGE',
                         title='Bạn có tin nhắn mới',
                         message=f'{sender.name} đã gửi cho bạn một tin nhắn trong hợp đồng.',
-                        url=url_for('transaction_detail', contract_id=contract.id),
+                        url=url_for('workspace', contract_id=contract.id),
                         related_contract_id=contract.id
                     )
                 except Exception as e:
@@ -2488,6 +2607,29 @@ def admin_contracts():
     
     contracts = query.order_by(Contract.created_at.desc()).all()
     return render_template('admin_contracts.html', contracts=contracts, status_filter=status_filter)
+
+@app.route('/admin/contracts/<int:contract_id>/resolve', methods=['POST'])
+@admin_required
+def admin_resolve_dispute(contract_id):
+    import services.workspace as ws
+    contract = Contract.query.get_or_404(contract_id)
+    outcome = request.form.get('outcome')
+    note = request.form.get('note', '')
+    try:
+        ws.resolve_dispute(contract, outcome, note)
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
+            target_type='contract',
+            target_id=contract.id,
+            description=f"Phân xử tranh chấp {ws.contract_code(contract)}: {outcome}",
+            extra_data={'outcome': outcome, 'note': note},
+        )
+        db.session.commit()
+        flash('Đã phân xử tranh chấp.', 'success')
+    except ws.WorkflowError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    return redirect(url_for('admin_contracts', status='disputed'))
 
 @app.route('/admin/schedules')
 @admin_required

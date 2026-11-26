@@ -338,7 +338,7 @@
                     <!-- Messages icon with badge -->
                     {% if current_user %}
                     <a href="{{ url_for('messages_page') }}" id="nav-msg-btn"
-                        class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition {% if request.endpoint in ['messages_page', 'direct_chat', 'transaction_detail'] %}bg-brand-50 text-brand-600{% endif %}"
+                        class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition {% if request.endpoint in ['messages_page', 'direct_chat', 'transaction_detail', 'workspace'] %}bg-brand-50 text-brand-600{% endif %}"
                         title="Tin nhắn">
                         <a href="{{ url_for('messages_page') }}" id="nav-msg-btn"
                             class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition"
@@ -511,7 +511,7 @@
                 {% endif %}
                 {% if current_user %}
                 <a href="{{ url_for('messages_page') }}"
-                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint in ['messages_page', 'direct_chat', 'transaction_detail'] %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} flex items-center gap-2">
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint in ['messages_page', 'direct_chat', 'transaction_detail', 'workspace'] %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
