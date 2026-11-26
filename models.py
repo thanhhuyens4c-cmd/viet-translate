@@ -1702,6 +1702,9 @@ class TranslatorSchedule(db.Model):
 
     translator = db.relationship('User', backref=db.backref('schedules', lazy=True))
     contract = db.relationship('Contract')
+    # job_id đã có sẵn; thiếu quan hệ này khiến /interpreter/dashboard và /my-schedule lỗi 500 (sch.job).
+    job = db.relationship('Job', foreign_keys=[job_id])
+    service = db.relationship('Service', foreign_keys=[service_id])
 
 
 # ─── REPORT MODEL (TASK 11) ────────────────────────────────────────────────────
