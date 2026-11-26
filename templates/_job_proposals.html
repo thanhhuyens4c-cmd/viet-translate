@@ -3,7 +3,7 @@
 {% set comparable = proposal_views|selectattr('status', 'in', ['pending', 'accepted'])|list %}
 {% macro or_dash(v) %}{% if v %}<span class="whitespace-pre-line break-words">{{ v }}</span>{% else %}<span class="text-slate-300">Không nêu</span>{% endif %}{% endmacro %}
 
-<section id="proposals" class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-8 min-w-0">
+<section id="proposals" class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-8 min-w-0 scroll-mt-24">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-5 border-b border-slate-100">
         <h2 class="text-lg font-bold text-slate-900">Báo giá nhận được <span class="text-slate-400 font-semibold">({{ proposal_views|length }})</span></h2>
         {% if comparable|length >= 2 %}

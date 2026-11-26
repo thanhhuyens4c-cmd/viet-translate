@@ -3933,7 +3933,11 @@ def account_profile():
     if getattr(user, 'role', '') == 'translator':
         from models import Notification
         try:
-            unread_notifs_count = Notification.query.filter_by(user_id=user.id, is_read=False).count()
+            unread_notifs_count = Notification.query.filter(
+                Notification.user_id == user.id,
+                Notification.is_read.is_(False),
+                Notification.type != 'NEW_MESSAGE'
+            ).count()
         except Exception:
             unread_notifs_count = 0
         try:
@@ -7978,17 +7982,7 @@ def send_direct_message(other_user_id):
     msg = DirectMessage(sender_id=me, receiver_id=other_user_id,
                         content=content or '[Hình ảnh]', image_url=image_url or None)
     db.session.add(msg)
-    sender = db.session.get(User, me)
-    if sender:
-        from services.notifications import should_notify
-        if should_notify(receiver, 'NEW_MESSAGE'):
-            try:
-                create_notification(
-                    user_id=other_user_id, notification_type='NEW_MESSAGE', title='Bạn có tin nhắn mới',
-                    message=f'{sender.name} đã gửi cho bạn một tin nhắn.',
-                    url=url_for('messages_page', c=f'd:{me}'))
-            except Exception as e:
-                print(f"Error creating notification: {e}")
+    # Tin nhắn mới chỉ thông báo tại biểu tượng Tin nhắn, không tạo trùng ở Chuông thông báo
     db.session.commit()
     return jsonify({'status': 'ok', 'id': msg.id})
 
@@ -9904,7 +9898,7 @@ def api_contract_checkin(contract_id):
     try:
         create_notification(
             user_id=contract.hirer_id,
-            notification_type='NEW_MESSAGE',
+            notification_type='CONTRACT_UPDATE',
             title='Phiên dịch viên đã check-in',
             message=f'Phiên dịch viên {user.name} đã check-in sẵn sàng cho ca làm "#{contract.id}".',
             url=url_for('transaction_detail', contract_id=contract.id),
@@ -10322,7 +10316,7 @@ def job_detail(job_id):
             create_notification(
                 user_id=user.id,
                 notification_type='JOB_APPLICATION',
-                title='Ứng tuyển thành công',
+                title='Gửi đơn ứng tuyển thành công',
                 message=f'Đơn ứng tuyển của bạn cho công việc "{job.title}" đã được gửi thành công. Vui lòng chờ khách thuê phản hồi.',
                 url=url_for('job_detail', job_id=job.id),
                 related_job_id=job.id,
@@ -11199,20 +11193,7 @@ def send_message(contract_id):
                   content=content or '[Hình ảnh]', image_url=image_url or None)
     db.session.add(msg)
     db.session.flush()
-
-    receiver_id = contract.translator_id if sender_id == contract.hirer_id else contract.hirer_id
-    receiver = db.session.get(User, receiver_id)
-    sender = db.session.get(User, sender_id)
-    if receiver and sender:
-        from services.notifications import should_notify
-        if should_notify(receiver, 'NEW_MESSAGE'):
-            try:
-                create_notification(
-                    user_id=receiver_id, notification_type='NEW_MESSAGE', title='Bạn có tin nhắn mới',
-                    message=f'{sender.name} đã gửi cho bạn một tin nhắn trong dự án.',
-                    url=url_for('messages_page', c=f'c:{contract.id}'), related_contract_id=contract.id)
-            except Exception as e:
-                print(f"Error creating notification: {e}")
+    # Tin nhắn dự án chỉ thông báo tại biểu tượng Tin nhắn, không tạo trùng ở Chuông thông báo
     db.session.commit()
     return jsonify({'status': 'ok', 'id': msg.id, 'has_warning': has_warning, 'warning_message': warning_msg})
 
@@ -13441,7 +13422,10 @@ def api_get_notifications():
     from services.verification import VERIFICATION_NOTIF_CONFIG
     from sqlalchemy import or_
 
-    query = Notification.query.filter_by(user_id=session['user_id'])
+    query = Notification.query.filter(
+        Notification.user_id == session['user_id'],
+        Notification.type != 'NEW_MESSAGE'
+    )
     if filter_type:
         filter_type = filter_type.strip().lower()
         if filter_type == 'verification':
@@ -13522,7 +13506,11 @@ def api_read_all_notifications():
 @login_required
 def api_unread_notifications_count():
     from models import Notification
-    count = Notification.query.filter_by(user_id=session['user_id'], is_read=False).count()
+    count = Notification.query.filter(
+        Notification.user_id == session['user_id'],
+        Notification.is_read.is_(False),
+        Notification.type != 'NEW_MESSAGE'
+    ).count()
     return jsonify({'count': count})
 # ─── CLIENT DASHBOARD ──────────────────────────────────────────────────────────
 

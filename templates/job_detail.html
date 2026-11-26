@@ -98,12 +98,21 @@
                         </span>
                         {% endif %}
                         <!-- Số lượng ứng viên -->
+                        {% if is_owner %}
+                        <a href="#proposals" class="text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 px-3 py-1 rounded-lg flex items-center gap-1 transition">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>{{ job.applicant_count }} ứng viên · Xem báo giá ↓</span>
+                        </a>
+                        {% else %}
                         <span class="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-3 py-1 rounded-lg flex items-center gap-1">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                             {{ job.applicant_count }} ứng viên
                         </span>
+                        {% endif %}
                         <!-- Hạn nộp hồ sơ badge -->
                         {% if job.deadline %}
                         <span class="text-xs font-semibold {% if is_expired %}text-red-700 bg-red-50 border border-red-200{% else %}text-amber-700 bg-amber-50 border border-amber-200/70{% endif %} px-3 py-1 rounded-lg flex items-center gap-1">
@@ -569,6 +578,8 @@
             <!-- ═══ KHU VỰC KHÁCH THUÊ (QUẢN LÝ ỨNG VIÊN & ĐỀ XUẤT) ═══ -->
             {% if current_user and current_user.id == job.hirer_id %}
 
+            {% include '_job_proposals.html' %}
+
             {% if job.status == 'open' and not is_expired %}
             <!-- Recommended Translators Section -->
             <div id="recommended-translators-container"
@@ -671,7 +682,6 @@
             </script>
             {% endif %}
 
-            {% include '_job_proposals.html' %}
             {% endif %}
 
         </div>
@@ -769,11 +779,16 @@
                         </a>
                         {% endif %}
                     {% elif current_user.id == job.hirer_id %}
+                    <a href="#proposals"
+                        class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm text-xs sm:text-sm">
+                        Xem ứng viên &amp; Báo giá ({{ proposal_views|length }}) ↓
+                    </a>
                     <div class="p-3 bg-brand-50 rounded-xl text-center text-xs font-semibold text-brand-700 border border-brand-200/60">
                         Bạn là người đăng tin tuyển dụng này
                     </div>
                     {% endif %}
 
+                    {% if not is_owner %}
                     <!-- Nút Lưu công việc -->
                     <button id="sidebar-save-btn" onclick="toggleSaveJob({{ job.id }})"
                         class="w-full py-2.5 px-4 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 {% if is_saved %}bg-amber-50 text-amber-700 border-amber-300{% else %}bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200{% endif %}">
@@ -782,6 +797,7 @@
                         </svg>
                         <span>{% if is_saved %}Đã lưu công việc{% else %}Lưu công việc{% endif %}</span>
                     </button>
+                    {% endif %}
                 </div>
 
                 <div class="mt-5 pt-5 border-t border-slate-100">
