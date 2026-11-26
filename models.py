@@ -1531,6 +1531,48 @@ class ContractEvent(db.Model):
     contract = db.relationship('Contract', backref=db.backref('events', lazy=True, cascade='all, delete-orphan'))
 
 
+class WorkspaceState(db.Model):
+    """Trạng thái phụ của phòng làm việc (1-1 với hợp đồng): tiến độ và yêu cầu cập nhật.
+    Bảng mới, không đụng tới cột tiền/trạng thái của Contract (do services/lifecycle.py quản lý)."""
+    __tablename__ = 'workspace_state'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, unique=True, index=True)
+    progress_percent = db.Column(db.Integer, default=0, nullable=False)
+    last_progress_at = db.Column(db.DateTime)
+    progress_requested_at = db.Column(db.DateTime)   # khác None: khách đang chờ PDV cập nhật
+    report_hours = db.Column(db.Float)               # phiên dịch trực tiếp: tổng giờ trong biên bản
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    contract = db.relationship('Contract', backref=db.backref('workspace_state', uselist=False,
+                                                              cascade='all, delete-orphan'))
+
+
+class AttendanceSession(db.Model):
+    """Ca làm tại chỗ (phiên dịch trực tiếp): check-in / check-out / khách xác nhận có mặt."""
+    __tablename__ = 'attendance_session'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    checkin_at = db.Column(db.DateTime, nullable=False)
+    checkin_lat = db.Column(db.Float)
+    checkin_lng = db.Column(db.Float)
+    checkin_note = db.Column(db.String(500))
+    checkout_at = db.Column(db.DateTime)
+    checkout_note = db.Column(db.String(500))
+    confirmed_at = db.Column(db.DateTime)
+
+    contract = db.relationship('Contract', backref=db.backref('attendance_sessions', lazy=True,
+                                                              cascade='all, delete-orphan',
+                                                              order_by='AttendanceSession.checkin_at'))
+
+    @property
+    def hours(self):
+        if not self.checkout_at:
+            return None
+        return round((self.checkout_at - self.checkin_at).total_seconds() / 3600, 2)
+
+
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False)

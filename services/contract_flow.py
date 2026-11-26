@@ -46,7 +46,8 @@ def accept_booking(contract, user_id):
     if contract.status != 'awaiting_translator':
         raise ContractFlowError('Hợp đồng này không còn chờ xác nhận (có thể đã hết hạn hoặc bị hủy).')
     contract.status = 'escrow_pending'
-    sched = contract.schedule
+    from models import TranslatorSchedule
+    sched = TranslatorSchedule.query.filter_by(contract_id=contract.id).first()
     if sched and sched.status == 'reserved':
         sched.expires_at = datetime.utcnow() + timedelta(hours=PAYMENT_WINDOW_HOURS)
     _notify(contract.hirer_id, 'CONTRACT_ACCEPTED', 'Phiên dịch viên đã xác nhận',
