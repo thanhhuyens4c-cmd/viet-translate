@@ -2168,6 +2168,40 @@
         return m ? `${m[3]}/${m[2]}/${m[1]}` : isoStr;
     };
 
+    window.vtFormatVndDots = function(raw) {
+        const digits = String(raw || '').replace(/\D/g, '');
+        return digits ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+    };
+
+    window.vtParseMoney = function(raw) {
+        const digits = String(raw || '').replace(/\D/g, '');
+        return digits ? parseInt(digits, 10) : NaN;
+    };
+
+    window.vtBindMoneyInput = function(el) {
+        if (!el || el.dataset.moneyBound === '1') return;
+        el.dataset.moneyBound = '1';
+        if (el.value) el.value = window.vtFormatVndDots(el.value);
+        el.addEventListener('input', function() {
+            const start = el.selectionStart || 0;
+            const beforeDigits = el.value.slice(0, start).replace(/\D/g, '').length;
+            const formatted = window.vtFormatVndDots(el.value);
+            el.value = formatted;
+            if (document.activeElement === el && typeof el.setSelectionRange === 'function') {
+                let pos = 0, seen = 0;
+                while (pos < formatted.length && seen < beforeDigits) {
+                    if (/\d/.test(formatted[pos])) seen++;
+                    pos++;
+                }
+                el.setSelectionRange(pos, pos);
+            }
+        });
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('[data-money-input]').forEach(window.vtBindMoneyInput);
+    });
+
     window.vtInitDobSelects = function(cfg) {
         const hiddenEl = document.getElementById(cfg.hiddenId);
         const dayEl = document.getElementById(cfg.dayId);

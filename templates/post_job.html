@@ -189,17 +189,17 @@
             </div>
             <div id="budget-min-wrap" class="hidden">
                 <label class="{{ label_cls }}" for="budget_min"><span id="budget-min-label">Ngân sách (VND)</span></label>
-                <input id="budget_min" name="budget_min" type="number" min="1" step="1000" value="{{ v.get('budget_min', '') if v.get('budget_min', '') not in (0, '0') else '' }}" class="{{ input_cls }}" placeholder="VD: 3000000" {{ 'disabled' if locked }}>
+                <input id="budget_min" name="budget_min" type="text" inputmode="numeric" data-money-input value="{{ v.get('budget_min', '') if v.get('budget_min', '') not in (0, '0') else '' }}" class="{{ input_cls }}" placeholder="VD: 3.000.000" {{ 'disabled' if locked }}>
                 {{ field_error('budget_min') }}
             </div>
             <div id="budget-max-wrap" class="hidden">
                 <label class="{{ label_cls }}" for="budget_max">Ngân sách tối đa (VND)</label>
-                <input id="budget_max" name="budget_max" type="number" min="1" step="1000" value="{{ v.get('budget_max', '') }}" class="{{ input_cls }}" placeholder="VD: 5000000" {{ 'disabled' if locked }}>
+                <input id="budget_max" name="budget_max" type="text" inputmode="numeric" data-money-input value="{{ v.get('budget_max', '') }}" class="{{ input_cls }}" placeholder="VD: 5.000.000" {{ 'disabled' if locked }}>
                 {{ field_error('budget_max') }}
             </div>
             <p id="budget-nego-note" class="hidden text-xs text-blue-800 bg-blue-50 border border-blue-100 rounded-xl p-3">Phiên dịch viên sẽ gửi báo giá, bạn so sánh và chọn người phù hợp.</p>
             <div>
-                <label class="{{ label_cls }}" for="deadline">Thời hạn hoàn thành</label>
+                <label class="{{ label_cls }}" for="deadline">Hạn nộp hồ sơ</label>
                 <input id="deadline" name="deadline" type="date" min="{{ today }}" value="{{ v.get('deadline', '') }}" class="{{ input_cls }}">
                 {{ field_error('deadline') }}
             </div>
@@ -275,22 +275,39 @@
     form.querySelectorAll('input[name=budget_type]').forEach(r => r.addEventListener('change', syncBudget));
 
 
-    // Lịch làm việc nhiều ngày
+    // Lịch làm việc nhiều ngày (chuẩn 24h: 00:00 - 23:45)
+    function buildTimeOptions(selectedVal) {
+        const opts = ['<option value="">--:--</option>'];
+        const vals = [];
+        for (let h = 0; h < 24; h++) {
+            for (const m of [0, 15, 30, 45]) {
+                vals.push(String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'));
+            }
+        }
+        const cur = (selectedVal || '').slice(0, 5);
+        if (cur && /^\d{2}:\d{2}$/.test(cur) && !vals.includes(cur)) {
+            vals.push(cur);
+            vals.sort();
+        }
+        for (const t of vals) {
+            opts.push(`<option value="${t}"${t === cur ? ' selected' : ''}>${t}</option>`);
+        }
+        return opts.join('');
+    }
     function addDay(r) {
         r = r || {};
         const d = document.createElement('div');
-        d.className = 'schedule-row grid grid-cols-2 sm:grid-cols-[1fr_7rem_7rem_auto] gap-2 items-end bg-white border border-slate-200 rounded-xl p-3';
+        d.className = 'schedule-row grid grid-cols-2 sm:grid-cols-[1fr_7.5rem_7.5rem_auto] gap-2 items-end bg-white border border-slate-200 rounded-xl p-3';
         const cls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500';
         d.innerHTML = `
           <label class="col-span-2 sm:col-span-1 text-[10px] font-bold uppercase text-slate-500">Ngày
             <input type="date" name="scheduled_date[]" min="{{ today }}" class="${cls} mt-1 font-normal normal-case"></label>
-          <label class="text-[10px] font-bold uppercase text-slate-500">Bắt đầu
-            <input type="time" name="start_time[]" class="${cls} mt-1 font-normal normal-case"></label>
-          <label class="text-[10px] font-bold uppercase text-slate-500">Kết thúc
-            <input type="time" name="end_time[]" class="${cls} mt-1 font-normal normal-case"></label>
+          <label class="text-[10px] font-bold uppercase text-slate-500">Bắt đầu (24h)
+            <select name="start_time[]" class="${cls} mt-1 font-normal normal-case">${buildTimeOptions(r.start_time)}</select></label>
+          <label class="text-[10px] font-bold uppercase text-slate-500">Kết thúc (24h)
+            <select name="end_time[]" class="${cls} mt-1 font-normal normal-case">${buildTimeOptions(r.end_time)}</select></label>
           <button type="button" data-remove-day class="col-span-2 sm:col-span-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2 border border-rose-200">Xóa</button>`;
-        const [i1, i2, i3] = d.querySelectorAll('input');
-        i1.value = r.scheduled_date || ''; i2.value = r.start_time || ''; i3.value = r.end_time || '';
+        d.querySelector('input[name="scheduled_date[]"]').value = r.scheduled_date || '';
         $('schedule-container').appendChild(d); syncRemove();
     }
     function syncRemove() {
@@ -303,7 +320,11 @@
     $('add-day').addEventListener('click', () => addDay());
     function scheduleRows() {
         return [...document.querySelectorAll('.schedule-row')].map(r => {
-            const [a, b, c] = r.querySelectorAll('input'); return {date: a.value, start: b.value, end: c.value};
+            return {
+                date: r.querySelector('[name="scheduled_date[]"]').value,
+                start: r.querySelector('[name="start_time[]"]').value,
+                end: r.querySelector('[name="end_time[]"]').value
+            };
         }).filter(r => r.date || r.start || r.end);
     }
     function validateSchedule() {
@@ -345,11 +366,12 @@
             const fe = validateFiles(); if (fe) e.files = fe;
         }
         if (n === 3 && !LOCKED) {
-            const t = budgetType(), mn = parseInt(val('budget_min'), 10), mx = parseInt(val('budget_max'), 10);
+            const parseM = (s) => window.vtParseMoney ? window.vtParseMoney(s) : parseInt(String(s || '').replace(/\D/g, ''), 10);
+            const t = budgetType(), mn = parseM(val('budget_min')), mx = parseM(val('budget_max'));
             if (t !== 'negotiable' && !(mn > 0)) e.budget_min = 'Nhập ngân sách lớn hơn 0.';
             if (t === 'range' && !(mx >= mn)) e.budget_max = 'Ngân sách tối đa phải lớn hơn hoặc bằng tối thiểu.';
         }
-        if (n === 3 && val('deadline') && val('deadline') < today && val('deadline') !== {{ (values.get('deadline', '') or '')|tojson }}) e.deadline = 'Deadline không được ở quá khứ.';
+        if (n === 3 && val('deadline') && val('deadline') < today && val('deadline') !== {{ (values.get('deadline', '') or '')|tojson }}) e.deadline = 'Hạn nộp hồ sơ không được ở quá khứ.';
         return e;
     }
     function validateFiles() {
@@ -402,8 +424,11 @@
     function opt(id) { const s = $(id); return s.options[s.selectedIndex] ? s.options[s.selectedIndex].textContent : ''; }
     function buildReview() {
         const t = budgetType();
+        const parseM = (s) => window.vtParseMoney ? window.vtParseMoney(s) : parseInt(String(s || '').replace(/\D/g, ''), 10);
+        const mnVal = parseM(val('budget_min')) || 0;
+        const mxVal = parseM(val('budget_max')) || 0;
         const money = (x) => Number(x).toLocaleString('vi-VN') + ' VND';
-        const budget = t === 'negotiable' ? 'Nhận báo giá' : t === 'fixed' ? money(val('budget_min') || 0) : money(val('budget_min') || 0) + ' – ' + money(val('budget_max') || 0);
+        const budget = t === 'negotiable' ? 'Nhận báo giá' : t === 'fixed' ? money(mnVal) : money(mnVal) + ' – ' + money(mxVal);
         const rows = [
             ['Tên yêu cầu', val('title')],
             ['Loại hình', opt('category_group') + ' · ' + opt('service_type')],
@@ -415,7 +440,7 @@
         else rows.push(['Lịch làm việc', scheduleRows().map(r => r.date + ' · ' + r.start + '–' + r.end).join('\n') || '—'], ['Địa điểm', val('event_location')]);
         const nf = $('files').files.length;
         rows.push(['Tệp mới', nf ? Array.from($('files').files).map(f => f.name).join(', ') : '—']);
-        rows.push(['Ngân sách', budget], ['Deadline', val('deadline') || '—'], ['Yêu cầu bổ sung', val('extra_requirements') || '—']);
+        rows.push(['Ngân sách', budget], ['Hạn nộp hồ sơ', val('deadline') || '—'], ['Yêu cầu bổ sung', val('extra_requirements') || '—']);
         const dl = $('review'); dl.innerHTML = '';
         rows.forEach(([k, v]) => {
             const d = document.createElement('div'); d.className = 'py-2.5 flex flex-col sm:flex-row sm:gap-4';

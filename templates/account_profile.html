@@ -4350,7 +4350,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M5 13l4 4L19 7" />
                                     </svg>
-                                    <span>{{ t('account_profile_page.save_btn') }}</span>
+                                    <span>{{ 'Sửa thay đổi' if (user.name and user.phone) else t('account_profile_page.save_btn') }}</span>
                                 </button>
                             </div>
                         </form>
@@ -4973,7 +4973,6 @@
 
                                                 <!-- Các thao tác -->
                                                 {% if doc.file_extension in ('pdf', 'jpg', 'jpeg', 'png', 'webp') %}
-                                                </a>
                                                 {% endif %}
 
                                                 <a href="/account/verification/documents/{{ doc.id }}/download"
@@ -5503,6 +5502,14 @@
                                             <label class="{{ lbl }}">Số tài khoản thanh toán</label>
                                             <input type="text" name="bank_account_number" inputmode="numeric" value="{{ (hp.bank_account_number if hp else '') or '' }}" placeholder="Số tài khoản ngân hàng" class="{{ inp }}">
                                         </div>
+                                        <div class="space-y-1.5">
+                                            <label class="{{ lbl }}">Tên chủ tài khoản</label>
+                                            <input type="text" name="bank_account_name" value="{{ (hp.bank_account_name if hp else '') or '' }}" placeholder="VD: CONG TY CO PHAN CONG NGHE TECHTRANS TOAN CAU" class="{{ inp }}">
+                                        </div>
+                                        <div class="space-y-1.5">
+                                            <label class="{{ lbl }}">Chi nhánh mở tài khoản</label>
+                                            <input type="text" name="bank_branch" value="{{ (hp.bank_branch if hp else '') or '' }}" placeholder="VD: Chi nhánh Ba Đình - Hà Nội" class="{{ inp }}">
+                                        </div>
                                     </div>
                                     <p class="text-[11px] text-slate-400">Tài khoản dùng để đối soát thanh toán hợp đồng ký quỹ Escrow và nhận hoàn tiền khi có tranh chấp.</p>
                                 </fieldset>
@@ -5559,9 +5566,9 @@
                                             {% for v, l in [('one_time','Một lần'),('occasional','Thỉnh thoảng'),('regular','Thường xuyên / dài hạn')] %}<option value="{{ v }}" {% if hp and hp.hiring_frequency == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
                                         </select></div>
                                     <div class="space-y-1.5"><label class="{{ lbl }}">Ngân sách thường dùng từ (VND)</label>
-                                        <input type="number" min="0" name="typical_budget_min" value="{{ hp.typical_budget_min if hp and hp.typical_budget_min else '' }}" class="{{ inp }}"></div>
+                                        <input type="text" inputmode="numeric" data-money-input name="typical_budget_min" value="{{ hp.typical_budget_min if hp and hp.typical_budget_min else '' }}" placeholder="VD: 5.000.000" class="{{ inp }}"></div>
                                     <div class="space-y-1.5"><label class="{{ lbl }}">Ngân sách thường dùng đến (VND)</label>
-                                        <input type="number" min="0" name="typical_budget_max" value="{{ hp.typical_budget_max if hp and hp.typical_budget_max else '' }}" class="{{ inp }}"></div>
+                                        <input type="text" inputmode="numeric" data-money-input name="typical_budget_max" value="{{ hp.typical_budget_max if hp and hp.typical_budget_max else '' }}" placeholder="VD: 8.000.000" class="{{ inp }}"></div>
                                 </div>
                                 <div class="flex flex-wrap gap-5 text-xs font-medium">
                                     <label class="flex items-center gap-2"><input type="checkbox" name="needs_nda" class="rounded text-brand-600" {% if hp and hp.needs_nda %}checked{% endif %}> Yêu cầu bảo mật (NDA)</label>
@@ -5587,7 +5594,7 @@
                             <div class="pt-2">
                                 <button type="submit"
                                     class="w-full sm:w-auto px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-sm transition">
-                                    {{ t('auto.lưu_thay_đổi') }}
+                                    {{ 'Sửa thay đổi' if (hp and hp.contact_phone) else t('auto.lưu_thay_đổi') }}
                                 </button>
                             </div>
                         </form>

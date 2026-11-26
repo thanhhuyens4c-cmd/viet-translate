@@ -813,6 +813,8 @@ def _apply_hirer_profile_form(user, profile, form, files):
     old_phone = clean_phone(profile.contact_phone or user.phone or '')
     old_bank_acc = re.sub(r'\s+', '', profile.bank_account_number or '')
     old_bank_name = (profile.bank_name or '').strip().lower()
+    old_bank_holder = (profile.bank_account_name or '').strip().lower()
+    old_bank_branch = (profile.bank_branch or '').strip().lower()
     old_company = (profile.company or '').strip().lower()
     old_tax_code = re.sub(r'[\s\-]', '', profile.tax_code or '')
     old_rep_name = (profile.rep_name or '').strip().lower()
@@ -905,10 +907,16 @@ def _apply_hirer_profile_form(user, profile, form, files):
     # Lưu thông tin tài khoản ngân hàng nếu có
     bank_name = get('bank_name')
     bank_acc = get('bank_account_number')
+    bank_holder = get('bank_account_name')
+    bank_branch = get('bank_branch')
     if bank_name:
         profile.bank_name = bank_name
     if bank_acc:
         profile.bank_account_number = bank_acc
+    if bank_holder:
+        profile.bank_account_name = bank_holder
+    if bank_branch:
+        profile.bank_branch = bank_branch
 
     # Lưu file giấy ủy quyền / GPKD nếu có upload
     auth_file = files.get('authorization_doc')
@@ -929,12 +937,18 @@ def _apply_hirer_profile_form(user, profile, form, files):
         new_phone_clean = clean_phone(phone)
         new_bank_acc_clean = re.sub(r'\s+', '', bank_acc or '')
         new_bank_name_clean = (bank_name or '').strip().lower()
+        new_bank_holder_clean = (bank_holder or '').strip().lower()
+        new_bank_branch_clean = (bank_branch or '').strip().lower()
         
         if new_phone_clean and new_phone_clean != old_phone:
             critical_changed = True
         if new_bank_acc_clean and new_bank_acc_clean != old_bank_acc:
             critical_changed = True
         if new_bank_name_clean and new_bank_name_clean != old_bank_name:
+            critical_changed = True
+        if new_bank_holder_clean and new_bank_holder_clean != old_bank_holder:
+            critical_changed = True
+        if new_bank_branch_clean and new_bank_branch_clean != old_bank_branch:
             critical_changed = True
             
         if account_type == 'business':
@@ -8531,7 +8545,7 @@ def _submit_for_moderation(job, user, is_new):
 
 
 def _int_or_none(v):
-    v = (str(v) if v is not None else '').strip().replace(',', '')
+    v = (str(v) if v is not None else '').strip().replace(',', '').replace('.', '')
     return int(v) if v.isdigit() else None
 
 

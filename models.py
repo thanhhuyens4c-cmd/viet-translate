@@ -652,6 +652,8 @@ class HirerProfile(db.Model):
     verified_at = db.Column(db.DateTime, nullable=True)
     bank_name = db.Column(db.String(100), nullable=True)
     bank_account_number = db.Column(db.String(50), nullable=True)
+    bank_account_name = db.Column(db.String(200), nullable=True)
+    bank_branch = db.Column(db.String(200), nullable=True)
     authorization_doc_url = db.Column(db.String(500), nullable=True)
     verification_checklist_data = db.Column(db.Text, nullable=True)
     rejection_reason = db.Column(db.Text, nullable=True)
