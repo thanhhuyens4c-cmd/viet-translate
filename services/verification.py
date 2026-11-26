@@ -670,6 +670,71 @@ def validate_verification_eligibility(verification, additional_data=None, requir
     return is_eligible, errors_dict, error_messages
 
 
+def get_verification_readiness(user, verification_documents=None):
+    """
+    Tổng hợp nhanh trạng thái sẵn sàng nộp hồ sơ xác minh (gồm 2 phần song song):
+    1. Biểu mẫu khai báo thông tin 5 bước (Bước 1 -> Bước 5).
+    2. Tài liệu minh chứng bắt buộc (tối thiểu 1 tệp CV).
+    Dùng chung cho giao diện tab Xác minh và biểu mẫu đa bước để tránh trùng lặp.
+    """
+    step_titles = {
+        1: 'Thông tin cá nhân & Định danh',
+        2: 'Cặp ngôn ngữ & Chiều dịch',
+        3: 'Lĩnh vực chuyên môn & Hình thức',
+        4: 'Học vấn & Chứng chỉ',
+        5: 'Kinh nghiệm nghề nghiệp'
+    }
+    verification = user.latest_verification if user else None
+    active_docs = verification_documents if verification_documents is not None else (
+        [d for d in verification.documents if getattr(d, 'is_active', False)]
+        if (verification and verification.id) else []
+    )
+    has_cv = any(getattr(d, 'document_type', None) == 'cv' for d in active_docs)
+    if not has_cv and verification and getattr(verification, 'cv_url', None):
+        has_cv = True
+
+    if not verification:
+        return {
+            'has_verification': False,
+            'steps_completed': 0,
+            'total_steps': 5,
+            'steps_ready': False,
+            'first_incomplete_step': 1,
+            'missing_steps': [{'step': 1, 'title': step_titles[1], 'message': 'Chưa bắt đầu khai báo biểu mẫu.'}],
+            'has_cv': has_cv,
+            'docs_count': len(active_docs),
+            'is_ready': False,
+        }
+
+    data = verification.get_draft_dict()
+    missing_steps = []
+    steps_completed = 0
+    for step_num in range(1, 6):
+        ok, step_errs = validate_step_data(step_num, data)
+        if ok:
+            steps_completed += 1
+        else:
+            first_msg = next(iter(step_errs.values()), 'Còn trường bắt buộc chưa điền.')
+            missing_steps.append({
+                'step': step_num,
+                'title': step_titles[step_num],
+                'message': first_msg
+            })
+
+    steps_ready = len(missing_steps) == 0
+    return {
+        'has_verification': True,
+        'steps_completed': steps_completed,
+        'total_steps': 5,
+        'steps_ready': steps_ready,
+        'first_incomplete_step': missing_steps[0]['step'] if missing_steps else 6,
+        'missing_steps': missing_steps,
+        'has_cv': has_cv,
+        'docs_count': len(active_docs),
+        'is_ready': steps_ready and has_cv,
+    }
+
+
 def submit_verification_for_review(user, form_data=None, confirmed=False, ip_address=None, user_agent=None):
     """
     Hành động gửi hồ sơ xác minh phiên dịch viên tới Ban quản trị:
@@ -1152,6 +1217,8 @@ def get_or_create_verification_draft(user):
             current_step=1,
             full_name=user.name or '',
             phone=user.phone or '',
+            dob=getattr(user, 'date_of_birth', None) or '',
+            location=getattr(user, 'city', None) or '',
             bio=user.profile.bio if user.profile and user.profile.bio else ''
         )
         db.session.add(verification)
@@ -1165,6 +1232,12 @@ def get_or_create_verification_draft(user):
         updated = True
     if not verification.phone and user.phone:
         verification.phone = user.phone
+        updated = True
+    if not verification.dob and getattr(user, 'date_of_birth', None):
+        verification.dob = user.date_of_birth
+        updated = True
+    if not verification.location and getattr(user, 'city', None):
+        verification.location = user.city
         updated = True
     if not verification.bio and user.profile and user.profile.bio:
         verification.bio = user.profile.bio

@@ -3913,7 +3913,8 @@ def account_profile():
     profile_completion = None
     unread_notifs_count = 0
     verification_documents = []
-    from services.verification import DOCUMENT_POLICIES
+    verification_readiness = None
+    from services.verification import DOCUMENT_POLICIES, get_verification_readiness
     declared_language_pairs = []
     if getattr(user, 'role', '') == 'translator':
         from models import Notification
@@ -3931,6 +3932,7 @@ def account_profile():
                     user_id=user.id,
                     is_active=True
                 ).order_by(VerificationDocument.created_at.desc()).all()
+            verification_readiness = get_verification_readiness(user, verification_documents)
         except Exception as e:
             try:
                 db.session.rollback()
@@ -4005,6 +4007,7 @@ def account_profile():
         profile_completion=profile_completion,
         unread_notifs_count=unread_notifs_count,
         verification_documents=verification_documents,
+        verification_readiness=verification_readiness,
         active_cv_document=getattr(user, 'active_cv_document', None),
         DOCUMENT_POLICIES=DOCUMENT_POLICIES,
         declared_language_pairs=declared_language_pairs,

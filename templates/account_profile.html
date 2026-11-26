@@ -4772,22 +4772,24 @@
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                     </div>
                                     <div>
-                                        <div class="flex items-center gap-2">
+                                        <div class="flex flex-wrap items-center gap-2">
                                             <h3 class="text-sm sm:text-base font-bold text-slate-900">Biểu Mẫu Khai Báo Thông Tin Xác Minh 6 Bước</h3>
-                                            {% if user.latest_verification and user.latest_verification.status == 'draft' %}
-                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Đang lưu nháp (Bước {{ user.latest_verification.current_step or 1 }}/6)</span>
+                                            {% if verification_readiness and verification_readiness.steps_ready %}
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">✓ Đã hoàn tất khai báo (5/5 bước)</span>
+                                            {% elif user.latest_verification and user.latest_verification.status == 'draft' %}
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Đang lưu nháp ({{ verification_readiness.steps_completed if verification_readiness else (user.latest_verification.current_step or 1) }}/5 bước)</span>
                                             {% endif %}
                                         </div>
                                         <p class="text-xs text-slate-600 mt-0.5 leading-relaxed max-w-xl">
-                                            Khai báo thông tin cá nhân, cặp ngôn ngữ & chiều dịch, lĩnh vực chuyên môn, học vấn và kinh nghiệm thực chiến. Dữ liệu được lưu nháp theo thời gian thực.
+                                            Quy trình gồm 2 phần (làm phần nào trước cũng được): <strong>(1)</strong> Khai báo thông tin 5 bước và <strong>(2)</strong> Tải lên tối thiểu tệp CV. Sau khi xong cả 2, bạn có thể <strong>gửi duyệt ngay ở Bước 6</strong> hoặc ở cuối trang này.
                                         </p>
                                     </div>
                                 </div>
                                 <div class="shrink-0 w-full sm:w-auto">
-                                    <a href="{{ url_for('verification_form') }}"
+                                    <a href="{{ url_for('verification_form', step=(verification_readiness.first_incomplete_step if verification_readiness and not verification_readiness.steps_ready else 6)) }}"
                                         class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-brand-500/25 transition">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                        <span>{% if user.latest_verification and user.latest_verification.status == 'draft' %}Tiếp tục khai báo biểu mẫu{% else %}Mở biểu mẫu khai báo{% endif %}</span>
+                                        <span>{% if verification_readiness and verification_readiness.steps_ready %}Xem lại & gửi ở Bước 6{% elif user.latest_verification and user.latest_verification.status == 'draft' %}Tiếp tục khai báo biểu mẫu{% else %}Mở biểu mẫu khai báo{% endif %}</span>
                                     </a>
                                 </div>
                             </div>
@@ -4971,9 +4973,6 @@
 
                                                 <!-- Các thao tác -->
                                                 {% if doc.file_extension in ('pdf', 'jpg', 'jpeg', 'png', 'webp') %}
-                                                <a href="/account/verification/documents/{{ doc.id }}/view" target="_blank"
-                                                    class="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-brand-600 hover:bg-slate-50 transition" title="Xem trước tài liệu">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                                 </a>
                                                 {% endif %}
 
@@ -5158,75 +5157,81 @@
                             </div>
                             {% endif %}
 
-                            <!-- Form Gửi Hồ Sơ Xét Duyệt Tới Admin (Khi đã chuẩn bị xong tài liệu) -->
-                            {% if not user.profile or not user.profile.is_verified or (user.latest_verification and user.latest_verification.status == 'rejected') %}
+                            <!-- Kiểm tra điều kiện & Gửi Hồ Sơ Xét Duyệt (Đồng bộ 100% với Biểu mẫu 6 bước, không lặp lại form) -->
+                            {% if (not user.profile or not user.profile.is_verified) and (not user.latest_verification or user.latest_verification.status != 'pending') %}
+                            {% set vr = verification_readiness %}
                             <div class="border-t border-slate-200/80 pt-6 space-y-4">
-                                <div class="flex items-center justify-between">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                     <div>
-                                        <h4 class="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider">Thông Tin Thẩm Định & Gửi Xét Duyệt</h4>
-                                        <p class="text-[11px] text-slate-500 mt-0.5">Điền thông tin năng lực ngoại ngữ và gửi toàn bộ hồ sơ kèm tài liệu tới Ban quản trị.</p>
+                                        <h4 class="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider">Kiểm Tra & Gửi Hồ Sơ Xét Duyệt</h4>
+                                        <p class="text-[11px] text-slate-500 mt-0.5">Toàn bộ thông tin đã khai báo ở Biểu mẫu 6 bước sẽ được dùng trực tiếp — không cần nhập lại.</p>
+                                    </div>
+                                    {% if vr and vr.is_ready %}
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                        ✓ Đủ điều kiện gửi duyệt
+                                    </span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Checklist 2 điều kiện song song -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <!-- Điều kiện 1: Biểu mẫu 5 bước -->
+                                    <div class="p-4 rounded-xl border {% if vr and vr.steps_ready %}bg-emerald-50/50 border-emerald-200{% else %}bg-amber-50/50 border-amber-200{% endif %} flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-2 text-xs font-bold {% if vr and vr.steps_ready %}text-emerald-900{% else %}text-amber-900{% endif %}">
+                                                <span>{% if vr and vr.steps_ready %}✓{% else %}1.{% endif %} Biểu mẫu khai báo thông tin</span>
+                                            </div>
+                                            {% if vr and vr.steps_ready %}
+                                            <p class="text-[11px] text-emerald-700 mt-1">Đã hoàn thành đủ 5/5 bước bắt buộc.</p>
+                                            {% else %}
+                                            <p class="text-[11px] text-amber-800 mt-1">
+                                                Hoàn thành {{ vr.steps_completed if vr else 0 }}/5 bước.
+                                                {% if vr and vr.missing_steps %}
+                                                Còn thiếu: <strong>Bước {{ vr.missing_steps[0].step }}</strong> ({{ vr.missing_steps[0].message }})
+                                                {% endif %}
+                                            </p>
+                                            {% endif %}
+                                        </div>
+                                        <a href="{{ url_for('verification_form', step=(vr.first_incomplete_step if vr and not vr.steps_ready else 6)) }}"
+                                            class="shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold transition {% if vr and vr.steps_ready %}bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50{% else %}bg-amber-600 text-white hover:bg-amber-700{% endif %}">
+                                            {{ 'Chỉnh sửa' if (vr and vr.steps_ready) else ('Điền Bước ' ~ (vr.first_incomplete_step if vr else 1)) }}
+                                        </a>
+                                    </div>
+
+                                    <!-- Điều kiện 2: Tệp CV bắt buộc -->
+                                    <div class="p-4 rounded-xl border {% if vr and vr.has_cv %}bg-emerald-50/50 border-emerald-200{% else %}bg-amber-50/50 border-amber-200{% endif %} flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-2 text-xs font-bold {% if vr and vr.has_cv %}text-emerald-900{% else %}text-amber-900{% endif %}">
+                                                <span>{% if vr and vr.has_cv %}✓{% else %}2.{% endif %} Tài liệu minh chứng (CV)</span>
+                                            </div>
+                                            {% if vr and vr.has_cv %}
+                                            <p class="text-[11px] text-emerald-700 mt-1">Đã đính kèm CV hợp lệ (Tổng {{ vr.docs_count }} tệp).</p>
+                                            {% else %}
+                                            <p class="text-[11px] text-amber-800 mt-1">Cần tải lên tối thiểu 1 tệp <strong>Sơ yếu lý lịch (CV)</strong> ở mục bên trên.</p>
+                                            {% endif %}
+                                        </div>
+                                        {% if not (vr and vr.has_cv) %}
+                                        <button type="button" onclick="document.getElementById('doc-upload-box')?.scrollIntoView({behavior:'smooth', block:'center'})"
+                                            class="shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-amber-600 text-white hover:bg-amber-700 transition cursor-pointer">
+                                            Tải CV ngay
+                                        </button>
+                                        {% endif %}
                                     </div>
                                 </div>
 
-                                <form method="POST" action="{{ url_for('submit_verification') }}" class="space-y-5">
-                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Loại chứng chỉ</label>
-                                            <select name="certificate_type" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
-                                                {% set cur_ct = user.latest_verification.certificate_type if user.latest_verification else '' %}
-                                                <option value="IELTS" {% if cur_ct == 'IELTS' %}selected{% endif %}>IELTS (Tiếng Anh)</option>
-                                                <option value="TOEIC" {% if cur_ct == 'TOEIC' %}selected{% endif %}>TOEIC / VSTEP</option>
-                                                <option value="JLPT" {% if cur_ct == 'JLPT' %}selected{% endif %}>JLPT (Tiếng Nhật: N1, N2)</option>
-                                                <option value="TOPIK" {% if cur_ct == 'TOPIK' %}selected{% endif %}>TOPIK (Tiếng Hàn: Topik 4, 5, 6)</option>
-                                                <option value="HSK" {% if cur_ct == 'HSK' %}selected{% endif %}>HSK (Tiếng Trung: HSK 5, 6)</option>
-                                                <option value="DELF/DALF" {% if cur_ct == 'DELF/DALF' %}selected{% endif %}>DELF / DALF (Tiếng Pháp)</option>
-                                                <option value="TestDaF/Goethe" {% if cur_ct == 'TestDaF/Goethe' %}selected{% endif %}>TestDaF / Goethe (Tiếng Đức)</option>
-                                                <option value="ТРКИ" {% if cur_ct == 'ТРКИ' %}selected{% endif %}>ТРКИ (Tiếng Nga)</option>
-                                                <option value="University_Degree" {% if cur_ct == 'University_Degree' %}selected{% endif %}>Bằng Cử Nhân / Thạc Sĩ Ngôn Ngữ</option>
-                                                <option value="Other" {% if cur_ct == 'Other' %}selected{% endif %}>Chứng chỉ / Bằng cấp khác</option>
-                                            </select>
-                                        </div>
+                                {% if vr and vr.is_ready %}
+                                {% set lv = user.latest_verification %}
+                                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                                    <div><span class="text-slate-400 text-[11px] block">Cặp ngôn ngữ chính</span><strong class="text-slate-800">{{ lv.primary_language or '-' }}</strong></div>
+                                    <div><span class="text-slate-400 text-[11px] block">Chứng chỉ khai báo</span><strong class="text-slate-800">{{ lv.certificate_name or lv.certificate_type or '-' }}</strong></div>
+                                    <div><span class="text-slate-400 text-[11px] block">Kinh nghiệm</span><strong class="text-slate-800">{{ lv.experience_years if lv.experience_years is not none else 0 }} năm</strong></div>
+                                </div>
 
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Điểm số / Tên chi tiết</label>
-                                            <input type="text" name="certificate_name" value="{{ user.latest_verification.certificate_name if user.latest_verification else '' }}"
-                                                placeholder="VD: IELTS 8.0, JLPT N1, HSK 6"
-                                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
-                                        </div>
-
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Kinh nghiệm phiên dịch (Năm)</label>
-                                            <input type="number" name="experience_years" min="0" max="50" value="{{ user.latest_verification.experience_years if user.latest_verification else '2' }}"
-                                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
-                                        </div>
-                                    </div>
-
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Ngôn ngữ thế mạnh chính</label>
-                                            <select name="primary_language" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
-                                                {% set cur_pl = user.latest_verification.primary_language if user.latest_verification else (user.profile.languages.split(',')[0] if user.profile and user.profile.languages else '') %}
-                                                {% for lang in LANGUAGES %}
-                                                <option value="{{ lang.name_vi }}" {% if cur_pl == lang.name_vi %}selected{% endif %}>{{ lang.flag }} {{ lang.name_vi }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Tài liệu đã liên kết</label>
-                                            <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-center justify-between">
-                                                <span>Số lượng tài liệu đính kèm:</span>
-                                                <strong class="text-brand-700 font-bold" id="linked-docs-count">
-                                                    {{ (verification_documents | length) if verification_documents else (1 if (user.latest_verification and user.latest_verification.cv_url) else 0) }} tệp
-                                                </strong>
-                                            </div>
-                                        </div>
-                                    </div>
-
+                                <form method="POST" action="{{ url_for('submit_verification') }}" class="space-y-4">
                                     <div>
-                                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Ghi chú hoặc lời nhắn gửi Ban quản trị</label>
-                                        <textarea name="notes" rows="3" placeholder="Nêu tóm tắt các dự án dịch thuật tiêu biểu, giải thưởng hoặc thông tin liên hệ bổ sung..."
-                                            class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white leading-relaxed">{{ user.latest_verification.notes if user.latest_verification else '' }}</textarea>
+                                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Ghi chú hoặc lời nhắn gửi Ban quản trị (không bắt buộc)</label>
+                                        <textarea name="notes" rows="2" placeholder="Lời nhắn bổ sung cho Ban quản trị (nếu có)..."
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white leading-relaxed">{{ lv.notes if lv and lv.notes else '' }}</textarea>
                                     </div>
 
                                     <div class="p-3.5 bg-amber-50/60 border border-amber-200/80 rounded-xl">
@@ -5238,7 +5243,7 @@
                                         </label>
                                     </div>
 
-                                    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                                    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-100">
                                         <span class="text-[11px] text-slate-400">VietTranslate cam kết bảo mật toàn bộ dữ liệu giấy tờ cá nhân theo chính sách quyền riêng tư.</span>
                                         <button type="submit" id="btn-submit-profile-verification"
                                             onclick="if(this.form.checkValidity()){ this.disabled = true; this.innerHTML = '<span class=\'inline-block animate-spin mr-2\'>⏳</span> Đang gửi hồ sơ...'; this.form.submit(); }"
@@ -5248,6 +5253,7 @@
                                         </button>
                                     </div>
                                 </form>
+                                {% endif %}
                             </div>
                             {% endif %}
                         </div>

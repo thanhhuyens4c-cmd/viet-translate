@@ -1250,15 +1250,35 @@
                                     <strong class="font-bold text-rose-950">Chưa đính kèm Sơ yếu lý lịch (CV /
                                         Resume)!</strong>
                                     <p class="text-rose-800 mt-0.5">Theo chính sách thẩm định của VietTranslate, tệp CV
-                                        là <strong>bắt buộc</strong> để hồ sơ đủ điều kiện gửi duyệt.</p>
-                                    <a href="{{ url_for('account_profile') }}?tab=verification"
-                                        class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-800 mt-1.5 underline">
-                                        Tải lên CV ngay tại Kho tài liệu →
-                                    </a>
+                                        là <strong>bắt buộc</strong> để hồ sơ đủ điều kiện gửi duyệt. Bạn có thể tải lên nhanh ngay bên dưới.</p>
                                 </div>
                             </div>
                             {% endif %}
                         </div>
+
+                        {% if not is_pending and not is_approved %}
+                        <!-- Tải lên nhanh tài liệu ngay tại Bước 6 để gửi duyệt 1 mạch -->
+                        <div class="mt-4 pt-4 border-t border-slate-200/80 space-y-2.5" id="step6-quick-upload-box">
+                            <p class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Tải lên nhanh tài liệu tại đây (không cần rời biểu mẫu)</p>
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                <select id="step6-doc-type"
+                                    class="px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                    <option value="cv" {% if not has_cv_attached %}selected{% endif %}>Sơ yếu lý lịch (CV) — Bắt buộc</option>
+                                    <option value="certificate" {% if has_cv_attached %}selected{% endif %}>Bằng cấp / Chứng chỉ ngoại ngữ</option>
+                                    <option value="id_card">Căn cước công dân (CCCD)</option>
+                                    <option value="diploma">Bằng tốt nghiệp ĐH/CĐ</option>
+                                    <option value="recommendation">Thư giới thiệu / Hợp đồng</option>
+                                </select>
+                                <input type="file" id="step6-doc-file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                                    class="flex-1 text-xs text-slate-600 file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 bg-white border border-slate-200 rounded-xl px-2 py-1.5">
+                                <button type="button" id="step6-upload-btn" onclick="step6QuickUpload()"
+                                    class="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition cursor-pointer">
+                                    Tải lên ngay
+                                </button>
+                            </div>
+                            <p id="step6-upload-status" class="text-[11px] hidden"></p>
+                        </div>
+                        {% endif %}
                     </div>
 
                     <!-- Khối Cam Kết Tính Xác Thực Của Thông Tin -->
@@ -2603,6 +2623,87 @@
                 <p class="text-[11px] text-amber-800 mt-0.5">Không nhận diện được mã QR trong ảnh. Bạn có thể dán đường dẫn trực tiếp vào ô bên cạnh.</p>
             </div>
         `;
+        }
+    }
+
+    // Tải lên nhanh tài liệu ngay tại Bước 6
+    async function step6QuickUpload() {
+        const typeEl = document.getElementById('step6-doc-type');
+        const fileEl = document.getElementById('step6-doc-file');
+        const btnEl = document.getElementById('step6-upload-btn');
+        const statusEl = document.getElementById('step6-upload-status');
+        if (!fileEl || !fileEl.files || fileEl.files.length === 0) {
+            if (statusEl) {
+                statusEl.textContent = 'Vui lòng chọn tệp tài liệu trước khi bấm tải lên.';
+                statusEl.className = 'text-[11px] text-rose-600 font-semibold';
+            }
+            return;
+        }
+        const docType = typeEl ? typeEl.value : 'cv';
+        const fd = new FormData();
+        fd.append('file', fileEl.files[0]);
+        fd.append('document_type', docType);
+
+        if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Đang tải...'; }
+        if (statusEl) statusEl.className = 'text-[11px] hidden';
+
+        try {
+            const resp = await fetch('/account/verification/documents/upload', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd
+            });
+            const res = await resp.json();
+            if (resp.ok && res.success && res.document) {
+                const doc = res.document;
+                const listEl = document.getElementById('rev-docs-list');
+                const warnEl = document.getElementById('cv-missing-warning');
+                if (docType === 'cv' && warnEl) warnEl.remove();
+                if (listEl) {
+                    const labels = {
+                        cv: 'Sơ yếu lý lịch (CV / Resume) — Bắt buộc',
+                        certificate: 'Bằng cấp / Chứng chỉ ngoại ngữ',
+                        id_card: 'Căn cước công dân (CCCD)',
+                        diploma: 'Bằng tốt nghiệp ĐH/CĐ',
+                        recommendation: 'Thư giới thiệu / Hợp đồng'
+                    };
+                    const card = document.createElement('div');
+                    card.className = 'flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-xl';
+                    const ext = (doc.file_extension || 'FILE').toUpperCase();
+                    card.innerHTML = `
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="w-7 h-7 rounded-lg bg-brand-50 text-brand-700 font-bold text-[10px] flex items-center justify-center shrink-0"></span>
+                            <div class="truncate">
+                                <strong class="text-slate-800 block truncate"></strong>
+                                <span class="text-[10px] text-slate-400"></span>
+                            </div>
+                        </div>
+                        <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200/80 shrink-0">✓ Đã đính kèm</span>
+                    `;
+                    card.querySelector('span.w-7').textContent = ext;
+                    card.querySelector('strong').textContent = doc.original_filename || 'Tệp tài liệu';
+                    card.querySelector('span.text-slate-400').textContent = labels[docType] || docType.toUpperCase();
+                    listEl.prepend(card);
+                }
+                fileEl.value = '';
+                if (statusEl) {
+                    statusEl.textContent = '✓ ' + (res.message || 'Đã tải lên tài liệu thành công.');
+                    statusEl.className = 'text-[11px] text-emerald-700 font-semibold';
+                }
+                showToast('✓ Đã đính kèm tài liệu vào hồ sơ!');
+            } else {
+                if (statusEl) {
+                    statusEl.textContent = '✕ ' + (res.message || 'Không thể tải lên tài liệu.');
+                    statusEl.className = 'text-[11px] text-rose-600 font-semibold';
+                }
+            }
+        } catch (err) {
+            if (statusEl) {
+                statusEl.textContent = '✕ Lỗi kết nối máy chủ khi tải lên tài liệu.';
+                statusEl.className = 'text-[11px] text-rose-600 font-semibold';
+            }
+        } finally {
+            if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Tải lên ngay'; }
         }
     }
 
