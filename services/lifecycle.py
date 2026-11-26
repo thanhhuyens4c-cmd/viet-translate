@@ -136,6 +136,9 @@ def settle(contract, refund_percent, *, refund_fee, refund_to='wallet', waive_co
         raise LifecycleError('Khoản tiền này không còn được giữ, không thể hoàn hay chia.')
     if refund_to not in ('wallet', 'original'):
         raise LifecycleError('Nơi nhận tiền hoàn không hợp lệ.')
+    if deposit.payment_method == 'wallet':
+        # Khách đã trả bằng số dư ví: "phương thức gốc" chính là ví, hoàn ngay không cần chuyển khoản.
+        refund_to = 'wallet'
 
     payments.ensure_pricing_snapshot(contract)
     refund_percent = min(max(int(refund_percent), 0), 100)

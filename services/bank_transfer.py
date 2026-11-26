@@ -21,6 +21,9 @@ from services import payments, lifecycle
 
 CODE_PREFIX = 'VT'
 _CODE_RE = re.compile(rf'{CODE_PREFIX}(\d+)', re.IGNORECASE)
+# Nạp ví: VTNAP + mã người dùng. Không bị nhầm với mã hợp đồng vì sau "VT" là chữ, không phải số.
+TOPUP_PREFIX = 'VTNAP'
+_TOPUP_RE = re.compile(rf'{TOPUP_PREFIX}(\d+)', re.IGNORECASE)
 
 
 def mode():
@@ -62,6 +65,24 @@ def qr_url(contract):
             f"&amount={amount}&des={quote(transfer_code(contract.id))}")
 
 
+def topup_code(user_id):
+    return f'{TOPUP_PREFIX}{int(user_id)}'
+
+
+def extract_topup_user_id(text):
+    match = _TOPUP_RE.search(text or '')
+    return int(match.group(1)) if match else None
+
+
+def topup_qr_url(user_id, amount=None):
+    """Ảnh VietQR nạp ví. Không điền số tiền thì khách tự nhập trong app ngân hàng."""
+    cfg = bank_config()
+    url = f"https://qr.sepay.vn/img?acc={quote(cfg['account'])}&bank={quote(cfg['bank'])}&des={quote(topup_code(user_id))}"
+    if amount:
+        url += f'&amount={int(amount)}'
+    return url
+
+
 def verify_api_key(header_value):
     """Webhook gửi 'Authorization: Apikey <khóa>'. So sánh thời gian không đổi."""
     expected = os.environ.get('SEPAY_API_KEY', '')
@@ -92,7 +113,7 @@ def fund_contract(contract, payer_id, method, ref=None):
 def process_webhook(payload):
     """Xử lý một giao dịch tiền vào từ SePay. Không tự commit. Trả về (kết_quả, ghi_chú).
 
-    Kết quả: funded | duplicate | ignored | mismatch | unknown_contract | cannot_fund.
+    Kết quả: funded | topped_up | duplicate | ignored | mismatch | unknown_contract | unknown_user | cannot_fund.
     Lặp lại cùng một giao dịch (SePay gọi lại khi lỗi) luôn an toàn.
     """
     if str(payload.get('transferType', 'in')).lower() != 'in':
@@ -110,6 +131,11 @@ def process_webhook(payload):
     except (TypeError, ValueError):
         return 'ignored', 'Số tiền không hợp lệ'
     text = ' '.join(str(payload.get(k) or '') for k in ('code', 'content', 'description'))
+
+    topup_user_id = extract_topup_user_id(text)
+    if topup_user_id is not None:
+        return _process_topup(topup_user_id, amount, ref)
+
     contract_id = extract_contract_id(text)
     if contract_id is None:
         return 'ignored', 'Nội dung không có mã hợp đồng'
@@ -132,6 +158,28 @@ def process_webhook(payload):
         _flag(contract, ref, amount, str(e))
         return 'cannot_fund', str(e)
     return 'funded', ref
+
+
+def _process_topup(user_id, amount, ref):
+    """Tiền nạp ví thật. Sai người nhận hoặc số tiền ngoài hạn mức thì không cộng, báo admin xử lý."""
+    from models import User, AdminNotification
+    user = User.query.get(user_id)
+    if user is None or user.role not in ('hirer', 'translator'):
+        db.session.add(AdminNotification(
+            type='PAYMENT_ISSUE', title='Chuyển khoản nạp ví không rõ người nhận',
+            message=f'Nhận {amount}đ với mã nạp của user #{user_id} không hợp lệ. Mã giao dịch {ref}.'))
+        return 'unknown_user', f'Không có tài khoản {user_id}'
+    try:
+        payments.topup(user.id, amount, method='bank_transfer', ref=ref)
+    except payments.PaymentError as e:
+        db.session.add(PaymentTransaction(
+            contract_id=None, user_id=user.id, payee_id=user.id, kind='unmatched', amount=amount,
+            status='failed', payment_method='bank_transfer', transaction_ref=ref, note=str(e)[:255]))
+        db.session.add(AdminNotification(
+            type='PAYMENT_ISSUE', title=f'Chuyển khoản nạp ví cần xử lý (user #{user.id})',
+            message=f'{e} Nhận {amount}đ. Mã giao dịch {ref}.', related_id=user.id))
+        return 'mismatch', str(e)
+    return 'topped_up', ref
 
 
 def _flag(contract, ref, amount, note):

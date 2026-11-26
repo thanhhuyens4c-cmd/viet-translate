@@ -2,82 +2,211 @@
 
 {% block title %}Ví của tôi | VietTranslate{% endblock %}
 
+{% set kind_labels = {
+    'topup': 'Nạp tiền vào ví',
+    'wallet_payment': 'Thanh toán hợp đồng',
+    'release': 'Nhận tiền hợp đồng',
+    'refund': 'Hoàn tiền hợp đồng',
+    'voucher': 'Voucher bồi thường',
+    'withdraw': 'Rút về ngân hàng',
+} %}
+{% set outgoing_kinds = ['withdraw', 'wallet_payment'] %}
+
 {% block content %}
 <div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
-    <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-        </div>
-        <div>
-            <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">Ví của tôi</h1>
-            <p class="text-xs text-slate-500">Số dư, lịch sử nhận tiền và yêu cầu rút về ngân hàng</p>
-        </div>
-    </div>
-
-    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-            <div>
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Số dư có thể rút</p>
-                <p class="text-3xl font-black text-brand-700">{{ balance|vnd }} VND</p>
-                <p class="text-xs text-slate-500 mt-2">Gồm tiền đã giải ngân sau khi khách nghiệm thu (đã trừ hoa hồng) và tiền hoàn vào ví. Không hết hạn.</p>
-                {% if voucher %}
-                <p class="text-xs text-amber-700 mt-1">Voucher bồi thường: {{ voucher|vnd }} VND (dùng để trả đơn sau, không rút được).</p>
-                {% endif %}
+    <!-- Số dư -->
+    <div class="rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-700 text-white shadow-soft p-6 sm:p-8 relative overflow-hidden">
+        <div class="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/10"></div>
+        <div class="relative">
+            <p class="text-xs font-semibold uppercase tracking-wider text-white/70">Số dư ví</p>
+            <p class="text-3xl sm:text-4xl font-black mt-1 tabular-nums">{{ balance|vnd }} <span class="text-lg font-bold text-white/80">VND</span></p>
+            <div class="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-xs text-white/80">
+                {% if pending_withdraw %}<span>Đang chờ rút: <strong class="text-white">{{ pending_withdraw|vnd }} VND</strong></span>{% endif %}
+                {% if voucher %}<span>Voucher bồi thường: <strong class="text-white">{{ voucher|vnd }} VND</strong> (không rút được)</span>{% endif %}
             </div>
-            <form method="POST" class="flex items-end gap-2">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số tiền muốn rút</label>
-                    <input type="number" name="amount" min="{{ withdraw_min }}" max="{{ balance }}" step="1000" required
-                        class="w-44 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50"
-                        placeholder="Tối thiểu {{ withdraw_min|vnd }}">
-                </div>
-                <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition disabled:opacity-40" {% if balance < withdraw_min %}disabled{% endif %}>Rút tiền</button>
-            </form>
+            <p class="text-[11px] text-white/70 mt-2 max-w-xl">
+                {% if user.role == 'hirer' %}Dùng số dư để thanh toán hợp đồng ngay, không cần chuyển khoản lại. Tiền hoàn từ hợp đồng bị hủy cũng về đây.
+                {% else %}Gồm tiền đã giải ngân sau khi khách nghiệm thu (đã trừ hoa hồng) và tiền hoàn vào ví. Không hết hạn.{% endif %}
+            </p>
+            <div class="flex flex-wrap gap-3 mt-5">
+                <button type="button" data-open="topup-modal" class="inline-flex items-center gap-2 bg-white text-brand-700 hover:bg-brand-50 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                    Nạp tiền
+                </button>
+                <button type="button" data-open="withdraw-modal" class="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        {% if balance < withdraw_min %}disabled title="Cần tối thiểu {{ withdraw_min|vnd }} VND để rút"{% endif %}>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"/></svg>
+                    Rút tiền
+                </button>
+            </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-        <h2 class="text-lg font-bold mb-5 text-slate-900">Lịch sử nhận tiền và rút tiền</h2>
-        {% if transactions %}
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        <th class="pb-3.5">Loại</th>
-                        <th class="pb-3.5">Hợp đồng</th>
-                        <th class="pb-3.5">Số tiền</th>
-                        <th class="pb-3.5">Trạng thái</th>
-                        <th class="pb-3.5">Thời gian</th>
-                    </tr>
-                </thead>
-                <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
-                    {% for tx in transactions %}
-                    <tr>
-                        {% set incoming = tx.kind in ['release', 'refund', 'voucher'] %}
-                        <td class="py-3.5 font-semibold text-slate-800">{{ {'release': 'Nhận tiền hợp đồng', 'refund': 'Hoàn tiền hợp đồng', 'voucher': 'Voucher bồi thường', 'withdraw': 'Rút về ngân hàng'}.get(tx.kind, tx.kind) }}</td>
-                        <td class="py-3.5">
-                            <a href="{{ url_for('transaction_detail', contract_id=tx.contract_id) }}" class="text-brand-700 hover:underline">#{{ tx.contract_id }}</a>
-                        </td>
-                        <td class="py-3.5 font-bold {{ 'text-emerald-600' if incoming else 'text-slate-800' }}">
-                            {{ '+' if incoming else '-' }}{{ tx.amount|vnd }} VND
-                        </td>
-                        <td class="py-3.5">
-                            {% if tx.status == 'completed' %}{{ 'Đã nhận' if incoming else 'Đã chuyển khoản' }}{% if tx.kind == 'refund' and tx.payment_method == 'original' %} (về phương thức gốc){% endif %}
-                            {% elif tx.status == 'pending' %}{{ 'Chờ sàn hoàn về phương thức gốc (5 đến 7 ngày làm việc)' if tx.kind == 'refund' else 'Chờ sàn chuyển khoản' }}
-                            {% else %}{{ tx.status }}{% endif %}
-                        </td>
-                        <td class="py-3.5 text-slate-500">{{ tx.created_at.strftime('%d/%m/%Y %H:%M') if tx.created_at else '' }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <!-- Lịch sử -->
+    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+            <h1 class="text-base sm:text-lg font-bold text-slate-900">Lịch sử giao dịch ví</h1>
+            <div class="flex flex-wrap gap-1.5 text-xs">
+                {% set tabs = [('all', 'Tất cả'), ('topup', 'Nạp'), ('withdraw', 'Rút')] %}
+                {% if user.role == 'hirer' %}{% set tabs = tabs + [('wallet_payment', 'Thanh toán')] %}{% else %}{% set tabs = tabs + [('release', 'Thu nhập')] %}{% endif %}
+                {% set tabs = tabs + [('refund', 'Hoàn tiền')] %}
+                {% for key, label in tabs %}
+                <a href="{{ url_for('account_wallet', kind=key) }}"
+                   class="px-3 py-1.5 rounded-lg font-semibold transition {% if kind_filter == key %}bg-brand-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">{{ label }}</a>
+                {% endfor %}
+            </div>
         </div>
+
+        {% if transactions %}
+        <ul class="divide-y divide-slate-100">
+            {% for tx in transactions %}
+            {% set outgoing = tx.kind in outgoing_kinds %}
+            {% set struck = tx.status in ['rejected', 'failed'] %}
+            <li class="py-3.5 flex items-center gap-3">
+                <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center {{ 'bg-slate-100 text-slate-500' if outgoing else 'bg-emerald-50 text-emerald-600' }}">
+                    {% if outgoing %}
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                    {% else %}
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                    {% endif %}
+                </div>
+                <div class="min-w-0 flex-grow">
+                    <p class="text-xs sm:text-sm font-semibold text-slate-800 truncate">
+                        {{ kind_labels.get(tx.kind, tx.kind) }}
+                        {% if tx.contract_id and tx.kind != 'withdraw' %}
+                        · <a href="{{ url_for('transaction_detail', contract_id=tx.contract_id) }}" class="text-brand-600 hover:underline">HĐ #{{ tx.contract_id }}</a>
+                        {% endif %}
+                    </p>
+                    <p class="text-[11px] text-slate-400">
+                        {{ tx.created_at.strftime('%d/%m/%Y %H:%M') if tx.created_at }} ·
+                        {% if tx.status == 'completed' %}
+                            <span class="text-emerald-600 font-semibold">{{ 'Đã chuyển khoản' if tx.kind == 'withdraw' else 'Thành công' }}{% if tx.kind == 'refund' and tx.payment_method == 'original' %} (về phương thức gốc){% endif %}</span>
+                        {% elif tx.status == 'pending' %}
+                            <span class="text-amber-600 font-semibold">{{ 'Chờ sàn hoàn về phương thức gốc (5 đến 7 ngày làm việc)' if tx.kind == 'refund' else 'Chờ sàn chuyển khoản' }}</span>
+                        {% elif tx.status == 'rejected' %}
+                            <span class="text-rose-600 font-semibold">Bị từ chối, tiền đã quay lại ví</span>
+                        {% else %}{{ tx.status }}{% endif %}
+                        {% if tx.note %} · {{ tx.note }}{% endif %}
+                    </p>
+                </div>
+                <p class="text-sm font-extrabold tabular-nums shrink-0 {{ 'text-slate-400 line-through' if struck else ('text-slate-800' if outgoing else 'text-emerald-600') }}">
+                    {{ '−' if outgoing else '+' }}{{ tx.amount|vnd }}
+                </p>
+            </li>
+            {% endfor %}
+        </ul>
+        {% if pagination.pages > 1 %}
+        <div class="flex items-center justify-between mt-5 text-xs">
+            {% if pagination.has_prev %}<a href="{{ url_for('account_wallet', kind=kind_filter, page=pagination.prev_num) }}" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 font-semibold text-slate-600">← Trước</a>{% else %}<span></span>{% endif %}
+            <span class="text-slate-400">Trang {{ pagination.page }}/{{ pagination.pages }}</span>
+            {% if pagination.has_next %}<a href="{{ url_for('account_wallet', kind=kind_filter, page=pagination.next_num) }}" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 font-semibold text-slate-600">Sau →</a>{% else %}<span></span>{% endif %}
+        </div>
+        {% endif %}
         {% else %}
-        <p class="text-sm text-slate-500">{{ 'Chưa có giao dịch nào. Tiền hoàn từ hợp đồng bị hủy sẽ về ví này.' if user.role == 'hirer' else 'Chưa có giao dịch nào. Tiền về ví sau khi khách nghiệm thu hợp đồng.' }}</p>
+        <p class="text-sm text-slate-500 py-8 text-center">
+            {% if kind_filter != 'all' %}Không có giao dịch nào thuộc loại này.
+            {% elif user.role == 'hirer' %}Chưa có giao dịch nào. Nạp tiền vào ví để thanh toán hợp đồng nhanh hơn.
+            {% else %}Chưa có giao dịch nào. Tiền về ví sau khi khách nghiệm thu hợp đồng.{% endif %}
+        </p>
         {% endif %}
     </div>
 </div>
 </div>
+
+<!-- Nạp tiền -->
+<div id="topup-modal" class="wallet-modal fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/50 px-4" role="dialog" aria-modal="true" aria-labelledby="topup-title">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between">
+            <h3 id="topup-title" class="font-bold text-slate-900">Nạp tiền vào ví</h3>
+            <button type="button" data-close class="text-slate-400 hover:text-slate-700 text-xl leading-none" aria-label="Đóng">&times;</button>
+        </div>
+        {% if live %}
+            {% if topup_info %}
+            <p class="text-xs text-slate-600 leading-relaxed">Chuyển khoản số tiền bất kỳ (từ {{ topup_min|vnd }} đến {{ topup_max|vnd }} VND) với <strong>đúng nội dung bên dưới</strong>. Số dư được cộng tự động khi sàn nhận được tiền.</p>
+            <img src="{{ topup_info.qr }}" alt="Mã VietQR nạp ví" class="w-52 h-52 mx-auto rounded-xl border border-slate-200">
+            <dl class="text-xs space-y-1.5">
+                <div class="flex justify-between"><dt class="text-slate-500">Ngân hàng</dt><dd class="font-bold">{{ topup_info.bank }}</dd></div>
+                <div class="flex justify-between"><dt class="text-slate-500">Số tài khoản</dt><dd class="font-bold font-mono">{{ topup_info.account }}</dd></div>
+                {% if topup_info.name %}<div class="flex justify-between"><dt class="text-slate-500">Chủ tài khoản</dt><dd class="font-bold">{{ topup_info.name }}</dd></div>{% endif %}
+                <div class="flex justify-between"><dt class="text-slate-500">Nội dung</dt><dd class="font-bold font-mono">{{ topup_info.code }}</dd></div>
+            </dl>
+            {% else %}
+            <p class="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">Sàn chưa cấu hình tài khoản nhận tiền nên chưa nạp được. Vui lòng liên hệ quản trị viên.</p>
+            {% endif %}
+        {% else %}
+        <form method="POST" action="{{ url_for('account_wallet_topup') }}" class="space-y-4">
+            {% if request.args.get('next') %}<input type="hidden" name="next" value="{{ request.args.get('next') }}">{% endif %}
+            <div>
+                <label for="topup-amount" class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số tiền (VND)</label>
+                <input id="topup-amount" type="text" inputmode="numeric" name="amount" required data-money placeholder="VD: 500.000"
+                       value="{{ request.args.get('amount', '') }}"
+                       class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-brand-500 focus:border-brand-500">
+                <div class="flex flex-wrap gap-1.5 mt-2">
+                    {% for v in [100000, 500000, 1000000, 2000000, 5000000] %}
+                    <button type="button" data-quick="{{ v }}" class="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-600">{{ v|vnd }}</button>
+                    {% endfor %}
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1.5">Tối thiểu {{ topup_min|vnd }}, tối đa {{ topup_max|vnd }} VND mỗi lần.</p>
+            </div>
+            <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-[11px] text-amber-800">💡 Môi trường thử nghiệm: tiền được cộng vào ví ngay, không trừ tiền thật.</div>
+            <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm transition">Xác nhận nạp tiền</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Rút tiền -->
+<div id="withdraw-modal" class="wallet-modal fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/50 px-4" role="dialog" aria-modal="true" aria-labelledby="withdraw-title">
+    <form method="POST" action="{{ url_for('account_wallet_withdraw') }}" class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 id="withdraw-title" class="font-bold text-slate-900">Rút tiền về ngân hàng</h3>
+            <button type="button" data-close class="text-slate-400 hover:text-slate-700 text-xl leading-none" aria-label="Đóng">&times;</button>
+        </div>
+        <p class="text-xs text-slate-500">Có thể rút: <strong class="text-slate-800">{{ balance|vnd }} VND</strong></p>
+        <div>
+            <label for="withdraw-amount" class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số tiền (VND)</label>
+            <div class="flex gap-2">
+                <input id="withdraw-amount" type="text" inputmode="numeric" name="amount" required data-money placeholder="Tối thiểu {{ withdraw_min|vnd }}"
+                       class="flex-grow min-w-0 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-brand-500 focus:border-brand-500">
+                <button type="button" data-quick="{{ balance }}" class="px-3 text-xs font-bold rounded-xl bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-600">Tất cả</button>
+            </div>
+        </div>
+        <p class="text-[11px] text-slate-400">Sàn chuyển khoản về tài khoản ngân hàng chính chủ của bạn trong 2 ngày làm việc. Nếu yêu cầu bị từ chối, tiền quay lại ví.</p>
+        <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm transition">Gửi yêu cầu rút tiền</button>
+    </form>
+</div>
+
+<script>
+(function () {
+    function fmt(v) {
+        var digits = String(v).replace(/\D/g, '');
+        return digits ? Number(digits).toLocaleString('vi-VN') : '';
+    }
+    function openModal(id) {
+        var m = document.getElementById(id);
+        m.classList.remove('hidden'); m.classList.add('flex');
+        var first = m.querySelector('input[data-money]'); if (first) first.focus();
+    }
+    document.querySelectorAll('[data-open]').forEach(function (btn) {
+        btn.addEventListener('click', function () { openModal(btn.dataset.open); });
+    });
+    document.querySelectorAll('.wallet-modal').forEach(function (m) {
+        function close() { m.classList.add('hidden'); m.classList.remove('flex'); }
+        m.addEventListener('click', function (e) { if (e.target === m || e.target.closest('[data-close]')) close(); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        m.querySelectorAll('[data-quick]').forEach(function (b) {
+            b.addEventListener('click', function () { m.querySelector('input[data-money]').value = fmt(b.dataset.quick); });
+        });
+    });
+    document.querySelectorAll('input[data-money]').forEach(function (inp) {
+        if (inp.value) inp.value = fmt(inp.value);
+        inp.addEventListener('input', function () { inp.value = fmt(inp.value); });
+    });
+    var params = new URLSearchParams(location.search);
+    if (params.get('open') === 'topup') openModal('topup-modal');
+    if (params.get('open') === 'withdraw') openModal('withdraw-modal');
+})();
+</script>
 {% endblock %}

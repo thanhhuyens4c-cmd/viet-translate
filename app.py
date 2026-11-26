@@ -1032,6 +1032,54 @@ def _ensure_columns(table, cols):
         print(f"[DB] _ensure_columns({table}) error: {e}", file=sys.stderr)
 
 
+def _ensure_payment_contract_nullable():
+    """Ví: giao dịch nạp ví không gắn hợp đồng nên payment_transaction.contract_id phải cho phép NULL.
+
+    PostgreSQL: DROP NOT NULL (chạy lại không sao). SQLite không đổi được ràng buộc cột nên dựng lại bảng
+    và chép dữ liệu, chỉ khi cột còn NOT NULL.
+    """
+    from sqlalchemy import inspect, text
+    try:
+        inspector = inspect(db.engine)
+        if 'payment_transaction' not in inspector.get_table_names():
+            return
+        col = next((c for c in inspector.get_columns('payment_transaction') if c['name'] == 'contract_id'), None)
+        if col is None or col.get('nullable', True):
+            return
+        if db.engine.dialect.name == 'postgresql':
+            with db.engine.begin() as conn:
+                conn.execute(text('ALTER TABLE payment_transaction ALTER COLUMN contract_id DROP NOT NULL'))
+            return
+        if db.engine.dialect.name != 'sqlite':
+            return
+        table = PaymentTransaction.__table__
+        old_cols = {c['name'] for c in inspector.get_columns('payment_transaction')}
+        copied = [c for c in table.columns if c.name in old_cols]
+        cols = ', '.join(f'"{c.name}"' for c in copied)
+
+        def _select_expr(c):
+            # Cột NOT NULL vừa được bù (giá trị cũ là NULL) thì điền giá trị mặc định của model.
+            default = getattr(c.default, 'arg', None)
+            if not c.nullable and not c.primary_key and isinstance(default, (str, int, float)) and not isinstance(default, bool):
+                literal = "'" + default.replace("'", "''") + "'" if isinstance(default, str) else str(default)
+                return f'COALESCE("{c.name}", {literal})'
+            return f'"{c.name}"'
+        select_cols = ', '.join(_select_expr(c) for c in copied)
+        old_indexes = [i['name'] for i in inspector.get_indexes('payment_transaction') if i.get('name')]
+        with db.engine.begin() as conn:
+            conn.execute(text('PRAGMA foreign_keys=OFF'))
+            for name in old_indexes:
+                conn.execute(text(f'DROP INDEX IF EXISTS "{name}"'))
+            conn.execute(text('ALTER TABLE payment_transaction RENAME TO _payment_transaction_old'))
+            table.create(conn)
+            conn.execute(text(f'INSERT INTO payment_transaction ({cols}) SELECT {select_cols} FROM _payment_transaction_old'))
+            conn.execute(text('DROP TABLE _payment_transaction_old'))
+            conn.execute(text('PRAGMA foreign_keys=ON'))
+        print('[DB] payment_transaction.contract_id now nullable (SQLite rebuild).', file=sys.stderr)
+    except Exception as e:
+        print(f"[DB] _ensure_payment_contract_nullable error: {e}", file=sys.stderr)
+
+
 def _ensure_job_columns():
     _ensure_columns('job', {'specialty': 'VARCHAR(100)', 'word_count': 'INTEGER', 'extra_requirements': 'TEXT',
                             'updated_at': 'TIMESTAMP', 'closed_at': 'TIMESTAMP'})
@@ -1430,6 +1478,7 @@ def _init_db():
     _ensure_account_schema()
     _ensure_cert_verification_schema()
     _add_missing_columns()
+    _ensure_payment_contract_nullable()
 
     try:
         # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
@@ -7358,33 +7407,102 @@ def contract_invoice(contract_id):
                            translator_receives=contract.agreed_price - platform_fee)
 
 
+WALLET_KINDS = ('release', 'refund', 'voucher', 'withdraw', 'topup', 'wallet_payment')
+
+
+def _wallet_user():
+    user = get_current_user()
+    if not isinstance(user, User) or user.role not in ('translator', 'hirer'):
+        flash('Tài khoản này không có ví.', 'error')
+        return None
+    return user
+
+
 @app.route('/account/wallet', methods=['GET', 'POST'])
 @login_required
 def account_wallet():
-    """Ví của phiên dịch viên: số dư đã giải ngân, lịch sử và yêu cầu rút tiền."""
-    user = get_current_user()
-    if not user or user.role not in ('translator', 'hirer'):
-        flash('Tài khoản này không có ví.', 'error')
+    """Ví cá nhân của khách thuê và phiên dịch viên: số dư, nạp tiền, rút tiền và lịch sử giao dịch."""
+    user = _wallet_user()
+    if not user:
         return redirect(url_for('account_history'))
 
-    from services import payments
+    from services import payments, bank_transfer
     if request.method == 'POST':
-        try:
-            payments.request_withdrawal(user.id, request.form.get('amount'))
-            db.session.commit()
-            flash('Đã gửi yêu cầu rút tiền. Sàn sẽ chuyển khoản trong 2 ngày làm việc.', 'success')
-        except payments.PaymentError as e:
-            db.session.rollback()
-            flash(str(e), 'error')
-        return redirect(url_for('account_wallet'))
+        # Giữ tương thích form cũ: POST thẳng vào /account/wallet là yêu cầu rút tiền.
+        return account_wallet_withdraw()
 
-    transactions = PaymentTransaction.query.filter(
-        PaymentTransaction.payee_id == user.id,
-        PaymentTransaction.kind.in_(['release', 'refund', 'voucher', 'withdraw'])
-    ).order_by(PaymentTransaction.created_at.desc()).all()
-    return render_template('account_wallet.html', user=user, balance=payments.wallet_balance(user.id),
-                           voucher=payments.voucher_balance(user.id),
-                           transactions=transactions, withdraw_min=pricing.WITHDRAW_MIN)
+    kind_filter = request.args.get('kind', 'all')
+    query = PaymentTransaction.query.filter(PaymentTransaction.payee_id == user.id)
+    if kind_filter in WALLET_KINDS:
+        query = query.filter(PaymentTransaction.kind == kind_filter)
+    else:
+        kind_filter = 'all'
+        query = query.filter(PaymentTransaction.kind.in_(WALLET_KINDS))
+    page = max(request.args.get('page', 1, type=int), 1)
+    pagination = query.order_by(PaymentTransaction.created_at.desc(), PaymentTransaction.id.desc()).paginate(
+        page=page, per_page=15, error_out=False)
+
+    live = bank_transfer.is_live()
+    topup_info = None
+    if live and bank_transfer.live_ready():
+        topup_info = {**bank_transfer.bank_config(), 'code': bank_transfer.topup_code(user.id),
+                      'qr': bank_transfer.topup_qr_url(user.id)}
+    return render_template(
+        'account_wallet.html', user=user,
+        balance=payments.wallet_balance(user.id),
+        pending_withdraw=payments.pending_withdrawal_total(user.id),
+        voucher=payments.voucher_balance(user.id),
+        transactions=pagination.items, pagination=pagination, kind_filter=kind_filter,
+        withdraw_min=pricing.WITHDRAW_MIN, topup_min=payments.TOPUP_MIN, topup_max=payments.TOPUP_MAX,
+        live=live, topup_info=topup_info,
+    )
+
+
+@app.route('/account/wallet/topup', methods=['POST'])
+@login_required
+def account_wallet_topup():
+    """Nạp tiền vào ví. Sandbox: cộng ngay (tiền giả). Live: chỉ cộng khi ngân hàng báo về qua webhook."""
+    user = _wallet_user()
+    if not user:
+        return redirect(url_for('account_history'))
+    from services import payments, bank_transfer
+    if bank_transfer.is_live():
+        flash('Vui lòng chuyển khoản theo mã QR nạp ví. Số dư được cộng tự động khi sàn nhận được tiền.', 'warning')
+        return redirect(url_for('account_wallet'))
+    try:
+        amount = payments.parse_amount(request.form.get('amount'))
+        payments.topup(user.id, amount, method='sandbox')
+        db.session.commit()
+        flash(f'Đã nạp {amount:,} VND vào ví.'.replace(',', '.'), 'success')
+    except payments.PaymentError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    next_url = request.form.get('next', '')
+    if next_url.startswith('/') and not next_url.startswith('//'):
+        return redirect(next_url)
+    return redirect(url_for('account_wallet'))
+
+
+@app.route('/account/wallet/withdraw', methods=['POST'])
+@login_required
+def account_wallet_withdraw():
+    user = _wallet_user()
+    if not user:
+        return redirect(url_for('account_history'))
+    from services import payments
+    try:
+        withdrawal = payments.request_withdrawal(user.id, request.form.get('amount'))
+        db.session.flush()
+        db.session.add(AdminNotification(
+            type='WALLET_WITHDRAW', title='Yêu cầu rút tiền mới',
+            message=f'{user.name} yêu cầu rút {withdrawal.amount:,} VND.'.replace(',', '.'),
+            url=url_for('admin_payments', status='pending'), related_id=withdrawal.id))
+        db.session.commit()
+        flash('Đã gửi yêu cầu rút tiền. Sàn sẽ chuyển khoản trong 2 ngày làm việc.', 'success')
+    except payments.PaymentError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    return redirect(url_for('account_wallet'))
 
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
@@ -10673,6 +10791,40 @@ def payment_mockup(contract_id):
     total_payable = payments.amount_to_pay(contract)
     from services import bank_transfer
     live = bank_transfer.is_live()
+    if request.method == 'POST' and request.form.get('payment_method') == 'wallet':
+        # Trả bằng số dư ví: dùng được cả sandbox lẫn live vì tiền trong ví là tiền sàn đã nhận.
+        from services.scheduling import SlotExpiredError
+        try:
+            contract = Contract.query.with_for_update().filter_by(id=contract.id).first()
+            if contract.status != 'escrow_pending':
+                db.session.rollback()
+                flash('Hợp đồng này đã được thanh toán.', 'warning')
+                return redirect(url_for('transaction_detail', contract_id=contract.id))
+            payments.pay_from_wallet(contract, session['user_id'])
+            bank_transfer.fund_contract(contract, session['user_id'], 'wallet')
+            create_notification(
+                user_id=contract.translator_id, notification_type='PAYMENT_RECEIVED',
+                title='Khách đã thanh toán vào Escrow',
+                message=f'{contract.hirer.name} đã thanh toán {total_payable:,} VND vào Escrow. Bạn có thể bắt đầu thực hiện.',
+                url=url_for('transaction_detail', contract_id=contract.id), related_contract_id=contract.id)
+            db.session.commit()
+            flash('Thanh toán bằng ví thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+        except payments.PaymentError as e:
+            db.session.rollback()
+            flash(str(e), 'error')
+            return redirect(url_for('payment_mockup', contract_id=contract.id))
+        except SlotExpiredError as e:
+            db.session.rollback()
+            flash(str(e), 'error')
+            c = Contract.query.get(contract.id)
+            if c:
+                c.status = 'cancelled'
+            for sch in TranslatorSchedule.query.filter_by(contract_id=contract.id).all():
+                sch.status = 'cancelled'
+            db.session.commit()
+            return redirect(url_for('index'))
+
     if request.method == 'POST':
         # Chế độ live: tiền chỉ được ghim khi ngân hàng báo về qua webhook, không có nút thanh toán giả.
         if live or session['user_id'] != contract.hirer_id:
@@ -10727,7 +10879,8 @@ def payment_mockup(contract_id):
             live_info = {'error': True}
     return render_template('payment_mockup.html', contract=contract,
                            platform_fee=platform_fee, translator_receives=translator_receives,
-                           total_payable=total_payable, live=live, live_info=live_info)
+                           total_payable=total_payable, live=live, live_info=live_info,
+                           wallet_balance=payments.wallet_balance(contract.hirer_id))
 
 
 @app.route('/payment/<int:contract_id>/status')
@@ -10757,6 +10910,14 @@ def sepay_webhook():
                              'Sàn đã nhận tiền và đang giữ cho hợp đồng. Bạn có thể bắt đầu làm việc.')
             _notify_contract(contract, contract.hirer_id, 'Đã nhận tiền của bạn',
                              'Sàn đã nhận đủ tiền và đang giữ an toàn cho tới khi nghiệm thu.')
+        elif outcome == 'topped_up':
+            topup_tx = PaymentTransaction.query.filter_by(transaction_ref=note, kind='topup').first()
+            if topup_tx is not None:
+                create_notification(
+                    user_id=topup_tx.payee_id, notification_type='PAYMENT',
+                    title='Nạp ví thành công',
+                    message=f'Sàn đã nhận {topup_tx.amount:,} VND. Số dư ví của bạn đã được cộng.'.replace(',', '.'),
+                    url=url_for('account_wallet'))
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -12840,6 +13001,38 @@ def admin_complete_withdrawal(payment_id):
     )
     db.session.commit()
     flash('Đã đánh dấu yêu cầu rút tiền hoàn tất.', 'success')
+    return redirect(url_for('admin_payments'))
+
+@app.route('/admin/payments/<int:payment_id>/reject-withdrawal', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('refund_payment')
+def admin_reject_withdrawal(payment_id):
+    """Từ chối yêu cầu rút tiền (sai thông tin ngân hàng, nghi gian lận...). Tiền quay lại ví người dùng."""
+    from services import payments
+    p = PaymentTransaction.query.with_for_update().filter_by(id=payment_id).first_or_404()
+    note = (request.form.get('note') or '').strip()
+    try:
+        payments.reject_withdrawal(p, note)
+    except payments.PaymentError as e:
+        flash(str(e), 'error')
+        return redirect(url_for('admin_payments'))
+
+    create_notification(
+        user_id=p.payee_id, notification_type='PAYMENT',
+        title='Yêu cầu rút tiền bị từ chối',
+        message=(f'Yêu cầu rút {p.amount:,} VND đã bị từ chối, tiền đã quay lại ví của bạn.'.replace(',', '.')
+                 + (f' Lý do: {p.note}' if p.note else '')),
+        url=url_for('account_wallet'))
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
+        target_type='payment',
+        target_id=p.id,
+        description=f"Admin từ chối yêu cầu rút tiền #{p.id} ({p.amount}đ) của user #{p.payee_id}",
+        extra_data={'note': p.note} if p.note else None,
+    )
+    db.session.commit()
+    flash('Đã từ chối yêu cầu rút tiền, tiền đã quay lại ví người dùng.', 'success')
     return redirect(url_for('admin_payments'))
 
 @app.route('/admin/notifications')
