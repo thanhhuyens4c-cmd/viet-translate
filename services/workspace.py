@@ -64,7 +64,49 @@ def is_document(contract):
     return 'dịch viết' in cat or 'tài liệu' in cat
 
 
+_TABLES_READY = False
+
+
+def ensure_tables():
+    """Tạo 2 bảng của phòng làm việc nếu chưa có, độc lập với db.create_all() lúc khởi động.
+    Trên production, create_all() nằm trong try/except rộng: nếu nó lỗi giữa chừng thì bảng mới
+    không được tạo và mọi trang /transaction/<id> lỗi 500. Kết quả thành công được nhớ theo tiến trình."""
+    global _TABLES_READY
+    if _TABLES_READY:
+        return True
+    try:
+        for table in (WorkspaceState.__table__, AttendanceSession.__table__):
+            table.create(bind=db.engine, checkfirst=True)
+        _TABLES_READY = True
+    except Exception as e:  # thiếu quyền CREATE, mất kết nối...: trang vẫn hiển thị ở chế độ rút gọn
+        import logging
+        logging.error('[workspace] Không tạo được bảng workspace_state/attendance_session: %s', e)
+    return _TABLES_READY
+
+
+def _require_ready():
+    _require(ensure_tables(), 'Phòng làm việc đang được cập nhật hệ thống, vui lòng thử lại sau ít phút.')
+
+
+def sessions_of(contract):
+    """Danh sách ca làm; rỗng nếu bảng chấm công chưa sẵn sàng (không làm hỏng trang)."""
+    if not ensure_tables():
+        return []
+    return list(contract.attendance_sessions)
+
+
+def view_state(contract):
+    """Trạng thái để HIỂN THỊ. Không ghi được DB thì trả về đối tượng tạm (không lưu)."""
+    if ensure_tables():
+        try:
+            return get_state(contract)
+        except Exception:
+            db.session.rollback()
+    return WorkspaceState(contract_id=contract.id, progress_percent=0)
+
+
 def get_state(contract):
+    _require_ready()
     st = contract.workspace_state
     if st is None:
         st = WorkspaceState(contract_id=contract.id)
@@ -100,11 +142,11 @@ def _frozen(contract):
 
 
 def open_session(contract):
-    return next((s for s in contract.attendance_sessions if s.checkout_at is None), None)
+    return next((s for s in sessions_of(contract) if s.checkout_at is None), None)
 
 
 def total_hours(contract):
-    return round(sum(s.hours or 0 for s in contract.attendance_sessions), 2)
+    return round(sum(s.hours or 0 for s in sessions_of(contract)), 2)
 
 
 def checkin_opens_at_local(contract):
@@ -182,6 +224,7 @@ def _float(v):
 
 def checkin(contract, user_id, lat=None, lng=None, note=None, now=None):
     now = now or now_utc()
+    _require_ready()
     _require(user_id == contract.translator_id, 'Chỉ phiên dịch viên phụ trách mới check-in được.')
     _require(contract.status in FUNDED, 'Chỉ check-in khi khách đã thanh toán và hợp đồng đang thực hiện.')
     _require(not is_document(contract), 'Check-in chỉ áp dụng cho phiên dịch trực tiếp.')
@@ -211,6 +254,7 @@ def checkin(contract, user_id, lat=None, lng=None, note=None, now=None):
 
 def checkout(contract, user_id, note=None, now=None):
     now = now or now_utc()
+    _require_ready()
     _require(user_id == contract.translator_id, 'Chỉ phiên dịch viên phụ trách mới check-out được.')
     s = open_session(contract)
     _require(s is not None, 'Chưa có ca nào đang mở để check-out.')
@@ -223,6 +267,7 @@ def checkout(contract, user_id, note=None, now=None):
 
 
 def confirm_attendance(contract, user_id, session_id):
+    _require_ready()
     _require(user_id == contract.hirer_id, 'Chỉ khách hàng mới xác nhận có mặt.')
     s = AttendanceSession.query.filter_by(id=session_id, contract_id=contract.id).first()
     _require(s is not None, 'Không tìm thấy ca làm việc.')
@@ -240,7 +285,7 @@ def submit_onsite_report(contract, user_id, note, confirm=False):
     _require(not _frozen(contract), 'Hợp đồng đang có khiếu nại, chưa thể gửi biên bản.')
     _require(contract.delivered_at is None, 'Biên bản đã được gửi.')
     _require(confirm, 'Vui lòng xác nhận cam kết trước khi gửi biên bản.')
-    _require(contract.attendance_sessions, 'Chưa có ca làm việc nào. Hãy check-in/check-out trước khi gửi biên bản.')
+    _require(sessions_of(contract), 'Chưa có ca làm việc nào. Hãy check-in/check-out trước khi gửi biên bản.')
     _require(open_session(contract) is None, 'Vui lòng check-out ca đang mở trước khi gửi biên bản.')
     note = (note or '').strip()
     _require(len(note) >= 10, 'Vui lòng tóm tắt nội dung buổi phiên dịch (tối thiểu 10 ký tự).')
@@ -251,7 +296,7 @@ def submit_onsite_report(contract, user_id, note, confirm=False):
     st.progress_requested_at = None
     st.last_progress_at = now_utc()
     _event(contract, user_id, 'onsite_report',
-           f'{len(contract.attendance_sessions)} ca · tổng {hours} giờ.\n{note}'[:2000])
+           f'{len(sessions_of(contract))} ca · tổng {hours} giờ.\n{note}'[:2000])
     _notify(contract, contract.hirer_id, 'Ca làm đã hoàn tất — chờ bạn nghiệm thu',
             f'{contract.translator.name} đã gửi biên bản ({hours} giờ). Vui lòng kiểm tra và nghiệm thu.',
             ntype='CONTRACT_COMPLETED')
@@ -267,10 +312,10 @@ def progress_percent(contract):
     if awaiting_acceptance(contract):
         return 100 if is_document(contract) else 90
     if is_document(contract):
-        st = contract.workspace_state
-        base = st.progress_percent if st else 0
+        st = contract.workspace_state if ensure_tables() else None
+        base = (st.progress_percent or 0) if st else 0
         return max(base, 5 if contract.started_at else 0)
-    if not contract.attendance_sessions:
+    if not sessions_of(contract):
         return 10
     return 50 if open_session(contract) else 75
 

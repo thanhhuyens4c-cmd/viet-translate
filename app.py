@@ -8494,7 +8494,7 @@ def book_service(service_id):
 
     if current_user.id == translator.id:
         flash(_t('flash.cannot_hire_self'), 'error')
-        return redirect(url_for('service_detail', service_id=service.id))
+        return redirect(url_for('translator_profile', profile_id=service.profile_id))
 
     if request.method == 'POST':
         scheduled_date_str = request.form.get('scheduled_date', '')
@@ -10076,7 +10076,7 @@ def api_complete_shift(contract_id):
     data = request.get_json(silent=True) or {}
     note = (request.form.get('note') or data.get('note') or '').strip() or 'Ca làm đã hoàn tất theo kế hoạch.'
     try:
-        if not contract.attendance_sessions:
+        if not ws.sessions_of(contract):
             # Ca chưa từng check-in qua phòng làm việc: ghi nhận một ca kết thúc ngay để có căn cứ.
             ws.checkin(contract, user.id, note='Check-in khi báo kết thúc ca')
             db.session.flush()
@@ -11079,7 +11079,7 @@ def transaction_detail(contract_id):
     import services.workspace as ws
     try:
         ws.heal_legacy_status(contract)
-        ws.get_state(contract)
+        ws.view_state(contract)
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -11092,10 +11092,11 @@ def _workspace_context(contract):
     from services.projects import display_status, language_pair, project_title, project_deadline
     me = session['user_id']
     role = 'hirer' if me == contract.hirer_id else 'translator'
-    state = ws.get_state(contract)
+    state = ws.view_state(contract)
     status_key, status_text = display_status(contract)
-    events = [e for e in contract.events if e.event_type == 'progress']
-    events.sort(key=lambda e: e.created_at or datetime.min)
+    _ev_key = lambda e: (e.created_at or datetime.min, e.id or 0)   # sự kiện cũ có thể thiếu created_at
+    events = sorted((e for e in contract.events if e.event_type == 'progress'), key=_ev_key)
+    revisions = sorted((e for e in contract.events if e.event_type == 'revision_requested'), key=_ev_key)
     active = [d for d in contract.disputes if d.status in ('pending_review', 'awaiting_response', 'under_review')]
     return dict(
         role=role, other=contract.translator if role == 'hirer' else contract.hirer,
@@ -11104,7 +11105,8 @@ def _workspace_context(contract):
         title=project_title(contract), lang_pair=language_pair(contract), deadline=project_deadline(contract),
         step=ws.step_index(contract), progress=ws.progress_percent(contract),
         awaiting_acceptance=ws.awaiting_acceptance(contract),
-        sessions=contract.attendance_sessions, open_session=ws.open_session(contract),
+        sessions=ws.sessions_of(contract), open_session=ws.open_session(contract),
+        revision_event=revisions[-1] if revisions else None,
         total_hours=ws.total_hours(contract),
         checkin_opens_at=ws.checkin_opens_at_local(contract),
         now_local=ws.to_local(ws.now_utc()),

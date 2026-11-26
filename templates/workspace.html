@@ -37,7 +37,6 @@
 {% set btn_success = 'w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition' %}
 {% set btn_ghost = 'w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition' %}
 {% set link_danger = 'text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline' %}
-{% set revision_event = contract.events | selectattr('event_type', 'equalto', 'revision_requested') | list | sort(attribute='created_at') | last %}
 
 {% macro avatar(user, size='w-10 h-10', text='text-sm') -%}
 {% if user and user.avatar_url %}
