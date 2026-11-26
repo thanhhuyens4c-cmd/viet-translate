@@ -729,6 +729,7 @@ def _add_missing_columns():
     """
     from sqlalchemy import inspect as _sa_inspect
     try:
+        is_postgres = (db.engine.dialect.name == 'postgresql')
         inspector = _sa_inspect(db.engine)
         existing_tables = set(inspector.get_table_names())
         for table in db.metadata.sorted_tables:
@@ -740,7 +741,8 @@ def _add_missing_columns():
                     continue
                 col_type = col.type.compile(dialect=db.engine.dialect)
                 preparer = db.engine.dialect.identifier_preparer
-                stmt = f'ALTER TABLE {preparer.quote(table.name)} ADD COLUMN {preparer.quote(col.name)} {col_type}'
+                add_kw = 'ADD COLUMN IF NOT EXISTS' if is_postgres else 'ADD COLUMN'
+                stmt = f'ALTER TABLE {preparer.quote(table.name)} {add_kw} {preparer.quote(col.name)} {col_type}'
                 _d = col.default.arg if col.default is not None and getattr(col.default, 'is_scalar', False) else None
                 if isinstance(_d, bool):
                     stmt += ' DEFAULT TRUE' if _d else ' DEFAULT FALSE'
@@ -1478,8 +1480,15 @@ if not _SKIP_AUTO_INIT:
         db.session.rollback()
         print(f"[DB INIT ERROR] {e}", file=sys.stderr)
 else:
-    if _is_prod:
-        print("[DB PROD] Môi trường Production: Bỏ qua tự động chạy DDL/create_all khi khởi động worker. Quản trị schema qua migration scripts.", file=sys.stderr)
+    if _is_prod and not _is_vercel_cold:
+        try:
+            with app.app_context():
+                _add_missing_columns()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB PROD SYNC ERROR] {e}", file=sys.stderr)
+    elif _is_prod:
+        print("[DB PROD] Serverless cold start: bỏ qua DDL khi khởi động worker.", file=sys.stderr)
     _db_ready = True
 
 
