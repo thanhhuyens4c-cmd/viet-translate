@@ -43,7 +43,7 @@
                     <td class="font-medium text-brand">
                         #TXN-{{ p.id }}
                         {% if p.transaction_ref %}
-                            <div class="text-[10px] text-slate-400 mt-1">Ref: {{ p.transaction_ref }}</div>
+                            <div class="text-[10px] text-slate-400 mt-1">{{ 'Chuyển về' if p.kind == 'withdraw' else 'Ref' }}: {{ p.transaction_ref }}</div>
                         {% endif %}
                     </td>
                     <td>
@@ -82,7 +82,7 @@
                         {{ "{:,.0f}".format(p.amount).replace(',', '.') }} ₫
                     </td>
                     <td class="text-slate-300">
-                        {{ p.payment_method or 'N/A' }}
+                        {{ payment_method_label(p.payment_method) if p.payment_method else 'N/A' }}
                     </td>
                     <td>
                         {% if p.status == 'completed' %}

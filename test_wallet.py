@@ -174,6 +174,13 @@ class WalletRouteTests(WalletBase):
         with self.client.session_transaction() as s:
             s.clear()
             s['user_id'] = user.id
+            s['admin_csrf_token'] = 'tok'
+
+    def add_account(self, user, number='0123456789'):
+        from services.payout_methods import add_payout_method
+        ok, acc = add_payout_method(user.id, 'VCB', number, user.name.upper() + ' TEST', '', True)
+        self.assertTrue(ok, acc)
+        return acc if isinstance(acc, dict) else acc.to_dict()
 
     def test_wallet_page_renders_for_both_roles(self):
         for user in (self.hirer, self.trans):
@@ -184,7 +191,7 @@ class WalletRouteTests(WalletBase):
 
     def test_topup_route_sandbox(self):
         self.login(self.hirer)
-        self.client.post('/account/wallet/topup', data={'amount': '1.200.000'})
+        self.client.post('/account/wallet/topup', data={'amount': '1.200.000', '_csrf_token': 'tok'})
         self.assertEqual(payments.wallet_balance(self.hirer.id), 1_200_000)
         r = self.client.get('/account/wallet?kind=topup')
         self.assertIn('Nạp tiền vào ví', r.get_data(as_text=True))
@@ -193,7 +200,7 @@ class WalletRouteTests(WalletBase):
         self.login(self.hirer)
         os.environ['PAYMENT_MODE'] = 'live'
         try:
-            self.client.post('/account/wallet/topup', data={'amount': '1.200.000'})
+            self.client.post('/account/wallet/topup', data={'amount': '1.200.000', '_csrf_token': 'tok'})
         finally:
             os.environ.pop('PAYMENT_MODE', None)
         self.assertEqual(payments.wallet_balance(self.hirer.id), 0)
@@ -209,7 +216,7 @@ class WalletRouteTests(WalletBase):
         db.session.expire_all()
         self.assertEqual(Contract.query.get(c.id).status, 'escrow_pending')
 
-        self.client.post('/account/wallet/topup', data={'amount': '5.000.000'})
+        self.client.post('/account/wallet/topup', data={'amount': '5.000.000', '_csrf_token': 'tok'})
         r = self.client.post(f'/payment-mockup/{c.id}', data={'payment_method': 'wallet'})
         self.assertEqual(r.status_code, 302)
         db.session.expire_all()
@@ -233,7 +240,8 @@ class WalletRouteTests(WalletBase):
         payments.topup(self.trans.id, 1_000_000)
         db.session.commit()
         self.login(self.trans)
-        self.client.post('/account/wallet/withdraw', data={'amount': '200.000'})
+        self.add_account(self.trans)
+        self.client.post('/account/wallet/withdraw', data={'amount': '200.000', '_csrf_token': 'tok'})
         self.assertEqual(payments.wallet_balance(self.trans.id), 800_000)
         self.assertEqual(AdminNotification.query.filter_by(type='WALLET_WITHDRAW').count() >= 1, True)
 
@@ -259,6 +267,107 @@ class WalletRouteTests(WalletBase):
         self.assertEqual((w.status, w.note), ('rejected', 'Sai STK'))
         self.assertEqual(payments.wallet_balance(self.trans.id), 1_000_000)
         self.assertEqual(Notification.query.filter_by(user_id=self.trans.id, title='Yêu cầu rút tiền bị từ chối').count(), 1)
+
+
+class WalletMethodTests(WalletBase):
+    """Phương thức nạp tiền, tài khoản nhận tiền rút và CSRF của các thao tác ví."""
+
+    def setUp(self):
+        super().setUp()
+        self.client = app.test_client()
+
+    login = WalletRouteTests.login
+    add_account = WalletRouteTests.add_account
+
+    def test_topup_records_chosen_method(self):
+        self.login(self.hirer)
+        self.client.post('/account/wallet/topup', data={'amount': '300.000', 'method': 'momo', '_csrf_token': 'tok'})
+        tx = PaymentTransaction.query.filter_by(payee_id=self.hirer.id, kind='topup').one()
+        self.assertEqual((tx.amount, tx.payment_method), (300_000, 'sandbox:momo'))
+        self.assertEqual(payments.method_label(tx.payment_method), 'Ví MoMo (thử nghiệm)')
+
+    def test_unavailable_method_is_refused(self):
+        self.login(self.hirer)
+        self.client.post('/account/wallet/topup', data={'amount': '300.000', 'method': 'card', '_csrf_token': 'tok'})
+        self.assertEqual(payments.wallet_balance(self.hirer.id), 0)
+
+    def test_unknown_method_falls_back_to_bank(self):
+        self.assertEqual(payments.normalize_topup_method('xyz'), 'bank')
+
+    def test_topup_without_csrf_is_refused(self):
+        self.login(self.hirer)
+        self.client.post('/account/wallet/topup', data={'amount': '300.000'})
+        self.assertEqual(payments.wallet_balance(self.hirer.id), 0)
+
+    def test_live_topup_goes_to_qr_step_without_crediting(self):
+        self.login(self.hirer)
+        os.environ.update(PAYMENT_MODE='live', BANK_CODE='MBBank', BANK_ACCOUNT='0001', SEPAY_API_KEY='k')
+        try:
+            r = self.client.post('/account/wallet/topup', data={'amount': '250.000', 'method': 'zalopay', '_csrf_token': 'tok'})
+            self.assertIn('step=pay', r.headers['Location'])
+            page = self.client.get(r.headers['Location']).get_data(as_text=True)
+        finally:
+            for k in ('PAYMENT_MODE', 'BANK_CODE', 'BANK_ACCOUNT', 'SEPAY_API_KEY'):
+                os.environ.pop(k, None)
+        self.assertEqual(payments.wallet_balance(self.hirer.id), 0)
+        self.assertIn(bank_transfer.topup_code(self.hirer.id), page)
+        self.assertIn('amount=250000', page)
+
+    def test_withdraw_requires_bank_account(self):
+        payments.topup(self.trans.id, 1_000_000)
+        db.session.commit()
+        self.login(self.trans)
+        self.client.post('/account/wallet/withdraw', data={'amount': '200.000', '_csrf_token': 'tok'})
+        self.assertEqual(payments.wallet_balance(self.trans.id), 1_000_000)
+
+    def test_withdraw_records_destination_account(self):
+        payments.topup(self.hirer.id, 1_000_000)
+        db.session.commit()
+        self.login(self.hirer)
+        acc = self.add_account(self.hirer, '9988776655')
+        self.client.post('/account/wallet/withdraw',
+                         data={'amount': '400.000', 'payout_method_id': acc['id'], '_csrf_token': 'tok'})
+        w = PaymentTransaction.query.filter_by(payee_id=self.hirer.id, kind='withdraw').one()
+        self.assertEqual(w.amount, 400_000)
+        self.assertIn('Vietcombank', w.transaction_ref)
+        self.assertNotIn('9988776655', w.transaction_ref)  # số tài khoản được che
+        self.assertEqual(payments.wallet_summary(self.hirer.id)['pending_withdraw'], 400_000)
+
+    def test_cannot_withdraw_to_someone_elses_account(self):
+        payments.topup(self.hirer.id, 1_000_000)
+        db.session.commit()
+        other = self.add_account(self.trans, '1122334455')
+        self.login(self.hirer)
+        self.client.post('/account/wallet/withdraw',
+                         data={'amount': '400.000', 'payout_method_id': other['id'], '_csrf_token': 'tok'})
+        self.assertEqual(PaymentTransaction.query.filter_by(payee_id=self.hirer.id, kind='withdraw').count(), 0)
+
+    def test_manage_accounts_route(self):
+        self.login(self.hirer)
+        self.client.post('/account/wallet/accounts', data={
+            'action': 'add', 'bank_code': 'TCB', 'account_number': '1234567890',
+            'account_holder_name': 'Hirer Test', 'set_as_default': '1', '_csrf_token': 'tok'})
+        from services.payout_methods import get_payout_methods
+        accounts = get_payout_methods(self.hirer.id)
+        self.assertEqual(len(accounts), 1)
+        self.client.post('/account/wallet/accounts', data={
+            'action': 'delete', 'method_id': accounts[0]['id'], '_csrf_token': 'tok'})
+        self.assertEqual(get_payout_methods(self.hirer.id), [])
+
+    def test_wallet_summary(self):
+        payments.topup(self.hirer.id, 2_000_000)
+        payments.request_withdrawal(self.hirer.id, 500_000)
+        db.session.commit()
+        summary = payments.wallet_summary(self.hirer.id)
+        self.assertEqual((summary['topped_up'], summary['pending_withdraw'], summary['withdrawn']),
+                         (2_000_000, 500_000, 0))
+
+    def test_wallet_page_shows_methods_and_accounts(self):
+        self.login(self.trans)
+        self.add_account(self.trans)
+        html = self.client.get('/account/wallet').get_data(as_text=True)
+        for text in ('Phương thức nạp tiền', 'Ví MoMo', 'Tài khoản nhận tiền', 'Vietcombank', 'Sắp có'):
+            self.assertIn(text, html)
 
 
 if __name__ == '__main__':

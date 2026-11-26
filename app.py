@@ -1615,6 +1615,12 @@ def csrf_token():
     """Trả về CSRF token hiện tại cho Admin templates."""
     return get_csrf_token()
 
+@app.template_global()
+def payment_method_label(value):
+    """Nhãn tiếng Việt cho cột payment_method (dùng ở trang admin và trang Ví)."""
+    from services.payments import method_label
+    return method_label(value)
+
 # Defensive fallback cho templates: đăng ký hasattr và getattr vào Jinja globals
 app.jinja_env.globals['hasattr'] = hasattr
 app.jinja_env.globals['getattr'] = getattr
@@ -7418,15 +7424,23 @@ def _wallet_user():
     return user
 
 
+def _wallet_redirect(**kwargs):
+    next_url = request.form.get('next', '')
+    if next_url.startswith('/') and not next_url.startswith('//'):
+        return redirect(next_url)
+    return redirect(url_for('account_wallet', **kwargs))
+
+
 @app.route('/account/wallet', methods=['GET', 'POST'])
 @login_required
 def account_wallet():
-    """Ví cá nhân của khách thuê và phiên dịch viên: số dư, nạp tiền, rút tiền và lịch sử giao dịch."""
+    """Ví cá nhân của khách thuê và phiên dịch viên: số dư, nạp tiền, rút tiền, tài khoản nhận và lịch sử."""
     user = _wallet_user()
     if not user:
         return redirect(url_for('account_history'))
 
     from services import payments, bank_transfer
+    from services.payout_methods import get_payout_methods, get_supported_banks
     if request.method == 'POST':
         # Giữ tương thích form cũ: POST thẳng vào /account/wallet là yêu cầu rút tiền.
         return account_wallet_withdraw()
@@ -7445,15 +7459,40 @@ def account_wallet():
     live = bank_transfer.is_live()
     topup_info = None
     if live and bank_transfer.live_ready():
+        # Bước 2 của nạp tiền (live): đã chọn số tiền và phương thức, hiện QR điền sẵn số tiền.
+        qr_amount = None
+        try:
+            if request.args.get('amount'):
+                qr_amount = payments.parse_amount(request.args.get('amount'))
+                if not (payments.TOPUP_MIN <= qr_amount <= payments.TOPUP_MAX):
+                    qr_amount = None
+        except payments.PaymentError:
+            qr_amount = None
+        try:
+            qr_method = payments.normalize_topup_method(request.args.get('method'))
+        except payments.PaymentError:
+            qr_method = 'bank'
         topup_info = {**bank_transfer.bank_config(), 'code': bank_transfer.topup_code(user.id),
-                      'qr': bank_transfer.topup_qr_url(user.id)}
+                      'qr': bank_transfer.topup_qr_url(user.id, qr_amount),
+                      'amount': qr_amount, 'method': qr_method}
+
+    try:
+        payout_accounts = get_payout_methods(user.id)
+    except Exception:
+        db.session.rollback()
+        payout_accounts = []
+    payout_accounts = sorted(payout_accounts, key=lambda m: not m.get('is_default'))
+
     return render_template(
         'account_wallet.html', user=user,
         balance=payments.wallet_balance(user.id),
+        summary=payments.wallet_summary(user.id),
         pending_withdraw=payments.pending_withdrawal_total(user.id),
         voucher=payments.voucher_balance(user.id),
         transactions=pagination.items, pagination=pagination, kind_filter=kind_filter,
         withdraw_min=pricing.WITHDRAW_MIN, topup_min=payments.TOPUP_MIN, topup_max=payments.TOPUP_MAX,
+        topup_methods=payments.TOPUP_METHODS, method_label=payments.method_label,
+        payout_accounts=payout_accounts, banks=get_supported_banks(),
         live=live, topup_info=topup_info,
     )
 
@@ -7465,22 +7504,27 @@ def account_wallet_topup():
     user = _wallet_user()
     if not user:
         return redirect(url_for('account_history'))
-    from services import payments, bank_transfer
-    if bank_transfer.is_live():
-        flash('Vui lòng chuyển khoản theo mã QR nạp ví. Số dư được cộng tự động khi sàn nhận được tiền.', 'warning')
+    if not _csrf_ok():
+        flash('Phiên làm việc đã hết hạn. Vui lòng thử lại.', 'error')
         return redirect(url_for('account_wallet'))
+    from services import payments, bank_transfer
     try:
+        method = payments.normalize_topup_method(request.form.get('method'))
         amount = payments.parse_amount(request.form.get('amount'))
-        payments.topup(user.id, amount, method='sandbox')
+        if bank_transfer.is_live():
+            # Live: không cộng tiền ở đây. Chuyển sang bước quét mã QR đã điền sẵn số tiền.
+            if not (payments.TOPUP_MIN <= amount <= payments.TOPUP_MAX):
+                raise payments.PaymentError(
+                    f'Số tiền nạp phải từ {payments.TOPUP_MIN:,}đ đến {payments.TOPUP_MAX:,}đ.'.replace(',', '.'))
+            return redirect(url_for('account_wallet', open='topup', step='pay', amount=amount, method=method))
+        payments.topup(user.id, amount, method=f'sandbox:{method}')
         db.session.commit()
-        flash(f'Đã nạp {amount:,} VND vào ví.'.replace(',', '.'), 'success')
+        flash(f'Đã nạp {amount:,} VND vào ví qua {payments.TOPUP_METHODS[method]["label"]}.'.replace(',', '.'), 'success')
     except payments.PaymentError as e:
         db.session.rollback()
         flash(str(e), 'error')
-    next_url = request.form.get('next', '')
-    if next_url.startswith('/') and not next_url.startswith('//'):
-        return redirect(next_url)
-    return redirect(url_for('account_wallet'))
+        return redirect(url_for('account_wallet', open='topup'))
+    return _wallet_redirect()
 
 
 @app.route('/account/wallet/withdraw', methods=['POST'])
@@ -7489,20 +7533,70 @@ def account_wallet_withdraw():
     user = _wallet_user()
     if not user:
         return redirect(url_for('account_history'))
+    if not _csrf_ok():
+        flash('Phiên làm việc đã hết hạn. Vui lòng thử lại.', 'error')
+        return redirect(url_for('account_wallet'))
     from services import payments
+    from services.payout_methods import get_payout_method_by_id, get_default_payout_method
     try:
-        withdrawal = payments.request_withdrawal(user.id, request.form.get('amount'))
+        method_id = request.form.get('payout_method_id')
+        account = get_payout_method_by_id(user.id, method_id) if method_id else get_default_payout_method(user.id)
+        if not account:
+            raise payments.PaymentError('Vui lòng thêm tài khoản ngân hàng nhận tiền trước khi rút.')
+        destination = (f"{account.get('bank_short_name') or account.get('bank_code')} "
+                       f"{account.get('masked_account_number') or ''} · {account.get('account_holder_name') or ''}").strip()
+        withdrawal = payments.request_withdrawal(user.id, request.form.get('amount'), destination=destination)
         db.session.flush()
         db.session.add(AdminNotification(
             type='WALLET_WITHDRAW', title='Yêu cầu rút tiền mới',
-            message=f'{user.name} yêu cầu rút {withdrawal.amount:,} VND.'.replace(',', '.'),
+            message=f'{user.name} yêu cầu rút {withdrawal.amount:,} VND về {destination}.'.replace(',', '.'),
             url=url_for('admin_payments', status='pending'), related_id=withdrawal.id))
         db.session.commit()
-        flash('Đã gửi yêu cầu rút tiền. Sàn sẽ chuyển khoản trong 2 ngày làm việc.', 'success')
+        flash(f'Đã gửi yêu cầu rút tiền về {destination}. Sàn sẽ chuyển khoản trong 2 ngày làm việc.', 'success')
     except payments.PaymentError as e:
         db.session.rollback()
         flash(str(e), 'error')
+        return redirect(url_for('account_wallet', open='withdraw'))
     return redirect(url_for('account_wallet'))
+
+
+@app.route('/account/wallet/accounts', methods=['POST'])
+@login_required
+def account_wallet_accounts():
+    """Quản lý tài khoản ngân hàng nhận tiền rút (dùng chung cho khách thuê và phiên dịch viên)."""
+    user = _wallet_user()
+    if not user:
+        return redirect(url_for('account_history'))
+    if not _csrf_ok():
+        flash('Phiên làm việc đã hết hạn. Vui lòng thử lại.', 'error')
+        return redirect(url_for('account_wallet'))
+    from services.payout_methods import add_payout_method, set_default_payout_method, delete_payout_method
+    action = request.form.get('action')
+    try:
+        if action == 'add':
+            ok, result = add_payout_method(
+                user.id, request.form.get('bank_code'), request.form.get('account_number'),
+                request.form.get('account_holder_name'), request.form.get('branch', ''),
+                bool(request.form.get('set_as_default')))
+            if not ok:
+                flash(result, 'error')
+                return redirect(url_for('account_wallet', open='account'))
+            flash('Đã thêm tài khoản nhận tiền.', 'success')
+        elif action == 'default':
+            ok, msg = set_default_payout_method(user.id, request.form.get('method_id'))
+            flash('Đã đặt làm tài khoản mặc định.' if ok else msg, 'success' if ok else 'error')
+        elif action == 'delete':
+            ok, msg = delete_payout_method(user.id, request.form.get('method_id'))
+            flash('Đã xóa tài khoản nhận tiền.' if ok else msg, 'success' if ok else 'error')
+        else:
+            flash('Thao tác không hợp lệ.', 'error')
+    except Exception as e:
+        db.session.rollback()
+        print(f"[WALLET ACCOUNTS ERROR] {e}", file=sys.stderr)
+        flash('Không thể cập nhật tài khoản nhận tiền. Vui lòng thử lại.', 'error')
+    if request.form.get('back') == 'withdraw':
+        return redirect(url_for('account_wallet', open='withdraw'))
+    return _wallet_redirect()
 
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 

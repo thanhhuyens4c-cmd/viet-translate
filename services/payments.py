@@ -17,6 +17,39 @@ class PaymentError(Exception):
 TOPUP_MIN = 10_000
 TOPUP_MAX = 50_000_000
 
+# Phương thức nạp tiền vào ví. Tiền thật chỉ đi qua một đường duy nhất: chuyển khoản vào tài khoản
+# công ty bằng mã VietQR, SePay đối soát qua webhook. App ngân hàng và các ví điện tử (MoMo, ZaloPay,
+# VNPAY) đều quét được VietQR nên dùng chung đường này; chỉ khác hướng dẫn hiển thị.
+# Thẻ quốc tế cần cổng thanh toán riêng nên chưa mở (available=False).
+TOPUP_METHODS = {
+    'bank':    {'label': 'Chuyển khoản ngân hàng', 'hint': 'Quét VietQR bằng app ngân hàng bất kỳ', 'available': True},
+    'momo':    {'label': 'Ví MoMo', 'hint': 'Mở MoMo › Quét mã › Chuyển đến ngân hàng', 'available': True},
+    'zalopay': {'label': 'ZaloPay', 'hint': 'Mở ZaloPay › Quét mã QR', 'available': True},
+    'vnpay':   {'label': 'VNPAY QR', 'hint': 'Quét bằng app ngân hàng có VNPAY', 'available': True},
+    'card':    {'label': 'Thẻ Visa / Mastercard', 'hint': 'Sắp ra mắt', 'available': False},
+}
+
+
+def normalize_topup_method(key):
+    """Trả về mã phương thức hợp lệ đang mở; mặc định chuyển khoản ngân hàng."""
+    key = (key or '').strip().lower()
+    if key not in TOPUP_METHODS:
+        return 'bank'
+    if not TOPUP_METHODS[key]['available']:
+        raise PaymentError(f"Phương thức {TOPUP_METHODS[key]['label']} chưa hỗ trợ. Vui lòng chọn phương thức khác.")
+    return key
+
+
+def method_label(payment_method):
+    """Nhãn hiển thị cho cột payment_method (vd. 'sandbox:momo', 'bank_transfer', 'wallet')."""
+    raw = payment_method or ''
+    sandbox = raw.startswith('sandbox')
+    key = raw.split(':', 1)[1] if ':' in raw else raw
+    labels = {'bank_transfer': 'Chuyển khoản ngân hàng', 'wallet': 'Số dư ví', 'sandbox': 'Thử nghiệm',
+              'original': 'Phương thức gốc'}
+    label = TOPUP_METHODS[key]['label'] if key in TOPUP_METHODS else labels.get(key, key)
+    return f'{label} (thử nghiệm)' if sandbox and key != 'sandbox' else label
+
 
 def parse_amount(raw):
     """Đổi số tiền người dùng nhập ('1.000.000', '1,000,000', '1000000') thành int dương."""
@@ -150,6 +183,24 @@ def wallet_balance(user_id):
     return earned + refunded + topped_up - spent - withdrawn
 
 
+def wallet_summary(user_id):
+    """Tổng tiền vào / ra của ví theo từng nhóm, để hiện thống kê trên trang Ví."""
+    rows = (db.session.query(PaymentTransaction.kind, func.coalesce(func.sum(PaymentTransaction.amount), 0))
+            .filter(PaymentTransaction.payee_id == user_id, PaymentTransaction.status == 'completed')
+            .group_by(PaymentTransaction.kind).all())
+    by_kind = {k: int(v or 0) for k, v in rows}
+    refunded_to_wallet = int(db.session.query(func.coalesce(func.sum(PaymentTransaction.amount), 0)).filter(
+        PaymentTransaction.payee_id == user_id, PaymentTransaction.kind == 'refund',
+        PaymentTransaction.status == 'completed', PaymentTransaction.payment_method == 'wallet').scalar() or 0)
+    return {
+        'topped_up': by_kind.get('topup', 0),
+        'earned': by_kind.get('release', 0) + refunded_to_wallet,
+        'spent': by_kind.get('wallet_payment', 0),
+        'withdrawn': by_kind.get('withdraw', 0),
+        'pending_withdraw': pending_withdrawal_total(user_id),
+    }
+
+
 def pending_withdrawal_total(user_id):
     return int(db.session.query(func.coalesce(func.sum(PaymentTransaction.amount), 0)).filter(
         PaymentTransaction.payee_id == user_id, PaymentTransaction.kind == 'withdraw',
@@ -194,8 +245,12 @@ def voucher_balance(user_id):
         PaymentTransaction.kind == 'voucher', PaymentTransaction.payee_id == user_id).scalar() or 0)
 
 
-def request_withdrawal(user_id, amount):
-    """Gửi yêu cầu rút tiền về tài khoản chính chủ; admin chuyển khoản rồi đánh dấu hoàn tất."""
+def request_withdrawal(user_id, amount, destination=None):
+    """Gửi yêu cầu rút tiền về tài khoản chính chủ; admin chuyển khoản rồi đánh dấu hoàn tất.
+
+    destination: chuỗi mô tả tài khoản nhận (ngân hàng, số tài khoản đã che, chủ tài khoản),
+    lưu vào transaction_ref để admin biết chuyển về đâu.
+    """
     try:
         amount = parse_amount(amount)
     except PaymentError:
@@ -215,6 +270,7 @@ def request_withdrawal(user_id, amount):
     withdrawal = PaymentTransaction(
         contract_id=anchor.contract_id if anchor else None, user_id=user_id, payee_id=user_id,
         kind='withdraw', amount=amount, status='pending', payment_method='bank_transfer',
+        transaction_ref=(destination or None) and str(destination)[:100],
     )
     db.session.add(withdrawal)
     return withdrawal
