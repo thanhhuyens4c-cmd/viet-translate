@@ -1606,15 +1606,29 @@ def get_admin_routes():
     return {rule.endpoint for rule in app.url_map.iter_rules() if rule.endpoint.startswith('admin_')}
 
 
+def _is_ajax_request():
+    """Nhận diện request gọi qua fetch/XHR hoặc yêu cầu phản hồi JSON."""
+    return (
+        request.is_json
+        or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        or 'application/json' in request.headers.get('Accept', '')
+        or request.path.startswith('/api/')
+    )
+
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'user_id' not in session:
+            if _is_ajax_request():
+                return jsonify({'success': False, 'message': 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'}), 401
             flash(_t('flash.login_required'), 'warning')
             return redirect(url_for('login'))
         
         user = get_current_user()
         if not user:
+            if _is_ajax_request():
+                return jsonify({'success': False, 'message': 'Tài khoản của bạn đã bị vô hiệu hóa hoặc phiên đăng nhập không hợp lệ.'}), 401
             flash("Tài khoản của bạn đã bị vô hiệu hóa hoặc phiên đăng nhập không hợp lệ.", "error")
             return redirect(url_for('login'))
             
@@ -1625,16 +1639,23 @@ def email_verified_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'user_id' not in session:
+            if _is_ajax_request():
+                return jsonify({'success': False, 'message': 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'}), 401
             flash(_t('flash.login_required'), 'warning')
             return redirect(url_for('login'))
         
         user = get_current_user()
         if not user or not user.is_active:
+            if _is_ajax_request():
+                return jsonify({'success': False, 'message': 'Tài khoản của bạn đã bị vô hiệu hóa.'}), 403
             flash("Tài khoản của bạn đã bị vô hiệu hóa.", "error")
             return redirect(url_for('login'))
             
         if not app.config.get('TESTING') and not user.email_verified:
-            flash("Bạn cần xác minh địa chỉ email để thực hiện chức năng này.", "warning")
+            msg = "Bạn cần xác minh địa chỉ email để thực hiện chức năng này."
+            if _is_ajax_request():
+                return jsonify({'success': False, 'message': msg}), 403
+            flash(msg, "warning")
             return redirect(url_for('account_profile'))
             
         return f(*args, **kwargs)
@@ -8696,7 +8717,10 @@ def _render_job_form(job=None, values=None, errors=None, policy=None, status=200
 
 @app.errorhandler(413)
 def handle_too_large(e):
-    flash('Tổng dung lượng tải lên vượt quá 16MB. Vui lòng chọn tệp nhỏ hơn.', 'error')
+    msg = 'Tổng dung lượng tải lên vượt quá 16MB. Vui lòng chọn tệp nhỏ hơn.'
+    if _is_ajax_request():
+        return jsonify({'success': False, 'message': msg}), 413
+    flash(msg, 'error')
     return redirect(request.referrer or url_for('my_jobs'))
 
 

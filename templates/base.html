@@ -2161,6 +2161,114 @@
         </div>
     </div>
     {% endif %}
+    <script>
+    window.vtFormatDateVn = function(isoStr) {
+        if (!isoStr || typeof isoStr !== 'string') return '';
+        const m = isoStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        return m ? `${m[3]}/${m[2]}/${m[1]}` : isoStr;
+    };
+
+    window.vtInitDobSelects = function(cfg) {
+        const hiddenEl = document.getElementById(cfg.hiddenId);
+        const dayEl = document.getElementById(cfg.dayId);
+        const monthEl = document.getElementById(cfg.monthId);
+        const yearEl = document.getElementById(cfg.yearId);
+        if (!hiddenEl || !dayEl || !monthEl || !yearEl) return null;
+
+        const now = new Date();
+        const maxYear = cfg.maxYear || now.getFullYear();
+        const minYear = cfg.minYear || 1940;
+
+        if (monthEl.options.length <= 1) {
+            monthEl.innerHTML = '<option value="">Tháng</option>';
+            for (let m = 1; m <= 12; m++) {
+                const val = String(m).padStart(2, '0');
+                monthEl.add(new Option(`Tháng ${m}`, val));
+            }
+        }
+        if (yearEl.options.length <= 1) {
+            yearEl.innerHTML = '<option value="">Năm</option>';
+            for (let y = maxYear; y >= minYear; y--) {
+                yearEl.add(new Option(String(y), String(y)));
+            }
+        }
+
+        function daysInMonth(monthStr, yearStr) {
+            const m = parseInt(monthStr, 10);
+            const y = parseInt(yearStr, 10) || 2000;
+            if (!m) return 31;
+            return new Date(y, m, 0).getDate();
+        }
+
+        function rebuildDays(keepDay) {
+            const maxD = daysInMonth(monthEl.value, yearEl.value);
+            const cur = keepDay !== undefined ? keepDay : dayEl.value;
+            dayEl.innerHTML = '<option value="">Ngày</option>';
+            for (let d = 1; d <= maxD; d++) {
+                const val = String(d).padStart(2, '0');
+                dayEl.add(new Option(val, val));
+            }
+            if (cur && parseInt(cur, 10) <= maxD) {
+                dayEl.value = cur.padStart(2, '0');
+            } else {
+                dayEl.value = '';
+            }
+        }
+
+        function syncToHidden() {
+            const d = dayEl.value;
+            const m = monthEl.value;
+            const y = yearEl.value;
+            if (d && m && y) {
+                hiddenEl.value = `${y}-${m}-${d}`;
+                delete hiddenEl.dataset.partial;
+            } else if (!d && !m && !y) {
+                hiddenEl.value = '';
+                delete hiddenEl.dataset.partial;
+            } else {
+                hiddenEl.value = '';
+                hiddenEl.dataset.partial = '1';
+            }
+            if (typeof cfg.onChange === 'function') cfg.onChange(hiddenEl);
+        }
+
+        function syncFromHidden() {
+            const raw = (hiddenEl.value || '').trim();
+            const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (match) {
+                yearEl.value = match[1];
+                monthEl.value = match[2];
+                rebuildDays(match[3]);
+                delete hiddenEl.dataset.partial;
+            } else {
+                yearEl.value = '';
+                monthEl.value = '';
+                rebuildDays('');
+                delete hiddenEl.dataset.partial;
+            }
+        }
+
+        function handleSelectChange() {
+            const prevDay = dayEl.value;
+            rebuildDays(prevDay);
+            syncToHidden();
+        }
+
+        dayEl.addEventListener('change', syncToHidden);
+        monthEl.addEventListener('change', handleSelectChange);
+        yearEl.addEventListener('change', handleSelectChange);
+
+        syncFromHidden();
+        return {
+            syncFromHidden,
+            focusFirstMissing: function() {
+                if (!dayEl.value) dayEl.focus();
+                else if (!monthEl.value) monthEl.focus();
+                else yearEl.focus();
+            }
+        };
+    };
+    </script>
 </body>
 
 </html>

@@ -757,14 +757,26 @@
 
                                     <!-- Ngày sinh -->
                                     <div class="space-y-1.5">
-                                        <label for="input-profile-dob" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                        <label for="input-profile-dob-day" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
                                             Ngày sinh
                                         </label>
-                                        <input type="date" id="input-profile-dob" name="date_of_birth"
-                                            value="{{ user.date_of_birth or '' }}"
-                                            max="{{ today_str if today_str else '' }}"
-                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white transition">
-                                        <p class="text-[11px] text-slate-400">Ngày sinh phục vụ đối chiếu thông tin hợp đồng và chứng chỉ hành nghề.</p>
+                                        <input type="hidden" id="input-profile-dob" name="date_of_birth"
+                                            value="{{ user.date_of_birth or '' }}">
+                                        <div class="grid grid-cols-3 gap-2">
+                                            <select id="input-profile-dob-day" aria-label="Ngày sinh"
+                                                class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white transition">
+                                                <option value="">Ngày</option>
+                                            </select>
+                                            <select id="input-profile-dob-month" aria-label="Tháng sinh"
+                                                class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white transition">
+                                                <option value="">Tháng</option>
+                                            </select>
+                                            <select id="input-profile-dob-year" aria-label="Năm sinh"
+                                                class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white transition">
+                                                <option value="">Năm</option>
+                                            </select>
+                                        </div>
+                                        <p class="text-[11px] text-slate-400">Định dạng Ngày / Tháng / Năm. Phục vụ đối chiếu thông tin hợp đồng và chứng chỉ.</p>
                                         <p id="err-profile-dob" class="text-xs text-rose-600 hidden"></p>
                                     </div>
 
@@ -7176,7 +7188,10 @@
         if (phoneInput) phoneInput.value = originalProfileData.phone || '';
 
         const dobInput = document.getElementById('input-profile-dob');
-        if (dobInput) dobInput.value = originalProfileData.date_of_birth || '';
+        if (dobInput) {
+            dobInput.value = originalProfileData.date_of_birth || '';
+            if (profileDobCtrl) profileDobCtrl.syncFromHidden();
+        }
 
         const cityInput = document.getElementById('input-profile-city');
         if (cityInput) cityInput.value = originalProfileData.city || '';
@@ -7212,8 +7227,21 @@
     }
 
     // 7. Validate Client & Submit AJAX
+    let profileDobCtrl = null;
     document.addEventListener('DOMContentLoaded', function() {
         initProfileBioCounter();
+        if (window.vtInitDobSelects) {
+            profileDobCtrl = window.vtInitDobSelects({
+                hiddenId: 'input-profile-dob',
+                dayId: 'input-profile-dob-day',
+                monthId: 'input-profile-dob-month',
+                yearId: 'input-profile-dob-year',
+                onChange: () => {
+                    const errEl = document.getElementById('err-profile-dob');
+                    if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
+                }
+            });
+        }
 
         const form = document.getElementById('personal-profile-form');
         if (!form) return;
@@ -7270,14 +7298,19 @@
 
             // Validate Ngày sinh
             const dobInput = document.getElementById('input-profile-dob');
-            if (dobInput && dobInput.value) {
+            if (dobInput && dobInput.dataset.partial === '1') {
+                const errEl = document.getElementById('err-profile-dob');
+                if (errEl) { errEl.textContent = 'Vui lòng chọn đầy đủ ngày, tháng và năm sinh.'; errEl.classList.remove('hidden'); }
+                if (!hasError && profileDobCtrl) profileDobCtrl.focusFirstMissing();
+                hasError = true;
+            } else if (dobInput && dobInput.value) {
                 const selectedDate = new Date(dobInput.value);
                 const today = new Date();
                 today.setHours(23, 59, 59, 999);
                 if (selectedDate > today) {
                     const errEl = document.getElementById('err-profile-dob');
                     if (errEl) { errEl.textContent = 'Ngày sinh không thể lớn hơn ngày hiện tại.'; errEl.classList.remove('hidden'); }
-                    if (!hasError) dobInput.focus();
+                    if (!hasError && profileDobCtrl) profileDobCtrl.focusFirstMissing();
                     hasError = true;
                 }
             }
