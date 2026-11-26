@@ -1752,7 +1752,8 @@ class DisputeEvidence(db.Model):
 
 class PaymentTransaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    # Có thể trống với giao dịch ví không gắn hợp đồng (nạp ví, rút tiền khi chưa có hợp đồng nào).
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Người thực hiện thanh toán
     amount = db.Column(db.Integer, nullable=False)
     
@@ -1764,13 +1765,16 @@ class PaymentTransaction(db.Model):
     #   refund       hoàn tiền cho khách (payee_id = khách; payment_method wallet = vào ví, original = về phương thức gốc)
     #   unmatched    tiền vào ngân hàng nhưng sai số tiền hoặc hợp đồng, admin đối soát (không ghim)
     #   voucher      voucher bồi thường cho khách, không rút được (payee_id = khách)
+    #   topup        nạp tiền vào ví, không gắn hợp đồng (user_id = payee_id = người nạp)
+    #   wallet_payment  trả hợp đồng bằng số dư ví (payee_id = khách, trừ vào ví; đi kèm deposit method wallet)
     kind = db.Column(db.String(20), default='deposit', nullable=False, index=True)
     payee_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
 
-    # pending | completed | failed | refunded | escrow_pending
+    # pending | completed | failed | refunded | escrow_pending | rejected (rút tiền bị từ chối)
     status = db.Column(db.String(20), default='pending', index=True)
     payment_method = db.Column(db.String(50))
     transaction_ref = db.Column(db.String(100)) # Mã GD từ cổng thanh toán (nếu có)
+    note = db.Column(db.String(255))  # Ghi chú của admin, ví dụ lý do từ chối rút tiền
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

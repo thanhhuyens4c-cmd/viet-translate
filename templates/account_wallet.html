@@ -2,82 +2,512 @@
 
 {% block title %}Ví của tôi | VietTranslate{% endblock %}
 
-{% block content %}
-<div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+{% set kind_labels = {
+    'topup': 'Nạp tiền vào ví',
+    'wallet_payment': 'Thanh toán hợp đồng',
+    'release': 'Nhận tiền hợp đồng',
+    'refund': 'Hoàn tiền hợp đồng',
+    'voucher': 'Voucher bồi thường',
+    'withdraw': 'Rút về ngân hàng',
+} %}
+{% set outgoing_kinds = ['withdraw', 'wallet_payment'] %}
+{# Biểu tượng chung cho từng phương thức nạp (không dùng logo thương hiệu) #}
+{% set method_icons = {
+    'bank': 'M3 10l9-6 9 6M5 10v8m4-8v8m6-8v8m4-8v8M3 20h18',
+    'momo': 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
+    'zalopay': 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
+    'vnpay': 'M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v2h-2v-2z',
+    'card': 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
+} %}
+{% set method_tones = {
+    'bank': 'bg-brand-50 text-brand-600 border-brand-100',
+    'momo': 'bg-pink-50 text-pink-600 border-pink-100',
+    'zalopay': 'bg-sky-50 text-sky-600 border-sky-100',
+    'vnpay': 'bg-rose-50 text-rose-600 border-rose-100',
+    'card': 'bg-slate-100 text-slate-500 border-slate-200',
+} %}
 
+{% block content %}
+<div class="bg-slate-50/60 min-h-screen py-8 sm:py-12">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+
+    <!-- Tiêu đề -->
     <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
         </div>
-        <div>
+        <div class="min-w-0">
             <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">Ví của tôi</h1>
-            <p class="text-xs text-slate-500">Số dư, lịch sử nhận tiền và yêu cầu rút về ngân hàng</p>
+            <p class="text-xs text-slate-500">Nạp tiền, rút tiền và theo dõi mọi giao dịch của ví</p>
         </div>
+        {% if not live %}
+        <span class="ml-auto shrink-0 text-[10.5px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Chế độ thử nghiệm</span>
+        {% endif %}
     </div>
 
-    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-            <div>
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Số dư có thể rút</p>
-                <p class="text-3xl font-black text-brand-700">{{ balance|vnd }} VND</p>
-                <p class="text-xs text-slate-500 mt-2">Gồm tiền đã giải ngân sau khi khách nghiệm thu (đã trừ hoa hồng) và tiền hoàn vào ví. Không hết hạn.</p>
-                {% if voucher %}
-                <p class="text-xs text-amber-700 mt-1">Voucher bồi thường: {{ voucher|vnd }} VND (dùng để trả đơn sau, không rút được).</p>
-                {% endif %}
-            </div>
-            <form method="POST" class="flex items-end gap-2">
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số tiền muốn rút</label>
-                    <input type="number" name="amount" min="{{ withdraw_min }}" max="{{ balance }}" step="1000" required
-                        class="w-44 px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50"
-                        placeholder="Tối thiểu {{ withdraw_min|vnd }}">
+    <!-- Số dư + thống kê -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div class="lg:col-span-3 rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-700 text-white shadow-soft p-6 sm:p-7 relative overflow-hidden">
+            <div class="absolute -right-12 -top-12 w-52 h-52 rounded-full bg-white/10"></div>
+            <div class="absolute right-16 -bottom-16 w-40 h-40 rounded-full bg-white/5"></div>
+            <div class="relative">
+                <p class="text-xs font-semibold uppercase tracking-wider text-white/70">Số dư khả dụng</p>
+                <p class="text-3xl sm:text-4xl font-black mt-1 tabular-nums">{{ balance|vnd }} <span class="text-lg font-bold text-white/80">VND</span></p>
+                <div class="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-xs text-white/80">
+                    {% if pending_withdraw %}<span>Đang chờ rút: <strong class="text-white">{{ pending_withdraw|vnd }}</strong></span>{% endif %}
+                    {% if voucher %}<span>Voucher: <strong class="text-white">{{ voucher|vnd }}</strong> (không rút được)</span>{% endif %}
                 </div>
-                <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition disabled:opacity-40" {% if balance < withdraw_min %}disabled{% endif %}>Rút tiền</button>
-            </form>
+                <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2.5 mt-6">
+                    <button type="button" data-open="topup-modal"
+                        class="inline-flex items-center justify-center gap-2 bg-white text-brand-700 hover:bg-brand-50 font-bold text-sm px-5 py-2.5 rounded-xl transition shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                        Nạp tiền
+                    </button>
+                    <button type="button" data-open="withdraw-modal"
+                        class="inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                        Rút tiền
+                    </button>
+                    {% if user.role == 'hirer' %}
+                    <a href="{{ url_for('my_projects') }}"
+                        class="col-span-2 sm:col-span-1 inline-flex items-center justify-center gap-2 text-white/90 hover:text-white hover:bg-white/10 font-semibold text-sm px-4 py-2.5 rounded-xl transition">
+                        Thanh toán hợp đồng bằng ví →
+                    </a>
+                    {% endif %}
+                </div>
+                <p class="text-[11px] text-white/70 mt-4 max-w-xl leading-relaxed">
+                    {% if user.role == 'hirer' %}Dùng số dư để thanh toán hợp đồng ngay, không cần chuyển khoản lại. Tiền hoàn từ hợp đồng bị hủy cũng về đây.
+                    {% else %}Tiền công về ví sau khi khách nghiệm thu (đã trừ hoa hồng). Số dư không hết hạn, rút về ngân hàng bất cứ lúc nào.{% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 grid grid-cols-2 gap-3">
+            {% set tiles = [
+                ('Đã nạp vào ví', summary.topped_up, 'text-brand-700', 'bg-brand-50 border-brand-100'),
+                ('Thu nhập & hoàn tiền' if user.role == 'translator' else 'Tiền hoàn về ví', summary.earned, 'text-emerald-700', 'bg-emerald-50 border-emerald-100'),
+                ('Đã thanh toán HĐ', summary.spent, 'text-slate-800', 'bg-white border-slate-200') if user.role == 'hirer' else ('Đã rút về ngân hàng', summary.withdrawn, 'text-slate-800', 'bg-white border-slate-200'),
+                ('Đang chờ rút', summary.pending_withdraw, 'text-amber-700', 'bg-amber-50 border-amber-100'),
+            ] %}
+            {% for label, value, tone, box in tiles %}
+            <div class="rounded-2xl border {{ box }} p-4 flex flex-col justify-between min-h-[92px]">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 leading-tight">{{ label }}</p>
+                <p class="text-lg sm:text-xl font-extrabold tabular-nums {{ tone }} mt-2">{{ value|vnd }} <span class="text-xs font-bold text-slate-400">đ</span></p>
+            </div>
+            {% endfor %}
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-        <h2 class="text-lg font-bold mb-5 text-slate-900">Lịch sử nhận tiền và rút tiền</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Phương thức nạp tiền -->
+        <section class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+            <div class="mb-4">
+                <h2 class="text-base font-bold text-slate-900">Phương thức nạp tiền</h2>
+                <p class="text-[11px] text-slate-500 mt-0.5">Chuyển tiền vào ví bằng một trong các cách sau</p>
+            </div>
+            <ul class="space-y-2">
+                {% for key, m in topup_methods.items() %}
+                <li>
+                    <button type="button" {% if m.available %}data-open="topup-modal" data-method="{{ key }}"{% else %}disabled{% endif %}
+                        class="w-full flex items-center gap-3 p-3 rounded-xl border text-left transition {% if m.available %}border-slate-200 hover:border-brand-300 hover:bg-brand-50/40 cursor-pointer{% else %}border-dashed border-slate-200 opacity-60 cursor-not-allowed{% endif %}">
+                        <span class="w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 {{ method_tones[key] }}">
+                            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ method_icons[key] }}"/></svg>
+                        </span>
+                        <span class="min-w-0 flex-grow">
+                            <span class="block text-sm font-semibold text-slate-800">{{ m.label }}</span>
+                            <span class="block text-[11px] text-slate-500 truncate">{{ m.hint }}</span>
+                        </span>
+                        {% if m.available %}
+                        <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70 shrink-0">Nạp ngay</span>
+                        {% else %}
+                        <span class="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 shrink-0">Sắp có</span>
+                        {% endif %}
+                    </button>
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <!-- Tài khoản nhận tiền rút -->
+        <section class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6 flex flex-col">
+            <div class="flex items-center justify-between mb-4 gap-3">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900">Tài khoản nhận tiền</h2>
+                    <p class="text-[11px] text-slate-500 mt-0.5">Tài khoản ngân hàng chính chủ để rút tiền về</p>
+                </div>
+                <button type="button" data-open="account-modal"
+                    class="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-100 px-3 py-1.5 rounded-lg transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                    Thêm
+                </button>
+            </div>
+            {% if payout_accounts %}
+            <ul class="space-y-2">
+                {% for acc in payout_accounts %}
+                <li class="flex items-center gap-3 p-3 rounded-xl border {{ 'border-brand-200 bg-brand-50/40' if acc.is_default else 'border-slate-200' }}">
+                    <span class="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0 text-[10px] font-black">{{ (acc.bank_code or '')[:4] }}</span>
+                    <span class="min-w-0 flex-grow">
+                        <span class="flex items-center gap-1.5">
+                            <span class="text-sm font-semibold text-slate-800 truncate">{{ acc.bank_short_name }} · {{ acc.masked_account_number }}</span>
+                            {% if acc.is_default %}<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700 shrink-0">Mặc định</span>{% endif %}
+                        </span>
+                        <span class="block text-[11px] text-slate-500 truncate">{{ acc.account_holder_name }}</span>
+                    </span>
+                    <span class="flex items-center gap-1 shrink-0">
+                        {% if not acc.is_default %}
+                        <form method="POST" action="{{ url_for('account_wallet_accounts') }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action" value="default">
+                            <input type="hidden" name="method_id" value="{{ acc.id }}">
+                            <button type="submit" class="text-[11px] font-semibold text-slate-500 hover:text-brand-600 px-2 py-1 rounded-lg hover:bg-white">Đặt mặc định</button>
+                        </form>
+                        {% endif %}
+                        <form method="POST" action="{{ url_for('account_wallet_accounts') }}" onsubmit="return confirm('Xóa tài khoản {{ acc.bank_short_name }} {{ acc.masked_account_number }}?');">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="method_id" value="{{ acc.id }}">
+                            <button type="submit" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50" title="Xóa" aria-label="Xóa tài khoản">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </form>
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="flex-grow flex flex-col items-center justify-center text-center py-6 border border-dashed border-slate-200 rounded-xl">
+                <p class="text-sm font-semibold text-slate-700">Chưa có tài khoản nhận tiền</p>
+                <p class="text-[11px] text-slate-500 mt-1 max-w-xs">Thêm tài khoản ngân hàng đứng tên bạn để có thể rút tiền từ ví.</p>
+                <button type="button" data-open="account-modal" class="mt-3 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 px-4 py-2 rounded-xl transition">Thêm tài khoản ngân hàng</button>
+            </div>
+            {% endif %}
+        </section>
+    </div>
+
+    <!-- Lịch sử -->
+    <section class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h2 class="text-base font-bold text-slate-900">Lịch sử giao dịch ví</h2>
+            <div class="flex flex-wrap gap-1.5 text-xs">
+                {% set tabs = [('all', 'Tất cả'), ('topup', 'Nạp'), ('withdraw', 'Rút')] %}
+                {% if user.role == 'hirer' %}{% set tabs = tabs + [('wallet_payment', 'Thanh toán')] %}{% else %}{% set tabs = tabs + [('release', 'Thu nhập')] %}{% endif %}
+                {% set tabs = tabs + [('refund', 'Hoàn tiền')] %}
+                {% for key, label in tabs %}
+                <a href="{{ url_for('account_wallet', kind=key) }}"
+                   class="px-3 py-1.5 rounded-lg font-semibold transition {% if kind_filter == key %}bg-brand-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">{{ label }}</a>
+                {% endfor %}
+            </div>
+        </div>
+
         {% if transactions %}
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        <th class="pb-3.5">Loại</th>
-                        <th class="pb-3.5">Hợp đồng</th>
-                        <th class="pb-3.5">Số tiền</th>
-                        <th class="pb-3.5">Trạng thái</th>
-                        <th class="pb-3.5">Thời gian</th>
-                    </tr>
-                </thead>
-                <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
-                    {% for tx in transactions %}
-                    <tr>
-                        {% set incoming = tx.kind in ['release', 'refund', 'voucher'] %}
-                        <td class="py-3.5 font-semibold text-slate-800">{{ {'release': 'Nhận tiền hợp đồng', 'refund': 'Hoàn tiền hợp đồng', 'voucher': 'Voucher bồi thường', 'withdraw': 'Rút về ngân hàng'}.get(tx.kind, tx.kind) }}</td>
-                        <td class="py-3.5">
-                            <a href="{{ url_for('transaction_detail', contract_id=tx.contract_id) }}" class="text-brand-700 hover:underline">#{{ tx.contract_id }}</a>
-                        </td>
-                        <td class="py-3.5 font-bold {{ 'text-emerald-600' if incoming else 'text-slate-800' }}">
-                            {{ '+' if incoming else '-' }}{{ tx.amount|vnd }} VND
-                        </td>
-                        <td class="py-3.5">
-                            {% if tx.status == 'completed' %}{{ 'Đã nhận' if incoming else 'Đã chuyển khoản' }}{% if tx.kind == 'refund' and tx.payment_method == 'original' %} (về phương thức gốc){% endif %}
-                            {% elif tx.status == 'pending' %}{{ 'Chờ sàn hoàn về phương thức gốc (5 đến 7 ngày làm việc)' if tx.kind == 'refund' else 'Chờ sàn chuyển khoản' }}
-                            {% else %}{{ tx.status }}{% endif %}
-                        </td>
-                        <td class="py-3.5 text-slate-500">{{ tx.created_at.strftime('%d/%m/%Y %H:%M') if tx.created_at else '' }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <ul class="divide-y divide-slate-100">
+            {% for tx in transactions %}
+            {% set outgoing = tx.kind in outgoing_kinds %}
+            {% set struck = tx.status in ['rejected', 'failed'] %}
+            <li class="py-3.5 flex items-center gap-3">
+                <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center {{ 'bg-slate-100 text-slate-500' if outgoing else 'bg-emerald-50 text-emerald-600' }}">
+                    {% if outgoing %}
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                    {% else %}
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                    {% endif %}
+                </div>
+                <div class="min-w-0 flex-grow">
+                    <p class="text-xs sm:text-sm font-semibold text-slate-800 truncate">
+                        {{ kind_labels.get(tx.kind, tx.kind) }}
+                        {% if tx.contract_id and tx.kind != 'withdraw' %}
+                        · <a href="{{ url_for('transaction_detail', contract_id=tx.contract_id) }}" class="text-brand-600 hover:underline">HĐ #{{ tx.contract_id }}</a>
+                        {% endif %}
+                    </p>
+                    <p class="text-[11px] text-slate-400 truncate">
+                        {{ tx.created_at.strftime('%d/%m/%Y %H:%M') if tx.created_at }}
+                        {% if tx.kind == 'topup' and tx.payment_method %} · {{ method_label(tx.payment_method) }}{% endif %}
+                        {% if tx.kind == 'withdraw' and tx.transaction_ref %} · về {{ tx.transaction_ref }}{% endif %}
+                        ·
+                        {% if tx.status == 'completed' %}
+                            <span class="text-emerald-600 font-semibold">{{ 'Đã chuyển khoản' if tx.kind == 'withdraw' else 'Thành công' }}{% if tx.kind == 'refund' and tx.payment_method == 'original' %} (về phương thức gốc){% endif %}</span>
+                        {% elif tx.status == 'pending' %}
+                            <span class="text-amber-600 font-semibold">{{ 'Chờ sàn hoàn về phương thức gốc (5 đến 7 ngày làm việc)' if tx.kind == 'refund' else 'Chờ sàn chuyển khoản' }}</span>
+                        {% elif tx.status == 'rejected' %}
+                            <span class="text-rose-600 font-semibold">Bị từ chối, tiền đã quay lại ví</span>
+                        {% else %}{{ tx.status }}{% endif %}
+                        {% if tx.note %} · {{ tx.note }}{% endif %}
+                    </p>
+                </div>
+                <p class="text-sm font-extrabold tabular-nums shrink-0 {{ 'text-slate-400 line-through' if struck else ('text-slate-800' if outgoing else 'text-emerald-600') }}">
+                    {{ '−' if outgoing else '+' }}{{ tx.amount|vnd }}
+                </p>
+            </li>
+            {% endfor %}
+        </ul>
+        {% if pagination.pages > 1 %}
+        <div class="flex items-center justify-between mt-5 text-xs">
+            {% if pagination.has_prev %}<a href="{{ url_for('account_wallet', kind=kind_filter, page=pagination.prev_num) }}" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 font-semibold text-slate-600">← Trước</a>{% else %}<span></span>{% endif %}
+            <span class="text-slate-400">Trang {{ pagination.page }}/{{ pagination.pages }}</span>
+            {% if pagination.has_next %}<a href="{{ url_for('account_wallet', kind=kind_filter, page=pagination.next_num) }}" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 font-semibold text-slate-600">Sau →</a>{% else %}<span></span>{% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="py-10 text-center">
+            <p class="text-sm text-slate-500">
+                {% if kind_filter != 'all' %}Không có giao dịch nào thuộc loại này.
+                {% elif user.role == 'hirer' %}Chưa có giao dịch nào. Nạp tiền vào ví để thanh toán hợp đồng nhanh hơn.
+                {% else %}Chưa có giao dịch nào. Tiền về ví sau khi khách nghiệm thu hợp đồng.{% endif %}
+            </p>
+            {% if kind_filter == 'all' %}
+            <button type="button" data-open="topup-modal" class="mt-3 text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-4 py-2 rounded-xl transition">Nạp tiền lần đầu</button>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
+</div>
+</div>
+
+<!-- ═════════════ Hộp thoại: Nạp tiền ═════════════ -->
+<div id="topup-modal" class="wallet-modal fixed inset-0 z-[100] hidden items-end sm:items-center justify-center bg-slate-900/50 sm:px-4" role="dialog" aria-modal="true" aria-labelledby="topup-title">
+    <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto">
+        <div class="sticky top-0 z-10 bg-white flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100">
+            <h3 id="topup-title" class="font-bold text-slate-900">Nạp tiền vào ví</h3>
+            <button type="button" data-close class="text-slate-400 hover:text-slate-700 text-2xl leading-none" aria-label="Đóng">&times;</button>
+        </div>
+
+        {% if live and topup_info and request.args.get('step') == 'pay' %}
+        <!-- Bước 2 (live): quét mã -->
+        {% set m = topup_methods[topup_info.method] %}
+        <div class="p-6 space-y-4">
+            <div class="flex items-center gap-2 text-xs">
+                <span class="font-bold text-slate-400">1. Số tiền & phương thức</span>
+                <span class="text-slate-300">›</span>
+                <span class="font-bold text-brand-600">2. Chuyển khoản</span>
+            </div>
+            <div class="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
+                <p><strong class="text-slate-800">{{ m.label }}:</strong> {{ m.hint }}. Giữ nguyên số tiền và nội dung có sẵn trong mã.</p>
+            </div>
+            <img src="{{ topup_info.qr }}" alt="Mã VietQR nạp ví" class="w-56 h-56 mx-auto rounded-xl border border-slate-200">
+            <dl class="text-xs divide-y divide-slate-100 border border-slate-200 rounded-xl">
+                {% if topup_info.amount %}<div class="flex justify-between px-3 py-2"><dt class="text-slate-500">Số tiền</dt><dd class="font-extrabold text-brand-700">{{ topup_info.amount|vnd }} VND</dd></div>{% endif %}
+                <div class="flex justify-between px-3 py-2"><dt class="text-slate-500">Ngân hàng</dt><dd class="font-bold">{{ topup_info.bank }}</dd></div>
+                <div class="flex justify-between px-3 py-2"><dt class="text-slate-500">Số tài khoản</dt><dd class="font-bold font-mono">{{ topup_info.account }} <button type="button" data-copy="{{ topup_info.account }}" class="ml-1 text-brand-600 font-sans text-[11px]">Sao chép</button></dd></div>
+                {% if topup_info.name %}<div class="flex justify-between px-3 py-2"><dt class="text-slate-500">Chủ tài khoản</dt><dd class="font-bold">{{ topup_info.name }}</dd></div>{% endif %}
+                <div class="flex justify-between px-3 py-2"><dt class="text-slate-500">Nội dung</dt><dd class="font-bold font-mono text-rose-600">{{ topup_info.code }} <button type="button" data-copy="{{ topup_info.code }}" class="ml-1 text-brand-600 font-sans text-[11px]">Sao chép</button></dd></div>
+            </dl>
+            <p class="text-[11px] text-slate-500">Số dư được cộng tự động trong vài phút sau khi sàn nhận được tiền, bạn sẽ nhận thông báo. Sai nội dung chuyển khoản thì sàn phải đối soát thủ công.</p>
+            <div class="flex gap-2">
+                <a href="{{ url_for('account_wallet', open='topup') }}" class="flex-1 text-center border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-2.5 rounded-xl text-sm">← Đổi số tiền</a>
+                <a href="{{ url_for('account_wallet') }}" class="flex-1 text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-sm">Tôi đã chuyển khoản</a>
+            </div>
+        </div>
+        {% elif live and not topup_info %}
+        <div class="p-6">
+            <p class="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">Sàn chưa cấu hình tài khoản nhận tiền nên chưa nạp được. Vui lòng liên hệ quản trị viên.</p>
         </div>
         {% else %}
-        <p class="text-sm text-slate-500">{{ 'Chưa có giao dịch nào. Tiền hoàn từ hợp đồng bị hủy sẽ về ví này.' if user.role == 'hirer' else 'Chưa có giao dịch nào. Tiền về ví sau khi khách nghiệm thu hợp đồng.' }}</p>
+        <!-- Bước 1: số tiền & phương thức -->
+        <form method="POST" action="{{ url_for('account_wallet_topup') }}" class="p-6 space-y-5">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            {% if request.args.get('next') %}<input type="hidden" name="next" value="{{ request.args.get('next') }}">{% endif %}
+            <div>
+                <label for="topup-amount" class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số tiền muốn nạp</label>
+                <div class="relative">
+                    <input id="topup-amount" type="text" inputmode="numeric" name="amount" required data-money placeholder="0"
+                           value="{{ request.args.get('amount', '') }}"
+                           class="w-full pl-4 pr-14 py-3 border border-slate-200 rounded-xl text-xl font-extrabold text-slate-900 tabular-nums focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 outline-none">
+                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">VND</span>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5 mt-2">
+                    {% for v in [100000, 200000, 500000, 1000000, 2000000, 5000000] %}
+                    <button type="button" data-quick="{{ v }}" class="py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-600 transition">{{ v|vnd }}</button>
+                    {% endfor %}
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1.5">Tối thiểu {{ topup_min|vnd }}, tối đa {{ topup_max|vnd }} VND mỗi lần.</p>
+            </div>
+
+            <fieldset>
+                <legend class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Phương thức chuyển tiền</legend>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {% for key, m in topup_methods.items() %}
+                    <label class="relative flex items-center gap-2.5 p-3 rounded-xl border transition {% if m.available %}cursor-pointer border-slate-200 hover:border-brand-300 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50/60 has-[:checked]:ring-1 has-[:checked]:ring-brand-500{% else %}border-dashed border-slate-200 opacity-50 cursor-not-allowed{% endif %}">
+                        <input type="radio" name="method" value="{{ key }}" class="sr-only" {% if not m.available %}disabled{% endif %}
+                               {% if (request.args.get('method') or 'bank') == key %}checked{% endif %}>
+                        <span class="w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 {{ method_tones[key] }}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ method_icons[key] }}"/></svg>
+                        </span>
+                        <span class="min-w-0">
+                            <span class="block text-[13px] font-semibold text-slate-800 leading-tight">{{ m.label }}</span>
+                            <span class="block text-[10.5px] text-slate-500 truncate">{{ m.hint if m.available else 'Sắp ra mắt' }}</span>
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </fieldset>
+
+            {% if live %}
+            <p class="text-[11px] text-slate-500">Bước tiếp theo hiện mã VietQR đã điền sẵn số tiền và nội dung. Số dư được cộng khi sàn nhận được tiền.</p>
+            {% else %}
+            <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-[11px] text-amber-800">Môi trường thử nghiệm: tiền được cộng vào ví ngay, không trừ tiền thật.</div>
+            {% endif %}
+            <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm transition shadow-sm">
+                {{ 'Tiếp tục' if live else 'Xác nhận nạp tiền' }}
+            </button>
+        </form>
         {% endif %}
     </div>
 </div>
+
+<!-- ═════════════ Hộp thoại: Rút tiền ═════════════ -->
+<div id="withdraw-modal" class="wallet-modal fixed inset-0 z-[100] hidden items-end sm:items-center justify-center bg-slate-900/50 sm:px-4" role="dialog" aria-modal="true" aria-labelledby="withdraw-title">
+    <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto">
+        <div class="sticky top-0 z-10 bg-white flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100">
+            <h3 id="withdraw-title" class="font-bold text-slate-900">Rút tiền về ngân hàng</h3>
+            <button type="button" data-close class="text-slate-400 hover:text-slate-700 text-2xl leading-none" aria-label="Đóng">&times;</button>
+        </div>
+        {% if not payout_accounts %}
+        <div class="p-6 text-center space-y-3">
+            <p class="text-sm font-semibold text-slate-800">Bạn chưa có tài khoản nhận tiền</p>
+            <p class="text-xs text-slate-500">Thêm tài khoản ngân hàng đứng tên bạn trước, sau đó quay lại để rút.</p>
+            <button type="button" data-open="account-modal" data-back="withdraw" class="text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 px-5 py-2.5 rounded-xl">Thêm tài khoản ngân hàng</button>
+        </div>
+        {% elif balance < withdraw_min %}
+        <div class="p-6 text-center space-y-2">
+            <p class="text-sm font-semibold text-slate-800">Số dư chưa đủ để rút</p>
+            <p class="text-xs text-slate-500">Cần tối thiểu {{ withdraw_min|vnd }} VND. Số dư hiện tại: {{ balance|vnd }} VND.</p>
+            <button type="button" data-open="topup-modal" class="mt-2 text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 px-4 py-2 rounded-xl">Nạp tiền vào ví</button>
+        </div>
+        {% else %}
+        <form method="POST" action="{{ url_for('account_wallet_withdraw') }}" class="p-6 space-y-5">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <label for="withdraw-amount" class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Số tiền muốn rút</label>
+                    <span class="text-[11px] text-slate-500">Có thể rút: <strong class="text-slate-800">{{ balance|vnd }} đ</strong></span>
+                </div>
+                <div class="flex gap-2">
+                    <div class="relative flex-grow min-w-0">
+                        <input id="withdraw-amount" type="text" inputmode="numeric" name="amount" required data-money placeholder="Tối thiểu {{ withdraw_min|vnd }}"
+                               class="w-full pl-4 pr-14 py-3 border border-slate-200 rounded-xl text-lg font-extrabold tabular-nums focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 outline-none">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">VND</span>
+                    </div>
+                    <button type="button" data-quick="{{ balance }}" class="px-4 text-xs font-bold rounded-xl bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-600">Tất cả</button>
+                </div>
+            </div>
+            <fieldset>
+                <legend class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Chuyển về tài khoản</legend>
+                <div class="space-y-2">
+                    {% for acc in payout_accounts %}
+                    <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer border-slate-200 hover:border-brand-300 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50/60 has-[:checked]:ring-1 has-[:checked]:ring-brand-500 transition">
+                        <input type="radio" name="payout_method_id" value="{{ acc.id }}" class="text-brand-600 focus:ring-brand-500" {% if loop.first %}checked{% endif %}>
+                        <span class="min-w-0">
+                            <span class="block text-sm font-semibold text-slate-800">{{ acc.bank_short_name }} · {{ acc.masked_account_number }}</span>
+                            <span class="block text-[11px] text-slate-500 truncate">{{ acc.account_holder_name }}</span>
+                        </span>
+                        {% if acc.is_default %}<span class="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700">Mặc định</span>{% endif %}
+                    </label>
+                    {% endfor %}
+                </div>
+                <button type="button" data-open="account-modal" data-back="withdraw" class="mt-2 text-xs font-semibold text-brand-600 hover:underline">+ Thêm tài khoản khác</button>
+            </fieldset>
+            <p class="text-[11px] text-slate-500">Sàn chuyển khoản trong 2 ngày làm việc. Nếu yêu cầu bị từ chối, tiền quay lại ví.</p>
+            <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm transition shadow-sm">Gửi yêu cầu rút tiền</button>
+        </form>
+        {% endif %}
+    </div>
 </div>
+
+<!-- ═════════════ Hộp thoại: Thêm tài khoản nhận tiền ═════════════ -->
+<div id="account-modal" class="wallet-modal fixed inset-0 z-[110] hidden items-end sm:items-center justify-center bg-slate-900/50 sm:px-4" role="dialog" aria-modal="true" aria-labelledby="account-title">
+    <form method="POST" action="{{ url_for('account_wallet_accounts') }}" class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="add">
+        <input type="hidden" name="back" value="">
+        <div class="sticky top-0 z-10 bg-white flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100">
+            <h3 id="account-title" class="font-bold text-slate-900">Thêm tài khoản nhận tiền</h3>
+            <button type="button" data-close class="text-slate-400 hover:text-slate-700 text-2xl leading-none" aria-label="Đóng">&times;</button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label for="acc-bank" class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Ngân hàng</label>
+                <select id="acc-bank" name="bank_code" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 outline-none">
+                    <option value="">Chọn ngân hàng</option>
+                    {% for b in banks %}<option value="{{ b.code }}">{{ b.short_name }} — {{ b.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="acc-number" class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số tài khoản</label>
+                <input id="acc-number" name="account_number" required inputmode="numeric" pattern="[0-9]{6,20}" maxlength="20" placeholder="6 đến 20 chữ số"
+                       class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 outline-none">
+            </div>
+            <div>
+                <label for="acc-holder" class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tên chủ tài khoản</label>
+                <input id="acc-holder" name="account_holder_name" required minlength="3" maxlength="100" placeholder="VD: NGUYEN VAN A" style="text-transform:uppercase"
+                       class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 outline-none">
+                <p class="text-[11px] text-slate-400 mt-1">Dùng tài khoản đứng tên chính bạn. Sàn không chuyển tiền cho tài khoản đứng tên người khác.</p>
+            </div>
+            <div>
+                <label for="acc-branch" class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Chi nhánh <span class="font-normal normal-case text-slate-400">(không bắt buộc)</span></label>
+                <input id="acc-branch" name="branch" maxlength="120"
+                       class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 outline-none">
+            </div>
+            <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" name="set_as_default" value="1" class="rounded text-brand-600 focus:ring-brand-500" {% if not payout_accounts %}checked{% endif %}>
+                Đặt làm tài khoản mặc định
+            </label>
+            <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm transition shadow-sm">Lưu tài khoản</button>
+        </div>
+    </form>
+</div>
+
+<script>
+(function () {
+    function fmt(v) {
+        var digits = String(v).replace(/\D/g, '');
+        return digits ? Number(digits).toLocaleString('vi-VN') : '';
+    }
+    function closeAll() {
+        document.querySelectorAll('.wallet-modal').forEach(function (m) { m.classList.add('hidden'); m.classList.remove('flex'); });
+        document.body.style.overflow = '';
+    }
+    function openModal(id, opts) {
+        closeAll();
+        var m = document.getElementById(id);
+        if (!m) return;
+        m.classList.remove('hidden'); m.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        opts = opts || {};
+        if (opts.method) {
+            var r = m.querySelector('input[name="method"][value="' + opts.method + '"]');
+            if (r && !r.disabled) r.checked = true;
+        }
+        var back = m.querySelector('input[name="back"]');
+        if (back) back.value = opts.back || '';
+        var first = m.querySelector('input[data-money], select');
+        if (first) setTimeout(function () { first.focus(); }, 30);
+    }
+    document.querySelectorAll('[data-open]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            openModal(btn.dataset.open, { method: btn.dataset.method, back: btn.dataset.back });
+        });
+    });
+    document.querySelectorAll('.wallet-modal').forEach(function (m) {
+        m.addEventListener('click', function (e) { if (e.target === m || e.target.closest('[data-close]')) closeAll(); });
+        m.querySelectorAll('[data-quick]').forEach(function (b) {
+            b.addEventListener('click', function () { m.querySelector('input[data-money]').value = fmt(b.dataset.quick); });
+        });
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(); });
+    document.querySelectorAll('input[data-money]').forEach(function (inp) {
+        if (inp.value) inp.value = fmt(inp.value);
+        inp.addEventListener('input', function () { inp.value = fmt(inp.value); });
+    });
+    document.querySelectorAll('[data-copy]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            try { navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Đã chép'; } catch (e) {}
+        });
+    });
+    var params = new URLSearchParams(location.search);
+    var open = params.get('open');
+    if (open === 'topup') openModal('topup-modal', { method: params.get('method') });
+    if (open === 'withdraw') openModal('withdraw-modal');
+    if (open === 'account') openModal('account-modal');
+})();
+</script>
 {% endblock %}
