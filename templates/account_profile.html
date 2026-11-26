@@ -50,15 +50,14 @@
 <div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
     <h1 class="sr-only">{{ t('account_profile_page.title') }} — {{ user.name }}</h1>
     <div class="w-full min-w-0 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex flex-col lg:flex-row gap-6 lg:gap-8 min-w-0">
+        <div class="flex flex-col gap-6 min-w-0">
 
             {% if user.role != 'translator' %}
-            <!-- Sidebar -->
-            <aside class="w-full lg:w-64 shrink-0">
-                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden sticky top-24">
-                    <!-- Avatar -->
-                    <div class="p-6 text-center border-b border-slate-100 bg-slate-50/40">
-                        <div class="relative w-24 h-24 mx-auto mb-3 group">
+            <!-- Thẻ nhận diện (thay cho sidebar riêng của trang; các trang Lịch sử, Thông báo,
+                 Ví đã nằm ở menu chính, các mục hồ sơ dùng thanh tab ngang bên dưới) -->
+            <div class="w-full space-y-4">
+                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-4 sm:p-5 flex items-center gap-4">
+                    <div class="relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 group">
                             <div id="sidebar-avatar-box"
                                 class="w-full h-full rounded-2xl overflow-hidden shadow-soft border-2 border-slate-200/90 bg-slate-100 transition-all duration-300 group-hover:border-brand-500/50">
                                 {% if user.avatar_url %}
@@ -67,7 +66,7 @@
                                     class="w-full h-full object-cover object-top">
                                 {% endif %}
                                 <div id="sidebar-avatar-fallback" style="{% if user.avatar_url %}display:none;{% else %}display:flex;{% endif %}"
-                                    class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-3xl font-black shadow-soft">
+                                    class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-2xl font-black shadow-soft">
                                     {{ user.name[0] | upper }}
                                 </div>
                             </div>
@@ -83,153 +82,55 @@
                                 </svg>
                             </button>
                         </div>
-                        <h2 class="font-bold text-slate-900 text-sm sm:text-base">{{ user.name }}</h2>
+                    <div class="min-w-0">
+                        <h2 class="font-bold text-slate-900 text-base sm:text-lg truncate">{{ user.name }}</h2>
                         <p class="text-xs text-slate-400 mt-0.5">
-                            {% if user.role == 'translator' %}{{ t('account_profile_page.role_translator') }}
-                            {% elif user.role == 'hirer' %}{{ t('account_profile_page.role_hirer') }}
-                            {% else %}{{ t('account_profile_page.role_admin') }}{% endif %}
+                            {% if user.role == 'hirer' %}{{ t('account_profile_page.role_hirer') }}{% else %}{{ t('account_profile_page.role_admin') }}{% endif %}
+                            · {{ user.email }}
                         </p>
                         {% if user.role == 'translator' and user.profile %}
                             {% if user.profile.is_verified %}
                             <span
-                                class="mt-2.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
+                                class="mt-1.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
                                 {{ t('account_profile_page.verified_badge') }}
                             </span>
                             {% else %}
                             <span
-                                class="mt-2.5 inline-block bg-slate-50 text-slate-500 text-[11px] font-bold px-3 py-1 rounded-full border border-slate-200/60">
+                                class="mt-1.5 inline-block bg-slate-50 text-slate-500 text-[11px] font-bold px-3 py-1 rounded-full border border-slate-200/60">
                                 Chưa xác minh
                             </span>
                             {% endif %}
                         {% elif user.role == 'hirer' and user.hirer_profile %}
                             {% set hp_badge = user.hirer_profile %}
                             {% if hp_badge.verification_status == 'verified' and hp_badge.is_verified %}
-                            <span class="mt-2.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
+                            <span class="mt-1.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
                                 ✓ Đã xác minh
                             </span>
                             {% elif hp_badge.verification_status == 'needs_revision' %}
-                            <span class="mt-2.5 inline-block bg-amber-50 text-amber-700 text-[11px] font-bold px-3 py-1 rounded-full border border-amber-300">
+                            <span class="mt-1.5 inline-block bg-amber-50 text-amber-700 text-[11px] font-bold px-3 py-1 rounded-full border border-amber-300">
                                 ⚠️ Cần bổ sung hồ sơ
                             </span>
                             {% elif hp_badge.verification_status == 'rejected' %}
-                            <span class="mt-2.5 inline-block bg-rose-50 text-rose-700 text-[11px] font-bold px-3 py-1 rounded-full border border-rose-200">
+                            <span class="mt-1.5 inline-block bg-rose-50 text-rose-700 text-[11px] font-bold px-3 py-1 rounded-full border border-rose-200">
                                 ✕ Chưa đạt duyệt
                             </span>
                             {% elif hp_badge.verification_status == 'revoked' %}
-                            <span class="mt-2.5 inline-block bg-rose-50 text-rose-700 text-[11px] font-bold px-3 py-1 rounded-full border border-rose-200">
+                            <span class="mt-1.5 inline-block bg-rose-50 text-rose-700 text-[11px] font-bold px-3 py-1 rounded-full border border-rose-200">
                                 ✕ Đã thu hồi xác minh
                             </span>
                             {% elif hp_badge.verification_status == 'pending' %}
-                            <span class="mt-2.5 inline-block bg-blue-50 text-blue-700 text-[11px] font-bold px-3 py-1 rounded-full border border-blue-200">
+                            <span class="mt-1.5 inline-block bg-blue-50 text-blue-700 text-[11px] font-bold px-3 py-1 rounded-full border border-blue-200">
                                 ⏳ Đang chờ duyệt
                             </span>
                             {% else %}
-                            <span class="mt-2.5 inline-block bg-slate-50 text-slate-500 text-[11px] font-bold px-3 py-1 rounded-full border border-slate-200/60">
+                            <span class="mt-1.5 inline-block bg-slate-50 text-slate-500 text-[11px] font-bold px-3 py-1 rounded-full border border-slate-200/60">
                                 Chưa xác minh
                             </span>
                             {% endif %}
                         {% endif %}
                     </div>
-
-                    <!-- Nav -->
-                    <nav class="p-3 space-y-1">
-                        {% if user.role == 'translator' %}
-                        <!-- Link sang Trang Tổng Quan Phiên Dịch Viên đã hoàn tất -->
-                        <a href="{{ url_for('interpreter_dashboard') }}"
-                            class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
-                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                            </svg>
-                            <span>Trang tổng quan</span>
-                        </a>
-                        <button type="button" id="tab-btn-profile-side" onclick="switchTab('profile', this)"
-                            class="tab-btn w-full text-left flex items-center gap-2.5 px-3.5 py-2.5 {% if active_tab == 'profile' %}bg-brand-50 text-brand-700 font-bold active{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
-                            <svg class="w-4 h-4 {% if active_tab == 'profile' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                            <span>Hồ sơ cá nhân</span>
-                        </button>
-                        <button type="button" id="tab-btn-services-side" onclick="switchTab('services', this)"
-                            class="tab-btn w-full text-left flex items-center gap-2.5 px-3.5 py-2.5 {% if active_tab == 'services' %}bg-brand-50 text-brand-700 font-bold active{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
-                            <svg class="w-4 h-4 {% if active_tab == 'services' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                            <span>Năng lực & Bảng giá</span>
-                        </button>
-                        <button type="button" id="tab-btn-preferences-side" onclick="switchTab('preferences', this)"
-                            class="tab-btn w-full text-left flex items-center gap-2.5 px-3.5 py-2.5 {% if active_tab == 'preferences' %}bg-brand-50 text-brand-700 font-bold active{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
-                            <svg class="w-4 h-4 {% if active_tab == 'preferences' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                            </svg>
-                            <span>Tiêu chí nhận việc</span>
-                        </button>
-                        <button type="button" id="tab-btn-subscription-side" onclick="switchTab('subscription', this)"
-                            class="tab-btn w-full text-left flex items-center gap-2.5 px-3.5 py-2.5 {% if active_tab == 'subscription' %}bg-brand-50 text-brand-700 font-bold active{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
-                            <svg class="w-4 h-4 {% if active_tab == 'subscription' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                            </svg>
-                            <span>Gói dịch vụ & Quyền lợi</span>
-                        </button>
-                        {% else %}
-                        <button type="button" onclick="switchTab('basic')"
-                            class="w-full text-left flex items-center gap-2.5 px-3.5 py-2.5 {% if active_tab == 'basic' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
-                            <svg class="w-4 h-4 {% if active_tab == 'basic' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                            <span>{{ t('account_profile_page.nav_profile') }}</span>
-                        </button>
-                        {% if user.role == 'hirer' %}
-                        <button type="button" onclick="switchTab('hirer')"
-                            class="w-full text-left flex items-center gap-2.5 px-3.5 py-2.5 {% if active_tab == 'hirer' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
-                            <svg class="w-4 h-4 {% if active_tab == 'hirer' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
-                            <span>Hồ sơ khách hàng</span>
-                        </button>
-                        <button type="button" onclick="switchTab('hirer_verify')"
-                            class="w-full text-left flex items-center justify-between px-3.5 py-2.5 {% if active_tab == 'hirer_verify' or active_tab == 'hirer_profile' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
-                            <div class="flex items-center gap-2.5">
-                                <svg class="w-4 h-4 {% if active_tab == 'hirer_verify' or active_tab == 'hirer_profile' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                </svg>
-                                <span>Xác minh hồ sơ</span>
-                            </div>
-                            {% if user.hirer_profile and user.hirer_profile.verification_status == 'verified' and user.hirer_profile.is_verified %}
-                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✓</span>
-                            {% elif user.hirer_profile and user.hirer_profile.verification_status == 'needs_revision' %}
-                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">!</span>
-                            {% endif %}
-                        </button>
-                        {% endif %}
-                        {% endif %}
-                        {% if user.role != 'translator' %}
-                        <a href="{{ url_for('account_history') }}"
-                            class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
-                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
-                            </svg>
-                            {{ t('account_profile_page.nav_history') }}
-                        </a>
-                        <a href="{{ url_for('notifications_page') }}"
-                            class="flex items-center justify-between px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
-                            <div class="flex items-center gap-2.5">
-                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                                </svg>
-                                <span>{{ t('account_profile_page.nav_notifications') }}</span>
-                            </div>
-                            {% if unread_notifs_count and unread_notifs_count > 0 %}
-                            <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-500 text-white leading-none">
-                                {{ unread_notifs_count }}
-                            </span>
-                            {% endif %}
-                        </a>
-                        {% endif %}
-                    </nav>
                 </div>
-            </aside>
+            </div>
             {% endif %}
 
             <!-- Main Content -->
@@ -6159,6 +6060,10 @@
             const url = new URL(window.location);
             url.searchParams.set('tab', tab);
             window.history.replaceState({}, '', url);
+            // Đồng bộ mục đang chọn trên menu chính (Hồ sơ cá nhân / Xác minh hồ sơ)
+            document.querySelectorAll('[data-profile-tab]').forEach(a => {
+                a.classList.toggle('active', (a.dataset.profileTab === 'hirer_verify') === (tab === 'hirer_verify'));
+            });
         } catch (e) {}
     }
 

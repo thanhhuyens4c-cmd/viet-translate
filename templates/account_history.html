@@ -5,45 +5,11 @@
 {% block content %}
 <div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex flex-col md:flex-row gap-8">
+    <div class="flex flex-col gap-8">
         
-        <!-- Sidebar -->
-        <aside class="w-full md:w-64 shrink-0">
-            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden sticky top-24">
-                <div class="p-6 text-center border-b border-slate-100 bg-slate-50/40">
-                    <div class="w-20 h-20 bg-gradient-to-br from-brand-600 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white text-2xl font-black shadow-soft mb-3">
-                        {{ current_user.name[0] | upper }}
-                    </div>
-                    <h2 class="font-bold text-slate-900 text-sm sm:text-base">{{ current_user.name }}</h2>
-                    <p class="text-xs text-slate-400 mt-0.5">
-                        {{ current_user.role == 'hirer' and t('auto.khách_hàng') or t('auto.phiên_dịch_viên') }}
-                    </p>
-                </div>
-                <nav class="p-3 space-y-1">
-                    <a href="{{ url_for('account_profile') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
-                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        {{ t('account_history_page.nav_profile') }}
-                    </a>
-                    <a href="{{ url_for('account_history') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 bg-brand-50 text-brand-700 font-bold rounded-xl text-xs sm:text-sm">
-                        <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
-                        {{ t('account_history_page.nav_history') }}
-                    </a>
-                                    <a href="{{ url_for('account_wallet') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
-                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                        Ví của tôi
-                    </a>
-                    {% if current_user.role == 'translator' %}
-                    <a href="{{ url_for('my_schedule') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
-                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            {{ t('nav.my_schedule') }}
-                    </a>
-                    {% endif %}
-                </nav>
-            </div>
-        </aside>
         
         <!-- Main Content -->
-        <div class="flex-grow space-y-8">
+        <div class="flex-grow min-w-0 space-y-8">
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
                 {% if tx_rows is defined %}
                 {% set vi = current_lang == 'vi' %}
