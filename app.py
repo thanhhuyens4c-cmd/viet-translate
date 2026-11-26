@@ -1799,11 +1799,21 @@ def inject_globals():
         except Exception:
             db.session.rollback()
             saved_jobs_count = 0
+    # Số dư ví hiển thị ngay trên menu chính (Khách thuê & Phiên dịch viên)
+    nav_wallet_balance = None
+    if user and getattr(user, 'role', None) in ('hirer', 'translator'):
+        try:
+            from services import payments as _payments
+            nav_wallet_balance = _payments.wallet_balance(user.id)
+        except Exception:
+            db.session.rollback()
+            nav_wallet_balance = None
     return dict(
         current_user=user,
         LANGUAGES=get_localized_languages(current_lang),
         current_lang=current_lang,
         saved_jobs_count=saved_jobs_count,
+        nav_wallet_balance=nav_wallet_balance,
         t=lambda key, **kwargs: t_lookup(key, current_lang, **kwargs),
         lang_name=lambda name: get_language_display_name(name, current_lang)
     )

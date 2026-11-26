@@ -1,10 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Ví phiên dịch viên | VietTranslate{% endblock %}
+{% block title %}Ví của tôi | VietTranslate{% endblock %}
 
 {% block content %}
 <div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+        </div>
+        <div>
+            <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">Ví của tôi</h1>
+            <p class="text-xs text-slate-500">Số dư, lịch sử nhận tiền và yêu cầu rút về ngân hàng</p>
+        </div>
+    </div>
 
     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
         <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
@@ -29,7 +39,7 @@
     </div>
 
     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-        <h1 class="text-lg font-bold mb-5 text-slate-900">Lịch sử nhận tiền và rút tiền</h1>
+        <h2 class="text-lg font-bold mb-5 text-slate-900">Lịch sử nhận tiền và rút tiền</h2>
         {% if transactions %}
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
@@ -65,7 +75,7 @@
             </table>
         </div>
         {% else %}
-        <p class="text-sm text-slate-500">Chưa có giao dịch nào. Tiền về ví sau khi khách nghiệm thu hợp đồng.</p>
+        <p class="text-sm text-slate-500">{{ 'Chưa có giao dịch nào. Tiền hoàn từ hợp đồng bị hủy sẽ về ví này.' if user.role == 'hirer' else 'Chưa có giao dịch nào. Tiền về ví sau khi khách nghiệm thu hợp đồng.' }}</p>
         {% endif %}
     </div>
 </div>
