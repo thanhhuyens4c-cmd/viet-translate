@@ -2031,9 +2031,65 @@
         el._vnWrap = wrap;
     };
 
+    window.vtBindFileInput = function(el) {
+        if (!el || el.dataset.fileBound === '1') return;
+        if (el.classList.contains('hidden') || el.classList.contains('sr-only') || el.hasAttribute('data-native-file')) return;
+        el.dataset.fileBound = '1';
+
+        const isEn = (document.documentElement.lang || 'vi').toLowerCase().startsWith('en');
+        const emptyText = isEn ? 'No file chosen' : 'Chưa có tệp nào được chọn';
+        const btnText = isEn ? (el.multiple ? 'Choose files' : 'Choose file') : (el.multiple ? 'Chọn nhiều tệp' : 'Chọn tệp');
+
+        const wrap = document.createElement('span');
+        wrap.className = 'inline-flex flex-wrap items-center gap-2.5 max-w-full';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = btnText;
+        btn.className = 'inline-flex items-center px-3.5 py-2 rounded-xl border border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 text-xs font-semibold transition cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed';
+        if (el.disabled) btn.disabled = true;
+
+        const status = document.createElement('span');
+        status.className = 'text-xs text-slate-500 truncate max-w-[260px] sm:max-w-xs';
+        status.textContent = emptyText;
+
+        function updateLabel() {
+            const files = el.files;
+            if (!files || files.length === 0) {
+                status.textContent = emptyText;
+                status.removeAttribute('title');
+            } else if (files.length === 1) {
+                status.textContent = files[0].name;
+                status.title = files[0].name;
+            } else {
+                status.textContent = isEn ? `${files.length} files selected` : `Đã chọn ${files.length} tệp`;
+                status.title = Array.from(files).map(f => f.name).join(', ');
+            }
+        }
+
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!el.disabled) el.click();
+        });
+        el.addEventListener('change', updateLabel);
+        if (el.form) {
+            el.form.addEventListener('reset', function() {
+                setTimeout(updateLabel, 0);
+            });
+        }
+
+        el.classList.add('sr-only');
+        el.parentNode.insertBefore(wrap, el);
+        wrap.appendChild(el);
+        wrap.appendChild(btn);
+        wrap.appendChild(status);
+    };
+
     document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('[data-money-input]').forEach(window.vtBindMoneyInput);
         document.querySelectorAll('[data-vn-date]').forEach(window.vtBindVnDateInput);
+        document.querySelectorAll('input[type="file"]').forEach(window.vtBindFileInput);
     });
 
     window.vtInitDobSelects = function(cfg) {
