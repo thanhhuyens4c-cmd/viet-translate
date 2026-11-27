@@ -132,14 +132,19 @@
 
             <!-- ─── 1. DANH SÁCH CÁC HẠNG MỤC CẦN BỔ SUNG ────────────────────── -->
             <div class="space-y-4">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
                             <span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
                             Danh Sách Hạng Mục Cần Bổ Sung ({{ data.total_items_count }} Hạng Mục)
                         </h2>
-                        <p class="text-xs text-slate-500 mt-0.5">Vui lòng cập nhật đầy đủ các mục bên dưới để Ban quản trị đối soát</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Vui lòng cập nhật các mục bên dưới hoặc mở biểu mẫu để chỉnh sửa hồ sơ</p>
                     </div>
+                    <a href="{{ url_for('verification_form') }}"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 transition shrink-0">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        <span>Chỉnh sửa hồ sơ</span>
+                    </a>
                 </div>
 
                 {% if data.revision_items and (data.revision_items | length > 0) %}
@@ -350,84 +355,7 @@
                 {% endif %}
             </div>
 
-            <!-- ─── 2. COLLAPSIBLE: XEM LẠI TOÀN BỘ THÔNG TIN ĐÃ KHAI BÁO ───────── -->
-            <div class="bg-white rounded-3xl border border-slate-200 shadow-soft overflow-hidden">
-                <button type="button" onclick="toggleFullSummary()"
-                    class="w-full px-6 py-4.5 flex items-center justify-between text-left hover:bg-slate-50 transition cursor-pointer">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs">
-                            👁️
-                        </div>
-                        <div>
-                            <h3 class="text-xs sm:text-sm font-bold text-slate-800">
-                                Xem lại toàn bộ thông tin hồ sơ đã lưu (Không bắt buộc chỉnh sửa)
-                            </h3>
-                            <p class="text-[11px] text-slate-500">Các thông tin này được bảo lưu nguyên vẹn từ lần gửi trước</p>
-                        </div>
-                    </div>
-                    <span id="accordion-icon" class="text-xs font-bold text-brand-600 flex items-center gap-1">
-                        <span>Mở rộng</span> &darr;
-                    </span>
-                </button>
-
-                <div id="full-summary-content" class="hidden p-6 border-t border-slate-100 bg-slate-50/50 space-y-4 text-xs">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                        <div class="p-3.5 rounded-xl bg-white border border-slate-200/80">
-                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Họ và tên</span>
-                            <span class="font-bold text-slate-800">{{ data.form_data.full_name or data.user.name }}</span>
-                        </div>
-                        <div class="p-3.5 rounded-xl bg-white border border-slate-200/80">
-                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Số điện thoại</span>
-                            <span class="font-bold text-slate-800">{{ data.form_data.phone or data.user.phone or 'Chưa có' }}</span>
-                        </div>
-                        <div class="p-3.5 rounded-xl bg-white border border-slate-200/80">
-                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Cặp ngôn ngữ</span>
-                            <span class="font-bold text-slate-800">{{ data.form_data.source_language or '---' }} &rarr; {{ data.form_data.target_language or '---' }}</span>
-                        </div>
-                        <div class="p-3.5 rounded-xl bg-white border border-slate-200/80">
-                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Lĩnh vực chuyên môn</span>
-                            <span class="font-bold text-slate-800">{{ data.form_data.specializations or 'Chưa khai báo' }}</span>
-                        </div>
-                        <div class="p-3.5 rounded-xl bg-white border border-slate-200/80">
-                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Học vấn / Bằng cấp</span>
-                            <span class="font-bold text-slate-800">{{ data.form_data.education_level or '---' }} ({{ data.form_data.major or '---' }})</span>
-                        </div>
-                        <div class="p-3.5 rounded-xl bg-white border border-slate-200/80">
-                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Số năm kinh nghiệm</span>
-                            <span class="font-bold text-slate-800">{{ data.form_data.experience_years or 0 }} năm</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ─── 3. ĐỐI SOÁT LỊCH SỬ PHIÊN BẢN (AUDIT TRAIL) ───────────────── -->
-            {% if data.versions_history and (data.versions_history | length > 0) %}
-            <div class="bg-white rounded-3xl border border-slate-200 shadow-soft p-6 space-y-3">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Đối Soát Lịch Sử Phiên Bản Đã Gửi (Giữ Lại Để Đối Chiếu)
-                </h3>
-                <div class="space-y-2">
-                    {% for ver in data.versions_history %}
-                    <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                        <div class="flex items-center gap-2.5">
-                            <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-white font-mono font-bold text-[11px]">
-                                v{{ ver.version_number }}
-                            </span>
-                            <div>
-                                <span class="font-bold text-slate-800">Phiên bản đã nộp #{{ ver.version_number }}</span>
-                                <span class="text-slate-500 text-[11px] ml-1.5">(Gửi lúc: {{ ver.submitted_at_str or '---' }})</span>
-                            </div>
-                        </div>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-200 text-slate-700">
-                            Đã lưu trữ snapshot bất biến
-                        </span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- ─── 4. CAM KẾT & NÚT GỬI LẠI HỒ SƠ ────────────────────────────── -->
+            <!-- ─── 2. CAM KẾT & NÚT GỬI LẠI HỒ SƠ ────────────────────────────── -->
             <div class="bg-white rounded-3xl border border-slate-200 shadow-soft p-6 sm:p-8 space-y-6">
                 <!-- Checkbox xác nhận cam kết -->
                 <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 flex items-start gap-3">
