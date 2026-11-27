@@ -178,7 +178,7 @@
                         <span class="text-base leading-none">📅</span>
                         <div>
                             <span class="text-slate-500 block mb-0.5">{{ t('job_detail_page.time_label') }}</span>
-                            <strong class="text-slate-800 font-semibold text-sm">{{ job.event_date }}</strong>
+                            <strong class="text-slate-800 font-semibold text-sm">{{ job.event_date|format_date_vn }}</strong>
                             {% if job.event_time_start %}
                             <span class="text-slate-500 block mt-0.5">Giờ: {{ job.event_time_start }}{% if job.event_time_end %} – {{ job.event_time_end }}{% endif %}</span>
                             {% endif %}
@@ -713,7 +713,7 @@
                     {% if job.event_date %}
                     <div class="flex justify-between items-center py-1 border-b border-slate-50">
                         <span class="text-slate-500">Thời gian thực hiện:</span>
-                        <span class="font-bold text-slate-800 text-right">{{ job.event_date }}</span>
+                        <span class="font-bold text-slate-800 text-right">{{ job.event_date|format_date_vn }}</span>
                     </div>
                     {% endif %}
                     {% if job.event_location %}

@@ -884,7 +884,6 @@ def _apply_hirer_profile_form(user, profile, form, files):
         province = get('location')
         fields = pick('hiring_field', HIRING_FIELDS)
         languages = pick('hiring_languages', HIRING_LANGUAGES)
-        services = pick('hiring_services', HIRING_SERVICES)
         if not full_name: errors.append('Vui lòng nhập họ và tên.')
         if not province: errors.append('Vui lòng nhập tỉnh / thành phố.')
         if not fields: errors.append('Vui lòng chọn ít nhất một lĩnh vực thường thuê phiên dịch.')
@@ -896,7 +895,7 @@ def _apply_hirer_profile_form(user, profile, form, files):
         profile.location = province
         profile.hiring_field = ', '.join(fields)
         profile.hiring_languages = ', '.join(languages)
-        profile.hiring_services = ', '.join(services)
+        profile.hiring_services = ''
         profile.about = get('about')[:500]
 
     from services.hirer import apply_hirer_hiring_needs

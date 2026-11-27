@@ -1859,11 +1859,15 @@
         if (!el || el.dataset.moneyBound === '1') return;
         el.dataset.moneyBound = '1';
         if (el.value) el.value = window.vtFormatVndDots(el.value);
-        el.addEventListener('input', function() {
-            const start = el.selectionStart || 0;
-            const beforeDigits = el.value.slice(0, start).replace(/\D/g, '').length;
-            const formatted = window.vtFormatVndDots(el.value);
-            el.value = formatted;
+
+        function applyFormat() {
+            const raw = el.value;
+            const start = typeof el.selectionStart === 'number' ? el.selectionStart : raw.length;
+            const beforeDigits = raw.slice(0, start).replace(/\D/g, '').length;
+            const formatted = window.vtFormatVndDots(raw);
+            if (formatted !== raw) {
+                el.value = formatted;
+            }
             if (document.activeElement === el && typeof el.setSelectionRange === 'function') {
                 let pos = 0, seen = 0;
                 while (pos < formatted.length && seen < beforeDigits) {
@@ -1872,11 +1876,164 @@
                 }
                 el.setSelectionRange(pos, pos);
             }
+        }
+
+        el.addEventListener('keydown', function(e) {
+            if (e.isComposing) return;
+            const start = el.selectionStart;
+            const end = el.selectionEnd;
+            if (start === null || start !== end) return;
+            // Nếu bấm Backspace ngay sau dấu '.' hoặc Delete ngay trước dấu '.', xóa chữ số liền kề thay vì kẹt ở dấu '.'
+            if (e.key === 'Backspace' && start > 0 && el.value[start - 1] === '.') {
+                e.preventDefault();
+                const leftDigits = el.value.slice(0, start - 1).replace(/\D/g, '');
+                const rightDigits = el.value.slice(start).replace(/\D/g, '');
+                const nextDigits = leftDigits.slice(0, -1) + rightDigits;
+                const formatted = window.vtFormatVndDots(nextDigits);
+                el.value = formatted;
+                const targetDigits = Math.max(0, leftDigits.length - 1);
+                let pos = 0, seen = 0;
+                while (pos < formatted.length && seen < targetDigits) {
+                    if (/\d/.test(formatted[pos])) seen++;
+                    pos++;
+                }
+                el.setSelectionRange(pos, pos);
+            } else if (e.key === 'Delete' && start < el.value.length && el.value[start] === '.') {
+                e.preventDefault();
+                const leftDigits = el.value.slice(0, start).replace(/\D/g, '');
+                const rightDigits = el.value.slice(start + 1).replace(/\D/g, '');
+                const nextDigits = leftDigits + rightDigits.slice(1);
+                const formatted = window.vtFormatVndDots(nextDigits);
+                el.value = formatted;
+                let pos = 0, seen = 0;
+                while (pos < formatted.length && seen < leftDigits.length) {
+                    if (/\d/.test(formatted[pos])) seen++;
+                    pos++;
+                }
+                el.setSelectionRange(pos, pos);
+            }
         });
+
+        el.addEventListener('input', function(e) {
+            if (e && e.isComposing) return;
+            applyFormat();
+        });
+        el.addEventListener('compositionend', applyFormat);
+    };
+
+    window.vtBindVnDateInput = function(el) {
+        if (!el || el.dataset.vnDateBound === '1') return;
+        el.dataset.vnDateBound = '1';
+
+        const wrap = document.createElement('div');
+        wrap.className = 'relative flex items-center w-full';
+
+        const display = document.createElement('input');
+        display.type = 'text';
+        display.inputMode = 'numeric';
+        display.maxLength = 10;
+        display.placeholder = el.getAttribute('placeholder') || 'dd/mm/yyyy';
+        display.autocomplete = 'off';
+        const baseCls = (el.className || 'w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500').trim();
+        display.className = baseCls + ' pr-10';
+        if (el.disabled) display.disabled = true;
+
+        const pickerBtn = document.createElement('span');
+        pickerBtn.className = 'absolute right-2.5 inset-y-0 flex items-center text-slate-400 hover:text-brand-600 transition' + (el.disabled ? ' pointer-events-none opacity-40' : '');
+        pickerBtn.title = 'Chọn ngày trên lịch';
+        pickerBtn.innerHTML = '<svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
+
+        const nativePicker = document.createElement('input');
+        nativePicker.type = 'date';
+        nativePicker.tabIndex = -1;
+        nativePicker.setAttribute('aria-hidden', 'true');
+        nativePicker.className = 'absolute inset-0 w-full h-full opacity-0 cursor-pointer';
+        if (el.getAttribute('min')) nativePicker.min = el.getAttribute('min');
+        if (el.getAttribute('max')) nativePicker.max = el.getAttribute('max');
+        if (el.disabled) nativePicker.disabled = true;
+        pickerBtn.appendChild(nativePicker);
+
+        function parseVnDate(str) {
+            const m = String(str || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (!m) return null;
+            const d = parseInt(m[1], 10), mo = parseInt(m[2], 10), y = parseInt(m[3], 10);
+            if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 1900 || y > 2100) return null;
+            const dt = new Date(y, mo - 1, d);
+            if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+            return `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        }
+
+        function formatTyping(raw) {
+            const digits = String(raw || '').replace(/\D/g, '').slice(0, 8);
+            if (digits.length <= 2) return digits;
+            if (digits.length <= 4) return digits.slice(0, 2) + '/' + digits.slice(2);
+            return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
+        }
+
+        if (el.value) {
+            const vn = window.vtFormatDateVn(el.value);
+            if (/^\d{2}\/\d{2}\/\d{4}$/.test(vn)) {
+                display.value = vn;
+                nativePicker.value = el.value;
+            }
+        }
+
+        display.addEventListener('input', function(e) {
+            if (e && e.isComposing) return;
+            const start = typeof display.selectionStart === 'number' ? display.selectionStart : display.value.length;
+            const beforeDigits = display.value.slice(0, start).replace(/\D/g, '').length;
+            const formatted = formatTyping(display.value);
+            if (formatted !== display.value) display.value = formatted;
+            if (document.activeElement === display && typeof display.setSelectionRange === 'function') {
+                let pos = 0, seen = 0;
+                while (pos < formatted.length && seen < beforeDigits) {
+                    if (/\d/.test(formatted[pos])) seen++;
+                    pos++;
+                }
+                display.setSelectionRange(pos, pos);
+            }
+            if (!formatted) {
+                el.value = '';
+                el.dataset.vnInvalid = '0';
+                nativePicker.value = '';
+            } else {
+                const iso = parseVnDate(formatted);
+                if (iso) {
+                    el.value = iso;
+                    el.dataset.vnInvalid = '0';
+                    nativePicker.value = iso;
+                } else {
+                    el.value = '';
+                    el.dataset.vnInvalid = '1';
+                }
+            }
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+
+        nativePicker.addEventListener('change', function() {
+            if (nativePicker.value) {
+                el.value = nativePicker.value;
+                el.dataset.vnInvalid = '0';
+                display.value = window.vtFormatDateVn(nativePicker.value);
+            } else {
+                el.value = '';
+                el.dataset.vnInvalid = '0';
+                display.value = '';
+            }
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+
+        el.parentNode.insertBefore(wrap, el);
+        wrap.appendChild(el);
+        wrap.appendChild(display);
+        wrap.appendChild(pickerBtn);
+        el._vnDisplayInput = display;
+        el._vnWrap = wrap;
     };
 
     document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('[data-money-input]').forEach(window.vtBindMoneyInput);
+        document.querySelectorAll('[data-vn-date]').forEach(window.vtBindVnDateInput);
     });
 
     window.vtInitDobSelects = function(cfg) {

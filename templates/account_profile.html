@@ -5328,6 +5328,20 @@
                                     {% endfor %}
                                 </div>
                                 {% endmacro %}
+                                {% macro chips_field(name, options, saved, label_html, wrap_id) %}
+                                {% set is_saved = hp and hp.contact_phone and saved %}
+                                <div class="space-y-1.5 js-chips-section">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="{{ lbl }}">{{ label_html | safe }}</label>
+                                        {% if is_saved %}
+                                        <button type="button" class="js-chips-toggle text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline transition">Chỉnh sửa</button>
+                                        {% endif %}
+                                    </div>
+                                    <div id="{{ wrap_id }}" class="js-chips-wrap {{ 'chips-compact' if is_saved else '' }}">
+                                        {{ chips(name, options, saved) }}
+                                    </div>
+                                </div>
+                                {% endmacro %}
 
                             <!-- Chọn loại khách -->
                             <div class="grid grid-cols-2 gap-3">
@@ -5364,8 +5378,7 @@
                                                 {% endfor %}
                                             </select></div>
                                     </div>
-                                    <div class="space-y-1.5"><label class="{{ lbl }}">Lĩnh vực hoạt động <span class="text-red-500">*</span></label>
-                                        {{ chips('industry', BUSINESS_INDUSTRIES, hp.industry if hp else '') }}</div>
+                                    {{ chips_field('industry', BUSINESS_INDUSTRIES, hp.industry if hp else '', 'Lĩnh vực hoạt động <span class="text-red-500">*</span>', 'industry-chips-wrap') }}
                                 </fieldset>
 
                                 <fieldset class="space-y-4">
@@ -5444,12 +5457,8 @@
                                     <input type="text" name="full_name" value="{{ user.name }}" class="{{ inp }}" data-ind-required></div>
                                 <div class="space-y-1.5"><label class="{{ lbl }}">Tỉnh / thành phố <span class="text-red-500">*</span></label>
                                     <input type="text" name="location" value="{{ (hp.location if hp and atype != 'business' else '') or '' }}" placeholder="VD: Hà Nội, TP. Hồ Chí Minh" class="{{ inp }}" data-ind-required></div>
-                                <div class="space-y-2"><label class="{{ lbl }}">Lĩnh vực thường thuê phiên dịch <span class="text-red-500">*</span> <span class="normal-case font-normal text-slate-400">(chọn một hoặc nhiều)</span></label>
-                                    {{ chips('hiring_field', HIRING_FIELDS, hp.hiring_field if hp else '') }}</div>
-                                <div class="space-y-2"><label class="{{ lbl }}">Ngôn ngữ thường cần <span class="normal-case font-normal text-slate-400">(không bắt buộc)</span></label>
-                                    {{ chips('hiring_languages', HIRING_LANGUAGES, hp.hiring_languages if hp else '') }}</div>
-                                <div class="space-y-2"><label class="{{ lbl }}">Hình thức thường thuê <span class="normal-case font-normal text-slate-400">(không bắt buộc)</span></label>
-                                    {{ chips('hiring_services', HIRING_SERVICES, hp.hiring_services if hp else '') }}</div>
+                                {{ chips_field('hiring_field', HIRING_FIELDS, hp.hiring_field if hp else '', 'Lĩnh vực thường thuê phiên dịch <span class="text-red-500">*</span> <span class="normal-case font-normal text-slate-400">(chọn một hoặc nhiều)</span>', 'hiring-field-chips-wrap') }}
+                                {{ chips_field('hiring_languages', HIRING_LANGUAGES, hp.hiring_languages if hp else '', 'Ngôn ngữ thường cần <span class="normal-case font-normal text-slate-400">(không bắt buộc)</span>', 'hiring-languages-chips-wrap') }}
                                 <div class="space-y-1.5"><label class="{{ lbl }}">Giới thiệu ngắn / lưu ý khi làm việc</label>
                                     <textarea name="about" rows="3" maxlength="500" placeholder="VD: Hay thuê phiên dịch cho các chuyến công tác ngắn ngày, ưu tiên người có kinh nghiệm y tế." class="{{ inp }}">{{ (hp.about if hp and atype != 'business' else '') or '' }}</textarea></div>
                             </div>
@@ -5470,10 +5479,6 @@
                                         <input type="text" inputmode="numeric" data-money-input name="typical_budget_min" value="{{ hp.typical_budget_min if hp and hp.typical_budget_min else '' }}" placeholder="VD: 5.000.000" class="{{ inp }}"></div>
                                     <div class="space-y-1.5"><label class="{{ lbl }}">Ngân sách thường dùng đến (VND)</label>
                                         <input type="text" inputmode="numeric" data-money-input name="typical_budget_max" value="{{ hp.typical_budget_max if hp and hp.typical_budget_max else '' }}" placeholder="VD: 8.000.000" class="{{ inp }}"></div>
-                                </div>
-                                <div class="flex flex-wrap gap-5 text-xs font-medium">
-                                    <label class="flex items-center gap-2"><input type="checkbox" name="needs_nda" class="rounded text-brand-600" {% if hp and hp.needs_nda %}checked{% endif %}> Yêu cầu bảo mật (NDA)</label>
-                                    <label class="flex items-center gap-2"><input type="checkbox" name="needs_certified" class="rounded text-brand-600" {% if hp and hp.needs_certified %}checked{% endif %}> Cần bản dịch có chứng nhận / công chứng</label>
                                 </div>
                                 <div class="space-y-1.5"><label class="{{ lbl }}">Yêu cầu đặc biệt</label>
                                     <textarea name="special_requirements" rows="2" maxlength="1000" class="{{ inp }}">{{ (hp.special_requirements if hp else '') or '' }}</textarea></div>
@@ -5501,11 +5506,31 @@
                         </form>
                         <style>.hirer-type-opt:has(input:checked){border-color:#2563eb;background:#eff6ff}
                         .chip-opt:has(input:checked) span{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}
-                        .chip-opt:has(input:focus-visible) span{outline:2px solid #2563eb;outline-offset:2px}</style>
+                        .chip-opt:has(input:focus-visible) span{outline:2px solid #2563eb;outline-offset:2px}
+                        .chips-compact .chip-opt:not(:has(input:checked)){display:none}</style>
                         <script>
                         (function () {
                             var form = document.getElementById('hirer-profile-form');
                             if (!form) return;
+                            form.querySelectorAll('.js-chips-section').forEach(function (sec) {
+                                var wrap = sec.querySelector('.js-chips-wrap');
+                                var toggle = sec.querySelector('.js-chips-toggle');
+                                if (!wrap || !toggle) return;
+                                function syncToggle() {
+                                    toggle.textContent = wrap.classList.contains('chips-compact') ? 'Chỉnh sửa' : 'Thu gọn';
+                                }
+                                toggle.addEventListener('click', function () {
+                                    wrap.classList.toggle('chips-compact');
+                                    syncToggle();
+                                });
+                                wrap.addEventListener('change', function () {
+                                    if (wrap.classList.contains('chips-compact') && !wrap.querySelector('input:checked')) {
+                                        wrap.classList.remove('chips-compact');
+                                        syncToggle();
+                                    }
+                                });
+                                syncToggle();
+                            });
                             function sync() {
                                 var biz = form.querySelector('input[name=account_type]:checked').value === 'business';
                                 var bizBox = document.getElementById('hirer-business');

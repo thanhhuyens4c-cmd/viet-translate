@@ -200,7 +200,7 @@
             <p id="budget-nego-note" class="hidden text-xs text-blue-800 bg-blue-50 border border-blue-100 rounded-xl p-3">Phiên dịch viên sẽ gửi báo giá, bạn so sánh và chọn người phù hợp.</p>
             <div>
                 <label class="{{ label_cls }}" for="deadline">Hạn nộp hồ sơ</label>
-                <input id="deadline" name="deadline" type="date" min="{{ today }}" value="{{ v.get('deadline', '') }}" class="{{ input_cls }}">
+                <input id="deadline" name="deadline" type="hidden" data-vn-date min="{{ today }}" value="{{ v.get('deadline', '') }}" class="{{ input_cls }}">
                 {{ field_error('deadline') }}
             </div>
             <div>
@@ -301,13 +301,15 @@
         const cls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500';
         d.innerHTML = `
           <label class="col-span-2 sm:col-span-1 text-[10px] font-bold uppercase text-slate-500">Ngày
-            <input type="date" name="scheduled_date[]" min="{{ today }}" class="${cls} mt-1 font-normal normal-case"></label>
+            <input type="hidden" name="scheduled_date[]" data-vn-date min="{{ today }}" class="${cls} mt-1 font-normal normal-case"></label>
           <label class="text-[10px] font-bold uppercase text-slate-500">Bắt đầu (24h)
             <select name="start_time[]" class="${cls} mt-1 font-normal normal-case">${buildTimeOptions(r.start_time)}</select></label>
           <label class="text-[10px] font-bold uppercase text-slate-500">Kết thúc (24h)
             <select name="end_time[]" class="${cls} mt-1 font-normal normal-case">${buildTimeOptions(r.end_time)}</select></label>
           <button type="button" data-remove-day class="col-span-2 sm:col-span-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2 border border-rose-200">Xóa</button>`;
-        d.querySelector('input[name="scheduled_date[]"]').value = r.scheduled_date || '';
+        const dateInput = d.querySelector('input[name="scheduled_date[]"]');
+        dateInput.value = r.scheduled_date || '';
+        if (window.vtBindVnDateInput) window.vtBindVnDateInput(dateInput);
         $('schedule-container').appendChild(d); syncRemove();
     }
     function syncRemove() {
@@ -320,18 +322,21 @@
     $('add-day').addEventListener('click', () => addDay());
     function scheduleRows() {
         return [...document.querySelectorAll('.schedule-row')].map(r => {
+            const dEl = r.querySelector('[name="scheduled_date[]"]');
             return {
-                date: r.querySelector('[name="scheduled_date[]"]').value,
+                date: dEl.value,
+                invalid: dEl.dataset.vnInvalid === '1',
                 start: r.querySelector('[name="start_time[]"]').value,
                 end: r.querySelector('[name="end_time[]"]').value
             };
-        }).filter(r => r.date || r.start || r.end);
+        }).filter(r => r.date || r.invalid || r.start || r.end);
     }
     function validateSchedule() {
         const rows = scheduleRows(), today = new Date().toISOString().slice(0, 10), seen = new Set();
         if (!rows.length) return 'Phải có ít nhất một ngày làm việc.';
         for (let i = 0; i < rows.length; i++) {
             const r = rows[i];
+            if (r.invalid) return 'Ngày ' + (i + 1) + ' không hợp lệ (định dạng dd/mm/yyyy).';
             if (!r.date) return 'Ngày ' + (i + 1) + ' chưa được chọn.';
             if (r.date < today) return 'Ngày ' + (i + 1) + ' không được ở quá khứ.';
             if (seen.has(r.date)) return 'Ngày ' + (i + 1) + ' bị trùng với ngày khác.';
@@ -371,7 +376,8 @@
             if (t !== 'negotiable' && !(mn > 0)) e.budget_min = 'Nhập ngân sách lớn hơn 0.';
             if (t === 'range' && !(mx >= mn)) e.budget_max = 'Ngân sách tối đa phải lớn hơn hoặc bằng tối thiểu.';
         }
-        if (n === 3 && val('deadline') && val('deadline') < today && val('deadline') !== {{ (values.get('deadline', '') or '')|tojson }}) e.deadline = 'Hạn nộp hồ sơ không được ở quá khứ.';
+        if (n === 3 && $('deadline') && $('deadline').dataset.vnInvalid === '1') e.deadline = 'Hạn nộp hồ sơ không hợp lệ (định dạng dd/mm/yyyy).';
+        else if (n === 3 && val('deadline') && val('deadline') < today && val('deadline') !== {{ (values.get('deadline', '') or '')|tojson }}) e.deadline = 'Hạn nộp hồ sơ không được ở quá khứ.';
         return e;
     }
     function validateFiles() {
@@ -398,10 +404,12 @@
             }
             const el = form.elements[k] && form.elements[k].length === undefined ? form.elements[k] : $(k);
             if (!el) return;
-            el.classList.add('border-rose-400');
+            const visualEl = el._vnDisplayInput || el;
+            const anchorEl = el._vnWrap || el;
+            visualEl.classList.add('border-rose-400');
             const p = document.createElement('p'); p.dataset.clientError = '1';
             p.className = 'text-xs text-rose-600 font-semibold mt-1'; p.textContent = msg;
-            el.insertAdjacentElement('afterend', p);
+            anchorEl.insertAdjacentElement('afterend', p);
         });
     }
 
@@ -437,10 +445,10 @@
             ['Mô tả', val('description')],
         ];
         if (groupVal() === 'translation') rows.push(['Khối lượng', val('word_count') ? val('word_count') + ' từ' : '—']);
-        else rows.push(['Lịch làm việc', scheduleRows().map(r => r.date + ' · ' + r.start + '–' + r.end).join('\n') || '—'], ['Địa điểm', val('event_location')]);
+        else rows.push(['Lịch làm việc', scheduleRows().map(r => (window.vtFormatDateVn ? window.vtFormatDateVn(r.date) : r.date) + ' · ' + r.start + '–' + r.end).join('\n') || '—'], ['Địa điểm', val('event_location')]);
         const nf = $('files').files.length;
         rows.push(['Tệp mới', nf ? Array.from($('files').files).map(f => f.name).join(', ') : '—']);
-        rows.push(['Ngân sách', budget], ['Hạn nộp hồ sơ', val('deadline') || '—'], ['Yêu cầu bổ sung', val('extra_requirements') || '—']);
+        rows.push(['Ngân sách', budget], ['Hạn nộp hồ sơ', val('deadline') ? (window.vtFormatDateVn ? window.vtFormatDateVn(val('deadline')) : val('deadline')) : '—'], ['Yêu cầu bổ sung', val('extra_requirements') || '—']);
         const dl = $('review'); dl.innerHTML = '';
         rows.forEach(([k, v]) => {
             const d = document.createElement('div'); d.className = 'py-2.5 flex flex-col sm:flex-row sm:gap-4';

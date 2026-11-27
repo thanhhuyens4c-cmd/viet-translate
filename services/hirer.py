@@ -97,7 +97,7 @@ def apply_hirer_hiring_needs(profile, form):
     if low and high and high < low:
         low, high = high, low
     profile.typical_budget_min, profile.typical_budget_max = low, high
-    profile.needs_nda = 'needs_nda' in form
-    profile.needs_certified = 'needs_certified' in form
+    profile.needs_nda = False
+    profile.needs_certified = False
     profile.special_requirements = (form.get('special_requirements') or '').strip()[:1000] or None
     return profile
