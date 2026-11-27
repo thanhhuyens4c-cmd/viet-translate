@@ -12417,7 +12417,15 @@ def admin_users():
             User.phone.ilike(f'%{q}%')
         ))
 
-    users = query.order_by(User.created_at.desc()).all()
+    # Sắp xếp: chờ duyệt lên đầu → chưa xác minh → đã xác minh; trong mỗi nhóm mới nhất trước
+    if email_status == 'all':
+        users = query.order_by(
+            User.email_verification_requested.desc(),  # pending (True=1) lên đầu
+            User.email_verified.asc(),                 # chưa xác minh (False=0) trước đã xác minh
+            User.created_at.desc()                     # trong mỗi nhóm: mới nhất trước
+        ).all()
+    else:
+        users = query.order_by(User.created_at.desc()).all()
     return render_template(
         'admin_users.html',
         users=users,
