@@ -95,8 +95,16 @@ def evaluate_hirer_criteria(user, profile, manual_overrides=None):
 
     # ── X1: Email hợp lệ & đã xác minh ──────────────────────────────────────────
     email = (user.email or '').strip().lower()
-    x1_status = 'passed' if (email and '@' in email) else 'failed'
-    x1_note = 'Email hợp lệ (không yêu cầu xác minh qua thư)' if x1_status == 'passed' else 'Email không hợp lệ'
+    email_verified = bool(getattr(user, 'email_verified', False))
+    if not (email and '@' in email):
+        x1_status = 'failed'
+        x1_note = 'Email không hợp lệ'
+    elif not email_verified:
+        x1_status = 'failed'
+        x1_note = 'Email chưa được xác minh. Vui lòng xác minh địa chỉ email trước khi duyệt.'
+    else:
+        x1_status = 'passed'
+        x1_note = 'Email hợp lệ & đã xác minh'
     results['X1'] = {
         'code': 'X1',
         'title': HIRER_CRITERIA_DEFINITIONS['X1']['title'],
@@ -363,6 +371,12 @@ def can_hirer_post_job(user):
 
     if not user.is_active:
         return False, 'Tài khoản của bạn đã bị khóa hoặc tạm ngưng hoạt động.', False
+
+    if not getattr(user, 'email_verified', False):
+        return False, (
+            'Bạn cần xác minh địa chỉ email trước khi đăng yêu cầu tuyển dụng. '
+            'Vui lòng xác minh email trong mục Hồ sơ cá nhân / Xác minh.'
+        ), False
 
     profile = user.hirer_profile
     if not profile or profile.verification_status in ('unverified', None, ''):
