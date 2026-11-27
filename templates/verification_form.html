@@ -499,12 +499,10 @@
                 <!-- 1. Lĩnh vực chuyên ngành -->
                 <div>
                     <label
-                        class="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center justify-between">
+                        class="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center justify-between">
                         <span>1. Lĩnh vực chuyên môn thế mạnh <span class="text-rose-500">*</span></span>
                         <span class="text-[11px] text-slate-400 font-normal">Chọn ít nhất 1 lĩnh vực</span>
                     </label>
-                    <p class="text-xs text-slate-500 mb-3">Hệ thống sẽ gợi ý các dự án dịch thuật phù hợp với chuyên
-                        ngành bạn chọn.</p>
 
                     {% set cur_specs = (draft.specializations or '').split(', ') if draft.specializations else [] %}
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="specializations-grid">
@@ -523,19 +521,18 @@
                         {% for title, icon, desc in spec_options %}
                         {% set is_chk = title in cur_specs %}
                         <label
-                            class="spec-card flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition select-none {% if is_chk %}border-brand-500 bg-brand-50/30 ring-1 ring-brand-500/20{% else %}border-slate-200 hover:border-slate-300 bg-white{% endif %}">
+                            class="spec-card flex items-center gap-3 p-3.5 rounded-2xl border cursor-pointer transition select-none {% if is_chk %}border-brand-500 bg-brand-50/30 ring-1 ring-brand-500/20{% else %}border-slate-200 hover:border-slate-300 bg-white{% endif %}">
                             <input type="checkbox" name="specializations" value="{{ title }}"
                                 class="sr-only spec-checkbox" {% if is_chk %}checked{% endif %}
                                 onchange="updateCheckboxCard(this)">
                             <div
-                                class="spec-check-icon w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 text-xs transition {% if is_chk %}bg-brand-600 border-brand-600 text-white font-bold{% else %}border-slate-300 text-transparent{% endif %}">
+                                class="spec-check-icon w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 text-xs transition {% if is_chk %}bg-brand-600 border-brand-600 text-white font-bold{% else %}border-slate-300 text-transparent{% endif %}">
                                 ✓</div>
                             <div class="flex-grow">
                                 <div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                                     <span>{{ icon }}</span>
                                     <span>{{ title }}</span>
                                 </div>
-                                <p class="text-[11px] text-slate-500 mt-0.5 leading-tight">{{ desc }}</p>
                             </div>
                         </label>
                         {% endfor %}
@@ -546,12 +543,10 @@
                 <!-- 2. Hình thức phiên dịch -->
                 <div class="pt-4 border-t border-slate-100">
                     <label
-                        class="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center justify-between">
+                        class="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center justify-between">
                         <span>2. Hình thức phiên dịch có thể đảm nhận <span class="text-rose-500">*</span></span>
                         <span class="text-[11px] text-slate-400 font-normal">Chọn ít nhất 1 hình thức</span>
                     </label>
-                    <p class="text-xs text-slate-500 mb-3">Các phương thức bạn có kinh nghiệm và sẵn sàng cung cấp dịch
-                        vụ.</p>
 
                     {% set cur_types = (draft.interpreting_types or '').split(', ') if draft.interpreting_types else []
                     %}
@@ -567,19 +562,18 @@
                         {% for title, icon, desc in type_options %}
                         {% set is_chk = title in cur_types %}
                         <label
-                            class="type-card flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition select-none {% if is_chk %}border-indigo-500 bg-indigo-50/30 ring-1 ring-indigo-500/20{% else %}border-slate-200 hover:border-slate-300 bg-white{% endif %}">
+                            class="type-card flex items-center gap-3 p-3.5 rounded-2xl border cursor-pointer transition select-none {% if is_chk %}border-indigo-500 bg-indigo-50/30 ring-1 ring-indigo-500/20{% else %}border-slate-200 hover:border-slate-300 bg-white{% endif %}">
                             <input type="checkbox" name="interpreting_types" value="{{ title }}"
                                 class="sr-only type-checkbox" {% if is_chk %}checked{% endif %}
                                 onchange="updateCheckboxCard(this)">
                             <div
-                                class="type-check-icon w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 text-xs transition {% if is_chk %}bg-indigo-600 border-indigo-600 text-white font-bold{% else %}border-slate-300 text-transparent{% endif %}">
+                                class="type-check-icon w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 text-xs transition {% if is_chk %}bg-indigo-600 border-indigo-600 text-white font-bold{% else %}border-slate-300 text-transparent{% endif %}">
                                 ✓</div>
                             <div class="flex-grow">
                                 <div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                                     <span>{{ icon }}</span>
                                     <span>{{ title }}</span>
                                 </div>
-                                <p class="text-[11px] text-slate-500 mt-0.5 leading-tight">{{ desc }}</p>
                             </div>
                         </label>
                         {% endfor %}
@@ -851,8 +845,6 @@
                         <span>Hồ sơ thực chiến</span>
                     </div>
                     <h2 class="text-lg font-bold text-slate-900 mt-1">Kinh Nghiệm Nghề Nghiệp & Dự Án Thực Tế</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Minh chứng năng lực phiên dịch thực tế thông qua các mốc
-                        thời gian và dự án đã tham gia.</p>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -865,8 +857,6 @@
                         <input type="number" id="input-experience_years" name="experience_years" min="0" max="50"
                             value="{{ draft.experience_years if draft.experience_years is not none else 3 }}"
                             class="form-field w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 transition">
-                        <p class="text-[11px] text-slate-400 mt-1">Số năm làm việc thực tế trong lĩnh vực dịch thuật.
-                        </p>
                         <p class="error-msg text-xs text-rose-600 mt-1.5 hidden" id="err-experience_years"></p>
                     </div>
 

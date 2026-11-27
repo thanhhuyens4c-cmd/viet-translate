@@ -967,6 +967,16 @@
         </aside>
         {% endif %}
     <main class="flex-grow min-w-0">
+        {% set _hide_global_back = request.endpoint in ['index', 'client_dashboard', 'interpreter_dashboard', 'login', 'register', 'forgot_password', 'reset_password', 'admin_login', 'admin_dashboard', 'job_detail', 'verification_status_page', 'dispute_new', 'book_interpreter', 'book_service', 'messages_page', 'direct_chat'] %}
+        {% if request.endpoint and not _hide_global_back %}
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-1">
+            <button type="button" onclick="window.vtGoBack()"
+                class="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-600 bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl transition shadow-2xs cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7"/></svg>
+                <span>{{ 'Back' if current_lang == 'en' else 'Quay lại' }}</span>
+            </button>
+        </div>
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
     </div>
@@ -2029,6 +2039,20 @@
         wrap.appendChild(pickerBtn);
         el._vnDisplayInput = display;
         el._vnWrap = wrap;
+    };
+
+    window.vtGoBack = function() {
+        try {
+            if (window.history.length > 1 && document.referrer && new URL(document.referrer).origin === window.location.origin) {
+                window.history.back();
+                return;
+            }
+        } catch (e) {}
+        {% if current_user.is_authenticated %}
+        window.location.href = "{{ url_for('client_dashboard') if current_user.role == 'hirer' else (url_for('interpreter_dashboard') if current_user.role == 'translator' else url_for('index')) }}";
+        {% else %}
+        window.location.href = "{{ url_for('index') }}";
+        {% endif %}
     };
 
     window.vtBindFileInput = function(el) {
