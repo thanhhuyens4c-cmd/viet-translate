@@ -7586,7 +7586,10 @@ def _email_finance_admins_withdrawal(withdrawal, user, destination):
     amount = f'{withdrawal.amount:,}'.replace(',', '.')
     link = url_for('admin_finance', tab='payouts', _external=True)
     subject = f'[VietTranslate] Yêu cầu rút {amount} VND #{withdrawal.id}'
-    body = (f'<p><strong>{user.name}</strong> vừa yêu cầu rút <strong>{amount} VND</strong> về {destination}.</p>'
+    from markupsafe import escape
+    from services.payments import payout_details_text
+    body = (f'<p><strong>{escape(user.name)}</strong> vừa yêu cầu rút <strong>{amount} VND</strong>.</p>'
+            f'<p>Chuyển về: <strong>{escape(payout_details_text(withdrawal))}</strong></p>'
             f'<p>Vui lòng chuyển khoản trong 2 ngày làm việc rồi bấm "Đã chuyển khoản" tại '
             f'<a href="{link}">Tài chính &rsaquo; Chờ chi trả</a>.</p>')
 
@@ -7620,10 +7623,13 @@ def account_wallet_withdraw():
         withdrawal = payments.request_withdrawal(user.id, request.form.get('amount'), destination=destination,
                                                  account=account)
         db.session.flush()
+        role = 'PDV' if user.role == 'translator' else 'Khách thuê'
+        amount_txt = f'{withdrawal.amount:,}'.replace(',', '.')
         db.session.add(AdminNotification(
-            type='WALLET_WITHDRAW', title='Yêu cầu rút tiền mới',
-            message=f'{user.name} yêu cầu rút {withdrawal.amount:,} VND về {destination}. Cần chuyển khoản trong 2 ngày làm việc.'.replace(',', '.'),
-            url=url_for('admin_finance', tab='payouts'), related_id=withdrawal.id))
+            type='WALLET_WITHDRAW', title=f'Yêu cầu rút {amount_txt} VND',
+            message=(f'{user.name} ({role}) yêu cầu rút {amount_txt} VND. Chuyển về: '
+                     f'{payments.payout_details_text(withdrawal)}. Cần chuyển khoản trong 2 ngày làm việc.'),
+            url=url_for('admin_finance', tab='payouts') + f'#payout-{withdrawal.id}', related_id=withdrawal.id))
         db.session.commit()
         _email_finance_admins_withdrawal(withdrawal, user, destination)
         flash(f'Đã gửi yêu cầu rút tiền về {destination}. Sàn sẽ chuyển khoản trong 2 ngày làm việc.', 'success')
@@ -13358,6 +13364,13 @@ def admin_finance():
             'age_hours': int((now - p.created_at).total_seconds() // 3600) if p.created_at else 0,
         })
 
+    # Yêu cầu rút chưa được admin xem/xử lý (thông báo chưa đọc) để đánh dấu "Mới".
+    unread_ids = {n.related_id for n in AdminNotification.query.filter_by(
+        type='WALLET_WITHDRAW', is_read=False).all()}
+    for row in payout_rows:
+        row['is_new'] = row['p'].id in unread_ids
+        row['details'] = pay_svc.payout_details_text(row['p'], row['info'])
+
     recent_processed = PT.query.filter(
         PT.kind == 'withdraw', PT.status.in_(['completed', 'rejected'])
     ).order_by(PT.updated_at.desc()).limit(10).all()
@@ -13366,6 +13379,30 @@ def admin_finance():
         'admin_finance.html', tab=tab, period=period, periods=FINANCE_PERIODS, stats=stats,
         chart=chart, chart_max=chart_max, payout_rows=payout_rows, recent_processed=recent_processed,
         contracts=completed_contracts[:50])
+
+
+@app.route('/admin/finance/payout-alerts')
+@admin_login_required
+@require_permission('view_payments')
+def admin_finance_payout_alerts():
+    """Cho trang admin hỏi định kỳ: các yêu cầu rút tiền đang chờ, kèm số tài khoản để hiện thông báo nổi."""
+    from services import payments as pay_svc
+    pending = PaymentTransaction.query.filter(
+        PaymentTransaction.kind == 'withdraw', PaymentTransaction.status == 'pending'
+    ).order_by(PaymentTransaction.id.desc()).limit(20).all()
+    items = []
+    for p in pending:
+        u = db.session.get(User, p.payee_id) if p.payee_id else None
+        items.append({
+            'id': p.id, 'amount': p.amount, 'name': u.name if u else f'#{p.payee_id}',
+            'details': pay_svc.payout_details_text(p),
+            'url': url_for('admin_finance', tab='payouts') + f'#payout-{p.id}',
+        })
+    total = PaymentTransaction.query.filter(
+        PaymentTransaction.kind.in_(['withdraw', 'refund']), PaymentTransaction.status == 'pending').count()
+    resp = jsonify({'pending_count': total, 'withdrawals': items})
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
 
 
 @app.route('/admin/payments/<int:payment_id>/refund', methods=['POST'])
@@ -13426,6 +13463,12 @@ def admin_translator_no_show(contract_id):
         flash(str(e), 'error')
     return redirect(url_for('admin_contracts'))
 
+def _close_withdraw_notifications(payment_id):
+    """Yêu cầu rút tiền đã được xử lý: thông báo tương ứng không còn là việc cần làm."""
+    AdminNotification.query.filter_by(type='WALLET_WITHDRAW', related_id=payment_id, is_read=False) \
+        .update({'is_read': True})
+
+
 def _admin_payment_back():
     """Quay lại trang admin đã gửi form (Tài chính hoặc Payment); chỉ nhận đường dẫn nội bộ /admin/."""
     nxt = (request.form.get('next') or '').strip()
@@ -13456,6 +13499,7 @@ def admin_complete_withdrawal(payment_id):
                      + (f'về {p.transaction_ref}. ' if is_withdraw and p.transaction_ref else 'về tài khoản của bạn. ')
                      + 'Tiền thường về trong vài phút đến 1 ngày làm việc tùy ngân hàng.'),
             url=url_for('account_wallet'))
+    _close_withdraw_notifications(p.id)
     _audit_log(
         action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
         target_type='payment',
@@ -13487,6 +13531,7 @@ def admin_reject_withdrawal(payment_id):
         message=(f'Yêu cầu rút {p.amount:,} VND đã bị từ chối, tiền đã quay lại ví của bạn.'.replace(',', '.')
                  + (f' Lý do: {p.note}' if p.note else '')),
         url=url_for('account_wallet'))
+    _close_withdraw_notifications(p.id)
     _audit_log(
         action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
         target_type='payment',

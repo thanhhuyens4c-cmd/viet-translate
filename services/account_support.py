@@ -283,7 +283,7 @@ POLICY_DOCUMENTS = [
             },
             {
                 'title': 'Điều 3. Quy định rút tiền về ngân hàng',
-                'content': 'Phiên dịch viên có quyền rút số dư khả dụng về bất kỳ tài khoản ngân hàng chính chủ nào tại Việt Nam. VietTranslate áp dụng hạn mức rút tối thiểu 100.000 VNĐ/giao dịch và tối đa 100.000.000 VNĐ/ngày.'
+                'content': 'Phiên dịch viên có quyền rút số dư khả dụng về bất kỳ tài khoản ngân hàng chính chủ nào tại Việt Nam. VietTranslate áp dụng hạn mức rút tối thiểu 1.000 VNĐ/giao dịch và tối đa 100.000.000 VNĐ/ngày.'
             }
         ]
     },
