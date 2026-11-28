@@ -943,9 +943,7 @@
                     <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
                 </svg>
                 Tài chính
-                {% if admin_badge_pending_payouts and admin_badge_pending_payouts > 0 %}
-                <span class="nav-badge warning" title="{{ admin_badge_pending_payouts }} khoản rút / hoàn tiền chờ chuyển khoản">{{ admin_badge_pending_payouts }}</span>
-                {% endif %}
+                <span id="nav-payout-badge" class="nav-badge warning" style="{{ '' if admin_badge_pending_payouts else 'display:none' }}" title="Khoản rút / hoàn tiền chờ chuyển khoản">{{ admin_badge_pending_payouts or '' }}</span>
             </a>
             {% endif %}
 
@@ -1325,5 +1323,47 @@ document.addEventListener('keydown', function(e) {
 
 {% block scripts %}{% endblock %}
 
+{% if has_permission('view_payments') and 'admin_finance_payout_alerts' in get_admin_routes() %}
+<div id="payout-toasts" style="position:fixed; right:16px; bottom:16px; z-index:9999; display:flex; flex-direction:column; gap:10px; max-width:min(360px, calc(100vw - 32px))"></div>
+<script>
+/* Báo admin ngay khi có yêu cầu rút tiền mới (hỏi máy chủ mỗi 30 giây), kèm số tài khoản để chuyển khoản. */
+(function () {
+    var URL_ALERTS = {{ url_for('admin_finance_payout_alerts')|tojson }};
+    var KEY = 'vt_admin_seen_withdrawals';
+    function seen() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } }
+    function save(ids) { try { localStorage.setItem(KEY, JSON.stringify(ids.slice(-200))); } catch (e) {} }
+    function fmt(n) { return Number(n).toLocaleString('vi-VN'); }
+    function toast(w) {
+        var box = document.getElementById('payout-toasts');
+        var a = document.createElement('a');
+        a.href = w.url;
+        a.style.cssText = 'display:block; text-decoration:none; background:#1e293b; border:1px solid rgba(245,158,11,0.55); border-radius:12px; padding:12px 14px; box-shadow:0 10px 30px rgba(0,0,0,0.4); color:#e2e8f0; font-size:12.5px';
+        var t = document.createElement('div'); t.style.cssText = 'font-weight:800; color:#fbbf24; margin-bottom:4px';
+        t.textContent = '🔔 Yêu cầu rút ' + fmt(w.amount) + ' ₫';
+        var n = document.createElement('div'); n.style.cssText = 'font-weight:700'; n.textContent = w.name;
+        var d = document.createElement('div'); d.style.cssText = 'color:#94a3b8; margin-top:2px; line-height:1.45'; d.textContent = w.details;
+        var c = document.createElement('div'); c.style.cssText = 'color:#60a5fa; margin-top:6px; font-weight:700'; c.textContent = 'Mở Tài chính để chuyển khoản →';
+        a.append(t, n, d, c);
+        box.appendChild(a);
+        setTimeout(function () { a.remove(); }, 20000);
+    }
+    function check() {
+        fetch(URL_ALERTS, {credentials: 'same-origin', headers: {'Accept': 'application/json'}})
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data) return;
+                var badge = document.getElementById('nav-payout-badge');
+                if (badge) { badge.textContent = data.pending_count || ''; badge.style.display = data.pending_count ? '' : 'none'; }
+                var ids = seen(), fresh = data.withdrawals.filter(function (w) { return ids.indexOf(w.id) === -1; });
+                fresh.slice(0, 3).forEach(toast);
+                if (fresh.length) save(ids.concat(fresh.map(function (w) { return w.id; })));
+            })
+            .catch(function () {});
+    }
+    check();
+    setInterval(check, 30000);
+})();
+</script>
+{% endif %}
 </body>
 </html>

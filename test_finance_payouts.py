@@ -211,6 +211,40 @@ class FeeAndPayoutFlowTests(Base):
             user_id=self.trans.id, title='Sàn đã chuyển khoản cho bạn').count(), 1)
         self.assertEqual(payments.wallet_balance(self.trans.id), 700_000)
 
+    def test_admin_alert_carries_full_bank_account(self):
+        from services.payout_methods import add_payout_method
+        payments.topup(self.trans.id, 500_000)
+        db.session.commit()
+        add_payout_method(self.trans.id, 'VCB', '9988776655', 'TRANS TEST', '', True)
+        self.login(self.trans)
+        self.client.post('/account/wallet/withdraw', data={'amount': '250.000', '_csrf_token': 'tok'})
+        w = PaymentTransaction.query.filter_by(payee_id=self.trans.id, kind='withdraw').one()
+
+        n = AdminNotification.query.filter_by(type='WALLET_WITHDRAW', related_id=w.id).one()
+        self.assertIn('9988776655', n.message)          # số tài khoản đầy đủ, không che
+        self.assertIn('TRANS TEST', n.message)
+        self.assertIn(f'VIETTRANSLATE RUT TIEN {w.id}', n.message)
+        self.assertIn(f'#payout-{w.id}', n.url)
+
+        self.login_admin()
+        data = self.client.get('/admin/finance/payout-alerts').get_json()
+        self.assertEqual(data['pending_count'], 1)
+        self.assertIn('9988776655', data['withdrawals'][0]['details'])
+        html = self.client.get('/admin/finance').get_data(as_text=True)
+        self.assertIn('Yêu cầu rút tiền mới', html)
+        self.assertIn('9988776655', html)
+        self.assertIn('payout-toasts', html)
+
+        self.client.post(f'/admin/payments/{w.id}/complete-withdrawal', data={'_csrf_token': 'tok'})
+        db.session.expire_all()
+        self.assertTrue(db.session.get(AdminNotification, n.id).is_read)
+        self.assertEqual(self.client.get('/admin/finance/payout-alerts').get_json()['pending_count'], 0)
+
+    def test_payout_alerts_need_admin(self):
+        self.login(self.trans)
+        r = self.client.get('/admin/finance/payout-alerts')
+        self.assertIn(r.status_code, (302, 401, 403))
+
     def test_withdraw_minimum_is_1000(self):
         from services import pricing
         self.assertEqual(pricing.WITHDRAW_MIN, 1_000)

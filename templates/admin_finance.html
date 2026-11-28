@@ -18,6 +18,7 @@
     .fin-axis { display: flex; justify-content: space-between; padding: 6px 18px 14px; font-size: 10.5px; color: var(--muted); }
     .payout-card { border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: 1fr auto; gap: 16px; }
     .payout-card.overdue { border-color: rgba(245,158,11,0.45); }
+    .payout-card:target { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(59,130,246,0.35); }
     @media (max-width: 720px) { .payout-card { grid-template-columns: 1fr; } }
     .copy-btn { font-size: 10.5px; color: var(--brand); background: none; border: none; cursor: pointer; padding: 0 4px; }
     .copy-btn:hover { text-decoration: underline; }
@@ -36,6 +37,27 @@
         {% endfor %}
     </div>
 </div>
+
+{% set new_rows = payout_rows | selectattr('is_new') | list %}
+{% if new_rows %}
+<div class="admin-card" style="margin-bottom: 16px; border-color: rgba(245,158,11,0.45)">
+    <div class="admin-card-header" style="color:#fbbf24">
+        <span>🔔 Yêu cầu rút tiền mới ({{ new_rows|length }})</span>
+        <a href="{{ url_for('admin_finance', tab='payouts', period=period) }}" style="font-size: 11px; color: var(--brand)">Xử lý tất cả →</a>
+    </div>
+    <div style="padding: 6px 18px 10px">
+        {% for row in new_rows %}
+        <a href="{{ url_for('admin_finance', tab='payouts', period=period) }}#payout-{{ row.p.id }}" class="fin-row" style="text-decoration:none; align-items:flex-start">
+            <span>
+                <span class="v">{{ row.user.name if row.user else '#' ~ row.p.payee_id }}</span>
+                <span class="k" style="display:block; font-size: 12px; margin-top: 2px">{{ row.details }}</span>
+            </span>
+            <span class="v fin-num" style="white-space:nowrap; color:#fbbf24">{{ row.p.amount|vnd }} ₫</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 
 {% if stats.pending_withdraw_count or stats.pending_refund_count %}
 <a href="{{ url_for('admin_finance', tab='payouts', period=period) }}" class="block mb-5" style="text-decoration:none">
@@ -138,10 +160,11 @@
     <div style="padding: 16px; display: grid; gap: 12px">
         {% for row in payout_rows %}
         {% set p = row.p %}
-        <div class="payout-card {{ 'overdue' if row.age_hours >= 48 }}">
+        <div class="payout-card {{ 'overdue' if row.age_hours >= 48 }}" id="payout-{{ p.id }}" style="scroll-margin-top: 80px">
             <div>
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom: 10px">
                     <span class="badge {{ 'badge-yellow' if p.kind == 'withdraw' else 'badge-indigo' }}">{{ 'Rút tiền' if p.kind == 'withdraw' else 'Hoàn tiền về phương thức gốc' }}</span>
+                    {% if row.is_new %}<span class="badge badge-red">Mới</span>{% endif %}
                     <span style="font-size: 22px; font-weight: 900; color: #f1f5f9" class="fin-num">{{ p.amount|vnd }} ₫</span>
                     <span style="font-size: 11px; color: {{ 'var(--warning)' if row.age_hours >= 48 else 'var(--muted)' }}">
                         #TXN-{{ p.id }} · gửi {{ (p.created_at + timedelta(hours=7)).strftime('%d/%m/%Y %H:%M') if p.created_at }}
