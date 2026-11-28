@@ -113,6 +113,41 @@
             </div>
         </div>
 
+        {% if verification_status.code != 'verified' %}
+        <div class="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-amber-900">
+                        {% if verification_status.code == 'needs_revision' %}Cần bổ sung hồ sơ xác minh Phiên dịch viên
+                        {% elif verification_status.code == 'pending' %}Hồ sơ xác minh Phiên dịch viên đang chờ duyệt
+                        {% else %}Hoàn thiện thông tin &amp; Xác minh tài khoản Phiên dịch viên{% endif %}
+                    </h3>
+                    <p class="text-xs text-amber-700 mt-0.5">
+                        {% if verification_status.code == 'needs_revision' %}Ban quản trị đã yêu cầu chỉnh sửa/bổ sung thông tin để hoàn tất cấp huy hiệu xác minh.
+                        {% elif verification_status.code == 'pending' %}Hồ sơ của bạn đang được Ban quản trị thẩm định. Theo dõi tiến độ xử lý tại trang xác minh.
+                        {% else %}Cập nhật hồ sơ và gửi xác minh năng lực để nâng cao độ tin cậy khi ứng tuyển và nhận việc.{% endif %}
+                    </p>
+                </div>
+            </div>
+            {% if verification_status.code == 'needs_revision' %}
+            <a href="{{ url_for('verification_revision_page') }}" class="self-start sm:self-auto inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm shrink-0">
+                Bổ sung hồ sơ ngay →
+            </a>
+            {% elif verification_status.code in ['pending', 'rejected'] %}
+            <a href="{{ url_for('verification_status_page') }}" class="self-start sm:self-auto inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm shrink-0">
+                Xem trạng thái xác minh →
+            </a>
+            {% else %}
+            <a href="{{ url_for('account_verification') }}" class="self-start sm:self-auto inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm shrink-0">
+                Cập nhật hồ sơ &amp; Xác minh →
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <!-- 2. Thống kê công việc -->
         <section id="section-jobs" class="scroll-mt-24 bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
             <div class="flex items-center justify-between mb-4">
