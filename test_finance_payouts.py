@@ -211,6 +211,16 @@ class FeeAndPayoutFlowTests(Base):
             user_id=self.trans.id, title='Sàn đã chuyển khoản cho bạn').count(), 1)
         self.assertEqual(payments.wallet_balance(self.trans.id), 700_000)
 
+    def test_withdraw_minimum_is_1000(self):
+        from services import pricing
+        self.assertEqual(pricing.WITHDRAW_MIN, 1_000)
+        payments.topup(self.trans.id, 50_000)
+        db.session.commit()
+        w = payments.request_withdrawal(self.trans.id, '1.000')
+        self.assertEqual(w.amount, 1_000)
+        with self.assertRaises(payments.PaymentError):
+            payments.request_withdrawal(self.trans.id, 999)
+
     def test_next_param_only_allows_admin_paths(self):
         payments.topup(self.trans.id, 1_000_000)
         w = payments.request_withdrawal(self.trans.id, 200_000)

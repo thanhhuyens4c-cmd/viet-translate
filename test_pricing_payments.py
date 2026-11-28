@@ -177,7 +177,7 @@ class PaymentFlowTests(unittest.TestCase):
         self.assertEqual(payments.wallet_balance(self.trans.id), 1_944_000)
 
         with self.assertRaises(payments.PaymentError):
-            payments.request_withdrawal(self.trans.id, 50_000)          # dưới mức tối thiểu
+            payments.request_withdrawal(self.trans.id, 999)             # dưới mức tối thiểu 1.000đ
         with self.assertRaises(payments.PaymentError):
             payments.request_withdrawal(self.trans.id, 5_000_000)       # vượt số dư
         with self.assertRaises(payments.PaymentError):
