@@ -1173,10 +1173,11 @@
                                 Tài Liệu Minh Chứng Đính Kèm
                             </h3>
                             {% if not is_pending and not is_approved %}
-                            <a href="{{ url_for('account_profile') }}?tab=verification"
+                            <button type="button"
+                                onclick="document.getElementById('step6-quick-upload-box')?.scrollIntoView({behavior:'smooth', block:'center'}); document.getElementById('step6-doc-type')?.focus();"
                                 class="text-xs font-bold text-brand-600 hover:text-brand-800 transition flex items-center gap-1 cursor-pointer">
-                                <span>📎 Quản lý tài liệu</span>
-                            </a>
+                                <span>📎 Thêm / Tải tài liệu ngay</span>
+                            </button>
                             {% endif %}
                         </div>
 

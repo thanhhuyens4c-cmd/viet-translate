@@ -9374,7 +9374,13 @@
 
                     clearSelectedDocFile();
                     setTimeout(() => {
-                        window.location.href = window.location.pathname + '?tab=verification';
+                        const params = new URLSearchParams(window.location.search);
+                        const returnTo = params.get('return_to');
+                        if (returnTo === 'step6') {
+                            window.location.href = "{{ url_for('verification_form', step=6) }}";
+                        } else {
+                            window.location.href = window.location.pathname + '?tab=verification';
+                        }
                     }, 1200);
                 } else {
                     progBox.classList.add('hidden');
