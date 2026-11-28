@@ -93,8 +93,14 @@ def evaluate_hirer_criteria(user, profile, manual_overrides=None):
     manual_overrides = manual_overrides or {}
     results = {}
 
+    from services.auto_verification_service import is_full_auto_approve_enabled
+    full_auto = is_full_auto_approve_enabled()
+
     # ── X1: Email hợp lệ & đã xác minh ──────────────────────────────────────────
     email = (user.email or '').strip().lower()
+    if full_auto and email and '@' in email and not getattr(user, 'email_verified', False):
+        user.email_verified = True
+        user.email_verification_requested = False
     email_verified = bool(getattr(user, 'email_verified', False))
     if not (email and '@' in email):
         x1_status = 'failed'
@@ -172,6 +178,9 @@ def evaluate_hirer_criteria(user, profile, manual_overrides=None):
             # Cơ chế tự động đối soát: Có tên doanh nghiệp, MST chuẩn và file GPKD/ủy quyền đính kèm
             x3_status = 'passed'
             x3_note = f'Doanh nghiệp hợp lệ: MST {clean_tax} và hồ sơ pháp nhân/GPKD đã đối chiếu thành công.'
+        elif full_auto and (has_auth_doc or (has_company and has_valid_tax)):
+            x3_status = 'passed'
+            x3_note = 'Chế độ Tự động duyệt toàn bộ: Đã có thông tin doanh nghiệp / giấy tờ tải lên hợp lệ.'
         elif has_company and has_valid_tax and not has_auth_doc:
             x3_status = 'pending_review'
             x3_note = 'Cần tải lên Giấy phép đăng ký kinh doanh hoặc Giấy ủy quyền để hoàn tất xác minh.'

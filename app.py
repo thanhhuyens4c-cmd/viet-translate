@@ -2949,12 +2949,14 @@ def register():
         hashed_pw = generate_password_hash(password)
 
         try:
+            from services.auto_verification_service import is_full_auto_approve_enabled
             new_user = User(
                 name=name,
                 email=email,
                 password_hash=hashed_pw,
                 phone=phone,
                 role=role,
+                email_verified=is_full_auto_approve_enabled(),
             )
             db.session.add(new_user)
             db.session.flush()  # Lấy new_user.id trước khi tạo profile
@@ -3104,6 +3106,19 @@ def request_email_verification():
             'success': True,
             'already_verified': True,
             'message': 'Địa chỉ email của bạn đã được xác minh thành công trước đó.'
+        })
+
+    from services.auto_verification_service import is_full_auto_approve_enabled
+    if is_full_auto_approve_enabled():
+        user.email_verified = True
+        user.email_verification_requested = False
+        _notify_email_verified(user)
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'already_verified': True,
+            'auto_approved': True,
+            'message': 'Địa chỉ email đã được hệ thống tự động xác minh thành công!'
         })
 
     # Cập nhật trạng thái người dùng đã gửi yêu cầu
@@ -12821,6 +12836,33 @@ def admin_update_auto_settings():
 
     flash(msg, 'success' if ok else 'danger')
     return redirect(url_for('admin_translators'))
+
+
+@app.route('/admin/toggle-full-auto-approve', methods=['POST'])
+@admin_login_required
+@csrf_protected
+def admin_toggle_full_auto_approve():
+    """1 nút bật/tắt chế độ Tự động duyệt toàn bộ (chỉ Super Admin)."""
+    admin_role = getattr(g, 'admin_role', None) or session.get(ADMIN_SESSION_ROLE)
+    if admin_role != 'super_admin':
+        msg = 'Chỉ Super Admin mới có quyền bật/tắt chế độ Tự động duyệt toàn bộ.'
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': msg}), 403
+        flash(msg, 'danger')
+        return redirect(request.referrer or url_for('admin_translators'))
+
+    from services.auto_verification_service import is_full_auto_approve_enabled, toggle_full_auto_approve
+    from admin_auth import get_client_ip
+
+    admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
+    next_state = not is_full_auto_approve_enabled()
+    ok, msg = toggle_full_auto_approve(next_state, admin_user=admin, ip_address=get_client_ip())
+
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': ok, 'enabled': next_state, 'message': msg})
+
+    flash(msg, 'success' if ok else 'danger')
+    return redirect(request.referrer or url_for('admin_translators'))
 
 @app.route('/admin/translators/<int:profile_id>/verify', methods=['POST'])
 @admin_login_required

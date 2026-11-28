@@ -53,8 +53,17 @@
                     </button>
                 </form>
 
-                <!-- Nút 3: Cài đặt chính sách (Chỉ Super Admin) -->
+                <!-- Nút 3: Bật/tắt chế độ Tự động duyệt toàn bộ (Chỉ Super Admin) -->
                 {% if admin_role == 'super_admin' %}
+                <form method="POST" action="{{ url_for('admin_toggle_full_auto_approve') }}" style="margin: 0;">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    {% set full_auto_on = auto_settings.get('full_auto_approve_all') %}
+                    <button type="submit" class="btn btn-sm"
+                            style="{% if full_auto_on %}background: rgba(16,185,129,0.18); color: #34d399; border: 1px solid rgba(16,185,129,0.45);{% else %}background: rgba(148,163,184,0.12); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.3);{% endif %}"
+                            title="Bật/tắt chế độ tự động duyệt toàn bộ (Email, PDV và Doanh nghiệp)">
+                        ⚡ Tự duyệt toàn bộ: <strong>{{ 'ĐANG BẬT' if full_auto_on else 'ĐANG TẮT' }}</strong>
+                    </button>
+                </form>
                 <button type="button" class="btn btn-sm btn-ghost" onclick="toggleSettingsModal()" title="Cài đặt chính sách Hybrid Auto-Verification">
                     ⚙️ Cài đặt
                 </button>

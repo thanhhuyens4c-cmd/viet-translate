@@ -36,12 +36,31 @@ CONFIG_FILE_PATH = os.path.join(
 DEFAULT_SETTINGS: Dict[str, Any] = {
     'auto_approve_enabled': True,       # BẬT phê duyệt tự động khi hồ sơ đủ điều kiện
     'dry_run_mode': False,             # Chế độ chạy thực tế (phê duyệt tự động hoàn tất)
+    'full_auto_approve_all': False,    # Chế độ Tự động duyệt toàn bộ (Email + PDV không cần QR + Doanh nghiệp)
     'min_name_match_score': 0.85,      # Ngưỡng khớp tên vùng High Confidence
     'batch_size': 15,                  # Tối đa 15 hồ sơ / lô để tối ưu VPS 1 vCPU
     'require_email_verified': True,    # Bắt buộc email đã xác thực
     'require_cv': True,                # Bắt buộc có tệp CV hợp lệ
     'require_id_card': True,           # Bắt buộc có CCCD / Hộ chiếu
 }
+
+
+def is_full_auto_approve_enabled() -> bool:
+    """Kiểm tra chế độ Tự động duyệt toàn bộ (1 nút bật/tắt) có đang bật không."""
+    return bool(get_auto_verification_settings().get('full_auto_approve_all', False))
+
+
+def toggle_full_auto_approve(enabled: bool, admin_user: Optional[User] = None, ip_address: Optional[str] = None) -> Tuple[bool, str]:
+    """Bật/tắt chế độ Tự động duyệt toàn bộ (Email + PDV + Doanh nghiệp)."""
+    patch: Dict[str, Any] = {'full_auto_approve_all': bool(enabled)}
+    if enabled:
+        patch['auto_approve_enabled'] = True
+        patch['dry_run_mode'] = False
+    ok, msg = save_auto_verification_settings(patch, admin_user=admin_user, ip_address=ip_address)
+    if not ok:
+        return False, msg
+    state_txt = 'BẬT' if enabled else 'TẮT'
+    return True, f'Đã {state_txt} chế độ Tự động duyệt toàn bộ.'
 
 
 def get_auto_verification_settings() -> Dict[str, Any]:
@@ -115,6 +134,7 @@ def evaluate_verification_submission(verification_id: int) -> Dict[str, Any]:
         return {'success': False, 'message': 'Không tìm thấy người dùng sở hữu hồ sơ.'}
 
     settings = get_auto_verification_settings()
+    full_auto = bool(settings.get('full_auto_approve_all', False))
 
     checks: Dict[str, Any] = {
         'email': {'passed': False, 'label': 'Xác thực Email', 'detail': ''},
@@ -125,6 +145,10 @@ def evaluate_verification_submission(verification_id: int) -> Dict[str, Any]:
     }
 
     # 1. Kiểm tra Email
+    if full_auto and not user.email_verified:
+        user.email_verified = True
+        user.email_verification_requested = False
+
     if user.email_verified:
         checks['email']['passed'] = True
         checks['email']['detail'] = f"Đã xác minh ({user.email})"
@@ -188,8 +212,13 @@ def evaluate_verification_submission(verification_id: int) -> Dict[str, Any]:
             cert_detail = cert_res.get('error') or "Không xác minh được tính hợp lệ của chứng chỉ."
     else:
         # Nếu có đính kèm file chứng chỉ scan truyền thống
-        cert_docs = [d for d in verification.documents if d.is_active and d.document_type == 'certificate' and d.file_size > 0]
-        if cert_docs or verification.certificate_filename:
+        cert_docs = [d for d in verification.documents if d.is_active and d.document_type == 'certificate' and (d.file_size or 0) > 0]
+        if full_auto and (cert_docs or verification.certificate_filename or (checks['cv']['passed'] and checks['identity']['passed'])):
+            cert_status = 'verified'
+            name_score = max(name_score, 1.0)
+            checks['certificate']['passed'] = True
+            cert_detail = "Chế độ Tự động duyệt toàn bộ: Đã có tài liệu minh chứng tải lên hợp lệ."
+        elif cert_docs or verification.certificate_filename:
             checks['certificate']['passed'] = False  # Vẫn cần Admin kiểm tra bằng mắt
             cert_detail = "Đã đính kèm ảnh/file chứng chỉ scan (Cần Admin kiểm tra trực tiếp)."
         else:
