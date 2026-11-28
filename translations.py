@@ -804,9 +804,9 @@ TRANSLATIONS = {
 
         # ─── Job Category Display Text ───
         'job_category': {
-            'translation': 'Dịch thuật',
-            'interpretation_other': 'Phiên dịch & Khác',
-            'document_translation': 'Dịch tài liệu',
+            'translation': 'Dịch tài liệu',
+            'interpretation_other': 'Phiên dịch',
+            'document_translation': 'Biên dịch tài liệu / Hồ sơ',
             'website_translation': 'Dịch website',
             'subtitle': 'Dịch phụ đề',
             'proofreading': 'Hiệu đính',
@@ -1764,9 +1764,9 @@ TRANSLATIONS = {
 
         # ─── Job Category Display Text ───
         'job_category': {
-            'translation': 'Translation',
-            'interpretation_other': 'Interpretation & Other',
-            'document_translation': 'Document Translation',
+            'translation': 'Document Translation',
+            'interpretation_other': 'Interpretation',
+            'document_translation': 'Document / File Translation',
             'website_translation': 'Website Translation',
             'subtitle': 'Subtitle Translation',
             'proofreading': 'Proofreading',

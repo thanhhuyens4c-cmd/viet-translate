@@ -74,7 +74,7 @@
                     <label class="{{ label_cls }}" for="category_group">Loại hình <span class="text-rose-500">*</span></label>
                     <select id="category_group" name="category_group" class="{{ input_cls }}" {{ 'disabled' if locked }}>
                         <option value="translation" {{ 'selected' if v.get('category_group', 'translation') == 'translation' }}>Dịch tài liệu</option>
-                        <option value="interpretation_other" {{ 'selected' if v.get('category_group') == 'interpretation_other' }}>Phiên dịch trực tiếp</option>
+                        <option value="interpretation_other" {{ 'selected' if v.get('category_group') == 'interpretation_other' }}>Phiên dịch</option>
                     </select>
                     {{ field_error('category_group') }}
                 </div>
@@ -126,7 +126,7 @@
             </div>
             <div data-only="interpretation" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4">
                 <div class="flex items-center justify-between gap-3">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Lịch làm việc &amp; địa điểm (phiên dịch trực tiếp)</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Lịch làm việc &amp; địa điểm (phiên dịch)</h3>
                     <button type="button" id="add-day" class="text-xs font-bold text-brand-600 hover:text-brand-700">+ Thêm ngày</button>
                 </div>
                 <div id="schedule-container" class="space-y-3"></div>

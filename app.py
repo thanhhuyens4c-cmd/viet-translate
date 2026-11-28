@@ -8658,7 +8658,7 @@ JOB_FILE_MAX_COUNT = 5
 JOB_LANGS = ['Tiếng Việt', 'Tiếng Anh', 'Tiếng Nhật', 'Tiếng Hàn', 'Tiếng Trung', 'Tiếng Pháp', 'Tiếng Đức',
              'Tiếng Nga', 'Tiếng Thái', 'Tiếng Bồ Đào Nha', 'Tiếng Tây Ban Nha']
 JOB_SERVICE_TYPES = {
-    'translation': {'document_translation': 'Dịch tài liệu', 'website_translation': 'Dịch website',
+    'translation': {'document_translation': 'Biên dịch tài liệu / Hồ sơ', 'website_translation': 'Dịch website',
                     'subtitle': 'Dịch phụ đề', 'proofreading': 'Hiệu đính', 'localization': 'Bản địa hóa',
                     'other_translation': 'Dịch thuật khác'},
     'interpretation_other': {'conference': 'Phiên dịch hội nghị / Cabin', 'meeting': 'Phiên dịch họp / Đàm phán',
@@ -10706,6 +10706,9 @@ def my_projects():
     if clause is not None:
         query = query.filter(clause)
     pagination = query.order_by(Contract.created_at.desc(), Contract.id.desc()).paginate(page=page, per_page=10, error_out=False)
+    rows = []
+    for c in pagination.items:
+        key, label = display_status(c)
         rows.append({'c': c, 'title': project_title(c), 'pair': language_pair(c), 'status': key, 'label': label,
                      'translator': c.translator.name if c.translator else '—', 'deadline': project_deadline(c)})
     total_all = Contract.query.filter_by(hirer_id=user.id).count()

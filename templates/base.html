@@ -1988,8 +1988,7 @@
             }
         }
 
-        display.addEventListener('input', function(e) {
-            if (e && e.isComposing) return;
+        function syncFromDisplay() {
             const start = typeof display.selectionStart === 'number' ? display.selectionStart : display.value.length;
             const beforeDigits = display.value.slice(0, start).replace(/\D/g, '').length;
             const formatted = formatTyping(display.value);
@@ -2018,7 +2017,43 @@
                 }
             }
             el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        display.addEventListener('keydown', function(e) {
+            const start = display.selectionStart;
+            const end = display.selectionEnd;
+            if (start === null || start !== end) return;
+            if (e.key === 'Backspace' && start > 0 && display.value[start - 1] === '/') {
+                e.preventDefault();
+                const leftDigits = display.value.slice(0, start - 1).replace(/\D/g, '');
+                const rightDigits = display.value.slice(start).replace(/\D/g, '');
+                display.value = formatTyping(leftDigits.slice(0, -1) + rightDigits);
+                const targetDigits = Math.max(0, leftDigits.length - 1);
+                let pos = 0, seen = 0;
+                while (pos < display.value.length && seen < targetDigits) {
+                    if (/\d/.test(display.value[pos])) seen++;
+                    pos++;
+                }
+                display.setSelectionRange(pos, pos);
+                syncFromDisplay();
+            } else if (e.key === 'Delete' && start < display.value.length && display.value[start] === '/') {
+                e.preventDefault();
+                const leftDigits = display.value.slice(0, start).replace(/\D/g, '');
+                const rightDigits = display.value.slice(start + 1).replace(/\D/g, '');
+                display.value = formatTyping(leftDigits + rightDigits.slice(1));
+                let pos = 0, seen = 0;
+                while (pos < display.value.length && seen < leftDigits.length) {
+                    if (/\d/.test(display.value[pos])) seen++;
+                    pos++;
+                }
+                display.setSelectionRange(pos, pos);
+                syncFromDisplay();
+            }
         });
+
+        display.addEventListener('input', syncFromDisplay);
+        display.addEventListener('compositionend', syncFromDisplay);
+        display.addEventListener('blur', syncFromDisplay);
 
         nativePicker.addEventListener('change', function() {
             if (nativePicker.value) {

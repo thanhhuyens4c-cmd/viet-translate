@@ -36,11 +36,11 @@
             </select>
         </div>
         <div>
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1" for="service">Loại dịch vụ</label>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1" for="service">Loại hình</label>
             <select id="service" name="service" class="{{ sel_cls }}">
                 <option value="">Tất cả</option>
                 <option value="translation" {{ 'selected' if service == 'translation' }}>Dịch tài liệu</option>
-                <option value="interpretation_other" {{ 'selected' if service == 'interpretation_other' }}>Phiên dịch trực tiếp</option>
+                <option value="interpretation_other" {{ 'selected' if service == 'interpretation_other' }}>Phiên dịch</option>
             </select>
         </div>
         <div class="sm:col-span-2 lg:col-span-5 flex gap-2 justify-end">
