@@ -38,7 +38,7 @@ COMMISSION_PERCENT = 10
 COMMISSION_PERCENT_LOYAL = 5
 LOYAL_THRESHOLD = 10_000_000
 
-WITHDRAW_MIN = 100_000
+WITHDRAW_MIN = 1_000  # rút tối thiểu 1.000đ mỗi lần
 
 
 # Đơn vị hợp lệ theo nhóm dịch vụ: dịch tài liệu tính theo trang, phiên dịch (kể cả dịch cabin)
