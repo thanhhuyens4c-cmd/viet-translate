@@ -2015,7 +2015,7 @@ def get_translator_verification_status_details(user):
             'guidance': 'Chúc mừng bạn! Hồ sơ đã đạt tiêu chuẩn tích xanh. Khách thuê có thể tìm kiếm và đặt lịch trực tiếp.',
             'primary_btn': {
                 'text': 'Xem trang hồ sơ công khai của bạn',
-                'url': f"/translator/{user.id}",
+                'url': f"/translator/{profile.id}" if profile else "/account/profile",
                 'icon': 'badge',
                 'class': 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/20'
             },

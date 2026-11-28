@@ -260,7 +260,7 @@ class VerificationStatusTestCase(unittest.TestCase):
         content = resp.data.decode('utf-8')
         self.assertIn('Đã xác minh chính thức', content)
         self.assertIn('Tích xanh', content)
-        self.assertIn(f'/translator/{self.translator.id}', content)
+        self.assertIn(f'/translator/{prof.id}', content)
 
         details = get_translator_verification_status_details(self.translator)
         self.assertEqual(details['overall_state'], 'verified')

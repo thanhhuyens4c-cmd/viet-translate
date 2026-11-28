@@ -3014,6 +3014,8 @@ def verify_email(token):
     # Đánh dấu token đã dùng và email đã xác minh
     valid_token.is_used = True
     user.email_verified = True
+    user.email_verification_requested = False
+    _notify_email_verified(user)
     db.session.commit()
     
     flash("Xác minh email thành công! Bạn có thể bắt đầu sử dụng đầy đủ các tính năng.", "success")
@@ -10704,9 +10706,6 @@ def my_projects():
     if clause is not None:
         query = query.filter(clause)
     pagination = query.order_by(Contract.created_at.desc(), Contract.id.desc()).paginate(page=page, per_page=10, error_out=False)
-    rows = []
-    for c in pagination.items:
-        key, label = display_status(c)
         rows.append({'c': c, 'title': project_title(c), 'pair': language_pair(c), 'status': key, 'label': label,
                      'translator': c.translator.name if c.translator else '—', 'deadline': project_deadline(c)})
     total_all = Contract.query.filter_by(hirer_id=user.id).count()
@@ -12457,6 +12456,21 @@ def admin_toggle_user(user_id):
     flash(f'Đã {action_text} tài khoản {user.name}.', 'success')
     return redirect(request.referrer or url_for('admin_users'))
 
+def _notify_email_verified(user):
+    """Gửi thông báo trong hệ thống (không gửi tin nhắn) khi email được duyệt/xác minh."""
+    try:
+        create_notification(
+            user_id=user.id,
+            notification_type='EMAIL_VERIFIED',
+            title='Email của bạn đã được xác minh',
+            message=f'Địa chỉ email {user.email} đã được duyệt và xác minh thành công. Bạn có thể sử dụng đầy đủ các tính năng của VietTranslate.',
+            url=url_for('account_profile'),
+            force=True,
+        )
+    except Exception:
+        pass
+
+
 @app.route('/admin/users/<int:user_id>/verify-email', methods=['POST'])
 @admin_login_required
 @csrf_protected
@@ -12464,6 +12478,7 @@ def admin_toggle_user(user_id):
 def admin_verify_user_email(user_id):
     """Admin duyệt xác thực email thủ công cho một tài khoản người dùng."""
     user = User.query.get_or_404(user_id)
+    was_verified = bool(user.email_verified)
     user.email_verified = True
     user.email_verification_requested = False
 
@@ -12472,6 +12487,9 @@ def admin_verify_user_email(user_id):
     pending_tokens = EmailVerificationToken.query.filter_by(user_id=user.id, is_used=False).all()
     for t in pending_tokens:
         t.is_used = True
+
+    if not was_verified:
+        _notify_email_verified(user)
 
     _audit_log(
         action=ADMIN_AUDIT_ACTIONS.get('VERIFY_EMAIL', 'VERIFY_EMAIL'),
@@ -12528,6 +12546,7 @@ def admin_bulk_verify_email():
             tokens = EmailVerificationToken.query.filter_by(user_id=u.id, is_used=False).all()
             for t in tokens:
                 t.is_used = True
+            _notify_email_verified(u)
 
     if verified_count > 0:
         _audit_log(
