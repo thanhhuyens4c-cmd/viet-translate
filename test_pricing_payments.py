@@ -40,15 +40,21 @@ class PricingFormulaTests(unittest.TestCase):
         self.assertEqual(fees['commission'], 500_000)
         self.assertEqual(fees['platform_revenue'], 600_000)
 
-    def test_minimums(self):
-        fees = pricing.compute_fees(100_000)
-        self.assertEqual(fees['client_fee'], 10_000)    # 2% = 2.000, nâng lên mức tối thiểu
-        self.assertEqual(fees['commission'], 20_000)    # 10% = 10.000, nâng lên mức tối thiểu
+    def test_no_minimums_fee_is_exact_percent(self):
+        # Đơn nhỏ vẫn thu đúng 2% / 10%, không nâng lên mức tối thiểu.
+        fees = pricing.compute_fees(23_000)
+        self.assertEqual(fees['client_fee'], 460)
+        self.assertEqual(fees['commission'], 2_300)
+        self.assertEqual(fees['translator_net'], 20_700)
+        fees = pricing.compute_fees(33_000)
+        self.assertEqual(fees['client_fee'], 660)
+        self.assertEqual(fees['client_total'], 33_660)
+        self.assertEqual(fees['translator_net'], 29_700)
 
-    def test_commission_never_exceeds_price(self):
-        fees = pricing.compute_fees(15_000)
-        self.assertEqual(fees['commission'], 15_000)
-        self.assertEqual(fees['translator_net'], 0)
+    def test_interpretation_never_priced_per_page(self):
+        self.assertEqual(pricing.normalize_unit('page', 'interpretation_other'), 'hour')
+        self.assertEqual(pricing.normalize_unit('hour', 'translation'), 'page')
+        self.assertEqual(pricing.normalize_unit('day', 'interpretation_other'), 'day')
 
     def test_loyal_tier_applies_only_to_part_above_ten_million(self):
         # Đã có 9 triệu với cùng khách: 1 triệu đầu 10%, 2 triệu sau 5%.
@@ -110,13 +116,27 @@ class PaymentFlowTests(unittest.TestCase):
         self.assertEqual((c.pricing_unit, c.quantity, c.unit_price), ('day', 2, 2_500_000))
         self.assertEqual(c.commission, 500_000)
 
-    def test_snapshot_is_frozen_after_first_call(self):
+    def test_snapshot_is_frozen_once_paid(self):
         c = self._contract(1_000_000)
-        payments.ensure_pricing_snapshot(c)
+        payments.record_deposit(c, self.hirer.id)
+        db.session.flush()
         before = (c.client_fee, c.commission)
         c.agreed_price = 9_000_000
         payments.ensure_pricing_snapshot(c)
         self.assertEqual((c.client_fee, c.commission), before)
+
+    def test_unpaid_snapshot_follows_current_fee_table(self):
+        # Hợp đồng chưa thanh toán mang phí cũ (tối thiểu 10.000 / 20.000) được tính lại đúng 2% / 10%.
+        c = self._contract(33_000)
+        c.client_fee, c.commission, c.translator_net = 10_000, 20_000, 13_000
+        payments.ensure_pricing_snapshot(c)
+        self.assertEqual((c.client_fee, c.commission, c.translator_net), (660, 3_300, 29_700))
+        self.assertEqual(payments.amount_to_pay(c), 33_660)
+
+    def test_unpaid_cabin_contract_priced_per_hour(self):
+        c = self._contract(33_000, quantity=1, unit='page', group='interpretation_other')
+        payments.ensure_pricing_snapshot(c)
+        self.assertEqual(c.pricing_unit, 'hour')
 
     def test_deposit_then_release_balances_to_the_dong(self):
         c = self._contract(2_160_000)

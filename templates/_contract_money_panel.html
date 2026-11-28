@@ -12,7 +12,11 @@
     <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:text-sm">
         <dt class="text-slate-500">Loại dịch vụ</dt>
         <dd class="font-bold text-slate-800">{{ money.policy_label }}</dd>
-        {% if contract.quantity %}
+        {% if contract.job %}
+        <dt class="text-slate-500">Khối lượng</dt>
+        <dd class="font-bold text-slate-800">{{ contract.job.volume_label }}
+            {% if contract.pricing_unit not in ('flat', 'period') %}<span class="block text-xs font-semibold text-slate-500">{{ (contract.unit_price or 0)|vnd }}đ/{{ UNIT_LABELS.get(contract.pricing_unit, '') }}</span>{% endif %}</dd>
+        {% elif contract.quantity %}
         <dt class="text-slate-500">Khối lượng</dt>
         <dd class="font-bold text-slate-800">{{ contract.quantity }} {{ UNIT_LABELS.get(contract.pricing_unit, '') }}
             × {{ (contract.unit_price or 0)|vnd }}đ</dd>

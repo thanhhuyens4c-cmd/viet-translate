@@ -722,6 +722,9 @@ class Job(db.Model):
     # pricing_unit = page | hour | day | flat, quantity = số trang / giờ / ngày.
     pricing_unit = db.Column(db.String(20))
     quantity = db.Column(db.Integer)
+    # Ghi rõ khối lượng phiên dịch: số giờ mỗi ngày / mỗi buổi / mỗi ngày trong kì, và số ngày của trọn kì.
+    hours_per_unit = db.Column(db.Integer)
+    period_days = db.Column(db.Integer)
     status = db.Column(db.String(20), default='open', index=True)
     is_flagged = db.Column(db.Boolean, default=False)
     moderation_status = db.Column(db.String(20), default='pending', index=True) # pending, approved, needs_revision, rejected, flagged, archived
@@ -744,6 +747,52 @@ class Job(db.Model):
     contract = db.relationship('Contract', backref='job', uselist=False, cascade='all, delete-orphan')
     schedules = db.relationship('JobSchedule', backref='job', lazy=True, cascade='all, delete-orphan', order_by='JobSchedule.scheduled_date')
 
+
+    # ─── Đơn vị tính của báo giá ──────────────────────────────────────────────
+    # Báo giá và ngân sách luôn lưu là TỔNG cho cả công việc (thành giá hợp đồng).
+    # Đơn giá = tổng / khối lượng chỉ để hiển thị và để PDV nhập theo giờ/trang/ngày.
+
+    @property
+    def quote_unit(self):
+        from services import pricing
+        return pricing.normalize_unit(self.pricing_unit, self.display_category_group)
+
+    @property
+    def quote_quantity(self):
+        from services import pricing
+        return 1 if pricing.is_lump(self.quote_unit) else pricing.normalize_quantity(self.quantity)
+
+    @property
+    def quote_unit_label(self):
+        from services import pricing
+        return pricing.UNIT_LABELS.get(self.quote_unit, '')
+
+    @property
+    def quotes_per_unit(self):
+        """Báo giá theo đơn giá có nghĩa khi tính theo trang/giờ/ngày/buổi (không phải trọn gói, trọn kì)."""
+        from services import pricing
+        return not pricing.is_lump(self.quote_unit)
+
+    @property
+    def volume_label(self):
+        """Khối lượng ghi rõ, vd. "4 buổi × 3 giờ/buổi (tổng 12 giờ)"."""
+        from services import pricing
+        return pricing.describe_volume(self.quote_unit, self.quantity, self.hours_per_unit, self.period_days)
+
+    def per_unit(self, total):
+        """Đơn giá tương ứng một tổng tiền, làm tròn xuống đồng."""
+        return int(total or 0) // self.quote_quantity
+
+    @property
+    def posted_price(self):
+        """Mức giá khách thuê đã đăng. PDV ứng tuyển không nhập giá nghĩa là đồng ý mức này.
+
+        Cố định: đúng số đã đăng. Khoảng giá: mức thấp nhất của khoảng (PDV muốn cao hơn thì tự nhập).
+        Nhận báo giá: không có giá đăng, PDV bắt buộc phải báo giá.
+        """
+        if self.budget_type in ('fixed', 'range') and self.budget_min and self.budget_min > 0:
+            return int(self.budget_min)
+        return None
 
     @property
     def display_category_group(self):
@@ -1407,15 +1456,29 @@ class Contract(db.Model):
             'can_checkin': False,
         }
 
+    def _fee_snapshot_locked(self):
+        """Đã thanh toán thì dùng đúng bản chụp phí (cũng là số đã ghi sổ khi giải ngân)."""
+        return (self.commission is not None and self.translator_net is not None
+                and self.status not in ('awaiting_translator', 'escrow_pending', 'pending'))
+
     @property
     def platform_fee(self):
-        """Phí dịch vụ bảo đảm nền tảng Escrow (10%)."""
-        return int(self.agreed_price * 0.10) if self.agreed_price else 0
+        """Hoa hồng sàn trừ vào phiên dịch viên, khớp với số trừ thật khi giải ngân."""
+        if not self.agreed_price:
+            return 0
+        if self._fee_snapshot_locked():
+            return self.commission
+        from services import pricing
+        return pricing.compute_commission(self.agreed_price)
 
     @property
     def translator_net_amount(self):
-        """Số tiền thù lao thực nhận của phiên dịch viên sau khi trừ phí nền tảng (90%)."""
-        return (self.agreed_price - self.platform_fee) if self.agreed_price else 0
+        """Số tiền phiên dịch viên thực nhận về ví = giá hợp đồng - hoa hồng sàn."""
+        if not self.agreed_price:
+            return 0
+        if self._fee_snapshot_locked():
+            return self.translator_net
+        return self.agreed_price - self.platform_fee
 
     @property
     def acceptance_status_info(self):
@@ -1820,9 +1883,25 @@ class PaymentTransaction(db.Model):
     payment_method = db.Column(db.String(50))
     transaction_ref = db.Column(db.String(100)) # Mã GD từ cổng thanh toán (nếu có)
     note = db.Column(db.String(255))  # Ghi chú của admin, ví dụ lý do từ chối rút tiền
-    
+    # Rút tiền: bản chụp JSON tài khoản nhận (ngân hàng, số tài khoản đầy đủ, chủ tài khoản) lúc gửi yêu cầu,
+    # để admin chuyển khoản đúng chỗ kể cả khi người dùng sửa hoặc xóa tài khoản sau đó.
+    payout_account = db.Column(db.Text)
+    processed_at = db.Column(db.DateTime)  # lúc admin đánh dấu đã chuyển khoản hoặc từ chối
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def payout_info(self):
+        """Tài khoản nhận tiền rút dạng dict (rỗng nếu không có)."""
+        if not self.payout_account:
+            return {}
+        try:
+            import json
+            data = json.loads(self.payout_account)
+            return data if isinstance(data, dict) else {}
+        except (ValueError, TypeError):
+            return {}
 
     contract = db.relationship('Contract', backref=db.backref('payments', lazy=True))
     user = db.relationship('User', foreign_keys=[user_id])

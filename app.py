@@ -1089,6 +1089,26 @@ def _ensure_job_columns():
                                            'is_all_day': 'BOOLEAN DEFAULT 0'})
 
 
+def _fix_interpretation_pricing_unit():
+    """Phiên dịch (kể cả dịch cabin) tính theo giờ/ngày, không theo trang.
+
+    Form đăng việc cũ mặc định chọn "Trang" cho mọi nhóm nên nhiều việc phiên dịch bị lưu sai đơn vị.
+    Chỉ đổi nhãn đơn vị (giá hợp đồng không đổi), chạy lại nhiều lần không sao.
+    """
+    from sqlalchemy import text
+    try:
+        db.session.execute(text(
+            "UPDATE job SET pricing_unit = 'hour' WHERE pricing_unit = 'page' "
+            "AND category_group IS NOT NULL AND category_group <> 'translation'"))
+        db.session.execute(text(
+            "UPDATE contract SET pricing_unit = 'hour' WHERE pricing_unit = 'page' "
+            "AND refund_policy IN ('event', 'conference')"))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[DB MIGRATE] Không sửa được đơn vị tính phiên dịch: {e}", file=sys.stderr)
+
+
 _account_schema_ensured = False
 
 def _ensure_account_schema(force=False):
@@ -1478,6 +1498,7 @@ def _init_db():
     _ensure_cert_verification_schema()
     _add_missing_columns()
     _ensure_payment_contract_nullable()
+    _fix_interpretation_pricing_unit()
 
     try:
         # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
@@ -1642,6 +1663,7 @@ def inject_admin_badges():
         'admin_badge_reports': 0,
         'admin_badge_notifications': 0,
         'admin_badge_pending_email_requests': 0,
+        'admin_badge_pending_payouts': 0,
     }
     if not session.get(ADMIN_SESSION_KEY):
         return {**default_badges, 'badge_counts': default_badges}
@@ -1664,7 +1686,12 @@ def inject_admin_badges():
             User.email_verification_requested.is_(True),
             User.email_verified.is_(False)
         ).count()
+        # Yêu cầu rút tiền và tiền hoàn về phương thức gốc đang chờ sàn chuyển khoản.
+        badges['admin_badge_pending_payouts'] = PaymentTransaction.query.filter(
+            PaymentTransaction.kind.in_(['withdraw', 'refund']),
+            PaymentTransaction.status == 'pending').count()
         badges['admin_badge_total_tasks'] = (
+            badges['admin_badge_pending_payouts'] +
             badges['admin_badge_pending_jobs'] +
             badges['admin_badge_pending_verifications'] +
             badges['admin_badge_pending_hirers'] +
@@ -7408,10 +7435,9 @@ def contract_invoice(contract_id):
     if contract.status not in ('in_progress', 'completed'):
         flash('Hợp đồng chưa thanh toán nên chưa có hóa đơn.', 'warning')
         return redirect(url_for('account_history'))
-    platform_fee = int(contract.agreed_price * 0.10)
     return render_template('invoice.html', contract=contract,
-                           platform_fee=platform_fee,
-                           translator_receives=contract.agreed_price - platform_fee)
+                           platform_fee=contract.platform_fee,
+                           translator_receives=contract.translator_net_amount)
 
 
 WALLET_KINDS = ('release', 'refund', 'voucher', 'withdraw', 'topup', 'wallet_payment')
@@ -7528,6 +7554,36 @@ def account_wallet_topup():
     return _wallet_redirect()
 
 
+def _email_finance_admins_withdrawal(withdrawal, user, destination):
+    """Gửi email báo yêu cầu rút tiền cho admin tài chính / super admin (chạy nền, lỗi thì bỏ qua).
+
+    Kênh chính vẫn là thông báo trong trang admin và số đếm ở mục Tài chính; email để admin biết
+    ngay cả khi không mở trang quản trị.
+    """
+    try:
+        recipients = [a.email for a in User.query.filter(
+            User.is_admin.is_(True), User.admin_role.in_(['super_admin', 'finance'])).all() if a.email]
+    except Exception:
+        db.session.rollback()
+        return
+    if not recipients:
+        return
+    amount = f'{withdrawal.amount:,}'.replace(',', '.')
+    link = url_for('admin_finance', tab='payouts', _external=True)
+    subject = f'[VietTranslate] Yêu cầu rút {amount} VND #{withdrawal.id}'
+    body = (f'<p><strong>{user.name}</strong> vừa yêu cầu rút <strong>{amount} VND</strong> về {destination}.</p>'
+            f'<p>Vui lòng chuyển khoản trong 2 ngày làm việc rồi bấm "Đã chuyển khoản" tại '
+            f'<a href="{link}">Tài chính &rsaquo; Chờ chi trả</a>.</p>')
+
+    def _send():
+        from services.email import send_email
+        for to in recipients:
+            send_email(to, subject, body)
+
+    import threading
+    threading.Thread(target=_send, daemon=True).start()
+
+
 @app.route('/account/wallet/withdraw', methods=['POST'])
 @login_required
 def account_wallet_withdraw():
@@ -7546,13 +7602,15 @@ def account_wallet_withdraw():
             raise payments.PaymentError('Vui lòng thêm tài khoản ngân hàng nhận tiền trước khi rút.')
         destination = (f"{account.get('bank_short_name') or account.get('bank_code')} "
                        f"{account.get('masked_account_number') or ''} · {account.get('account_holder_name') or ''}").strip()
-        withdrawal = payments.request_withdrawal(user.id, request.form.get('amount'), destination=destination)
+        withdrawal = payments.request_withdrawal(user.id, request.form.get('amount'), destination=destination,
+                                                 account=account)
         db.session.flush()
         db.session.add(AdminNotification(
             type='WALLET_WITHDRAW', title='Yêu cầu rút tiền mới',
-            message=f'{user.name} yêu cầu rút {withdrawal.amount:,} VND về {destination}.'.replace(',', '.'),
-            url=url_for('admin_payments', status='pending'), related_id=withdrawal.id))
+            message=f'{user.name} yêu cầu rút {withdrawal.amount:,} VND về {destination}. Cần chuyển khoản trong 2 ngày làm việc.'.replace(',', '.'),
+            url=url_for('admin_finance', tab='payouts'), related_id=withdrawal.id))
         db.session.commit()
+        _email_finance_admins_withdrawal(withdrawal, user, destination)
         flash(f'Đã gửi yêu cầu rút tiền về {destination}. Sàn sẽ chuyển khoản trong 2 ngày làm việc.', 'success')
     except payments.PaymentError as e:
         db.session.rollback()
@@ -8874,8 +8932,23 @@ def validate_job_form(form, existing=None, locked=False):
         d['event_date'] = d['event_time_start'] = d['event_time_end'] = d['event_location'] = ''
     if not locked:
         # Khối lượng và đơn vị tính dùng chung cho dịch tài liệu và phiên dịch: giá = đơn giá x số lượng + phụ phí.
-        d['pricing_unit'] = pricing.normalize_unit(form.get('pricing_unit'), d.get('category_group'))
-        d['quantity'] = pricing.normalize_quantity(form.get('quantity'))
+        unit = pricing.normalize_unit(form.get('pricing_unit'), d.get('category_group'))
+        d['pricing_unit'] = unit
+        d['quantity'] = 1 if pricing.is_lump(unit) else pricing.normalize_quantity(form.get('quantity'))
+        # Theo ngày / theo buổi / trọn kì phải ghi rõ số giờ, trọn kì ghi thêm số ngày.
+        hours, days = _int_or_none(form.get('hours_per_unit')), _int_or_none(form.get('period_days'))
+        d['hours_per_unit'] = d['period_days'] = None
+        if unit in pricing.UNITS_NEED_HOURS:
+            label = 'mỗi ngày' if unit in ('day', 'period') else 'mỗi buổi'
+            if not hours or not (1 <= hours <= pricing.MAX_HOURS_PER_UNIT):
+                errors['hours_per_unit'] = f'Nhập số giờ làm {label} (1 đến {pricing.MAX_HOURS_PER_UNIT}).'
+            else:
+                d['hours_per_unit'] = hours
+        if unit == 'period':
+            if not days or not (1 <= days <= pricing.MAX_PERIOD_DAYS):
+                errors['period_days'] = f'Nhập số ngày làm trong kì (1 đến {pricing.MAX_PERIOD_DAYS}).'
+            else:
+                d['period_days'] = days
     return d, errors
 
 
@@ -8942,6 +9015,8 @@ def _job_form_values(job):
         'deadline': job.deadline.isoformat() if job.deadline else '', 'event_date': job.event_date or '',
         'event_time_start': job.event_time_start or '', 'event_time_end': job.event_time_end or '',
         'event_location': job.event_location or '',
+        'pricing_unit': job.pricing_unit or '', 'quantity': job.quantity or 1,
+        'hours_per_unit': job.hours_per_unit or '', 'period_days': job.period_days or '',
     }
 
 
@@ -10465,9 +10540,16 @@ def job_detail(job_id):
                     return render_template('job_detail.html', job=job, form_data=request.form, is_saved=is_saved, existing_proposal=existing_proposal, is_expired=is_expired, profile_incomplete=profile_incomplete, profile_missing_fields=profile_missing_fields)
 
         # ── 4. Create Proposal ────────────────────────────────────────────────
-        price_raw = (request.form.get('price') or '').strip()
+        price_raw = (request.form.get('price') or '').strip().replace('.', '').replace(',', '').replace(' ', '')
+        if (price_raw.isdigit() and request.form.get('price_mode') == 'unit' and job.quotes_per_unit):
+            # PDV nhập đơn giá theo giờ/trang/ngày: lưu tổng = đơn giá x khối lượng.
+            price_raw = str(int(price_raw) * job.quote_quantity)
+        if not price_raw and job.posted_price:
+            # Không nhập giá đề xuất = đồng ý mức giá khách thuê đã đăng.
+            price_raw = str(job.posted_price)
         if not price_raw.isdigit() or int(price_raw) <= 0 or int(price_raw) > 10**10:
-            flash('Vui lòng nhập giá đề xuất lớn hơn 0.', 'error')
+            flash('Khách thuê chưa đăng giá cho công việc này, vui lòng nhập giá đề xuất lớn hơn 0.'
+                  if not price_raw else 'Vui lòng nhập giá đề xuất lớn hơn 0.', 'error')
             return render_template('job_detail.html', job=job, form_data=request.form, is_saved=is_saved, existing_proposal=existing_proposal, is_expired=is_expired, profile_incomplete=profile_incomplete, profile_missing_fields=profile_missing_fields)
         valid_until = None
         if (request.form.get('valid_until') or '').strip():
@@ -13128,6 +13210,122 @@ def admin_payments():
     payments = query.order_by(PaymentTransaction.created_at.desc()).all()
     return render_template('admin_payments.html', payments=payments, status_filter=status_filter)
 
+FINANCE_PERIODS = {'7d': ('7 ngày', 7), '30d': ('30 ngày', 30), 'month': ('Tháng này', None), 'all': ('Tất cả', None)}
+
+
+@app.route('/admin/finance')
+@admin_login_required
+@require_permission('view_payments')
+def admin_finance():
+    """Tài chính của sàn: doanh thu, tiền đang giữ, số dư ví người dùng và hàng đợi chi trả (rút tiền, hoàn tiền)."""
+    from services import payments as pay_svc
+    from sqlalchemy import func
+
+    tab = request.args.get('tab', 'overview')
+    if tab not in ('overview', 'payouts', 'contracts'):
+        tab = 'overview'
+    period = request.args.get('period', '30d')
+    if period not in FINANCE_PERIODS:
+        period = '30d'
+
+    now = datetime.utcnow()
+    vn_now = now + timedelta(hours=7)
+    if period == 'month':
+        since = datetime(vn_now.year, vn_now.month, 1) - timedelta(hours=7)
+    elif period == 'all':
+        since = None
+    else:
+        since = now - timedelta(days=FINANCE_PERIODS[period][1])
+
+    PT = PaymentTransaction
+
+    def total(*filters):
+        return int(db.session.query(func.coalesce(func.sum(PT.amount), 0)).filter(*filters).scalar() or 0)
+
+    def in_period(col=PT.created_at):
+        return [col >= since] if since is not None else []
+
+    # Tổng số dư ví của người dùng = tiền sàn đang nợ người dùng, phải luôn có sẵn để chi trả khi họ rút.
+    wallet_in = total(PT.status == 'completed', PT.kind.in_(['release', 'topup'])) + total(
+        PT.status == 'completed', PT.kind == 'refund', PT.payment_method == 'wallet')
+    wallet_out = total(PT.status == 'completed', PT.kind == 'wallet_payment') + total(
+        PT.kind == 'withdraw', PT.status.in_(['pending', 'completed']))
+
+    pending_payouts = PT.query.filter(
+        PT.kind.in_(['withdraw', 'refund']), PT.status == 'pending').order_by(PT.created_at.asc()).all()
+
+    stats = {
+        'platform_revenue': total(PT.kind == 'platform_fee', PT.status == 'completed', *in_period()),
+        'escrow_held': total(PT.kind == 'deposit', PT.status == 'escrow_pending'),
+        'gmv': total(PT.kind == 'deposit', PT.status.in_(['escrow_pending', 'completed', 'refunded']), *in_period()),
+        'released': total(PT.kind == 'release', PT.status == 'completed', *in_period()),
+        'topups': total(PT.kind == 'topup', PT.status == 'completed', *in_period()),
+        'withdrawn': total(PT.kind == 'withdraw', PT.status == 'completed', *in_period(PT.updated_at)),
+        'refunded': total(PT.kind == 'refund', PT.status == 'completed', *in_period()),
+        'wallet_liability': wallet_in - wallet_out,
+        'pending_withdraw_count': sum(1 for p in pending_payouts if p.kind == 'withdraw'),
+        'pending_withdraw_amount': sum(p.amount for p in pending_payouts if p.kind == 'withdraw'),
+        'pending_refund_count': sum(1 for p in pending_payouts if p.kind == 'refund'),
+        'pending_refund_amount': sum(p.amount for p in pending_payouts if p.kind == 'refund'),
+        'unmatched_count': PT.query.filter(PT.kind == 'unmatched').count(),
+    }
+
+    # Đối soát theo hợp đồng hoàn tất trong kỳ (mốc = lúc giải ngân): phí 2% khách trả, hoa hồng PDV, PDV thực nhận.
+    completed_q = Contract.query.filter(Contract.status == 'completed')
+    if since is not None:
+        released_ids = db.session.query(PT.contract_id).filter(
+            PT.kind == 'release', PT.contract_id.isnot(None), PT.created_at >= since)
+        completed_q = completed_q.filter(Contract.id.in_(released_ids))
+    completed_contracts = completed_q.order_by(Contract.id.desc()).all()
+    stats['client_fee_total'] = sum(c.client_fee or 0 for c in completed_contracts)
+    stats['commission_total'] = sum(c.platform_fee or 0 for c in completed_contracts)
+    stats['contract_value'] = sum(c.agreed_price or 0 for c in completed_contracts)
+    stats['translator_net_total'] = sum(c.translator_net_amount or 0 for c in completed_contracts)
+    stats['completed_count'] = len(completed_contracts)
+
+    # Biểu đồ doanh thu sàn theo ngày (giờ Việt Nam).
+    chart_days = FINANCE_PERIODS[period][1] or (vn_now.day if period == 'month' else 30)
+    chart_start = (vn_now - timedelta(days=chart_days - 1)).date()
+    rows = db.session.query(PT.amount, PT.created_at).filter(
+        PT.kind == 'platform_fee', PT.status == 'completed',
+        PT.created_at >= datetime.combine(chart_start, datetime.min.time()) - timedelta(hours=7)).all()
+    buckets = {chart_start + timedelta(days=i): 0 for i in range(chart_days)}
+    for amount, created in rows:
+        d = (created + timedelta(hours=7)).date()
+        if d in buckets:
+            buckets[d] += int(amount or 0)
+    chart_max = max(buckets.values()) if buckets else 0
+    chart = [{'label': d.strftime('%d/%m'), 'value': v,
+              'pct': (v * 100 // chart_max) if chart_max else 0} for d, v in sorted(buckets.items())]
+
+    payout_rows = []
+    for p in pending_payouts:
+        info = p.payout_info
+        legacy = False
+        if p.kind == 'withdraw' and not info.get('account_number') and p.payee_id:
+            # Yêu cầu gửi trước khi có bản chụp tài khoản: hiện tài khoản mặc định hiện tại để admin đối chiếu.
+            from services.payout_methods import get_default_payout_method
+            acc = get_default_payout_method(p.payee_id) or {}
+            if acc.get('account_number'):
+                info, legacy = acc, True
+        payout_rows.append({
+            'p': p, 'info': info, 'legacy': legacy,
+            'user': db.session.get(User, p.payee_id) if p.payee_id else None,
+            'qr': pay_svc.payout_qr_url(p, info) if info.get('account_number') else None,
+            'note': pay_svc.withdrawal_transfer_note(p),
+            'age_hours': int((now - p.created_at).total_seconds() // 3600) if p.created_at else 0,
+        })
+
+    recent_processed = PT.query.filter(
+        PT.kind == 'withdraw', PT.status.in_(['completed', 'rejected'])
+    ).order_by(PT.updated_at.desc()).limit(10).all()
+
+    return render_template(
+        'admin_finance.html', tab=tab, period=period, periods=FINANCE_PERIODS, stats=stats,
+        chart=chart, chart_max=chart_max, payout_rows=payout_rows, recent_processed=recent_processed,
+        contracts=completed_contracts[:50])
+
+
 @app.route('/admin/payments/<int:payment_id>/refund', methods=['POST'])
 @admin_login_required
 @csrf_protected
@@ -13186,6 +13384,14 @@ def admin_translator_no_show(contract_id):
         flash(str(e), 'error')
     return redirect(url_for('admin_contracts'))
 
+def _admin_payment_back():
+    """Quay lại trang admin đã gửi form (Tài chính hoặc Payment); chỉ nhận đường dẫn nội bộ /admin/."""
+    nxt = (request.form.get('next') or '').strip()
+    if nxt.startswith('/admin/') and '//' not in nxt and '\\' not in nxt:
+        return redirect(nxt)
+    return redirect(url_for('admin_payments'))
+
+
 @app.route('/admin/payments/<int:payment_id>/complete-withdrawal', methods=['POST'])
 @admin_login_required
 @csrf_protected
@@ -13197,8 +13403,17 @@ def admin_complete_withdrawal(payment_id):
         payments.complete_withdrawal(p)
     except payments.PaymentError as e:
         flash(str(e), 'error')
-        return redirect(url_for('admin_payments'))
+        return _admin_payment_back()
 
+    if p.payee_id:
+        is_withdraw = p.kind == 'withdraw'
+        create_notification(
+            user_id=p.payee_id, notification_type='PAYMENT',
+            title='Sàn đã chuyển khoản cho bạn' if is_withdraw else 'Tiền hoàn đã được chuyển khoản',
+            message=(f'VietTranslate đã chuyển {p.amount:,} VND '.replace(',', '.')
+                     + (f'về {p.transaction_ref}. ' if is_withdraw and p.transaction_ref else 'về tài khoản của bạn. ')
+                     + 'Tiền thường về trong vài phút đến 1 ngày làm việc tùy ngân hàng.'),
+            url=url_for('account_wallet'))
     _audit_log(
         action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
         target_type='payment',
@@ -13206,8 +13421,8 @@ def admin_complete_withdrawal(payment_id):
         description=f"Admin xác nhận đã chuyển khoản rút tiền #{p.id} ({p.amount}đ) cho user #{p.payee_id}",
     )
     db.session.commit()
-    flash('Đã đánh dấu yêu cầu rút tiền hoàn tất.', 'success')
-    return redirect(url_for('admin_payments'))
+    flash('Đã đánh dấu yêu cầu rút tiền hoàn tất và báo cho người dùng.', 'success')
+    return _admin_payment_back()
 
 @app.route('/admin/payments/<int:payment_id>/reject-withdrawal', methods=['POST'])
 @admin_login_required
@@ -13222,7 +13437,7 @@ def admin_reject_withdrawal(payment_id):
         payments.reject_withdrawal(p, note)
     except payments.PaymentError as e:
         flash(str(e), 'error')
-        return redirect(url_for('admin_payments'))
+        return _admin_payment_back()
 
     create_notification(
         user_id=p.payee_id, notification_type='PAYMENT',
@@ -13239,7 +13454,7 @@ def admin_reject_withdrawal(payment_id):
     )
     db.session.commit()
     flash('Đã từ chối yêu cầu rút tiền, tiền đã quay lại ví người dùng.', 'success')
-    return redirect(url_for('admin_payments'))
+    return _admin_payment_back()
 
 @app.route('/admin/notifications')
 @admin_login_required

@@ -457,8 +457,8 @@ class AdminRefundAndWithdrawalTests(LifecycleBase):
     def test_commission_helper_matches_fee_table(self):
         from services import pricing
         self.assertEqual(pricing.compute_commission(0), 0)
-        self.assertEqual(pricing.compute_commission(100_000), 20_000)    # tối thiểu
-        self.assertEqual(pricing.compute_commission(15_000), 15_000)     # không vượt chính số tiền
+        self.assertEqual(pricing.compute_commission(100_000), 10_000)    # đúng 10%, không có mức tối thiểu
+        self.assertEqual(pricing.compute_commission(15_000), 1_500)
         self.assertEqual(pricing.compute_commission(2_160_000), 216_000)
 
 

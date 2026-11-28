@@ -160,21 +160,57 @@
         <!-- Bước 3 -->
         <section data-step="3" class="space-y-4 hidden">
             <h2 class="text-lg font-bold text-slate-900">Ngân sách &amp; deadline</h2>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="{{ label_cls }}" for="quantity">Khối lượng công việc</label>
+            {# Cách tính giá: dịch tài liệu theo trang; phiên dịch theo giờ, ngày, buổi, trọn kì hoặc trọn gói. #}
+            {% set units = [
+                ('page', 'Theo trang', 'Mỗi trang tài liệu', 'translation'),
+                ('hour', 'Theo giờ', 'Đơn giá mỗi giờ × số giờ', 'interpretation'),
+                ('day', 'Theo ngày', 'Đơn giá mỗi ngày, ghi rõ giờ/ngày', 'interpretation'),
+                ('session', 'Theo buổi', 'Đơn giá mỗi buổi, ghi rõ giờ/buổi', 'interpretation'),
+                ('period', 'Trọn kì', 'Một giá cho cả kì, ghi rõ số ngày và giờ/ngày', 'interpretation'),
+                ('flat', 'Trọn gói', 'Một giá cho toàn bộ công việc', 'all'),
+            ] %}
+            <div>
+                <span class="{{ label_cls }}">Cách tính giá</span>
+                <select id="pricing_unit" name="pricing_unit" class="sr-only" tabindex="-1" aria-hidden="true" {{ 'disabled' if locked }}>
+                    {% for val, lab, _, grp in units %}
+                    <option value="{{ val }}" data-group="{{ grp }}" {{ 'selected' if v.get('pricing_unit') == val }}>{{ lab }}</option>
+                    {% endfor %}
+                </select>
+                <div id="unit-cards" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5" role="radiogroup" aria-label="Cách tính giá">
+                    {% for val, lab, hint, grp in units %}
+                    <button type="button" data-unit-card="{{ val }}" data-group="{{ grp }}" role="radio" {{ 'disabled' if locked }}
+                        class="unit-card text-left border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50/60 hover:border-brand-500 transition disabled:opacity-60">
+                        <span class="block text-sm font-bold text-slate-800">{{ lab }}</span>
+                        <span class="block text-[11px] text-slate-500 leading-snug mt-0.5">{{ hint }}</span>
+                    </button>
+                    {% endfor %}
+                </div>
+                {{ field_error('pricing_unit') }}
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4" id="volume-fields">
+                <div data-vol="quantity">
+                    <label class="{{ label_cls }}" for="quantity"><span id="quantity-label">Số lượng</span></label>
                     <input type="number" id="quantity" name="quantity" min="1" value="{{ v.get('quantity') or 1 }}" {{ 'disabled' if locked }}
-                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50" placeholder="VD: 12">
+                        class="{{ input_cls }}" placeholder="VD: 12">
                 </div>
-                <div>
-                    <label class="{{ label_cls }}" for="pricing_unit">Đơn vị tính</label>
-                    <select id="pricing_unit" name="pricing_unit" {{ 'disabled' if locked }}
-                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50">
-                        {% for val, lab in [('page', 'Trang (dịch tài liệu)'), ('hour', 'Giờ (phiên dịch)'), ('day', 'Ngày (hội nghị)'), ('flat', 'Trọn gói')] %}
-                        <option value="{{ val }}" {{ 'selected' if v.get('pricing_unit') == val }}>{{ lab }}</option>
-                        {% endfor %}
-                    </select>
+                <div data-vol="period_days">
+                    <label class="{{ label_cls }}" for="period_days">Số ngày trong kì</label>
+                    <input type="number" id="period_days" name="period_days" min="1" max="366" value="{{ v.get('period_days') or '' }}" {{ 'disabled' if locked }}
+                        class="{{ input_cls }}" placeholder="VD: 20">
+                    {{ field_error('period_days') }}
                 </div>
+                <div data-vol="hours_per_unit">
+                    <label class="{{ label_cls }}" for="hours_per_unit"><span id="hours-label">Số giờ mỗi ngày</span></label>
+                    <input type="number" id="hours_per_unit" name="hours_per_unit" min="1" max="24" value="{{ v.get('hours_per_unit') or '' }}" {{ 'disabled' if locked }}
+                        class="{{ input_cls }}" placeholder="VD: 8">
+                    {{ field_error('hours_per_unit') }}
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 -mt-1">
+                <p id="volume-summary" class="text-xs font-bold text-slate-700"></p>
+                {% if not locked %}
+                <button type="button" id="fill-from-schedule" data-only="interpretation" class="text-xs font-bold text-brand-600 hover:text-brand-700 hidden">Tính từ lịch làm việc</button>
+                {% endif %}
             </div>
             <div>
                 <span class="{{ label_cls }}">Hình thức ngân sách</span>
@@ -197,6 +233,7 @@
                 <input id="budget_max" name="budget_max" type="text" inputmode="numeric" data-money-input value="{{ v.get('budget_max', '') }}" class="{{ input_cls }}" placeholder="VD: 5.000.000" {{ 'disabled' if locked }}>
                 {{ field_error('budget_max') }}
             </div>
+            <p id="budget-unit-hint" class="hidden text-xs font-semibold text-brand-700 -mt-2"></p>
             <p id="budget-nego-note" class="hidden text-xs text-blue-800 bg-blue-50 border border-blue-100 rounded-xl p-3">Phiên dịch viên sẽ gửi báo giá, bạn so sánh và chọn người phù hợp.</p>
             <div>
                 <label class="{{ label_cls }}" for="deadline">Hạn nộp hồ sơ</label>
@@ -260,7 +297,82 @@
         document.querySelectorAll('[data-only]').forEach(el => {
             el.classList.toggle('hidden', (el.dataset.only === 'translation') !== (group === 'translation'));
         });
+        syncPricingUnit();
     }
+
+    // Cách tính giá theo nhóm: dịch tài liệu theo trang; phiên dịch theo giờ, ngày, buổi, trọn kì, trọn gói.
+    const UNIT_WORD = {page: 'trang', hour: 'giờ', day: 'ngày', session: 'buổi', period: 'kì', flat: 'trọn gói'};
+    const LUMP = ['period', 'flat'];
+    function unitOf() { return $('pricing_unit').value; }
+    function syncPricingUnit() {
+        const sel = $('pricing_unit');
+        if (!sel) return;
+        const isTranslation = $('category_group').value === 'translation';
+        const ok = o => o.dataset.group === 'all' || (o.dataset.group === 'translation') === isTranslation;
+        Array.from(sel.options).forEach(o => { o.disabled = !ok(o); });
+        if (!sel.disabled && sel.selectedOptions[0] && sel.selectedOptions[0].disabled) {
+            sel.value = isTranslation ? 'page' : 'hour';
+        }
+        document.querySelectorAll('[data-unit-card]').forEach(c => {
+            c.classList.toggle('hidden', !ok(c));
+            const on = c.dataset.unitCard === sel.value;
+            c.setAttribute('aria-checked', on ? 'true' : 'false');
+            c.classList.toggle('border-brand-500', on);
+            c.classList.toggle('ring-2', on);
+            c.classList.toggle('ring-brand-500/30', on);
+            c.classList.toggle('bg-white', on);
+        });
+        syncVolumeFields();
+    }
+    function syncVolumeFields() {
+        const u = unitOf();
+        const show = (k, on) => document.querySelector('[data-vol="' + k + '"]').classList.toggle('hidden', !on);
+        show('quantity', !LUMP.includes(u));
+        show('period_days', u === 'period');
+        show('hours_per_unit', ['day', 'session', 'period'].includes(u));
+        $('quantity-label').textContent = 'Số ' + (UNIT_WORD[u] || 'lượng');
+        $('hours-label').textContent = u === 'session' ? 'Số giờ mỗi buổi' : 'Số giờ mỗi ngày';
+        const q = parseInt($('quantity').value || '0', 10) || 0;
+        const h = parseInt($('hours_per_unit').value || '0', 10) || 0;
+        const d = parseInt($('period_days').value || '0', 10) || 0;
+        let txt = '';
+        if (u === 'page' || u === 'hour') txt = q ? q + ' ' + UNIT_WORD[u] : '';
+        else if (u === 'day' || u === 'session') txt = q ? q + ' ' + UNIT_WORD[u] + (h ? ' × ' + h + ' giờ/' + UNIT_WORD[u] + (q > 1 ? ' (tổng ' + q * h + ' giờ)' : '') : '') : '';
+        else if (u === 'period') txt = 'Trọn kì' + (d ? ' ' + d + ' ngày' : '') + (d && h ? ' × ' + h + ' giờ/ngày (tổng ' + d * h + ' giờ)' : '');
+        else txt = 'Trọn gói: một giá cho toàn bộ công việc';
+        $('volume-summary').textContent = txt ? 'Khối lượng: ' + txt : '';
+        if (typeof syncBudgetHint === 'function') syncBudgetHint();
+    }
+    document.querySelectorAll('[data-unit-card]').forEach(c => c.addEventListener('click', () => {
+        if (c.disabled) return;
+        $('pricing_unit').value = c.dataset.unitCard;
+        syncPricingUnit();
+    }));
+    ['quantity', 'hours_per_unit', 'period_days'].forEach(id => $(id) && $(id).addEventListener('input', syncVolumeFields));
+
+    // Tính khối lượng từ lịch làm việc đã nhập ở bước 2 (phiên dịch): số giờ, số ngày, số buổi, giờ mỗi buổi.
+    function scheduleStats() {
+        const ds = form.querySelectorAll('[name="scheduled_date[]"]'), ss = form.querySelectorAll('[name="start_time[]"]'), es = form.querySelectorAll('[name="end_time[]"]');
+        const mins = t => { const m = /^(\d{2}):(\d{2})/.exec(t || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+        let sessions = 0, total = 0; const days = new Set(), lens = [];
+        ds.forEach((dEl, i) => {
+            const a = mins(ss[i] && ss[i].value), b = mins(es[i] && es[i].value);
+            if (!dEl.value || a === null || b === null || b <= a) return;
+            sessions++; days.add(dEl.value); total += b - a; lens.push(b - a);
+        });
+        return {sessions, days: days.size, hours: Math.round(total / 60), perSession: lens.length ? Math.round(Math.max(...lens) / 60) : 0,
+                perDay: days.size ? Math.round(total / 60 / days.size) : 0};
+    }
+    const fillBtn = $('fill-from-schedule');
+    if (fillBtn) fillBtn.addEventListener('click', () => {
+        const st = scheduleStats(), u = unitOf();
+        if (!st.sessions) { alert('Chưa có lịch làm việc hợp lệ ở bước 2 (ngày, giờ bắt đầu, giờ kết thúc).'); return; }
+        if (u === 'hour') $('quantity').value = Math.max(st.hours, 1);
+        if (u === 'day') { $('quantity').value = st.days; $('hours_per_unit').value = Math.max(st.perDay, 1); }
+        if (u === 'session') { $('quantity').value = st.sessions; $('hours_per_unit').value = Math.max(st.perSession, 1); }
+        if (u === 'period') { $('period_days').value = st.days; $('hours_per_unit').value = Math.max(st.perDay, 1); }
+        syncVolumeFields();
+    });
     $('category_group').addEventListener('change', () => { $('service_type').dataset.selected = ''; $('service_type').value = ''; fillServiceTypes(); });
 
     // Ngân sách
@@ -270,8 +382,26 @@
         $('budget-min-wrap').classList.toggle('hidden', t === 'negotiable');
         $('budget-max-wrap').classList.toggle('hidden', t !== 'range');
         $('budget-nego-note').classList.toggle('hidden', t !== 'negotiable');
-        $('budget-min-label').textContent = t === 'range' ? 'Ngân sách tối thiểu (VND)' : 'Ngân sách (VND)';
+        $('budget-min-label').textContent = t === 'range' ? 'Ngân sách tối thiểu, tổng (VND)' : 'Ngân sách tổng cho cả công việc (VND)';
+        syncBudgetHint();
     }
+
+    // Ngân sách là TỔNG; hiện đơn giá tương ứng để khách dễ so với giá thị trường theo giờ / trang.
+    function syncBudgetHint() {
+        const hint = $('budget-unit-hint');
+        if (!hint) return;
+        const num = id => parseInt(((($(id) || {}).value) || '').replace(/[^0-9]/g, ''), 10) || 0;
+        const u = $('pricing_unit') ? $('pricing_unit').value : 'flat', qty = num('quantity') || 1;
+        const lo = num('budget_min'), hi = num('budget_max'), t = budgetType();
+        if (t === 'negotiable' || LUMP.includes(u) || qty < 2 || !lo) { hint.classList.add('hidden'); return; }
+        const fmt = n => Math.floor(n / qty).toLocaleString('vi-VN'), w = UNIT_WORD[u];
+        hint.textContent = '≈ ' + fmt(lo) + (t === 'range' && hi ? ' – ' + fmt(hi) : '') + ' VND/' + w + ' × ' + qty + ' ' + w;
+        hint.classList.remove('hidden');
+    }
+    ['budget_min', 'budget_max', 'quantity', 'pricing_unit'].forEach(id => {
+        const el = $(id);
+        if (el) { el.addEventListener('input', syncBudgetHint); el.addEventListener('change', syncBudgetHint); }
+    });
     form.querySelectorAll('input[name=budget_type]').forEach(r => r.addEventListener('change', syncBudget));
 
 
@@ -375,6 +505,10 @@
             const t = budgetType(), mn = parseM(val('budget_min')), mx = parseM(val('budget_max'));
             if (t !== 'negotiable' && !(mn > 0)) e.budget_min = 'Nhập ngân sách lớn hơn 0.';
             if (t === 'range' && !(mx >= mn)) e.budget_max = 'Ngân sách tối đa phải lớn hơn hoặc bằng tối thiểu.';
+            const u = unitOf(), h = parseInt(val('hours_per_unit') || '0', 10), d = parseInt(val('period_days') || '0', 10);
+            if (['day', 'session', 'period'].includes(u) && !(h >= 1 && h <= 24))
+                e.hours_per_unit = 'Nhập số giờ làm ' + (u === 'session' ? 'mỗi buổi' : 'mỗi ngày') + ' (1 đến 24).';
+            if (u === 'period' && !(d >= 1 && d <= 366)) e.period_days = 'Nhập số ngày làm trong kì (1 đến 366).';
         }
         if (n === 3 && $('deadline') && $('deadline').dataset.vnInvalid === '1') e.deadline = 'Hạn nộp hồ sơ không hợp lệ (định dạng dd/mm/yyyy).';
         else if (n === 3 && val('deadline') && val('deadline') < today && val('deadline') !== {{ (values.get('deadline', '') or '')|tojson }}) e.deadline = 'Hạn nộp hồ sơ không được ở quá khứ.';
@@ -448,7 +582,7 @@
         else rows.push(['Lịch làm việc', scheduleRows().map(r => (window.vtFormatDateVn ? window.vtFormatDateVn(r.date) : r.date) + ' · ' + r.start + '–' + r.end).join('\n') || '—'], ['Địa điểm', val('event_location')]);
         const nf = $('files').files.length;
         rows.push(['Tệp mới', nf ? Array.from($('files').files).map(f => f.name).join(', ') : '—']);
-        rows.push(['Ngân sách', budget], ['Hạn nộp hồ sơ', val('deadline') ? (window.vtFormatDateVn ? window.vtFormatDateVn(val('deadline')) : val('deadline')) : '—'], ['Yêu cầu bổ sung', val('extra_requirements') || '—']);
+        rows.push(['Cách tính giá', ($('volume-summary').textContent || '').replace(/^Khối lượng: /, '') || '—'], ['Ngân sách', budget], ['Hạn nộp hồ sơ', val('deadline') ? (window.vtFormatDateVn ? window.vtFormatDateVn(val('deadline')) : val('deadline')) : '—'], ['Yêu cầu bổ sung', val('extra_requirements') || '—']);
         const dl = $('review'); dl.innerHTML = '';
         rows.forEach(([k, v]) => {
             const d = document.createElement('div'); d.className = 'py-2.5 flex flex-col sm:flex-row sm:gap-4';

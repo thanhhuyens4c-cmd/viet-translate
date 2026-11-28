@@ -38,7 +38,8 @@ def policy_for(category_group, pricing_unit, quantity):
     """Chốt loại chính sách hủy lúc tạo hợp đồng: tài liệu, sự kiện, hay hội nghị nhiều ngày."""
     if category_group == 'translation':
         return 'document'
-    if pricing_unit == 'day' and (quantity or 1) > 1:
+    # Nhiều ngày (tính theo ngày) hoặc trọn kì nhiều ngày: áp chính sách hội nghị.
+    if pricing_unit in ('day', 'period') and (quantity or 1) > 1:
         return 'conference'
     return 'event'
 
