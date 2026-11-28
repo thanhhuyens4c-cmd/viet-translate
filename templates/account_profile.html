@@ -485,10 +485,8 @@
                 <!-- Tab 4: Gói dịch vụ & Quyền lợi (5.5)                                          -->
                 <!-- (Mục "Thông báo & Bảo mật" và "Trợ giúp & Hỗ trợ" đã chuyển lên header)      -->
                 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
-                <div
-                    class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-1.5 sm:p-2 flex items-center overflow-x-auto whitespace-nowrap scroll-smooth hide-scrollbar gap-1.5 md:grid md:grid-cols-4 md:gap-2 md:overflow-visible">
-                    <div style="display: none;" aria-hidden="true"
-                        class="hidden bg-white rounded-2xl shadow-soft border border-slate-200/90 p-1.5 sm:p-2 items-center overflow-x-auto whitespace-nowrap scroll-smooth hide-scrollbar gap-1.5 md:gap-2 md:overflow-visible">
+                <div hidden style="display: none;" aria-hidden="true"
+                    class="hidden bg-white rounded-2xl shadow-soft border border-slate-200/90 p-1.5 sm:p-2 items-center overflow-x-auto whitespace-nowrap scroll-smooth hide-scrollbar gap-1.5 md:gap-2 md:overflow-visible">
                         <button id="tab-btn-profile"
                             class="tab-btn {% if active_tab == 'profile' %}active{% else %}text-slate-600 hover:text-slate-900 hover:bg-slate-100/70{% endif %} shrink-0 md:shrink w-auto md:w-full px-3.5 sm:px-4 md:px-2 lg:px-4 py-2.5 md:py-3 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer transition select-none text-center"
                             onclick="switchTab('profile', this)">
