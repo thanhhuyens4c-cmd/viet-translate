@@ -48,6 +48,7 @@
                 </div>
                 <div class="sm:text-right shrink-0">
                     <span class="font-extrabold text-brand-700 text-lg block">{{ p.price|vnd }} VND</span>
+                    {% if job.quotes_per_unit and job.quote_quantity > 1 %}<span class="text-[11px] text-slate-500 block">≈ {{ job.per_unit(p.price)|vnd }}/{{ job.quote_unit_label }} × {{ job.quote_quantity }} {{ job.quote_unit_label }}</span>{% endif %}
                     {% if p.is_lowest_price %}<span class="text-[11px] font-bold text-emerald-700">Giá thấp nhất trong các báo giá</span>{% endif %}
                     <span class="inline-block mt-1 px-2.5 py-1 text-[11px] font-bold rounded-full border {{ badge_cls.get(p.status, '') }}">{{ p.status_label }}</span>
                 </div>
@@ -99,7 +100,7 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100 align-top">
                     {% macro row(label) %}<tr><th scope="row" class="sticky left-0 bg-white px-3 py-2.5 font-semibold text-slate-500">{{ label }}</th>{{ caller() }}</tr>{% endmacro %}
-                    {% call row('Giá đề xuất') %}{% for p in comparable %}<td class="px-3 py-2.5 font-extrabold text-brand-700">{{ p.price|vnd }} VND{% if p.is_lowest_price %}<span class="block text-[11px] font-bold text-emerald-700">Thấp nhất</span>{% endif %}</td>{% endfor %}{% endcall %}
+                    {% call row('Giá đề xuất') %}{% for p in comparable %}<td class="px-3 py-2.5 font-extrabold text-brand-700">{{ p.price|vnd }} VND{% if job.quotes_per_unit and job.quote_quantity > 1 %}<span class="block text-[11px] font-normal text-slate-500">≈ {{ job.per_unit(p.price)|vnd }}/{{ job.quote_unit_label }}</span>{% endif %}{% if p.is_lowest_price %}<span class="block text-[11px] font-bold text-emerald-700">Thấp nhất</span>{% endif %}</td>{% endfor %}{% endcall %}
                     {% if job.budget_type in ('fixed', 'range') and job.budget_min %}
                     {% call row('So với ngân sách') %}{% for p in comparable %}
                         {% set hi = job.budget_max if job.budget_type == 'range' and job.budget_max else job.budget_min %}

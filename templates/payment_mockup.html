@@ -154,7 +154,13 @@
                         </div>
                         {% endif %}
 
-                        {% if contract.quantity and contract.pricing_unit != 'flat' %}
+                        {% if contract.job %}
+                        <div class="flex justify-between gap-3">
+                            <span class="text-slate-500 shrink-0">{{ 'Khối lượng' if current_lang == 'vi' else 'Volume' }}</span>
+                            <span class="font-bold text-slate-800 text-right">{{ contract.job.volume_label }}</span>
+                        </div>
+                        {% endif %}
+                        {% if contract.quantity and contract.pricing_unit not in ('flat', 'period') %}
                         <div class="flex justify-between">
                             <span class="text-slate-500">{{ 'Đơn giá × số lượng' if current_lang == 'vi' else 'Unit price × quantity' }}</span>
                             <span class="font-bold text-slate-800">{{ contract.unit_price|vnd }} × {{ contract.quantity }} {{ UNIT_LABELS.get(contract.pricing_unit, '') }}</span>

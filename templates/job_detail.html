@@ -415,16 +415,43 @@
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <!-- Mức thù lao đề xuất -->
-                        <div>
-                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
-                                {{ t('job_detail_page.rate_label') }} <span class="text-red-500">*</span>
-                            </label>
-                            <input type="number" id="proposal-price-input" name="price" required min="10000"
-                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50"
-                                placeholder="{{ t('job_detail_page.rate_placeholder') }}"
-                                value="{{ form_data.get('price', '') if form_data else '' }}"
-                                oninput="updateProposalPricePreview(this.value)">
+                        <!-- Mức thù lao đề xuất: nhập theo đơn giá (giờ/trang/ngày) hoặc tổng, luôn lưu là tổng -->
+                        {% set per_unit = job.quotes_per_unit %}
+                        {% set qmode = (form_data.get('price_mode') if form_data else None) or ('unit' if per_unit else 'total') %}
+                        <div id="quote-box" data-qty="{{ job.quote_quantity }}" data-unit="{{ job.quote_unit_label }}"
+                             data-posted-total="{{ job.posted_price or '' }}">
+                            <div class="flex items-center justify-between gap-2 mb-1.5">
+                                <label for="proposal-price-input" class="block text-slate-700 font-bold text-xs uppercase tracking-wider">
+                                    {{ t('job_detail_page.rate_label') }}
+                                    {% if job.posted_price %}<span class="text-xs text-slate-400 font-normal normal-case">(Không bắt buộc)</span>{% else %}<span class="text-red-500">*</span>{% endif %}
+                                </label>
+                                {% if per_unit %}
+                                <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-[11px] font-bold" role="radiogroup" aria-label="Cách nhập giá">
+                                    <label class="cursor-pointer"><input type="radio" name="price_mode" value="unit" class="peer sr-only" {{ 'checked' if qmode == 'unit' }}>
+                                        <span class="block whitespace-nowrap px-2.5 py-1 rounded-md text-slate-500 peer-checked:bg-white peer-checked:text-brand-700 peer-checked:shadow-sm">Theo {{ job.quote_unit_label }}</span></label>
+                                    <label class="cursor-pointer"><input type="radio" name="price_mode" value="total" class="peer sr-only" {{ 'checked' if qmode == 'total' }}>
+                                        <span class="block whitespace-nowrap px-2.5 py-1 rounded-md text-slate-500 peer-checked:bg-white peer-checked:text-brand-700 peer-checked:shadow-sm">Tổng</span></label>
+                                </div>
+                                {% else %}
+                                <input type="hidden" name="price_mode" value="total">
+                                {% endif %}
+                            </div>
+                            <div class="relative">
+                                <input type="number" id="proposal-price-input" name="price" {{ '' if job.posted_price else 'required' }} min="1000"
+                                    data-posted-price="{{ job.posted_price or '' }}"
+                                    class="w-full pl-4 pr-20 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50"
+                                    value="{{ form_data.get('price', '') if form_data else '' }}">
+                                <span id="quote-suffix" class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400"></span>
+                            </div>
+                            {% if per_unit %}
+                            <p class="text-[11px] text-slate-500 mt-1.5">Khối lượng khách đăng: <strong class="text-slate-700">{{ job.volume_label }}</strong>. Hệ thống tự tính phần còn lại.</p>
+                            {% endif %}
+                            {% if not per_unit %}
+                            <p class="text-[11px] text-slate-500 mt-1.5">Khách tính <strong class="text-slate-700">{{ job.volume_label }}</strong>: báo một giá tổng.</p>
+                            {% endif %}
+                            {% if job.posted_price %}
+                            <p class="text-[11px] text-slate-500 mt-1 leading-relaxed">Không nhập tức là bạn đồng ý mức giá khách thuê đăng: <strong class="text-slate-700">{{ job.posted_price|vnd }} VND</strong>{% if per_unit and job.quote_quantity > 1 %} (≈ {{ job.per_unit(job.posted_price)|vnd }}/{{ job.quote_unit_label }}){% endif %}{% if job.budget_type == 'range' %}, mức thấp nhất của khoảng giá{% endif %}.</p>
+                            {% endif %}
                             <p id="proposal-price-preview" class="text-xs text-brand-700 font-bold mt-1.5 hidden"></p>
                         </div>
 
@@ -563,17 +590,50 @@
                             if (hint) hint.remove();
                         });
                 })();
-                function updateProposalPricePreview(val) {
-                    const prev = document.getElementById('proposal-price-preview');
-                    if (!prev) return;
-                    const num = parseFloat(val);
-                    if (!isNaN(num) && num > 0) {
-                        prev.textContent = '≈ ' + Number(num).toLocaleString('en-US') + ' VND';
-                        prev.classList.remove('hidden');
-                    } else {
-                        prev.classList.add('hidden');
-                    }
+                // Báo giá: đổi qua lại đơn giá và tổng, luôn hiện con số còn lại để PDV và khách cùng hiểu.
+                function quoteMode() {
+                    const r = document.querySelector('input[name="price_mode"]:checked') || document.querySelector('input[name="price_mode"]');
+                    return r ? r.value : 'total';
                 }
+                function quoteTotal() {
+                    const box = document.getElementById('quote-box'), input = document.getElementById('proposal-price-input');
+                    if (!box || !input) return 0;
+                    const qty = parseInt(box.dataset.qty || '1', 10) || 1;
+                    const v = parseInt(input.value || '0', 10) || 0;
+                    if (!v) return parseInt(box.dataset.postedTotal || '0', 10) || 0;
+                    return quoteMode() === 'unit' ? v * qty : v;
+                }
+                function updateProposalPricePreview() {
+                    const box = document.getElementById('quote-box'), input = document.getElementById('proposal-price-input');
+                    const prev = document.getElementById('proposal-price-preview'), suffix = document.getElementById('quote-suffix');
+                    if (!box || !input || !prev) return;
+                    const qty = parseInt(box.dataset.qty || '1', 10) || 1, unit = box.dataset.unit || '';
+                    const posted = parseInt(box.dataset.postedTotal || '0', 10) || 0;
+                    const mode = quoteMode(), fmt = n => Number(n).toLocaleString('vi-VN');
+                    if (suffix) suffix.textContent = mode === 'unit' ? 'VND/' + unit : 'VND';
+                    input.placeholder = posted
+                        ? 'Bỏ trống = đồng ý ' + fmt(mode === 'unit' ? Math.floor(posted / qty) : posted)
+                        : (mode === 'unit' ? 'Đơn giá mỗi ' + unit : 'Tổng cho cả công việc');
+                    const v = parseInt(input.value || '0', 10) || 0;
+                    if (!v || qty === 1) { prev.classList.add('hidden'); return; }
+                    prev.textContent = mode === 'unit'
+                        ? '= Tổng ' + fmt(v * qty) + ' VND cho ' + qty + ' ' + unit
+                        : '≈ ' + fmt(Math.floor(v / qty)) + ' VND/' + unit + ' × ' + qty + ' ' + unit;
+                    prev.classList.remove('hidden');
+                }
+                (function () {
+                    const input = document.getElementById('proposal-price-input');
+                    if (!input) return;
+                    input.addEventListener('input', updateProposalPricePreview);
+                    document.querySelectorAll('input[name="price_mode"]').forEach(r => r.addEventListener('change', () => {
+                        // Đổi cách nhập thì quy đổi luôn số đang gõ để không phải nhập lại.
+                        const box = document.getElementById('quote-box');
+                        const qty = parseInt(box.dataset.qty || '1', 10) || 1, v = parseInt(input.value || '0', 10) || 0;
+                        if (v) input.value = r.value === 'unit' ? Math.round(v / qty) : v * qty;
+                        updateProposalPricePreview();
+                    }));
+                    updateProposalPricePreview();
+                })();
             </script>
             <!-- ═══ KHU VỰC KHÁCH THUÊ (QUẢN LÝ ỨNG VIÊN & ĐỀ XUẤT) ═══ -->
             {% if current_user and current_user.id == job.hirer_id %}
@@ -698,11 +758,13 @@
                     {% if job.budget_type == 'fixed' and job.budget_min %}
                     <div class="text-3xl font-extrabold text-brand-700">{{ job.budget_min|vnd }} VND</div>
                     <div class="text-xs text-slate-400 mt-1 font-medium">{{ t('job_detail_page.fixed_price_sub') }}</div>
+                    {% if job.quotes_per_unit and job.quote_quantity > 1 %}<div class="text-xs text-slate-500 mt-1 font-semibold">≈ {{ job.per_unit(job.budget_min)|vnd }} VND/{{ job.quote_unit_label }} × {{ job.quote_quantity }} {{ job.quote_unit_label }}</div>{% endif %}
                     {% elif job.budget_type == 'range' and job.budget_min and job.budget_max %}
                     <div class="text-2xl sm:text-3xl font-extrabold text-brand-700">
                         {{ job.budget_min|vnd }} – {{ job.budget_max|vnd }} VND
                     </div>
-                    <div class="text-xs text-slate-400 mt-1 font-medium">Khoảng ngân sách dự kiến</div>
+                    <div class="text-xs text-slate-400 mt-1 font-medium">Khoảng ngân sách dự kiến (tổng)</div>
+                    {% if job.quotes_per_unit and job.quote_quantity > 1 %}<div class="text-xs text-slate-500 mt-1 font-semibold">≈ {{ job.per_unit(job.budget_min)|vnd }} – {{ job.per_unit(job.budget_max)|vnd }} VND/{{ job.quote_unit_label }} × {{ job.quote_quantity }} {{ job.quote_unit_label }}</div>{% endif %}
                     {% else %}
                     <div class="text-2xl font-extrabold text-slate-800">Thương lượng / Thỏa thuận</div>
                     <div class="text-xs text-slate-400 mt-1 font-medium">Thống nhất theo đề xuất</div>
@@ -710,6 +772,10 @@
                 </div>
 
                 <div class="space-y-3 mb-6 text-xs text-slate-600">
+                    <div class="flex justify-between items-start gap-3 py-1 border-b border-slate-50">
+                        <span class="text-slate-500 shrink-0">Cách tính giá:</span>
+                        <span class="font-bold text-slate-800 text-right">{{ job.volume_label }}</span>
+                    </div>
                     {% if job.event_date %}
                     <div class="flex justify-between items-center py-1 border-b border-slate-50">
                         <span class="text-slate-500">Thời gian thực hiện:</span>
@@ -973,18 +1039,6 @@
         }
     }
 
-    function updateProposalPricePreview(val) {
-        const prev = document.getElementById('proposal-price-preview');
-        if (!prev) return;
-        const num = parseFloat(val);
-        if (!isNaN(num) && num > 0) {
-            prev.textContent = '≈ ' + Number(num).toLocaleString('vi-VN') + ' VND';
-            prev.classList.remove('hidden');
-        } else {
-            prev.classList.add('hidden');
-        }
-    }
-
     // Modal kiểm tra & xác nhận ứng tuyển
     function openApplyModal(e) {
         if (e) e.preventDefault();
@@ -992,8 +1046,7 @@
         if (!form) return;
         if (!form.reportValidity()) return;
 
-        const priceInput = document.getElementById('proposal-price-input');
-        const priceVal = priceInput ? priceInput.value : 0;
+        const priceVal = quoteTotal();
         const coverArea = form.querySelector('textarea[name="cover_letter"]');
         const coverVal = coverArea ? coverArea.value : '';
         const compRadio = form.querySelector('input[name="completion_type"]:checked');
@@ -1014,7 +1067,13 @@
         const coverBox = document.getElementById('modal-summary-cover-box');
         const coverEl = document.getElementById('modal-summary-cover');
 
-        if (sumPrice) sumPrice.textContent = Number(priceVal || 0).toLocaleString('vi-VN') + ' VND';
+        if (sumPrice) {
+            const qbox = document.getElementById('quote-box');
+            const qty = qbox ? (parseInt(qbox.dataset.qty || '1', 10) || 1) : 1;
+            let txt = Number(priceVal || 0).toLocaleString('vi-VN') + ' VND';
+            if (qty > 1) txt += ' (' + Math.floor((priceVal || 0) / qty).toLocaleString('vi-VN') + '/' + qbox.dataset.unit + ' × ' + qty + ')';
+            sumPrice.textContent = txt;
+        }
         if (sumTime) sumTime.textContent = timeStr;
 
         if (coverVal && coverVal.trim()) {

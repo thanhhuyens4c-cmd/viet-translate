@@ -1,0 +1,284 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Tài chính{% endblock %}
+
+{% block content %}
+<style>
+    .page-header { flex-wrap: wrap; }
+    .fin-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+    .fin-num { font-variant-numeric: tabular-nums; }
+    .fin-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .fin-row:last-child { border-bottom: none; }
+    .fin-row .k { color: var(--muted); }
+    .fin-row .v { color: #f1f5f9; font-weight: 700; }
+    .fin-chart { display: flex; align-items: flex-end; gap: 3px; height: 160px; padding: 16px 18px 0; }
+    .fin-bar { flex: 1; min-width: 4px; background: rgba(59,130,246,0.55); border-radius: 3px 3px 0 0; position: relative; }
+    .fin-bar:hover { background: #60a5fa; }
+    .fin-bar.zero { background: rgba(148,163,184,0.12); height: 2px !important; }
+    .fin-axis { display: flex; justify-content: space-between; padding: 6px 18px 14px; font-size: 10.5px; color: var(--muted); }
+    .payout-card { border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: 1fr auto; gap: 16px; }
+    .payout-card.overdue { border-color: rgba(245,158,11,0.45); }
+    @media (max-width: 720px) { .payout-card { grid-template-columns: 1fr; } }
+    .copy-btn { font-size: 10.5px; color: var(--brand); background: none; border: none; cursor: pointer; padding: 0 4px; }
+    .copy-btn:hover { text-decoration: underline; }
+    .bank-line { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #e2e8f0; }
+    .bank-line .lbl { color: var(--muted); width: 96px; flex-shrink: 0; font-size: 12px; }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Tài chính</h1>
+        <p class="page-subtitle">Doanh thu sàn, tiền đang giữ, số dư ví người dùng và các khoản cần chuyển khoản.</p>
+    </div>
+    <div class="fin-tabs">
+        {% for key, (label, _) in periods.items() %}
+        <a href="{{ url_for('admin_finance', tab=tab, period=key) }}" class="filter-tab {% if period == key %}active{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+</div>
+
+{% if stats.pending_withdraw_count or stats.pending_refund_count %}
+<a href="{{ url_for('admin_finance', tab='payouts', period=period) }}" class="block mb-5" style="text-decoration:none">
+    <div style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35); border-radius: 12px; padding: 12px 16px; color: #fbbf24; font-size: 13px; font-weight: 600;">
+        Có {{ stats.pending_withdraw_count }} yêu cầu rút tiền ({{ stats.pending_withdraw_amount|vnd }} ₫)
+        {% if stats.pending_refund_count %} và {{ stats.pending_refund_count }} khoản hoàn tiền ({{ stats.pending_refund_amount|vnd }} ₫){% endif %}
+        đang chờ sàn chuyển khoản. Xử lý ngay →
+    </div>
+</a>
+{% endif %}
+
+<div class="filter-bar mb-5" style="padding:0; border:none; background:none">
+    <a href="{{ url_for('admin_finance', tab='overview', period=period) }}" class="filter-tab {% if tab == 'overview' %}active{% endif %}">Tổng quan</a>
+    <a href="{{ url_for('admin_finance', tab='payouts', period=period) }}" class="filter-tab {% if tab == 'payouts' %}active{% endif %}">
+        Chờ chi trả{% if payout_rows %} ({{ payout_rows|length }}){% endif %}
+    </a>
+    <a href="{{ url_for('admin_finance', tab='contracts', period=period) }}" class="filter-tab {% if tab == 'contracts' %}active{% endif %}">Đối soát hợp đồng</a>
+    <div class="filter-sep"></div>
+    <a href="{{ url_for('admin_payments') }}" class="filter-tab">Sổ giao dịch ↗</a>
+</div>
+
+{# ═════════════════════════ TỔNG QUAN ═════════════════════════ #}
+{% if tab == 'overview' %}
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-label">Doanh thu sàn</div>
+        <div class="kpi-value fin-num" style="color: var(--success); font-size: 24px">{{ stats.platform_revenue|vnd }}</div>
+        <div class="kpi-sub">Phí 2% khách trả + hoa hồng PDV, {{ periods[period][0]|lower }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Đang giữ (escrow)</div>
+        <div class="kpi-value fin-num" style="font-size: 24px">{{ stats.escrow_held|vnd }}</div>
+        <div class="kpi-sub">Khách đã trả, chưa nghiệm thu</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Số dư ví người dùng</div>
+        <div class="kpi-value fin-num" style="font-size: 24px">{{ stats.wallet_liability|vnd }}</div>
+        <div class="kpi-sub">Sàn phải sẵn sàng chi trả khi rút</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Chờ chuyển khoản</div>
+        <div class="kpi-value fin-num" style="color: {{ 'var(--warning)' if stats.pending_withdraw_count or stats.pending_refund_count else '#f1f5f9' }}; font-size: 24px">
+            {{ (stats.pending_withdraw_amount + stats.pending_refund_amount)|vnd }}
+        </div>
+        <div class="kpi-sub">{{ stats.pending_withdraw_count }} rút tiền · {{ stats.pending_refund_count }} hoàn tiền</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+    <div class="admin-card" style="grid-column: 1 / -1">
+        <div class="admin-card-header">
+            <span>Doanh thu sàn theo ngày</span>
+            <span style="font-size: 11px; color: var(--muted); font-weight: 500">Cao nhất: {{ chart_max|vnd }} ₫</span>
+        </div>
+        <div class="fin-chart">
+            {% for d in chart %}
+            <div class="fin-bar {{ 'zero' if not d.value }}" style="height: {{ d.pct }}%" title="{{ d.label }}: {{ d.value|vnd }} ₫"></div>
+            {% endfor %}
+        </div>
+        <div class="fin-axis">
+            <span>{{ chart[0].label if chart }}</span>
+            <span>{{ chart[(chart|length) // 2].label if chart }}</span>
+            <span>{{ chart[-1].label if chart }}</span>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <div class="admin-card-header">Cơ cấu doanh thu ({{ stats.completed_count }} hợp đồng hoàn tất)</div>
+        <div style="padding: 6px 18px 12px">
+            <div class="fin-row"><span class="k">Tổng giá trị hợp đồng</span><span class="v fin-num">{{ stats.contract_value|vnd }} ₫</span></div>
+            <div class="fin-row"><span class="k">Phí dịch vụ khách trả (2%)</span><span class="v fin-num" style="color:#4ade80">+{{ stats.client_fee_total|vnd }} ₫</span></div>
+            <div class="fin-row"><span class="k">Hoa hồng trừ vào PDV (10%, 5% khách thân)</span><span class="v fin-num" style="color:#4ade80">+{{ stats.commission_total|vnd }} ₫</span></div>
+            <div class="fin-row"><span class="k">PDV thực nhận</span><span class="v fin-num">{{ stats.translator_net_total|vnd }} ₫</span></div>
+            <div class="fin-row"><span class="k">Sàn giữ lại</span><span class="v fin-num" style="color:#4ade80">{{ (stats.client_fee_total + stats.commission_total)|vnd }} ₫</span></div>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <div class="admin-card-header">Dòng tiền {{ periods[period][0]|lower }}</div>
+        <div style="padding: 6px 18px 12px">
+            <div class="fin-row"><span class="k">Khách thanh toán hợp đồng</span><span class="v fin-num">{{ stats.gmv|vnd }} ₫</span></div>
+            <div class="fin-row"><span class="k">Nạp ví</span><span class="v fin-num">{{ stats.topups|vnd }} ₫</span></div>
+            <div class="fin-row"><span class="k">Giải ngân cho PDV</span><span class="v fin-num">{{ stats.released|vnd }} ₫</span></div>
+            <div class="fin-row"><span class="k">Đã chuyển khoản rút tiền</span><span class="v fin-num">{{ stats.withdrawn|vnd }} ₫</span></div>
+            <div class="fin-row"><span class="k">Hoàn tiền cho khách</span><span class="v fin-num">{{ stats.refunded|vnd }} ₫</span></div>
+            <div class="fin-row"><span class="k">Chuyển khoản chưa khớp</span>
+                <span class="v fin-num">{% if stats.unmatched_count %}<a href="{{ url_for('admin_payments') }}" style="color: var(--warning)">{{ stats.unmatched_count }} khoản cần đối soát</a>{% else %}0{% endif %}</span></div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ═════════════════════════ CHỜ CHI TRẢ ═════════════════════════ #}
+{% if tab == 'payouts' %}
+<div class="admin-card" style="margin-bottom: 20px">
+    <div class="admin-card-header">
+        <span>Cần chuyển khoản ({{ payout_rows|length }})</span>
+        <span style="font-size: 11px; color: var(--muted); font-weight: 500">Cam kết với người dùng: trong 2 ngày làm việc</span>
+    </div>
+    <div style="padding: 16px; display: grid; gap: 12px">
+        {% for row in payout_rows %}
+        {% set p = row.p %}
+        <div class="payout-card {{ 'overdue' if row.age_hours >= 48 }}">
+            <div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom: 10px">
+                    <span class="badge {{ 'badge-yellow' if p.kind == 'withdraw' else 'badge-indigo' }}">{{ 'Rút tiền' if p.kind == 'withdraw' else 'Hoàn tiền về phương thức gốc' }}</span>
+                    <span style="font-size: 22px; font-weight: 900; color: #f1f5f9" class="fin-num">{{ p.amount|vnd }} ₫</span>
+                    <span style="font-size: 11px; color: {{ 'var(--warning)' if row.age_hours >= 48 else 'var(--muted)' }}">
+                        #TXN-{{ p.id }} · gửi {{ (p.created_at + timedelta(hours=7)).strftime('%d/%m/%Y %H:%M') if p.created_at }}
+                        ({% if row.age_hours < 1 %}vừa xong{% elif row.age_hours < 48 %}{{ row.age_hours }} giờ trước{% else %}quá hạn {{ row.age_hours // 24 }} ngày{% endif %})
+                    </span>
+                </div>
+                <div style="display:grid; gap:6px">
+                    <div class="bank-line"><span class="lbl">Người nhận</span>
+                        {% if row.user %}<a href="{{ url_for('admin_users') }}?search={{ row.user.email }}" style="color:#f1f5f9; font-weight:600">{{ row.user.name }}</a>
+                        <span style="color: var(--muted); font-size: 11px">{{ row.user.email }} · {{ 'PDV' if row.user.role == 'translator' else 'Khách thuê' }}</span>
+                        {% else %}<span style="color: var(--muted)">#{{ p.payee_id }}</span>{% endif %}
+                    </div>
+                    {% if row.info.account_number %}
+                    <div class="bank-line"><span class="lbl">Ngân hàng</span>{{ row.info.bank_short_name or row.info.bank_code }}
+                        <span style="color: var(--muted); font-size: 11px">{{ row.info.bank_name }}</span></div>
+                    <div class="bank-line"><span class="lbl">Số tài khoản</span>
+                        <strong class="fin-num" style="letter-spacing: 0.04em">{{ row.info.account_number }}</strong>
+                        <button type="button" class="copy-btn" data-copy="{{ row.info.account_number }}">Sao chép</button></div>
+                    <div class="bank-line"><span class="lbl">Chủ tài khoản</span><strong>{{ row.info.account_holder_name }}</strong></div>
+                    <div class="bank-line"><span class="lbl">Nội dung CK</span>
+                        <code style="font-size: 12px">{{ row.note }}</code>
+                        <button type="button" class="copy-btn" data-copy="{{ row.note }}">Sao chép</button></div>
+                    {% if row.legacy %}
+                    <div style="font-size: 11px; color: var(--warning)">Yêu cầu gửi trước khi hệ thống lưu tài khoản nhận; đang hiện tài khoản mặc định hiện tại. Đối chiếu với "{{ p.transaction_ref }}" trước khi chuyển.</div>
+                    {% endif %}
+                    {% elif p.kind == 'withdraw' %}
+                    <div class="bank-line"><span class="lbl">Tài khoản</span>{{ p.transaction_ref or 'Không có thông tin' }}</div>
+                    <div style="font-size: 11px; color: var(--danger)">Không tìm thấy số tài khoản đầy đủ. Liên hệ người dùng hoặc từ chối để tiền quay lại ví.</div>
+                    {% else %}
+                    <div class="bank-line"><span class="lbl">Hợp đồng</span>
+                        {% if p.contract_id %}<a href="{{ url_for('admin_contracts') }}?search={{ p.contract_id }}" style="color: var(--brand)">#CTR-{{ p.contract_id }}</a>{% endif %}
+                        <span style="color: var(--muted); font-size: 11px">Hoàn về tài khoản khách đã dùng để thanh toán</span></div>
+                    {% endif %}
+                </div>
+                <div style="display:flex; gap:8px; margin-top: 14px; flex-wrap: wrap">
+                    <form action="{{ url_for('admin_complete_withdrawal', payment_id=p.id) }}" method="POST"
+                          onsubmit="return confirm('Xác nhận đã chuyển khoản {{ p.amount|vnd }} ₫ cho người dùng? Người dùng sẽ được báo ngay.');">
+                        <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
+                        <input type="hidden" name="next" value="{{ url_for('admin_finance', tab='payouts', period=period) }}">
+                        <button type="submit" class="btn btn-sm btn-success">Đã chuyển khoản</button>
+                    </form>
+                    {% if p.kind == 'withdraw' %}
+                    <form action="{{ url_for('admin_reject_withdrawal', payment_id=p.id) }}" method="POST"
+                          onsubmit="var n = prompt('Lý do từ chối (gửi cho người dùng, tiền sẽ quay lại ví):'); if (n === null) return false; this.note.value = n; return true;">
+                        <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
+                        <input type="hidden" name="next" value="{{ url_for('admin_finance', tab='payouts', period=period) }}">
+                        <input type="hidden" name="note" value="">
+                        <button type="submit" class="btn btn-sm btn-danger">Từ chối</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% if row.qr %}
+            <div style="text-align:center">
+                <img src="{{ row.qr }}" alt="VietQR chuyển {{ p.amount|vnd }} ₫" width="150" height="150" loading="lazy"
+                     style="background:#fff; border-radius:10px; padding:6px; width:150px; height:150px; object-fit:contain">
+                <div style="font-size: 10.5px; color: var(--muted); margin-top: 6px; max-width: 150px">Quét bằng app ngân hàng công ty, đã điền sẵn số tiền và nội dung</div>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-title">Không có khoản nào chờ chuyển khoản</div>
+            <div class="empty-state-desc">Khi người dùng gửi yêu cầu rút tiền, yêu cầu sẽ hiện ở đây kèm thông báo, số đếm trên menu và email cho admin tài chính.</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="admin-card-header">Rút tiền đã xử lý gần đây</div>
+    <div class="overflow-x-auto">
+        <table class="admin-table w-full">
+            <thead><tr><th>ID</th><th>Người rút</th><th>Số tiền</th><th>Tài khoản</th><th>Kết quả</th><th>Xử lý lúc</th></tr></thead>
+            <tbody>
+                {% for p in recent_processed %}
+                <tr>
+                    <td class="text-xs">#TXN-{{ p.id }}</td>
+                    <td>{{ p.user.name if p.user else '#' ~ p.user_id }}</td>
+                    <td class="fin-num">{{ p.amount|vnd }} ₫</td>
+                    <td class="text-xs" style="color: var(--muted)">{{ p.transaction_ref or '' }}</td>
+                    <td>{% if p.status == 'completed' %}<span class="badge badge-green">Đã chuyển</span>{% else %}<span class="badge badge-red">Từ chối</span>{% if p.note %}<div class="text-[10px] text-slate-400 mt-1">{{ p.note }}</div>{% endif %}{% endif %}</td>
+                    <td class="text-xs" style="color: var(--muted)">{{ ((p.processed_at or p.updated_at) + timedelta(hours=7)).strftime('%d/%m/%Y %H:%M') if (p.processed_at or p.updated_at) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center; color: var(--muted); padding: 20px">Chưa có.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{# ═════════════════════════ ĐỐI SOÁT HỢP ĐỒNG ═════════════════════════ #}
+{% if tab == 'contracts' %}
+<div class="admin-card">
+    <div class="admin-card-header">
+        <span>Hợp đồng hoàn tất {{ periods[period][0]|lower }} ({{ stats.completed_count }})</span>
+        <span style="font-size: 11px; color: var(--muted); font-weight: 500">Khách trả = giá + 2% · PDV nhận = giá − hoa hồng</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="admin-table w-full">
+            <thead>
+                <tr><th>Hợp đồng</th><th>Khối lượng</th><th class="text-right">Giá HĐ</th><th class="text-right">Phí khách</th>
+                    <th class="text-right">Khách trả</th><th class="text-right">Hoa hồng</th><th class="text-right">PDV nhận</th><th class="text-right">Sàn thu</th></tr>
+            </thead>
+            <tbody>
+                {% for c in contracts %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('admin_contracts') }}?search={{ c.id }}" style="color: var(--brand)">#CTR-{{ c.id }}</a>
+                        <div class="text-[11px]" style="color: var(--muted); max-width: 220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ c.job.title if c.job else (c.service.name if c.service else '') }}</div>
+                    </td>
+                    <td class="text-xs" style="color: var(--muted)">{% if c.quantity and c.pricing_unit != 'flat' %}{{ c.quantity }} {{ UNIT_LABELS.get(c.pricing_unit, '') }}{% else %}Trọn gói{% endif %}</td>
+                    <td class="text-right fin-num">{{ c.agreed_price|vnd }}</td>
+                    <td class="text-right fin-num" style="color:#4ade80">{{ (c.client_fee or 0)|vnd }}</td>
+                    <td class="text-right fin-num">{{ (c.agreed_price + (c.client_fee or 0))|vnd }}</td>
+                    <td class="text-right fin-num" style="color:#4ade80">{{ c.platform_fee|vnd }}</td>
+                    <td class="text-right fin-num">{{ c.translator_net_amount|vnd }}</td>
+                    <td class="text-right fin-num" style="font-weight:700">{{ ((c.client_fee or 0) + c.platform_fee)|vnd }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" style="text-align:center; color: var(--muted); padding: 20px">Chưa có hợp đồng hoàn tất trong kỳ này.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<script>
+document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var text = btn.getAttribute('data-copy');
+        var done = function () { var old = btn.textContent; btn.textContent = 'Đã chép'; setTimeout(function () { btn.textContent = old; }, 1200); };
+        if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done, function () {}); }
+    });
+});
+</script>
+{% endblock %}

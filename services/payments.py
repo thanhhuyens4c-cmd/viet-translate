@@ -4,6 +4,8 @@ Mọi dòng tiền nằm trong một bảng `PaymentTransaction`, phân biệt b
 dùng chung cho dịch tài liệu và phiên dịch. Hàm ở đây KHÔNG tự commit;
 route gọi chịu trách nhiệm commit hoặc rollback.
 """
+from datetime import datetime
+
 from sqlalchemy import func
 
 from models import db, Contract, PaymentTransaction, User
@@ -80,9 +82,26 @@ def prior_revenue(hirer_id, translator_id, exclude_contract_id=None):
     return int(query.scalar() or 0)
 
 
+def _money_locked(contract):
+    """Khách đã trả tiền thì phí bị chốt; trước đó phí luôn tính lại theo biểu phí hiện hành."""
+    if contract.paid_at is not None:
+        return True
+    if contract.id is None:
+        return False
+    return PaymentTransaction.query.filter(
+        PaymentTransaction.contract_id == contract.id,
+        PaymentTransaction.kind.in_(['deposit', 'wallet_payment']),
+    ).first() is not None
+
+
 def ensure_pricing_snapshot(contract):
-    """Chốt số lượng, đơn giá và phí vào hợp đồng. Chạy lại không đổi gì nếu đã chốt."""
-    if contract.commission is not None and contract.client_fee is not None:
+    """Chốt số lượng, đơn giá và phí vào hợp đồng.
+
+    Đã thanh toán: giữ nguyên bản chụp (sổ giao dịch dựa trên nó). Chưa thanh toán: tính lại để
+    hợp đồng tạo dưới biểu phí cũ (phí tối thiểu, dịch cabin tính theo trang) hiển thị đúng số mới.
+    """
+    if (contract.commission is not None and contract.client_fee is not None
+            and contract.translator_net is not None and _money_locked(contract)):
         if contract.refund_policy is None:
             # Hợp đồng chốt phí trước khi có chính sách hủy: bổ sung theo loại công việc.
             job = contract.job
@@ -94,7 +113,7 @@ def ensure_pricing_snapshot(contract):
     job = contract.job
     if job is not None:
         unit = pricing.normalize_unit(job.pricing_unit, job.category_group)
-        quantity = pricing.normalize_quantity(job.quantity)
+        quantity = 1 if pricing.is_lump(unit) else pricing.normalize_quantity(job.quantity)
     else:
         # Đặt dịch vụ có sẵn (gói dịch vụ) thì tính trọn gói.
         unit, quantity = 'flat', 1
@@ -105,8 +124,9 @@ def ensure_pricing_snapshot(contract):
     )
     contract.pricing_unit = unit
     contract.quantity = quantity
+    policy_quantity = (job.period_days or 1) if (job is not None and unit == 'period') else quantity
     contract.refund_policy = refunds.policy_for(
-        job.display_category_group if job is not None else None, unit, quantity)
+        job.display_category_group if job is not None else None, unit, policy_quantity)
     contract.unit_price = contract.agreed_price // quantity
     contract.client_fee = fees['client_fee']
     contract.commission = fees['commission']
@@ -245,11 +265,38 @@ def voucher_balance(user_id):
         PaymentTransaction.kind == 'voucher', PaymentTransaction.payee_id == user_id).scalar() or 0)
 
 
-def request_withdrawal(user_id, amount, destination=None):
+def payout_account_snapshot(account):
+    """Chuỗi JSON lưu tài khoản nhận tiền rút (số tài khoản đầy đủ để admin chuyển khoản)."""
+    if not account:
+        return None
+    import json
+    keys = ('bank_code', 'bank_short_name', 'bank_name', 'account_number', 'account_holder_name', 'branch')
+    return json.dumps({k: (account.get(k) or '') for k in keys}, ensure_ascii=False)
+
+
+def withdrawal_transfer_note(payment):
+    """Nội dung chuyển khoản admin ghi khi trả tiền rút, để người nhận đối chiếu."""
+    return f'VIETTRANSLATE RUT TIEN {payment.id}'
+
+
+def payout_qr_url(payment, info=None):
+    """Ảnh VietQR để admin quét bằng app ngân hàng công ty: điền sẵn tài khoản người nhận, số tiền, nội dung."""
+    from urllib.parse import quote
+    info = info if info is not None else payment.payout_info
+    bank = (info.get('bank_short_name') or info.get('bank_code') or '').replace(' ', '')
+    acc = info.get('account_number') or ''
+    if not bank or not acc:
+        return None
+    return (f"https://qr.sepay.vn/img?acc={quote(acc)}&bank={quote(bank)}"
+            f"&amount={int(payment.amount)}&des={quote(withdrawal_transfer_note(payment))}")
+
+
+def request_withdrawal(user_id, amount, destination=None, account=None):
     """Gửi yêu cầu rút tiền về tài khoản chính chủ; admin chuyển khoản rồi đánh dấu hoàn tất.
 
     destination: chuỗi mô tả tài khoản nhận (ngân hàng, số tài khoản đã che, chủ tài khoản),
-    lưu vào transaction_ref để admin biết chuyển về đâu.
+    lưu vào transaction_ref để hiện nhanh. account: dict tài khoản nhận đầy đủ, chụp vào
+    payout_account để admin có số tài khoản thật khi chuyển khoản.
     """
     try:
         amount = parse_amount(amount)
@@ -271,6 +318,7 @@ def request_withdrawal(user_id, amount, destination=None):
         contract_id=anchor.contract_id if anchor else None, user_id=user_id, payee_id=user_id,
         kind='withdraw', amount=amount, status='pending', payment_method='bank_transfer',
         transaction_ref=(destination or None) and str(destination)[:100],
+        payout_account=payout_account_snapshot(account),
     )
     db.session.add(withdrawal)
     return withdrawal
@@ -281,6 +329,7 @@ def complete_withdrawal(payment):
     if payment.kind not in ('withdraw', 'refund') or payment.status != 'pending':
         raise PaymentError('Chỉ đánh dấu hoàn tất được khoản rút hoặc hoàn tiền đang chờ chuyển khoản.')
     payment.status = 'completed'
+    payment.processed_at = datetime.utcnow()
     return payment
 
 
@@ -289,5 +338,6 @@ def reject_withdrawal(payment, note=None):
     if payment.kind != 'withdraw' or payment.status != 'pending':
         raise PaymentError('Chỉ từ chối được yêu cầu rút tiền đang chờ chuyển khoản.')
     payment.status = 'rejected'
+    payment.processed_at = datetime.utcnow()
     payment.note = (note or '').strip()[:255] or None
     return payment

@@ -936,6 +936,19 @@
             </a>
             {% endif %}
 
+            {% if has_permission('view_payments') and 'admin_finance' in get_admin_routes() %}
+            <a href="{{ url_for('admin_finance') }}"
+               class="nav-item {% if request.endpoint == 'admin_finance' %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                </svg>
+                Tài chính
+                {% if admin_badge_pending_payouts and admin_badge_pending_payouts > 0 %}
+                <span class="nav-badge warning" title="{{ admin_badge_pending_payouts }} khoản rút / hoàn tiền chờ chuyển khoản">{{ admin_badge_pending_payouts }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+
             {% if has_permission('view_payments') %}
             <a href="{{ url_for('admin_payments') if 'admin_payments' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_payments' %}active{% endif %}">
