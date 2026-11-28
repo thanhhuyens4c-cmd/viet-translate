@@ -279,6 +279,16 @@ def withdrawal_transfer_note(payment):
     return f'VIETTRANSLATE RUT TIEN {payment.id}'
 
 
+def payout_details_text(payment, info=None):
+    """Thông tin chuyển khoản đầy đủ cho admin: ngân hàng, số tài khoản, chủ tài khoản, nội dung."""
+    info = info if info is not None else payment.payout_info
+    if not info.get('account_number'):
+        return payment.transaction_ref or 'Chưa có số tài khoản'
+    bank = info.get('bank_short_name') or info.get('bank_code') or ''
+    return (f"{bank} · STK {info.get('account_number')} · Chủ TK {info.get('account_holder_name') or ''}"
+            f" · Nội dung: {withdrawal_transfer_note(payment)}")
+
+
 def payout_qr_url(payment, info=None):
     """Ảnh VietQR để admin quét bằng app ngân hàng công ty: điền sẵn tài khoản người nhận, số tiền, nội dung."""
     from urllib.parse import quote
