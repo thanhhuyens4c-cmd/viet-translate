@@ -128,9 +128,9 @@ class WalletServiceTests(WalletBase):
             payments.complete_withdrawal(w)
 
     def test_cannot_withdraw_more_than_balance(self):
-        payments.topup(self.trans.id, pricing.WITHDRAW_MIN)
+        payments.topup(self.trans.id, payments.TOPUP_MIN)
         with self.assertRaises(payments.PaymentError):
-            payments.request_withdrawal(self.trans.id, pricing.WITHDRAW_MIN + 1)
+            payments.request_withdrawal(self.trans.id, payments.TOPUP_MIN + 1)
 
 
 class TopupWebhookTests(WalletBase):
