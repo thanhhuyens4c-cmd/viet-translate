@@ -145,7 +145,7 @@ def evaluate_verification_submission(verification_id: int) -> Dict[str, Any]:
         checks['cv']['detail'] = "Chưa nộp tệp CV hoặc tệp không hợp lệ."
 
     # 3. Kiểm tra tài liệu định danh (CCCD/Hộ chiếu)
-    id_docs = [d for d in verification.documents if d.is_active and d.document_type in ('id_card', 'diploma') and d.file_size > 0]
+    id_docs = [d for d in verification.documents if d.is_active and d.document_type in ('id_card', 'cccd', 'diploma') and (d.file_size or 0) > 0]
     if id_docs:
         checks['identity']['passed'] = True
         checks['identity']['detail'] = f"Đã tải lên {len(id_docs)} tài liệu minh chứng định danh."

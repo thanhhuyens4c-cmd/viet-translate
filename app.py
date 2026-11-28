@@ -12810,15 +12810,14 @@ def admin_verification_detail(verification_id):
             pass
 
     auto_eval = {}
-    if getattr(verification, 'auto_review_metadata', None):
+    if verification.status == 'pending':
+        try:
+            auto_eval = evaluate_verification_submission(verification.id)
+        except Exception:
+            auto_eval = {}
+    if not auto_eval and getattr(verification, 'auto_review_metadata', None):
         try:
             auto_eval = json.loads(verification.auto_review_metadata)
-        except Exception:
-            pass
-    elif verification.status == 'pending':
-        try:
-            eval_res = evaluate_verification_submission(verification.id)
-            auto_eval = eval_res
         except Exception:
             pass
 

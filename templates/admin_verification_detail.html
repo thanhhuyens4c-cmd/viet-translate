@@ -30,8 +30,13 @@
                     {% if verification.documents %}
                     <ul class="space-y-3">
                         {% for doc in verification.documents if doc.is_active %}
-                        <li class="flex items-center justify-between text-sm">
-                            <span class="truncate font-medium text-slate-700">{{ doc.original_filename }}</span>
+                        <li class="flex items-center justify-between text-sm gap-2">
+                            <div class="min-w-0 flex items-center gap-2">
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 {% if doc.document_type in ('id_card', 'cccd') %}bg-indigo-50 text-indigo-700 border border-indigo-200{% elif doc.document_type == 'cv' %}bg-emerald-50 text-emerald-700 border border-emerald-200{% else %}bg-slate-100 text-slate-600 border border-slate-200{% endif %}">
+                                    {% if doc.document_type in ('id_card', 'cccd') %}CCCD{% elif doc.document_type == 'cv' %}CV{% elif doc.document_type == 'certificate' %}Chứng chỉ{% elif doc.document_type == 'diploma' %}Bằng cấp{% else %}{{ doc.document_type }}{% endif %}
+                                </span>
+                                <span class="truncate font-medium text-slate-700">{{ doc.original_filename }}</span>
+                            </div>
                             <a href="{{ url_for('view_verification_document', doc_id=doc.id) }}" target="_blank" class="text-brand-600 hover:underline shrink-0 ml-2">Xem</a>
                         </li>
                         {% endfor %}
@@ -55,16 +60,17 @@
                             </div>
                         </div>
                         <div>
-                            {% if auto_eval and auto_eval.decision == 'auto_eligible' %}
+                            {% set eval_decision = (auto_eval.decision or auto_eval.auto_status) if auto_eval else '' %}
+                            {% if eval_decision == 'auto_eligible' %}
                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                                     Đủ điều kiện tự động duyệt
                                 </span>
-                            {% elif auto_eval and auto_eval.decision == 'needs_revision' %}
+                            {% elif eval_decision == 'needs_revision' %}
                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
                                     ⚠️ Cần yêu cầu bổ sung
                                 </span>
-                            {% elif auto_eval and auto_eval.decision == 'rejected' %}
+                            {% elif eval_decision in ('rejected', 'not_eligible') %}
                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
                                     🚫 Rủi ro / Không hợp lệ
                                 </span>
@@ -85,7 +91,7 @@
                                 <span class="text-xs font-bold text-slate-700">1. Email xác thực</span>
                                 <span class="text-xs">{% if auto_eval.checks.email.passed %}✅{% else %}⚠️{% endif %}</span>
                             </div>
-                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.email.reason }}</p>
+                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.email.detail or auto_eval.checks.email.reason }}</p>
                         </div>
 
                         <!-- 2. Định danh CCCD -->
@@ -94,7 +100,7 @@
                                 <span class="text-xs font-bold text-slate-700">2. Hồ sơ CCCD</span>
                                 <span class="text-xs">{% if auto_eval.checks.identity.passed %}✅{% else %}⚠️{% endif %}</span>
                             </div>
-                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.identity.reason }}</p>
+                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.identity.detail or auto_eval.checks.identity.reason }}</p>
                         </div>
 
                         <!-- 3. CV nghề nghiệp -->
@@ -103,7 +109,7 @@
                                 <span class="text-xs font-bold text-slate-700">3. CV nghề nghiệp</span>
                                 <span class="text-xs">{% if auto_eval.checks.cv.passed %}✅{% else %}⚠️{% endif %}</span>
                             </div>
-                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.cv.reason }}</p>
+                            <p class="text-[11px] text-slate-600">{{ auto_eval.checks.cv.detail or auto_eval.checks.cv.reason }}</p>
                         </div>
 
                         <!-- 4. Chứng chỉ số -->
@@ -112,7 +118,7 @@
                                 <span class="text-xs font-bold text-slate-700">4. Chứng thực số</span>
                                 <span class="text-xs">{% if auto_eval.checks.certificate.passed %}✅{% else %}⚠️{% endif %}</span>
                             </div>
-                            <p class="text-[11px] text-slate-600 truncate" title="{{ auto_eval.checks.certificate.reason }}">{{ auto_eval.checks.certificate.reason }}</p>
+                            <p class="text-[11px] text-slate-600 truncate" title="{{ auto_eval.checks.certificate.detail or auto_eval.checks.certificate.reason }}">{{ auto_eval.checks.certificate.detail or auto_eval.checks.certificate.reason }}</p>
                         </div>
                     </div>
                     {% endif %}
